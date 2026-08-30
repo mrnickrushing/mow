@@ -26,6 +26,9 @@ export type State = {
 	bagWeight: number,
 	bagCapacity: number,
 	bagValue: number,
+	--- Upgrades, passes and boosts stacked. Shown next to the cash so a bought
+	--- upgrade is visible as a number that went up, not only as faster earning.
+	cashMultiplier: number,
 	fuel: number,
 	fuelCapacity: number,
 	equippedTool: string,
@@ -48,6 +51,7 @@ local state: State = {
 	bagWeight = 0,
 	bagCapacity = 0,
 	bagValue = 0,
+	cashMultiplier = 1,
 	fuel = 0,
 	fuelCapacity = 0,
 	equippedTool = "",
@@ -85,6 +89,25 @@ end
 
 function PlayerState.totalUnits(): number
 	return totalUnits
+end
+
+--- The loaded world's grid, for anything that needs to turn a position into a
+--- tile. Nil until the first world info arrives.
+function PlayerState.grid(): Grid.Grid?
+	return grid
+end
+
+--- The section containing a world position, or "" when outside every section.
+function PlayerState.sectionIdAtPosition(position: Vector3): string
+	local currentGrid = grid
+	if not currentGrid then
+		return ""
+	end
+	local tx, tz = Grid.worldToTile(currentGrid, position.X, position.Z)
+	if not Grid.inBounds(currentGrid, tx, tz) then
+		return ""
+	end
+	return PlayerState.sectionIdAt(Grid.toIndex(currentGrid, tx, tz))
 end
 
 --- The section a tile belongs to, or "" for ground outside every section.
@@ -135,7 +158,18 @@ local function applyPayload(payload: any)
 
 	-- A partial push carries only the fast-moving numbers; everything else on
 	-- the state is left exactly as the last full push set it.
-	for _, key in { "cash", "tips", "earned", "bagWeight", "bagCapacity", "bagValue", "fuel", "rentalSecondsLeft" } do
+	local FAST = {
+		"cash",
+		"tips",
+		"earned",
+		"bagWeight",
+		"bagCapacity",
+		"bagValue",
+		"cashMultiplier",
+		"fuel",
+		"rentalSecondsLeft",
+	}
+	for _, key in FAST do
 		if type(payload[key]) == "number" then
 			(state :: any)[key] = payload[key]
 		end

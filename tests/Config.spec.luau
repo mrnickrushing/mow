@@ -435,6 +435,57 @@ return function()
 			end
 		end)
 
+		h.it("sells every paid tool three ways", function()
+			-- Run cash, Robux once, Robux forever. A tool priced in Robux on the
+			-- tool table but missing a product would show a dead button in the
+			-- shop, and a product for a tool with no Robux price would be
+			-- unreachable from anywhere.
+			for _, tool in Tools.list do
+				local runKey, foreverKey = Monetization.toolProductKeys(tool.id)
+				local run = Monetization.productByKey[runKey]
+				local forever = Monetization.productByKey[foreverKey]
+
+				if tool.cost > 0 and tool.robuxOnce and tool.robuxPermanent then
+					h.expectTrue(run ~= nil, `{tool.id} has no one-run product`)
+					h.expectTrue(forever ~= nil, `{tool.id} has no permanent product`)
+					h.expectEqual((run :: any).toolId, tool.id)
+					h.expectEqual((forever :: any).toolId, tool.id)
+					h.expectTrue(
+						(forever :: any).robux > (run :: any).robux,
+						`{tool.id} costs no more to own than to borrow`
+					)
+					h.expectTrue(
+						(tool.robuxWas :: number) > (tool.robuxPermanent :: number),
+						`{tool.id} claims a discount off a lower price`
+					)
+				else
+					h.expectTrue(run == nil, `{tool.id} has a product but no Robux price`)
+					h.expectTrue(forever == nil, `{tool.id} has a product but no Robux price`)
+				end
+			end
+		end)
+
+		h.it("prices Robux unlocks in step with the cash ladder", function()
+			-- Paying should track how long the tool would otherwise take to earn.
+			-- A later, dearer tool costing fewer Robux than an earlier one would
+			-- make the cheap end of the ladder the worst thing to buy.
+			local previousOnce, previousPermanent = 0, 0
+			for _, tool in Tools.list do
+				if tool.cost > 0 and tool.robuxOnce and tool.robuxPermanent then
+					h.expectTrue(
+						tool.robuxOnce >= previousOnce,
+						`{tool.id} costs less for one run than a cheaper tool`
+					)
+					h.expectTrue(
+						tool.robuxPermanent >= previousPermanent,
+						`{tool.id} costs less to own than a cheaper tool`
+					)
+					previousOnce = tool.robuxOnce
+					previousPermanent = tool.robuxPermanent
+				end
+			end
+		end)
+
 		h.it("keeps the free reward loops meaningful", function()
 			local rewards = Monetization.rewards
 			h.expectTrue(#rewards.dailyStreak >= 7, "a daily streak should run at least a week")

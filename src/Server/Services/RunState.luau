@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
 local Tools = require(Shared.Config.Tools)
 local Upgrades = require(Shared.Config.Upgrades)
+local DataService = require(script.Parent.DataService)
 
 local RunState = {}
 
@@ -38,18 +39,35 @@ export type State = {
 
 local states: { [Player]: State } = {}
 
---- A fresh loadout: the starter tool, no money, nothing bought.
-function RunState.fresh(): State
+--[[
+	A fresh loadout: the starter tool, no money, nothing bought.
+
+	The one exception is a tool bought outright with Robux, which is handed back
+	at the start of every run — that is what "permanent" was sold as, and a
+	permanent unlock that had to be re-earned each run would be a rental with a
+	misleading label.
+]]
+function RunState.fresh(player: Player?): State
 	local upgrades: { [string]: number } = {}
 	for _, def in Upgrades.list do
 		upgrades[def.id] = 0
+	end
+
+	local owned: { [string]: boolean } = { [Tools.STARTER_ID] = true }
+	local profile = if player then DataService.get(player) else nil
+	if profile then
+		for toolId, bought in profile.permanentTools do
+			if bought and Tools.get(toolId) then
+				owned[toolId] = true
+			end
+		end
 	end
 
 	return {
 		cash = 0,
 		tips = 0,
 		earned = 0,
-		ownedTools = { [Tools.STARTER_ID] = true },
+		ownedTools = owned,
 		equippedTool = Tools.STARTER_ID,
 		upgrades = upgrades,
 		fuel = GameConfig.BASE_FUEL,
@@ -62,7 +80,7 @@ end
 function RunState.get(player: Player): State
 	local state = states[player]
 	if not state then
-		state = RunState.fresh()
+		state = RunState.fresh(player)
 		states[player] = state
 	end
 	return state
@@ -76,12 +94,12 @@ end
 function RunState.resetAll()
 	table.clear(states)
 	for _, player in Players:GetPlayers() do
-		states[player] = RunState.fresh()
+		states[player] = RunState.fresh(player)
 	end
 end
 
 function RunState.reset(player: Player)
-	states[player] = RunState.fresh()
+	states[player] = RunState.fresh(player)
 end
 
 function RunState.all(): { [Player]: State }
@@ -95,7 +113,7 @@ function RunState.start()
 
 	-- Someone arriving mid-run starts from nothing like everyone else did.
 	Players.PlayerAdded:Connect(function(player)
-		states[player] = RunState.fresh()
+		states[player] = RunState.fresh(player)
 	end)
 end
 

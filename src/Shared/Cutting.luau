@@ -11,6 +11,7 @@
 local DebrisConfig = require(script.Parent.Config.Debris)
 local ChunkCodec = require(script.Parent.ChunkCodec)
 local GameConfig = require(script.Parent.Config.GameConfig)
+local Grid = require(script.Parent.Grid)
 local Tools = require(script.Parent.Config.Tools)
 local Types = require(script.Parent.Types)
 
@@ -117,6 +118,47 @@ function Cutting.evaluate(
 		units = levels * unitsPerLevel,
 		weight = levels * weightPerLevel,
 	}
+end
+
+--[[
+	The tile a pickup tool is pointed at, or nil when there is nothing to take.
+
+	Pickup tools work one thing at a time: you look at a pile, it lights up, you
+	take it. That means the client has to be able to name the same tile the server
+	is about to act on, or the outline would sit on one pile while a different one
+	vanished. So the choice lives here, next to the rules, and both sides call it.
+
+	Only debris this tool is capable of shifting counts as a target. Pointing a
+	rake at a hedge should reach past it to the leaves behind, rather than locking
+	onto something the rake will refuse to touch.
+]]
+function Cutting.pickupTarget(
+	grid: Grid.Grid,
+	tiles: buffer,
+	worldX: number,
+	worldZ: number,
+	dirX: number,
+	dirZ: number,
+	tool: Types.ToolDef,
+	isOpen: (number) -> boolean
+): number?
+	return Grid.targetAhead(grid, worldX, worldZ, dirX, dirZ, tool.reach, function(index)
+		local byte = buffer.readu8(tiles, index - 1)
+		if ChunkCodec.height(byte) <= 0 then
+			return false
+		end
+		local debrisId = ChunkCodec.debris(byte)
+		if debrisId == DebrisConfig.Empty then
+			return false
+		end
+		if not DebrisConfig.canClear(debrisId, tool.category) then
+			return false
+		end
+		if not Tools.canCut(tool, debrisId, ChunkCodec.height(byte)) then
+			return false
+		end
+		return isOpen(index)
+	end)
 end
 
 --- Units a tile still holds, for completion accounting. Ignores yield bonuses,

@@ -28,6 +28,23 @@ function Format.cash(value: number): string
 	return string.format("%s$%s%s", sign, text, SUFFIXES[tier + 1])
 end
 
+--[[
+	Money with the sign trailing, as the reference writes it: `0.01$ / leaf`.
+
+	Two forms exist on purpose. A running total reads as `$5.41`, because that is
+	what a total looks like everywhere; a rate or a gain reads as `4.36$`, which
+	is how the reference writes the numbers that fly past you while you work.
+]]
+function Format.cashSuffix(value: number): string
+	local sign = if value < 0 then "-" else ""
+	local n = math.abs(value)
+	if n < 1000 then
+		return string.format("%s%.2f$", sign, n)
+	end
+	local compact = Format.cash(value)
+	return `{string.gsub(compact, "%$", "")}$`
+end
+
 --- Compact count without a currency symbol: 15400 -> "15.4K".
 function Format.count(value: number): string
 	local n = math.abs(value)
@@ -47,7 +64,7 @@ function Format.clock(seconds: number): string
 	local minutes = (total % 3600) // 60
 	local secs = total % 60
 	if hours > 0 then
-		return string.format("%d:%02d:%02d", hours, minutes, secs)
+		return string.format("%02d:%02d:%02d", hours, minutes, secs)
 	end
 	return string.format("%d:%02d", minutes, secs)
 end

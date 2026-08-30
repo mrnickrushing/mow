@@ -34,6 +34,8 @@ export type StatePayload = {
 	bagWeight: number,
 	bagCapacity: number,
 	bagValue: number,
+	--- Everything stacked: upgrades, passes and any boost running.
+	cashMultiplier: number,
 	fuel: number,
 	fuelCapacity: number,
 	equippedTool: string,
@@ -61,6 +63,7 @@ function PlayerService.buildState(player: Player): StatePayload?
 		bagWeight = BagService.weight(player),
 		bagCapacity = BagService.capacity(player),
 		bagValue = BagService.baseValue(player) * Balance.cashMultiplier(run.upgrades, mods),
+		cashMultiplier = Balance.cashMultiplier(run.upgrades, mods),
 		fuel = run.fuel,
 		fuelCapacity = Balance.fuelCapacity(run.upgrades),
 		equippedTool = run.equippedTool,
@@ -104,6 +107,7 @@ function PlayerService.pushLive(player: Player)
 		bagWeight = BagService.weight(player),
 		bagCapacity = BagService.capacity(player),
 		bagValue = BagService.baseValue(player) * Balance.cashMultiplier(run.upgrades, mods),
+		cashMultiplier = Balance.cashMultiplier(run.upgrades, mods),
 		fuel = run.fuel,
 		rentalSecondsLeft = BoostService.rentalSecondsLeft(player),
 	})

@@ -49,6 +49,38 @@ Consumable, bought repeatedly.
 | Neighbourhood Boost (10 min) | R$ 149 | 2x for the whole server, announced |
 | Extend Round (+10 min) | R$ 79 | More time for everyone |
 
+## Tool unlocks
+
+Every paid tool is sold three ways, and only the first is free of Robux:
+
+1. **Run cash** — the price in `Tools.luau`, earned during the run.
+2. **This run** — `robuxOnce`, buys the tool for the run in progress only.
+3. **Forever** — `robuxPermanent`, recorded on the profile and handed back at
+   the start of every future run.
+
+These products are **generated from the tool table**, two per paid tool, rather
+than written out here: thirty hand-maintained entries would drift from the tools
+they price the first time one is renamed. The keys are predictable —
+`tool_<id>_run` and `tool_<id>_forever`, which `Monetization.toolProductKeys`
+returns — so pasting real ids in means editing the generated loop's `id = 0` to
+a lookup table keyed by that same string:
+
+```lua
+local TOOL_PRODUCT_IDS = {
+    tool_rake_run = 000000000,
+    tool_rake_forever = 000000000,
+    -- ...
+}
+```
+
+Until then the shop draws those two buttons **dead rather than hidden**, so the
+card does not change shape the day the ids arrive.
+
+The permanent kind is the only thing besides records and totals that outlives a
+run. It is deliberately a head start, not a bigger number: a player who buys the
+Zero-Turn outright still has to clear every section, still races the same clock,
+and still cannot skip a wave. What they bought is the first ten minutes back.
+
 ## How the rental system works
 
 Rentals are not special-cased. `BoostService` grants the tool through the same

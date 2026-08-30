@@ -507,6 +507,42 @@ function GrassRenderer.grid(): Grid.Grid?
 	return grid
 end
 
+--[[
+	Where a tile's debris actually sits, as a centre and a size.
+
+	Pickup targeting needs to draw an outline that lands on the leaves rather
+	than on the ground plane under them, and only the renderer knows how tall the
+	drift was drawn or how far up the section's floor is.
+]]
+function GrassRenderer.tileBounds(index: number): (Vector3?, Vector3?)
+	local theGrid = grid
+	local theTiles = tiles
+	if not theGrid or not theTiles or index < 1 or index > Grid.tileCount(theGrid) then
+		return nil, nil
+	end
+
+	local byte = buffer.readu8(theTiles, index - 1)
+	local height = ChunkCodec.height(byte)
+	if height <= 0 then
+		return nil, nil
+	end
+
+	local tx, tz = Grid.fromIndex(theGrid, index)
+	local wx, wz = Grid.tileToWorld(theGrid, tx, tz)
+	local floor = GameConfig.GROUND_Y + (tileElevation[index] or 0)
+
+	-- Leaves lie flat and scatter slightly past the tile edge; anything else is
+	-- drawn as a block filling the tile exactly.
+	local studs, width
+	if ChunkCodec.debris(byte) == DebrisConfig.Leaves then
+		studs, width = 0.7, TILE + 0.9
+	else
+		studs, width = height * HEIGHT_STUD, TILE
+	end
+
+	return Vector3.new(wx, floor + studs * 0.5, wz), Vector3.new(width, studs, width)
+end
+
 --- Applies a locally predicted cut so mowing feels instant; the server's
 --- authoritative state overwrites it on the next chunk delta.
 function GrassRenderer.predictCut(index: number, levels: number)

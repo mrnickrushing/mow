@@ -10,6 +10,8 @@
 	See docs/MONETIZATION.md for the full setup walkthrough.
 ]]
 
+local Tools = require(script.Parent.Tools)
+
 local Monetization = {}
 
 export type PassDef = {
@@ -20,7 +22,20 @@ export type PassDef = {
 	description: string,
 }
 
-export type ProductKind = "rental" | "cashBoost" | "fuel" | "bag" | "sweep" | "serverBoost" | "roundTime"
+export type ProductKind =
+	"rental"
+	| "cashBoost"
+	| "fuel"
+	| "bag"
+	| "sweep"
+	| "serverBoost"
+	| "roundTime"
+	--- Unlocks a tool for the run in progress. Gone when the run ends, like
+	--- every other thing bought with run cash.
+	| "toolRun"
+	--- Unlocks a tool for good. Handed back at the start of every future run,
+	--- so it is a head start rather than a bigger number.
+	| "toolPermanent"
 
 export type ProductDef = {
 	key: string,
@@ -174,6 +189,50 @@ local products: { ProductDef } = {
 		description = "Ten more minutes on the clock for the whole server.",
 	},
 }
+
+--------------------------------------------------------------------
+-- Tool unlocks
+--
+-- Every paid tool can be bought three ways: with the cash you earn during the
+-- run, with Robux for this run only, or with Robux for good. The first is the
+-- game; the other two are the two different things a player who wants to spend
+-- is actually asking for — "get me past this one wall now" and "never start
+-- from nothing again" — and selling only one of them serves half of them badly.
+--
+-- These are generated from the tool table rather than written out, because
+-- thirty hand-maintained entries would drift from the tools they price the
+-- first time a tool is renamed.
+--------------------------------------------------------------------
+
+for _, tool in Tools.list do
+	local once = tool.robuxOnce
+	local permanent = tool.robuxPermanent
+	if tool.cost > 0 and once and permanent then
+		table.insert(products, {
+			key = `tool_{tool.id}_run`,
+			id = 0,
+			name = `{tool.name} — this run`,
+			robux = once,
+			kind = "toolRun",
+			toolId = tool.id,
+			description = `Skip the grind for {tool.name} once. Yours until the run ends.`,
+		})
+		table.insert(products, {
+			key = `tool_{tool.id}_forever`,
+			id = 0,
+			name = `{tool.name} — forever`,
+			robux = permanent,
+			kind = "toolPermanent",
+			toolId = tool.id,
+			description = `Start every run with the {tool.name} already in your hands.`,
+		})
+	end
+end
+
+--- The two product keys that unlock `toolId`, for the shop to look up.
+function Monetization.toolProductKeys(toolId: string): (string, string)
+	return `tool_{toolId}_run`, `tool_{toolId}_forever`
+end
 
 Monetization.passes = passes
 Monetization.products = products

@@ -190,6 +190,65 @@ function Grid.rasterizeSwath(
 	return out
 end
 
+--[[
+	The tile a player is looking at, for pickup tools.
+
+	Walks outward along the heading and returns the first tile that `accept`
+	says holds something. Reach is short, so this is a handful of samples rather
+	than a search: a player picking leaves up one at a time is aiming at what is
+	right in front of their feet.
+
+	Returns nil when there is nothing to take.
+]]
+function Grid.targetAhead(
+	self: Grid,
+	worldX: number,
+	worldZ: number,
+	dirX: number,
+	dirZ: number,
+	reach: number,
+	accept: (number) -> boolean
+): number?
+	local length = math.sqrt(dirX * dirX + dirZ * dirZ)
+	if length < 1e-4 then
+		dirX, dirZ = 0, 1
+	else
+		dirX, dirZ = dirX / length, dirZ / length
+	end
+
+	local step = self.tileSize * 0.5
+	local samples = math.max(math.ceil(reach / step), 1)
+	local best: number? = nil
+
+	for i = 0, samples do
+		local distance = step * i
+		local x = worldX + dirX * distance
+		local z = worldZ + dirZ * distance
+		local tx, tz = Grid.worldToTile(self, x, z)
+		if Grid.inBounds(self, tx, tz) then
+			local index = Grid.toIndex(self, tx, tz)
+			if accept(index) then
+				best = index
+				break
+			end
+		end
+	end
+
+	-- Nothing directly ahead, so try the tile underfoot before giving up: a
+	-- player standing in a drift should not have to step back to reach it.
+	if not best then
+		local tx, tz = Grid.worldToTile(self, worldX, worldZ)
+		if Grid.inBounds(self, tx, tz) then
+			local index = Grid.toIndex(self, tx, tz)
+			if accept(index) then
+				best = index
+			end
+		end
+	end
+
+	return best
+end
+
 --- Tile indices inside an axis-aligned tile-space rectangle, clipped to bounds.
 function Grid.tilesInRect(self: Grid, x: number, z: number, w: number, d: number, out: { number }): { number }
 	table.clear(out)

@@ -17,7 +17,7 @@ local Upgrades = {}
 local list: { Types.UpgradeDef } = {
 	{
 		id = "bag",
-		name = "Leaf Bag",
+		name = "Grasp",
 		description = "Carry more before you have to walk back to the trailer.",
 		maxLevel = 15,
 		baseCost = 3,
@@ -29,7 +29,7 @@ local list: { Types.UpgradeDef } = {
 	},
 	{
 		id = "speed",
-		name = "Cut Speed",
+		name = "Power",
 		description = "Sharper blades swing faster and bite deeper into tall grass.",
 		-- Deliberately short. A tile cannot take less than one pass, so past a
 		-- few levels this line would be selling nothing. Four honest levels beat
@@ -44,7 +44,7 @@ local list: { Types.UpgradeDef } = {
 	},
 	{
 		id = "yield",
-		name = "Mulching Blades",
+		name = "Harvest",
 		description = "Chop finer and get more out of every square of lawn.",
 		maxLevel = 12,
 		baseCost = 14,
@@ -56,7 +56,7 @@ local list: { Types.UpgradeDef } = {
 	},
 	{
 		id = "walk",
-		name = "Work Boots",
+		name = "Stride",
 		description = "Move between the lawn and the trailer faster.",
 		maxLevel = 10,
 		baseCost = 6,
@@ -68,7 +68,7 @@ local list: { Types.UpgradeDef } = {
 	},
 	{
 		id = "cash",
-		name = "Business Sense",
+		name = "Fortune",
 		description = "Charge more for the same work.",
 		maxLevel = 10,
 		baseCost = 30,
@@ -80,7 +80,7 @@ local list: { Types.UpgradeDef } = {
 	},
 	{
 		id = "fuel",
-		name = "Fuel Tank",
+		name = "Reserve",
 		description = "Run gas tools and vehicles longer between refills.",
 		maxLevel = 8,
 		baseCost = 60,
@@ -92,7 +92,7 @@ local list: { Types.UpgradeDef } = {
 	},
 	{
 		id = "trailer",
-		name = "Trailer Hitch",
+		name = "Haul",
 		description = "Level 1 unlocks the portable trailer. Later levels widen its dump radius.",
 		maxLevel = 5,
 		baseCost = 90,

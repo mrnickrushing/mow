@@ -19,7 +19,6 @@ local Services = script.Services
 local AtmosphereService = require(Services.AtmosphereService)
 local DataService = require(Services.DataService)
 local RunState = require(Services.RunState)
-local WorldService = require(Services.WorldService)
 local ReplicationService = require(Services.ReplicationService)
 local EconomyService = require(Services.EconomyService)
 local BagService = require(Services.BagService)
@@ -40,8 +39,9 @@ local RewardService = require(Services.RewardService)
 local StripeService = require(Services.StripeService)
 local SweepService = require(Services.SweepService)
 
--- Order matters: data before anything that reads a profile, world before
--- anything that reads the grid, replication before anything that marks tiles.
+-- Order matters: data before anything that reads a profile, replication before
+-- anything that marks tiles, and every listener connected before RunService
+-- generates the first world at the bottom of this file.
 AtmosphereService.start()
 DataService.start()
 RunState.start()
@@ -62,11 +62,10 @@ MonetizationService.start()
 RewardService.start()
 AutoCollectService.start()
 
-WorldService.load(Worlds.STARTER_ID)
-ReplicationService.broadcastWorldInfo()
-
--- Started after the first world exists so their generators have something to
--- populate; each also re-runs on every rotation.
+-- These two populate a world when one loads, so they only need to be listening
+-- before the first run begins. RunService.start generates that world, which is
+-- why nothing loads a map here: doing both would build the whole property twice
+-- and throw the first one away.
 CollectibleService.start()
 HazardService.start()
 RunService.start()

@@ -33,7 +33,6 @@ local EconomyService = require(script.Parent.EconomyService)
 local FuelService = require(script.Parent.FuelService)
 local ReplicationService = require(script.Parent.ReplicationService)
 local VehicleService = require(script.Parent.VehicleService)
-local RunService = require(script.Parent.RunService)
 local WorldService = require(script.Parent.WorldService)
 
 local TileService = {}
@@ -77,7 +76,14 @@ local function sectionOpen(sectionId: string): boolean
 	if sectionId == "" then
 		return false
 	end
-	return RunService.isSectionOpen(sectionId)
+	return WorldService.isSectionOpen(sectionId)
+end
+
+--- Section-open test in the shape `Cutting.pickupTarget` wants: by tile index,
+--- not by section id. Hoisted so the hot path is not allocating a closure a
+--- dozen times a second per player.
+function TileService.isTileOpen(index: number): boolean
+	return sectionOpen(WorldService.sectionIdAt(index))
 end
 
 --------------------------------------------------------------------
@@ -122,7 +128,24 @@ function TileService.applyPasses(
 		return result
 	end
 
-	local indices = Grid.rasterizeSwath(grid, position.X, position.Z, look.X, look.Z, tool.deck, tool.reach, scratch)
+	-- Two ways to use a tool. A rake or a pair of hands takes one pile at a
+	-- time, so it acts on the single tile it is pointed at; a mower or a blower
+	-- sweeps everything in the rectangle ahead of it. Everything downstream of
+	-- this branch is identical, which is why buying a mower feels like the same
+	-- game got wider rather than a different game.
+	local indices: { number }
+	if tool.mode == "pickup" then
+		table.clear(scratch)
+		local target =
+			Cutting.pickupTarget(grid, tiles, position.X, position.Z, look.X, look.Z, tool, TileService.isTileOpen)
+		if target then
+			scratch[1] = target
+		end
+		indices = scratch
+	else
+		indices = Grid.rasterizeSwath(grid, position.X, position.Z, look.X, look.Z, tool.deck, tool.reach, scratch)
+	end
+
 	local levelsAvailable = tool.power * passes
 	local yieldMultiplier = Balance.yieldMultiplier(run.upgrades)
 	local capacity = BagService.capacity(player)

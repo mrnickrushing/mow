@@ -12,6 +12,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Palette = require(Shared.Config.Palette)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local PlayerState = require(script.Parent.Parent.PlayerState)
@@ -83,6 +84,25 @@ local function buildSlot(order: number): TextButton
 	icon.TextSize = 30
 	icon.Parent = button
 
+	-- The selected slot fills in behind the icon and takes a white border. A
+	-- lift alone is easy to lose against a lawn covered in bright leaves on a
+	-- phone; a filled tile is not, and it is what tells you at a glance which
+	-- tool is in your hands.
+	local selected = Instance.new("Frame")
+	selected.Name = "Selected"
+	selected.Size = UDim2.fromScale(1, 1)
+	selected.BackgroundColor3 = Palette.color(Palette.ui.selected)
+	selected.BorderSizePixel = 0
+	selected.ZIndex = 0
+	selected.Visible = false
+	selected.Parent = button
+	Theme.corner(selected, 12)
+
+	local selectedEdge = Instance.new("UIStroke")
+	selectedEdge.Thickness = 3.5
+	selectedEdge.Color = Palette.color(Palette.ui.text)
+	selectedEdge.Parent = selected
+
 	button.Activated:Connect(function()
 		local toolId = layout[order]
 		if toolId then
@@ -108,17 +128,20 @@ local function refresh()
 		local toolId = layout[order]
 		local icon = button:FindFirstChild("Icon") :: TextLabel?
 		local stroke = button:FindFirstChild("Edge") :: UIStroke?
+		local selected = button:FindFirstChild("Selected") :: Frame?
 
 		button.Visible = toolId ~= nil
-		if toolId and icon and stroke then
+		if toolId and icon and stroke and selected then
 			local tool = Tools.get(toolId)
 			icon.Text = if tool then ICONS[tool.category] or "🧰" else "🧰"
 
-			-- The equipped slot lifts and takes the accent border.
 			local equipped = state.equippedTool == toolId
-			stroke.Color = if equipped then Theme.colors.accent else Theme.colors.outline
-			button.BackgroundTransparency = if equipped then 0.05 else 0.35
-			button.Size = if equipped then UDim2.fromOffset(72, 72) else UDim2.fromOffset(64, 64)
+			stroke.Color = if equipped then Theme.colors.text else Theme.colors.outline
+			stroke.Transparency = if equipped then 0 else 0.35
+			button.BackgroundTransparency = if equipped then 1 else 0.5
+			button.Size = if equipped then UDim2.fromOffset(72, 72) else UDim2.fromOffset(60, 60)
+			selected.Visible = equipped
+			icon.ZIndex = 2
 		end
 	end
 end
