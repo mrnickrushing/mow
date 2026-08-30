@@ -29,6 +29,9 @@ local bagValueLabel: TextLabel
 local toolLabel: TextLabel
 local hintLabel: TextLabel
 local toastHolder: Frame
+local fuelPanel: Frame
+local fuelFill: Frame
+local fuelLabel: TextLabel
 
 local NOTICE_COLORS: { [string]: Color3 } = {
 	sale = Theme.colors.cash,
@@ -135,6 +138,37 @@ local function build(): ScreenGui
 		textSize = 18,
 	})
 
+	-- Fuel, only shown while holding something that burns it.
+	fuelPanel = Theme.panel({
+		name = "Fuel",
+		size = UDim2.fromOffset(250, 52),
+		position = UDim2.new(0, 16, 1, -82),
+		anchor = Vector2.new(0, 1),
+		parent = gui,
+	})
+	Theme.text({
+		name = "Title",
+		text = "FUEL",
+		size = UDim2.fromOffset(50, 16),
+		position = UDim2.fromOffset(12, 6),
+		parent = fuelPanel,
+		color = Theme.colors.subtext,
+		textSize = 12,
+	})
+	fuelLabel = Theme.text({
+		name = "Amount",
+		text = "",
+		size = UDim2.new(1, -24, 0, 16),
+		position = UDim2.fromOffset(12, 6),
+		parent = fuelPanel,
+		color = Theme.colors.subtext,
+		align = Enum.TextXAlignment.Right,
+		textSize = 12,
+		bold = false,
+	})
+	local _, fuel = Theme.bar(fuelPanel, UDim2.new(1, -24, 0, 16), UDim2.fromOffset(12, 26), Theme.colors.warn)
+	fuelFill = fuel
+
 	-- Contextual hint just above the bag meter.
 	hintLabel = Theme.text({
 		name = "Hint",
@@ -227,8 +261,24 @@ local function refresh()
 	local tool = Tools.get(state.equippedTool)
 	toolLabel.Text = if tool then tool.name else "Nothing equipped"
 
+	-- Only surface fuel for gear that actually burns it, so a player on hand
+	-- shears is never shown a gauge that will not move.
+	local burnsFuel = tool ~= nil and tool.fuelBurn > 0
+	fuelPanel.Visible = burnsFuel and state.fuelCapacity > 0
+	if fuelPanel.Visible then
+		local fuelFraction = math.clamp(state.fuel / state.fuelCapacity, 0, 1)
+		fuelFill.Size = UDim2.fromScale(fuelFraction, 1)
+		fuelFill.BackgroundColor3 = if fuelFraction <= 0.15 then Theme.colors.danger else Theme.colors.warn
+		fuelLabel.Text = `{math.floor(state.fuel)} / {math.floor(state.fuelCapacity)}`
+	end
+
+	local rideable = tool ~= nil and tool.vehicle ~= nil
 	if fraction >= 1 then
 		hintLabel.Text = "Bag full — head to the trailer"
+	elseif burnsFuel and state.fuel <= 0 then
+		hintLabel.Text = "Out of fuel — refill at the shed"
+	elseif rideable then
+		hintLabel.Text = "Press F to get on the mower"
 	elseif fraction >= 0.85 then
 		hintLabel.Text = "Bag nearly full"
 	else

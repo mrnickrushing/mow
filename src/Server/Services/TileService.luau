@@ -29,7 +29,9 @@ local Types = require(Shared.Types)
 local BagService = require(script.Parent.BagService)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
+local FuelService = require(script.Parent.FuelService)
 local ReplicationService = require(script.Parent.ReplicationService)
+local VehicleService = require(script.Parent.VehicleService)
 local WorldService = require(script.Parent.WorldService)
 
 local TileService = {}
@@ -196,6 +198,16 @@ local function onMowIntent(player: Player, payload: any)
 		return
 	end
 
+	-- Riding a mower overrides the held tool: the deck under the seat is what
+	-- is actually cutting, and it is where the player's power comes from.
+	local riding = VehicleService.ridingTool(player)
+	if riding then
+		tool = riding
+	elseif tool.vehicle then
+		-- Equipped a vehicle but not sitting on it, so nothing is cutting.
+		return
+	end
+
 	-- Position is taken from the server's own view of the character; the claimed
 	-- position only has to be close enough to be plausible.
 	local actual = rootPosition(player)
@@ -220,6 +232,12 @@ local function onMowIntent(player: Player, payload: any)
 
 	local rate = Balance.effectiveCutRate(tool, profile.upgrades, false)
 	if rate <= 0 then
+		return
+	end
+
+	-- Fuel is spent on time actually cutting, not on time merely holding the
+	-- tool, so walking the long way round never costs anything.
+	if not FuelService.consume(player, tool.id, delta) then
 		return
 	end
 
