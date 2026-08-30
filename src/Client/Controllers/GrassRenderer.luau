@@ -103,12 +103,16 @@ local function newPart(leaf: boolean): Part
 	part.BottomSurface = Enum.SurfaceType.Smooth
 
 	if leaf then
-		-- A leaf is a silhouette, not a box. Built-in mesh types give a rounded
-		-- blade and a pointed one for free, with no uploaded asset: a floor of
-		-- rectangles at this density reads as one sheet of orange, which is the
-		-- opposite of the drift of separate leaves we are after.
+		--[[
+			A leaf is a leaf, not a box and not a squashed ball.
+
+			These were built-in shapes — a sphere for the rounded sort and a
+			prism for the pointed one — because they cost no asset. At the
+			density a drift is drawn they read as a gravel of orange pebbles.
+			They are models now, the same one part per leaf as before.
+		]]
 		local mesh = Instance.new("SpecialMesh")
-		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.MeshType = Enum.MeshType.FileMesh
 		mesh.Name = "Blade"
 		mesh.Parent = part
 	else
@@ -258,6 +262,35 @@ end
 	sun differently and overlap unevenly, which is what turns a dense scatter
 	into a carpet of individual leaves rather than a painted floor.
 ]]
+--- The two leaf models, picked between per leaf so a drift never tiles.
+local LEAF_SHAPES: { Props.Prop } = { Props.catalogue.LeafMaple, Props.catalogue.LeafOak }
+
+--[[
+	Lays a leaf model flat and works out the scale that gets it there.
+
+	A leaf model is a card: two big axes and one thin one. Which axis is thin
+	depends on how the model was authored, and the two in the catalogue happen
+	to disagree, so rather than carry that per-asset the thin axis is simply the
+	smallest of the three. The mesh is then turned until that axis points up and
+	scaled so the two big ones cover the wanted footprint.
+
+	Returns the scale for the mesh and the extra rotation for the part.
+]]
+local function layFlat(def: Props.Prop, width: number, thickness: number, length: number): (Vector3, CFrame)
+	local native = def.native
+	if native.Z <= native.X and native.Z <= native.Y then
+		-- Standing card: tip it back so its face points at the sky.
+		return Vector3.new(width / native.X, length / native.Y, thickness / native.Z),
+			CFrame.Angles(-math.pi * 0.5, 0, 0)
+	elseif native.X <= native.Y and native.X <= native.Z then
+		-- On its edge: stand it down sideways.
+		return Vector3.new(thickness / native.X, width / native.Y, length / native.Z),
+			CFrame.Angles(0, 0, math.pi * 0.5)
+	end
+	-- Already lying down.
+	return Vector3.new(width / native.X, thickness / native.Y, length / native.Z), CFrame.identity
+end
+
 local function drawLeaves(index: number, wx: number, wz: number, floor: number, height: number, locked: boolean)
 	local count = math.min(height * LEAVES_PER_LEVEL, MAX_LEAVES_PER_TILE)
 	local parts = slots(index, count, true)
@@ -274,10 +307,18 @@ local function drawLeaves(index: number, wx: number, wz: number, floor: number, 
 		local pitch = (hash01(index, slot * 11 + 1) - 0.5) * 0.34
 		local roll = (hash01(index, slot * 11 + 2) - 0.5) * 0.34
 
+		-- Roughly a third are the pointed maple sort, the rest the oak.
+		local def = if shapeRoll < 0.34 then LEAF_SHAPES[1] else LEAF_SHAPES[2]
+		local width, thickness, length = 3.0 * scale, 0.34, 2.1 * scale
+		local meshScale, lie = layFlat(def, width, thickness, length)
+
 		local mesh = part:FindFirstChild("Blade")
 		if mesh and mesh:IsA("SpecialMesh") then
-			-- Roughly a third are the pointed maple sort, the rest rounded.
-			mesh.MeshType = if shapeRoll < 0.34 then Enum.MeshType.Prism else Enum.MeshType.Sphere
+			if mesh.MeshId ~= def.mesh then
+				mesh.MeshId = def.mesh
+				mesh.TextureId = def.texture or ""
+			end
+			mesh.Scale = meshScale
 		end
 
 		local palette = Palette.leaves
@@ -286,11 +327,31 @@ local function drawLeaves(index: number, wx: number, wz: number, floor: number, 
 		if hash01(index, slot * 13) > 0.86 then
 			color = Palette.color(Palette.leafPale)
 		end
+		if locked then
+			color = desaturate(color)
+		end
 
-		part.Size = Vector3.new(3.0 * scale, 0.34, 2.1 * scale)
+		--[[
+			A textured mesh pays no attention to the colour of the part under
+			it, and the drift depends on that colour: every leaf takes a shade
+			from the autumn palette, and a leaf in a section still locked is
+			greyed to say so. Both go through the mesh tint instead, which
+			multiplies the texture rather than replacing it — so the shade is
+			normalised to keep its hue without darkening the leaf to mud.
+		]]
+		if mesh and mesh:IsA("SpecialMesh") then
+			local brightest = math.max(color.R, color.G, color.B, 0.001)
+			mesh.VertexColor = Vector3.new(color.R, color.G, color.B) / brightest
+		end
+
+		part.Size = Vector3.new(width, thickness, length)
+		-- Yaw in the world, then lie down and take on the tilt, so the couple of
+		-- degrees of pitch and roll stay small however the model was authored.
 		part.CFrame = CFrame.new(wx + offsetX, floor + 0.17 + layer * 0.15, wz + offsetZ)
-			* CFrame.Angles(pitch, yaw, roll)
-		part.Color = if locked then desaturate(color) else color
+			* CFrame.Angles(0, yaw, 0)
+			* lie
+			* CFrame.Angles(pitch, 0, roll)
+		part.Color = color
 		part.Material = Enum.Material.SmoothPlastic
 		part.Transparency = 0
 		part.Parent = detailFolder
@@ -373,9 +434,22 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	local baseX, baseZ = cx * theGrid.chunkTiles, cz * theGrid.chunkTiles
 
 	local remaining, samples = 0, 0
-	local debrisId = DebrisConfig.Grass
 	local floor = GameConfig.GROUND_Y
-	local sampleIndex = 1
+
+	--[[
+		What kind of debris this chunk is, by weight rather than by whichever
+		tile happened to be read last.
+
+		Taking the last one painted a whole thirty-two stud square in the colour
+		of a single tile: one hedge tile in the corner of a chunk turned the
+		square dark green, one stick tile turned it brown. Across a property
+		that came out as a chequerboard of dark and light squares — the thing
+		the clumps were brought in to remove, reappearing at distance. A chunk
+		is now coloured by whatever most of it actually is.
+	]]
+	local weight: { [number]: number } = {}
+	local debrisId = DebrisConfig.Grass
+	local best = 0
 
 	for lz = 0, theGrid.chunkTiles - 1, 2 do
 		for lx = 0, theGrid.chunkTiles - 1, 2 do
@@ -387,8 +461,13 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 				samples += 1
 				if height > 0 then
 					remaining += height
-					debrisId = ChunkCodec.debris(byte)
-					sampleIndex = index
+					local kind = ChunkCodec.debris(byte)
+					local total = (weight[kind] or 0) + height
+					weight[kind] = total
+					if total > best then
+						best = total
+						debrisId = kind
+					end
 					floor = GameConfig.GROUND_Y + (tileElevation[index] or 0)
 				end
 			end
@@ -422,11 +501,60 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		else math.max(averageHeight, 0.2)
 	local x, z = Grid.chunkCentre(theGrid, cx, cz)
 
+	--[[
+		The stand-in for a whole chunk seen from far off.
+
+		Two things about this used to draw a chequerboard across the far half of
+		every property. It shares the pool with the near tiles, and those now
+		carry a clump model — a mesh with no id set renders as nothing at all,
+		so every distant chunk was a hole. And the colour was drawn from one
+		arbitrary tile inside the chunk, so neighbouring chunks landed on the
+		light green and the dark green at random: a thirty-two stud grid of
+		alternating squares, which is the exact look the clumps were meant to
+		get rid of.
+
+		So the carpet is the same model and the same shade in every chunk, and
+		the kind of debris only tints it. Turf rather than a leaf pile even for
+		leaves: a pile is a mound with clear ground around it, and one mound per
+		chunk reads as a grid of orange blobs. A turf panel fills its square, so
+		the chunks meet without a seam.
+	]]
+	local carpet = Props.catalogue.LawnPanel
+	local color = baseColor(debrisId, 1)
+
 	part.Size = Vector3.new(studs, thickness, studs)
 	part.CFrame = CFrame.new(x, floor + thickness * 0.5, z)
-	part.Color = baseColor(debrisId, sampleIndex)
+	part.Color = color
 	part.Material = if debrisId == DebrisConfig.Leaves then Enum.Material.SmoothPlastic else Enum.Material.Grass
 	part.Transparency = 0
+
+	local clump = part:FindFirstChild("Clump")
+	if clump and clump:IsA("SpecialMesh") and carpet then
+		if clump.MeshId ~= carpet.mesh then
+			clump.MeshId = carpet.mesh
+		end
+		clump.Scale = Vector3.new(
+			studs / carpet.native.X,
+			math.max(thickness, 0.2) / carpet.native.Y,
+			studs / carpet.native.Z
+		)
+		--[[
+			Set every time rather than only alongside the mesh id, because these
+			parts come back from the same pool as the near tiles and would
+			otherwise keep whatever texture and tint they were last drawn with.
+
+			The turf panel that used to do this job had a light-and-dark weave
+			in its texture, which is right under your feet and wrong stretched
+			across a thirty-two stud chunk: a coarse chequerboard over the far
+			half of the lawn, every chunk repeating the same squares. This
+			panel has no weave to magnify, so it keeps its texture, and the
+			debris colour tints it — a textured mesh ignores the part colour.
+		]]
+		clump.TextureId = carpet.texture or ""
+		local brightest = math.max(color.R, color.G, color.B, 0.001)
+		clump.VertexColor = Vector3.new(color.R, color.G, color.B) / brightest
+	end
+
 	part.Parent = lodFolder
 end
 
