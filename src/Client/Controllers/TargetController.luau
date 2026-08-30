@@ -22,6 +22,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cutting = require(Shared.Cutting)
 local Palette = require(Shared.Config.Palette)
 local Tools = require(Shared.Config.Tools)
+local Aim = require(script.Parent.Parent.Aim)
 local GrassRenderer = require(script.Parent.GrassRenderer)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 
@@ -129,7 +130,7 @@ local function step(delta: number)
 		return
 	end
 
-	local look = root.CFrame.LookVector
+	local look = Aim.direction()
 	local index = Cutting.pickupTarget(grid, tiles, root.Position.X, root.Position.Z, look.X, look.Z, tool, isOpen)
 	if index then
 		show(index)

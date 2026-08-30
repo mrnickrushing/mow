@@ -18,15 +18,16 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
+local ChunkCodec = require(Shared.ChunkCodec)
 local Cutting = require(Shared.Cutting)
+local DebrisConfig = require(Shared.Config.Debris)
 local GameConfig = require(Shared.Config.GameConfig)
 local Grid = require(Shared.Grid)
-local Palette = require(Shared.Config.Palette)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local Types = require(Shared.Types)
+local Aim = require(script.Parent.Parent.Aim)
 local GrassRenderer = require(script.Parent.GrassRenderer)
-local PopupController = require(script.Parent.PopupController)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 
 local MowController = {}
@@ -36,10 +37,8 @@ local intentRemote: UnreliableRemoteEvent
 local mowing = false
 local accumulator = 0
 local predictScratch: { number } = {}
---- Units cut since the last popup, and when that popup went up. A swath tool
---- covers a dozen tiles a tick, so its numbers are pooled into one rather than
---- burying the screen; a pickup tool takes one pile and pops immediately.
-local pendingUnits = 0
+--- Cash earned since the last popup, and when that popup went up.
+local pendingCash = 0
 local lastPopupAt = 0
 
 --- How often a swath tool is allowed to throw a number up.
@@ -52,6 +51,11 @@ local mowingSignal = Instance.new("BindableEvent")
 --- HUD and the tool's own effects do not each have to poll for it.
 MowController.MowingChanged = mowingSignal
 
+local collectedSignal = Instance.new("BindableEvent")
+--- Fires with the cash value of an armful the moment it is predicted, so the
+--- number is on screen on the frame of the click rather than a round trip later.
+MowController.Collected = collectedSignal
+
 local function rootPart(): BasePart?
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -62,14 +66,18 @@ local function rootPart(): BasePart?
 end
 
 --[[
-	Throws a `+N` up for what was just taken.
+	Announces what an armful was worth.
 
-	A pickup lands its number on the pile itself, because that is the thing the
-	player aimed at. A swath has no single target, so its take is pooled and
-	shown over the player at a readable rate instead.
+	A pickup fires the moment it lands, because one pile is one transaction. A
+	swath covers a dozen tiles a tick and would otherwise bury the screen in
+	numbers, so its take is pooled and released at a readable rate.
+
+	The amount is money rather than a count of leaves: the reference shows cash
+	flying off every armful, and a player watching `+0.05$` go by is being told
+	something about their upgrades that `+4` is not.
 ]]
-local function announce(tool: Types.ToolDef, units: number, index: number, fallback: Vector3)
-	pendingUnits += units
+local function announce(tool: Types.ToolDef, cash: number)
+	pendingCash += cash
 
 	if tool.mode ~= "pickup" then
 		local now = os.clock()
@@ -79,15 +87,11 @@ local function announce(tool: Types.ToolDef, units: number, index: number, fallb
 		lastPopupAt = now
 	end
 
-	local total = math.round(pendingUnits)
-	if total < 1 then
+	if pendingCash < 0.005 then
 		return
 	end
-	pendingUnits = 0
-
-	local centre = GrassRenderer.tileBounds(index)
-	local at = if centre then centre + Vector3.new(0, 2.2, 0) else fallback + Vector3.new(0, 3.5, 0)
-	PopupController.show(at, `+{total}`, Palette.color(Palette.ui.text))
+	MowController.Collected:Fire(pendingCash)
+	pendingCash = 0
 end
 
 --[[
@@ -148,8 +152,7 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 		)
 	end
 
-	local cutUnits = 0
-	local lastCutIndex: number? = nil
+	local cash = 0
 
 	for _, index in indices do
 		local byte = buffer.readu8(tiles, index - 1)
@@ -162,17 +165,19 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 		if outcome.status == "cut" then
 			GrassRenderer.predictCut(index, outcome.levels)
 			space -= outcome.weight
-			cutUnits += outcome.units
-			lastCutIndex = index
+			cash += outcome.units * DebrisConfig.get(ChunkCodec.debris(byte)).value * state.cashMultiplier
 		end
 	end
 
-	if cutUnits > 0 and lastCutIndex then
-		announce(tool, cutUnits, lastCutIndex, root.Position)
+	if cash > 0 then
+		announce(tool, cash)
 	end
 end
 
 local function setMowing(value: boolean)
+	if mowing == value then
+		return
+	end
 	mowing = value
 	if not value then
 		accumulator = 0
@@ -180,10 +185,23 @@ local function setMowing(value: boolean)
 	MowController.MowingChanged:Fire(mowing)
 end
 
---- The word on the action button for the tool in hand.
-local function actionLabel(tool: Types.ToolDef?): string
+--- The tool in hand, or nil when nothing is equipped.
+local function equipped(): Types.ToolDef?
+	local state = PlayerState.get()
+	return if state.equippedTool ~= "" then Tools.get(state.equippedTool) else nil
+end
+
+--[[
+	The word under the tool button.
+
+	A blower says ON or OFF because it stays running; hands say PICK UP because
+	they take one pile at a time. Getting this wrong on touch is the difference
+	between a player understanding a tool and mashing the screen.
+]]
+function MowController.actionLabel(): string
+	local tool = equipped()
 	if not tool then
-		return "MOW"
+		return ""
 	elseif tool.toggle then
 		return if mowing then "ON" else "OFF"
 	elseif tool.mode == "pickup" then
@@ -192,17 +210,31 @@ local function actionLabel(tool: Types.ToolDef?): string
 	return "MOW"
 end
 
---- Keeps the button reading as whatever the held tool actually does. A blower
---- says ON or OFF because it stays running; hands say PICK UP because they take
---- one pile at a time. Getting this wrong on touch is the difference between a
---- player understanding the tool and mashing the screen.
-local function refreshLabel()
-	local state = PlayerState.get()
-	local tool = if state.equippedTool ~= "" then Tools.get(state.equippedTool) else nil
-	ContextActionService:SetTitle(ACTION_NAME, actionLabel(tool))
+MowController.setMowing = setMowing
+
+--[[
+	The trigger going down.
+
+	A blower runs until you switch it off, so its trigger latches. Everything
+	else works while held, which is what makes mowing a line feel like one
+	continuous action rather than a string of clicks.
+]]
+function MowController.press()
+	local tool = equipped()
+	if tool and tool.toggle then
+		setMowing(not mowing)
+	else
+		setMowing(true)
+	end
 end
 
-MowController.setMowing = setMowing
+--- The trigger coming up. A latched tool ignores it and keeps running.
+function MowController.release()
+	local tool = equipped()
+	if not (tool and tool.toggle) then
+		setMowing(false)
+	end
+end
 
 function MowController.isMowing(): boolean
 	return mowing
@@ -231,15 +263,11 @@ local function step(delta: number)
 		return
 	end
 
-	-- Heading comes from the character rather than the camera so that mowing
-	-- follows where the player is walking, which is what makes stripes possible.
-	local look = root.CFrame.LookVector
-	local flat = Vector3.new(look.X, 0, look.Z)
-	if flat.Magnitude < 1e-3 then
-		flat = Vector3.new(0, 0, 1)
-	else
-		flat = flat.Unit
-	end
+	-- Heading comes from the camera, because the game is played down the barrel:
+	-- the crosshair is a promise that what it covers is what the tool works on,
+	-- and reading the character instead would break that every time the player
+	-- strafed.
+	local flat = Aim.direction()
 
 	intentRemote:FireServer({
 		position = root.Position,
@@ -258,39 +286,27 @@ function MowController.start()
 
 	-- Bound through ContextActionService so it works on touch and gamepad too,
 	-- and so the mobile button is created for us.
+	-- Bound without a touch button of its own: the HUD draws the round tool
+	-- button, so that one control shows the tool, its state and its name rather
+	-- than a generic square with a word on it.
 	ContextActionService:BindAction(ACTION_NAME, function(_, inputState)
-		local state = PlayerState.get()
-		local tool = if state.equippedTool ~= "" then Tools.get(state.equippedTool) else nil
-
-		-- A blower runs until you switch it off, so its button latches. Everything
-		-- else works while held, which is what makes mowing a line feel like one
-		-- continuous action rather than a string of clicks.
-		if tool and tool.toggle then
-			if inputState == Enum.UserInputState.Begin then
-				setMowing(not mowing)
-				refreshLabel()
-			end
-		elseif inputState == Enum.UserInputState.Begin then
-			setMowing(true)
+		if inputState == Enum.UserInputState.Begin then
+			MowController.press()
 		elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
-			setMowing(false)
+			MowController.release()
 		end
 		return Enum.ContextActionResult.Pass
-	end, true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2, Enum.KeyCode.E)
-
-	refreshLabel()
-	ContextActionService:SetPosition(ACTION_NAME, UDim2.new(1, -140, 1, -180))
+	end, false, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2, Enum.KeyCode.E)
 
 	-- Switching tools mid-swing stops the swing: a latched blower must not keep
-	-- running through a rake, and the button has to relabel either way.
+	-- running through a rake.
 	local lastTool = PlayerState.get().equippedTool
 	PlayerState.Changed:Connect(function()
-		local equipped = PlayerState.get().equippedTool
-		if equipped ~= lastTool then
-			lastTool = equipped
+		local held = PlayerState.get().equippedTool
+		if held ~= lastTool then
+			lastTool = held
 			setMowing(false)
 		end
-		refreshLabel()
 	end)
 
 	-- Releasing the button while the window is unfocused would otherwise leave
