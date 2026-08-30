@@ -80,6 +80,11 @@ local catalogue: { [string]: Prop } = {
 	Sign = prop("rbxassetid://89328138606331", "rbxassetid://121079808488481", 5.186, 6.124, 1.000),
 	ShopBoard = prop("rbxassetid://127953130831132", "rbxassetid://93758011506584", 4.715, 5.528, 1.000),
 
+	-- What the lawn itself is made of, one clump per tile.
+	GrassTuft = prop("rbxassetid://74167825959027", "rbxassetid://115670301597551", 3.986, 2.882, 4.000),
+	Weeds = prop("rbxassetid://97566895867036", "rbxassetid://100631337116622", 3.995, 3.809, 4.000),
+	Twigs = prop("rbxassetid://131001130360981", "rbxassetid://135819322286106", 2.061, 2.000, 2.112),
+
 	-- The stock on the shed shelf.
 	Sack = prop("rbxassetid://138022973254032", "rbxassetid://92817985554289", 2.943, 4.000, 3.277),
 	LeafBlower = prop("rbxassetid://120198329733477", "rbxassetid://127839085444983", 2.114, 3.000, 4.231),

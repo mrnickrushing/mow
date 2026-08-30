@@ -219,20 +219,33 @@ function Structures.wallRing(options: WallRingOptions)
 			local length = high - low
 			if length > 0.1 then
 				local mid = (low + high) * 0.5
-				local size = if side.alongX
-					then Vector3.new(length, options.height, options.thickness)
-					else Vector3.new(options.thickness, options.height, length)
-				local slide = if side.alongX then Vector3.new(mid, 0, 0) else Vector3.new(0, 0, mid)
-				Build.part({
-					name = options.name,
-					size = size,
-					cframe = CFrame.new(
-						centre + side.offset + slide + Vector3.new(0, options.height * 0.5, 0)
-					),
-					color = options.color,
-					material = options.material,
-					parent = options.parent,
-				})
+				--[[
+					Brickwork, tiled along the run.
+
+					Stretching one panel the length of a cellar wall would give
+					bricks eighty studs wide, so the run is cut into panel-sized
+					pieces and each gets its own. Vertically it stretches, which
+					is fine: courses of brick are horizontal.
+				]]
+				local panels = math.max(math.floor(length / 12 + 0.5), 1)
+				local panelLength = length / panels
+				for panel = 0, panels - 1 do
+					local at = run[1] + panelLength * (panel + 0.5)
+					local size = if side.alongX
+						then Vector3.new(panelLength, options.height, options.thickness)
+						else Vector3.new(options.thickness, options.height, panelLength)
+					local slide = if side.alongX then Vector3.new(at, 0, 0) else Vector3.new(0, 0, at)
+					Build.mesh({
+						prop = "BrickWall",
+						name = options.name,
+						size = size,
+						cframe = CFrame.new(
+							centre + side.offset + slide + Vector3.new(0, options.height * 0.5, 0)
+						),
+						color = options.color,
+						parent = options.parent,
+					})
+				end
 			end
 		end
 	end
