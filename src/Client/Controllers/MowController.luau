@@ -22,12 +22,14 @@ local ChunkCodec = require(Shared.ChunkCodec)
 local Cutting = require(Shared.Cutting)
 local DebrisConfig = require(Shared.Config.Debris)
 local GameConfig = require(Shared.Config.GameConfig)
+local Palette = require(Shared.Config.Palette)
 local Grid = require(Shared.Grid)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local Types = require(Shared.Types)
 local Aim = require(script.Parent.Parent.Aim)
 local GrassRenderer = require(script.Parent.GrassRenderer)
+local GustController = require(script.Parent.GustController)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 
 local MowController = {}
@@ -154,6 +156,14 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 
 	local cash = 0
 
+	-- A tool that moves debris rather than absorbing it throws some of it. This
+	-- is what stops a blower reading as a delete key: the whole appeal is
+	-- watching a drift come apart and tumble off down the garden.
+	local throw = GustController.strengthFor(tool.category)
+	local tint: Color3? = if tool.category == "Mower"
+		then Palette.color(Palette.grass.blade)
+		else nil
+
 	for _, index in indices do
 		local byte = buffer.readu8(tiles, index - 1)
 		local owns = PlayerState.isSectionOpen(PlayerState.sectionIdAt(index))
@@ -163,6 +173,16 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 		-- would flash grass away and restore it, which reads as a bug.
 		local outcome = Cutting.evaluate(byte, tool, levelsAvailable, yieldMultiplier, owns, space)
 		if outcome.status == "cut" then
+			-- Read where the debris was before removing it, so a blower has
+			-- something to throw.
+			if throw then
+				local centre, size = GrassRenderer.tileBounds(index)
+				if centre and size then
+					local floor = centre - Vector3.new(0, size.Y * 0.5, 0)
+					GustController.blow(floor, look, math.min(outcome.levels * 2, 4), throw, tint)
+				end
+			end
+
 			GrassRenderer.predictCut(index, outcome.levels)
 			space -= outcome.weight
 			cash += outcome.units * DebrisConfig.get(ChunkCodec.debris(byte)).value * state.cashMultiplier

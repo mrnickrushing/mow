@@ -10,8 +10,10 @@ local PlayerState = require(script.PlayerState)
 
 local Controllers = script.Controllers
 local GrassRenderer = require(Controllers.GrassRenderer)
+local GustController = require(Controllers.GustController)
 local MissedSpotController = require(Controllers.MissedSpotController)
 local MowController = require(Controllers.MowController)
+local AffordController = require(Controllers.AffordController)
 local ShedController = require(Controllers.ShedController)
 local TargetController = require(Controllers.TargetController)
 local ViewController = require(Controllers.ViewController)
@@ -26,6 +28,7 @@ local Store = require(script.UI.Store)
 
 PlayerState.start()
 GrassRenderer.start()
+GustController.start()
 MowController.start()
 MissedSpotController.start()
 TargetController.start()
@@ -38,6 +41,7 @@ Hotbar.start()
 RoundBar.start()
 Store.start()
 Hud.start()
+AffordController.start()
 
 -- Sections behind a shut gate render desaturated, so the renderer follows the
 -- run's open set rather than anything on the player.

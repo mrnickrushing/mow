@@ -194,7 +194,14 @@ local function onSectionCleared(world: Types.WorldDef, section: Types.ZoneDef)
 		return
 	end
 
-	EconomyService.notifyAll("round", `{section.name} is clear`, nil)
+	-- Its own notice kind, because finishing a whole section is the one moment
+	-- in a run that earns the middle of everyone's screen rather than a line in
+	-- the corner.
+	EconomyService.notifyAll(
+		"sectionClear",
+		`Congratulations! You collected everything in the {section.name}!`,
+		nil
+	)
 
 	for _, dependent in dependentsOf(world, section.id) do
 		if Worlds.unlockKind(dependent) == "completion" then

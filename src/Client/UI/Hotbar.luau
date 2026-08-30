@@ -84,19 +84,24 @@ local function buildSlot(order: number): TextButton
 	icon.TextSize = 30
 	icon.Parent = button
 
-	-- A bar under the selected slot. The lift and the border are easy to lose
-	-- against a busy lawn on a phone; a solid blue rule at the bottom edge is
-	-- not, and it is what tells you at a glance which tool is in your hands.
-	local underline = Instance.new("Frame")
-	underline.Name = "Selected"
-	underline.AnchorPoint = Vector2.new(0.5, 1)
-	underline.Position = UDim2.new(0.5, 0, 1, -5)
-	underline.Size = UDim2.new(0, 34, 0, 5)
-	underline.BackgroundColor3 = Palette.color(Palette.ui.selected)
-	underline.BorderSizePixel = 0
-	underline.Visible = false
-	underline.Parent = button
-	Theme.corner(underline, 3)
+	-- The selected slot fills in behind the icon and takes a white border. A
+	-- lift alone is easy to lose against a lawn covered in bright leaves on a
+	-- phone; a filled tile is not, and it is what tells you at a glance which
+	-- tool is in your hands.
+	local selected = Instance.new("Frame")
+	selected.Name = "Selected"
+	selected.Size = UDim2.fromScale(1, 1)
+	selected.BackgroundColor3 = Palette.color(Palette.ui.selected)
+	selected.BorderSizePixel = 0
+	selected.ZIndex = 0
+	selected.Visible = false
+	selected.Parent = button
+	Theme.corner(selected, 12)
+
+	local selectedEdge = Instance.new("UIStroke")
+	selectedEdge.Thickness = 3.5
+	selectedEdge.Color = Palette.color(Palette.ui.text)
+	selectedEdge.Parent = selected
 
 	button.Activated:Connect(function()
 		local toolId = layout[order]
@@ -123,19 +128,20 @@ local function refresh()
 		local toolId = layout[order]
 		local icon = button:FindFirstChild("Icon") :: TextLabel?
 		local stroke = button:FindFirstChild("Edge") :: UIStroke?
-		local underline = button:FindFirstChild("Selected") :: Frame?
+		local selected = button:FindFirstChild("Selected") :: Frame?
 
 		button.Visible = toolId ~= nil
-		if toolId and icon and stroke and underline then
+		if toolId and icon and stroke and selected then
 			local tool = Tools.get(toolId)
 			icon.Text = if tool then ICONS[tool.category] or "🧰" else "🧰"
 
-			-- The equipped slot lifts and takes the accent border.
 			local equipped = state.equippedTool == toolId
-			stroke.Color = if equipped then Theme.colors.accent else Theme.colors.outline
-			button.BackgroundTransparency = if equipped then 0.05 else 0.35
-			button.Size = if equipped then UDim2.fromOffset(72, 72) else UDim2.fromOffset(64, 64)
-			underline.Visible = equipped
+			stroke.Color = if equipped then Theme.colors.text else Theme.colors.outline
+			stroke.Transparency = if equipped then 0 else 0.35
+			button.BackgroundTransparency = if equipped then 1 else 0.5
+			button.Size = if equipped then UDim2.fromOffset(72, 72) else UDim2.fromOffset(60, 60)
+			selected.Visible = equipped
+			icon.ZIndex = 2
 		end
 	end
 end

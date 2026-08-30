@@ -64,6 +64,7 @@ local NOTICE_COLORS: { [string]: Color3 } = {
 	round = Theme.colors.accent,
 	denied = Theme.colors.danger,
 	afford = Theme.colors.cash,
+	sectionClear = Theme.colors.cash,
 }
 
 local ICONS: { [string]: string } = {
@@ -663,8 +664,10 @@ function Hud.start()
 			return
 		end
 
-		if kind == "quest" then
+		if kind == "sectionClear" then
 			Hud.card(message, "COMPLETED!")
+		elseif kind == "quest" then
+			Hud.toast(kind, `✅ {message}`)
 		else
 			Hud.toast(kind, message)
 		end
