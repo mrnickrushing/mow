@@ -27,6 +27,9 @@ local ShopService = require(Services.ShopService)
 local TreeService = require(Services.TreeService)
 local FuelService = require(Services.FuelService)
 local VehicleService = require(Services.VehicleService)
+local CollectibleService = require(Services.CollectibleService)
+local HazardService = require(Services.HazardService)
+local RoundService = require(Services.RoundService)
 
 -- Order matters: data before anything that reads a profile, world before
 -- anything that reads the grid, replication before anything that marks tiles.
@@ -43,5 +46,11 @@ VehicleService.start()
 
 WorldService.load(Properties.STARTER_ID)
 ReplicationService.broadcastWorldInfo()
+
+-- Started after the first world exists so their generators have something to
+-- populate; each also re-runs on every rotation.
+CollectibleService.start()
+HazardService.start()
+RoundService.start()
 
 print(`[Mow] server ready on {Properties.expect(Properties.STARTER_ID).name}`)

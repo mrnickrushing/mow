@@ -16,6 +16,7 @@ local VehicleController = require(Controllers.VehicleController)
 local TrailerController = require(Controllers.TrailerController)
 
 local Hud = require(script.UI.Hud)
+local RoundBar = require(script.UI.RoundBar)
 local Shop = require(script.UI.Shop)
 
 PlayerState.start()
@@ -25,6 +26,7 @@ ShedController.start()
 VehicleController.start()
 TrailerController.start()
 Shop.start()
+RoundBar.start()
 Hud.start()
 
 -- Locked zones render desaturated, so the renderer needs to know what the
