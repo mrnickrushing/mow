@@ -12,6 +12,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Palette = require(Shared.Config.Palette)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local PlayerState = require(script.Parent.Parent.PlayerState)
@@ -83,6 +84,20 @@ local function buildSlot(order: number): TextButton
 	icon.TextSize = 30
 	icon.Parent = button
 
+	-- A bar under the selected slot. The lift and the border are easy to lose
+	-- against a busy lawn on a phone; a solid blue rule at the bottom edge is
+	-- not, and it is what tells you at a glance which tool is in your hands.
+	local underline = Instance.new("Frame")
+	underline.Name = "Selected"
+	underline.AnchorPoint = Vector2.new(0.5, 1)
+	underline.Position = UDim2.new(0.5, 0, 1, -5)
+	underline.Size = UDim2.new(0, 34, 0, 5)
+	underline.BackgroundColor3 = Palette.color(Palette.ui.selected)
+	underline.BorderSizePixel = 0
+	underline.Visible = false
+	underline.Parent = button
+	Theme.corner(underline, 3)
+
 	button.Activated:Connect(function()
 		local toolId = layout[order]
 		if toolId then
@@ -108,9 +123,10 @@ local function refresh()
 		local toolId = layout[order]
 		local icon = button:FindFirstChild("Icon") :: TextLabel?
 		local stroke = button:FindFirstChild("Edge") :: UIStroke?
+		local underline = button:FindFirstChild("Selected") :: Frame?
 
 		button.Visible = toolId ~= nil
-		if toolId and icon and stroke then
+		if toolId and icon and stroke and underline then
 			local tool = Tools.get(toolId)
 			icon.Text = if tool then ICONS[tool.category] or "🧰" else "🧰"
 
@@ -119,6 +135,7 @@ local function refresh()
 			stroke.Color = if equipped then Theme.colors.accent else Theme.colors.outline
 			button.BackgroundTransparency = if equipped then 0.05 else 0.35
 			button.Size = if equipped then UDim2.fromOffset(72, 72) else UDim2.fromOffset(64, 64)
+			underline.Visible = equipped
 		end
 	end
 end
