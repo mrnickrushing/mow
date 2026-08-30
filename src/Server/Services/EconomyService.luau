@@ -52,7 +52,7 @@ function EconomyService.stats(player: Player): Types.PlayerStats?
 	if not run then
 		return nil
 	end
-	return Balance.stats(run.upgrades, EconomyService.modifiers(player))
+	return Balance.stats(run.upgrades, run.equippedTool, EconomyService.modifiers(player))
 end
 
 --------------------------------------------------------------------

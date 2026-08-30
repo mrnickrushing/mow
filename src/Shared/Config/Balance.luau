@@ -12,6 +12,7 @@
 
 local GameConfig = require(script.Parent.GameConfig)
 local Types = require(script.Parent.Parent.Types)
+local ToolUpgrades = require(script.Parent.ToolUpgrades)
 local Upgrades = require(script.Parent.Upgrades)
 
 local Balance = {}
@@ -60,9 +61,10 @@ function Balance.bagCapacity(levels: UpgradeLevels, mods: Modifiers?): number
 	return math.floor(capacity)
 end
 
---- Multiplier applied to a tool's base passes-per-second.
-function Balance.cutRateMultiplier(levels: UpgradeLevels): number
-	return valueOf(levels, "speed")
+--- Multiplier applied to a tool's base passes-per-second. Cut speed belongs
+--- to the tool's own upgrade tree, not to a shed line.
+function Balance.cutRateMultiplier(levels: UpgradeLevels, toolId: string): number
+	return ToolUpgrades.rateMultiplier(levels, toolId)
 end
 
 function Balance.walkSpeed(levels: UpgradeLevels, mods: Modifiers?): number
@@ -98,9 +100,16 @@ function Balance.cashMultiplier(levels: UpgradeLevels, mods: Modifiers?): number
 	return multiplier
 end
 
---- Multiplies the debris yielded per height level removed.
-function Balance.yieldMultiplier(levels: UpgradeLevels): number
-	return valueOf(levels, "yield")
+--- Multiplies the debris yielded per height level removed. Per tool, like
+--- cut speed: a mulching upgrade bought for the mower says nothing about the
+--- rake.
+function Balance.yieldMultiplier(levels: UpgradeLevels, toolId: string): number
+	return ToolUpgrades.yieldMultiplier(levels, toolId)
+end
+
+--- Height-levels one pass of this tool removes, with its Power slot applied.
+function Balance.toolPower(tool: Types.ToolDef, levels: UpgradeLevels): number
+	return tool.power + ToolUpgrades.powerBonus(levels, tool.id)
 end
 
 function Balance.fuelCapacity(levels: UpgradeLevels): number
@@ -120,11 +129,13 @@ end
 -- Aggregate
 --------------------------------------------------------------------
 
-function Balance.stats(levels: UpgradeLevels, mods: Modifiers?): Types.PlayerStats
+--- The player-wide stats. Cut rate and yield are per-tool now, so `toolId`
+--- names whose tree to read — pass the equipped tool.
+function Balance.stats(levels: UpgradeLevels, toolId: string, mods: Modifiers?): Types.PlayerStats
 	return {
 		bagCapacity = Balance.bagCapacity(levels, mods),
-		cutRate = Balance.cutRateMultiplier(levels),
-		yieldMultiplier = Balance.yieldMultiplier(levels),
+		cutRate = Balance.cutRateMultiplier(levels, toolId),
+		yieldMultiplier = Balance.yieldMultiplier(levels, toolId),
 		walkSpeed = Balance.walkSpeed(levels, mods),
 		cashMultiplier = Balance.cashMultiplier(levels, mods),
 		fuelCapacity = Balance.fuelCapacity(levels),
@@ -147,7 +158,7 @@ function Balance.effectiveCutRate(tool: Types.ToolDef, levels: UpgradeLevels, we
 	if wet and tool.tier <= GameConfig.WET_STALL_MAX_TIER then
 		return 0
 	end
-	local rate = tool.rate * Balance.cutRateMultiplier(levels)
+	local rate = tool.rate * Balance.cutRateMultiplier(levels, tool.id)
 	if wet then
 		rate *= GameConfig.WET_CUT_PENALTY
 	end

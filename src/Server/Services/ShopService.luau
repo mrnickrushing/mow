@@ -18,6 +18,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local RateLimiter = require(Shared.Util.RateLimiter)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
+local ToolUpgrades = require(Shared.Config.ToolUpgrades)
 local Upgrades = require(Shared.Config.Upgrades)
 local EconomyService = require(script.Parent.EconomyService)
 local PlayerService = require(script.Parent.PlayerService)
@@ -131,6 +132,44 @@ function ShopService.buyUpgrade(player: Player, upgradeId: string): Result
 	return OK
 end
 
+--[[
+	Buys one level of a tool's own upgrade slot, by its `toolId/slot` key.
+
+	Owning the tool is the gate: the journal shows a locked tree with question
+	marks for a tool you have not bought, and the server enforces what the
+	padlock promises.
+]]
+function ShopService.buyToolUpgrade(player: Player, key: string): Result
+	local run = RunState.find(player)
+	if not run then
+		return fail("The run has not started")
+	end
+
+	local slot, tool = ToolUpgrades.slotByKey(key)
+	if not slot or not tool then
+		return fail("No such upgrade")
+	end
+	if not run.ownedTools[tool.id] then
+		return fail(`You need the {tool.name} first`)
+	end
+
+	local level = run.upgrades[key] or 0
+	local cost = ToolUpgrades.costAt(slot, level)
+	if not cost then
+		return fail("Already at maximum")
+	end
+	if not EconomyService.spend(player, cost) then
+		return fail("Not enough cash")
+	end
+
+	run.upgrades[key] = level + 1
+
+	QuestService.advance(player, "upgrade", 1, key)
+	EconomyService.notify(player, "purchase", `{tool.name}: {slot.name} {level + 1}`, cost)
+	PlayerService.push(player)
+	return OK
+end
+
 --------------------------------------------------------------------
 -- Wiring
 --------------------------------------------------------------------
@@ -148,6 +187,8 @@ local function onPurchase(player: Player, kind: any, id: any)
 		result = ShopService.buyTool(player, id)
 	elseif kind == "upgrade" then
 		result = ShopService.buyUpgrade(player, id)
+	elseif kind == "toolUpgrade" then
+		result = ShopService.buyToolUpgrade(player, id)
 	else
 		return
 	end

@@ -16,6 +16,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local ToolUpgrades = require(Shared.Config.ToolUpgrades)
 local Tools = require(Shared.Config.Tools)
 local Upgrades = require(Shared.Config.Upgrades)
 local PlayerState = require(script.Parent.Parent.PlayerState)
@@ -51,6 +52,24 @@ local function check()
 			if not announced[key] then
 				announced[key] = true
 				Hud.toast("afford", `You can now afford {def.name}!`)
+			end
+		end
+	end
+
+	-- The equipped tool's own three slots, by the tool's own names — "You can
+	-- now afford Throttle!" tells the player to open the book.
+	for toolId in state.ownedTools do
+		if toolId == state.equippedTool then
+			for _, slot in ToolUpgrades.treeFor(toolId) do
+				local level = state.upgrades[slot.key] or 0
+				local cost = ToolUpgrades.costAt(slot, level)
+				if cost and state.cash >= cost then
+					local key = `slot:{slot.key}:{level}`
+					if not announced[key] then
+						announced[key] = true
+						Hud.toast("afford", `You can now afford {slot.name}!`)
+					end
+				end
 			end
 		end
 	end

@@ -3,6 +3,7 @@
 
 local Balance = require("./.build/Shared/Config/Balance")
 local GameConfig = require("./.build/Shared/Config/GameConfig")
+local ToolUpgrades = require("./.build/Shared/Config/ToolUpgrades")
 local Tools = require("./.build/Shared/Config/Tools")
 local Upgrades = require("./.build/Shared/Config/Upgrades")
 local h = require("./harness")
@@ -23,7 +24,7 @@ end
 return function()
 	h.describe("Balance — base state", function()
 		h.it("gives a fresh account the documented starting stats", function()
-			local stats = Balance.stats(levels())
+			local stats = Balance.stats(levels(), "hands")
 			h.expectEqual(stats.bagCapacity, GameConfig.BASE_BAG_CAPACITY, "bag")
 			h.expectClose(stats.walkSpeed, GameConfig.BASE_WALK_SPEED, 1e-6, "walk speed")
 			h.expectClose(stats.cashMultiplier, 1, 1e-6, "cash multiplier")
@@ -137,12 +138,72 @@ return function()
 			h.expectTrue(working > 0, "the riding mower must keep going in the wet")
 		end)
 
-		h.it("applies the cut speed upgrade", function()
+		h.it("applies the tool's own rate slot, and only its own", function()
 			local tool = Tools.expect("gas_mower")
 			local base = Balance.effectiveCutRate(tool, levels(), false)
-			local upgraded = Balance.effectiveCutRate(tool, levels({ speed = 5 }), false)
-			h.expectTrue(upgraded > base, "cut speed levels must matter")
-			h.expectClose(upgraded, tool.rate * Upgrades.valueAt(Upgrades.byId.speed, 5))
+
+			-- Three levels of the gas mower's Throttle speed the gas mower up...
+			local upgraded = Balance.effectiveCutRate(tool, levels({ ["gas_mower/rate"] = 3 }), false)
+			h.expectTrue(upgraded > base, "the tool's rate slot must matter")
+			h.expectClose(upgraded, tool.rate * ToolUpgrades.rateMultiplier({ ["gas_mower/rate"] = 3 }, "gas_mower"))
+
+			-- ...and do nothing for the rake. Tool upgrades belong to tools.
+			local rake = Tools.expect("rake")
+			h.expectClose(
+				Balance.effectiveCutRate(rake, levels({ ["gas_mower/rate"] = 3 }), false),
+				Balance.effectiveCutRate(rake, levels(), false)
+			)
+		end)
+	end)
+
+	h.describe("ToolUpgrades — every tool's three slots", function()
+		h.it("gives every tool a power, a rate and a yield slot", function()
+			for _, tool in Tools.list do
+				local tree = ToolUpgrades.treeFor(tool.id)
+				h.expectEqual(#tree, 3, `{tool.id} should have three upgrade slots`)
+				h.expectEqual(tree[1].slot, "power")
+				h.expectEqual(tree[2].slot, "rate")
+				h.expectEqual(tree[3].slot, "yield")
+				for _, slot in tree do
+					h.expectTrue(slot.baseCost > 0, `{slot.key} is free`)
+					h.expectTrue(#slot.name > 0, `{slot.key} has no name`)
+				end
+			end
+		end)
+
+		h.it("prices the hand's ladder at the reference's pocket change", function()
+			local tree = ToolUpgrades.treeFor("hands")
+			h.expectClose(ToolUpgrades.costAt(tree[1], 0) :: number, 1)
+			h.expectClose(ToolUpgrades.costAt(tree[2], 0) :: number, 0.5)
+			h.expectClose(ToolUpgrades.costAt(tree[3], 0) :: number, 0.75)
+		end)
+
+		h.it("stops selling at max level", function()
+			local slot = ToolUpgrades.treeFor("hands")[1]
+			h.expectEqual(ToolUpgrades.costAt(slot, slot.maxLevel), nil)
+			h.expectTrue(ToolUpgrades.costAt(slot, slot.maxLevel - 1) ~= nil)
+		end)
+
+		h.it("compounds each level's effect on the multipliers", function()
+			local none: { [string]: number } = {}
+			h.expectClose(ToolUpgrades.rateMultiplier(none, "hands"), 1)
+			h.expectClose(ToolUpgrades.yieldMultiplier(none, "hands"), 1)
+			h.expectClose(ToolUpgrades.powerBonus(none, "hands"), 0)
+
+			local some = { ["hands/rate"] = 2, ["hands/power"] = 2, ["hands/yield"] = 1 }
+			h.expectTrue(ToolUpgrades.rateMultiplier(some, "hands") > 1)
+			h.expectTrue(ToolUpgrades.powerBonus(some, "hands") >= 1, "two power levels should add a full height level")
+			h.expectTrue(ToolUpgrades.yieldMultiplier(some, "hands") > 1)
+		end)
+
+		h.it("resolves a stored key back to its slot and tool", function()
+			local slot, tool = ToolUpgrades.slotByKey("gas_mower/rate")
+			h.expectTrue(slot ~= nil and tool ~= nil, "a real key must resolve")
+			h.expectEqual((slot :: any).slot, "rate")
+			h.expectEqual((tool :: any).id, "gas_mower")
+
+			local badSlot = ToolUpgrades.slotByKey("no_such_tool/rate")
+			h.expectEqual(badSlot, nil)
 		end)
 	end)
 

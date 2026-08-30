@@ -84,7 +84,7 @@ function SweepService.sweep(player: Player, fraction: number): number
 	end)
 
 	local take = math.max(math.floor(#candidates * fraction), 1)
-	local yieldMultiplier = Balance.yieldMultiplier(run.upgrades)
+	local yieldMultiplier = Balance.yieldMultiplier(run.upgrades, run.equippedTool)
 	local baseCash = 0
 	local cleared = 0
 

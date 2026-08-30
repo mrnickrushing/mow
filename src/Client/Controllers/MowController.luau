@@ -112,14 +112,14 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 		return
 	end
 
-	local levelsAvailable = tool.power * passes
+	local state = PlayerState.get()
+	local levelsAvailable = Balance.toolPower(tool, state.upgrades) * passes
 	if levelsAvailable < 1 then
 		return
 	end
 
-	local state = PlayerState.get()
 	local space = math.max(state.bagCapacity - state.bagWeight, 0)
-	local yieldMultiplier = Balance.yieldMultiplier(state.upgrades)
+	local yieldMultiplier = Balance.yieldMultiplier(state.upgrades, toolId)
 
 	-- Same branch the server takes: one tile for a pickup tool, a rectangle for
 	-- a swath one. Predicting the wrong shape would flash the wrong grass away.
@@ -298,7 +298,7 @@ local function step(delta: number)
 
 	local tool = Tools.get(state.equippedTool)
 	if tool then
-		predict(root, flat, state.equippedTool, tool.rate * elapsed * state.cutRateMultiplier)
+		predict(root, flat, state.equippedTool, tool.rate * elapsed * Balance.cutRateMultiplier(state.upgrades, tool.id))
 	end
 end
 

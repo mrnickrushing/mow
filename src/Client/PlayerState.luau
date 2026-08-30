@@ -11,7 +11,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Balance = require(Shared.Config.Balance)
 local Grid = require(Shared.Grid)
 local Worlds = require(Shared.Config.Worlds)
 local Remotes = require(Shared.Remotes)
@@ -40,8 +39,6 @@ export type State = {
 	hasPortableTrailer: boolean,
 	rentalSecondsLeft: number,
 	rentalToolId: string,
-	--- Derived locally from `upgrades`.
-	cutRateMultiplier: number,
 }
 
 local state: State = {
@@ -63,7 +60,6 @@ local state: State = {
 	hasPortableTrailer = false,
 	rentalSecondsLeft = 0,
 	rentalToolId = "",
-	cutRateMultiplier = 1,
 }
 
 local world: Types.WorldDef? = nil
@@ -192,7 +188,6 @@ local function applyPayload(payload: any)
 		end
 		if type(payload.upgrades) == "table" then
 			state.upgrades = payload.upgrades
-			state.cutRateMultiplier = Balance.cutRateMultiplier(payload.upgrades)
 		end
 
 		state.hasPortableTrailer = payload.hasPortableTrailer == true

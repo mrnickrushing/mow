@@ -48,7 +48,7 @@ function Economy.tilesPerSecond(
 	averageHeight: number,
 	mods: Balance.Modifiers?
 ): number
-	local cutMultiplier = Balance.cutRateMultiplier(levels)
+	local cutMultiplier = Balance.cutRateMultiplier(levels, tool.id)
 	local moveSpeed = if tool.vehicle then tool.vehicle.speed else Balance.walkSpeed(levels, mods)
 
 	-- Area the tool can physically process, in tiles per second. A pickup tool
@@ -109,7 +109,7 @@ function Economy.cashPerSecond(
 		return 0
 	end
 
-	local unitsPerTile = averageHeight * def.unitsPerLevel * Balance.yieldMultiplier(levels)
+	local unitsPerTile = averageHeight * def.unitsPerLevel * Balance.yieldMultiplier(levels, tool.id)
 	local unitsPerSecond = tiles * unitsPerTile
 	local bagUnitsPerSecond = unitsPerSecond * def.weight
 
