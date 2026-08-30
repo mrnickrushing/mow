@@ -85,13 +85,48 @@ local catalogue: { [string]: Prop } = {
 	Weeds = prop("rbxassetid://97566895867036", "rbxassetid://100631337116622", 3.995, 3.809, 4.000),
 	Twigs = prop("rbxassetid://131001130360981", "rbxassetid://135819322286106", 2.061, 2.000, 2.112),
 
+	--[[
+		The two leaves a drift is made of.
+
+		A raked pile is thousands of these on screen at once, so they were the
+		last thing still drawn with built-in shapes — a sphere squashed flat and
+		a prism, which read as orange pebbles and orange wedges rather than as
+		leaves. Two shapes rather than one because a drift of a single repeated
+		leaf tiles visibly.
+
+		Note the native sizes disagree about which way is up: the maple is a
+		standing card (thin in Z) and the oak is already lying down (thin in Y).
+		The renderer works out which from the shape itself rather than carrying
+		a flag, so a leaf swapped in later lands the right way up on its own.
+	]]
+	LeafMaple = prop("rbxassetid://71916107034086", "rbxassetid://74826574473670", 0.277, 0.300, 0.018),
+	LeafOak = prop("rbxassetid://73631604724135", "rbxassetid://84336160333767", 0.189, 0.064, 0.300),
+
 	-- Ground and roofing, the surfaces underfoot and overhead.
 	Paving = prop("rbxassetid://118911737218481", "rbxassetid://75203797606065", 2.483, 0.500, 2.503),
 	Turf = prop("rbxassetid://117425736001931", "rbxassetid://118240994936541", 6.966, 1.000, 6.963),
+	--[[
+		The lawn seen from far enough away to be a surface rather than blades.
+
+		Turf was doing this job and it is the wrong shape for it: an eight-sided
+		patch, so a grid of them left the ground showing through in a diamond
+		between every four. This one is square, which is what a chunk is.
+	]]
+	LawnPanel = prop("rbxassetid://98477135996708", "rbxassetid://107042565034939", 3.418, 0.500, 3.439),
 	Shingle = prop("rbxassetid://136161442160867", "rbxassetid://104453830463425", 1.029, 1.000, 0.661),
 	ConcreteFloor = prop("rbxassetid://122093568483513", "rbxassetid://132210085782663", 1.438, 1.000, 0.512),
 	HungTools = prop("rbxassetid://137801002725741", "rbxassetid://114893461231752", 1.613, 1.513, 0.600),
 	Lantern = prop("rbxassetid://117371342269426", "rbxassetid://103361847724409", 1.991, 3.000, 1.769),
+
+	-- What you see in your own hands, which is on screen every frame.
+	Gloves = prop("rbxassetid://102351792013112", "rbxassetid://121367423728441", 0.557, 0.500, 0.213),
+	RakeTool = prop("rbxassetid://136422927727853", "rbxassetid://88404546052055", 0.612, 0.400, 1.276),
+	Handlebar = prop("rbxassetid://82490801193149", "rbxassetid://85871570751435", 0.625, 1.000, 1.138),
+	TrimmerTool = prop("rbxassetid://71503917518651", "rbxassetid://104755838161955", 0.355, 0.800, 0.643),
+	SawTool = prop("rbxassetid://109634814327719", "rbxassetid://117884093500395", 0.781, 0.900, 1.471),
+	HedgeTool = prop("rbxassetid://100172995462295", "rbxassetid://97933613185397", 0.143, 0.800, 0.892),
+	GrinderTool = prop("rbxassetid://130280705075193", "rbxassetid://74077511096748", 1.527, 1.200, 1.445),
+	ChipperTool = prop("rbxassetid://84533763020814", "rbxassetid://110674468060386", 0.779, 1.400, 0.782),
 
 	-- The stock on the shed shelf.
 	Sack = prop("rbxassetid://138022973254032", "rbxassetid://92817985554289", 2.943, 4.000, 3.277),

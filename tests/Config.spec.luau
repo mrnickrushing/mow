@@ -134,6 +134,43 @@ return function()
 			end
 		end)
 
+		h.it("puts nothing in a required section that a broke player cannot clear", function()
+			--[[
+				The affordability floor for the whole game.
+
+				A section is finished only when its demand reaches zero, so
+				every kind of debris a required section can contain has to be
+				removable with what a player who has just arrived owns — which
+				is a pair of hands and no money. This is the invariant the
+				trees broke: they added timber to a required section's demand
+				that needed a $3,200 saw, in a world whose every last clipping
+				is worth $2,013, and grinding the stump that felling left
+				needed $140,000 more. Nothing on a tile may ever be gated like
+				that again.
+			]]
+			local free: { [number]: boolean } = {}
+			for _, tool in Tools.list do
+				if tool.cost == 0 and tool.currency == "Cash" then
+					for _, id in tool.clears do
+						free[id] = true
+					end
+				end
+			end
+			h.expectTrue(next(free) ~= nil, "no tool costs nothing, so nobody can start")
+
+			for _, world in Worlds.list do
+				for _, section in Worlds.requiredSections(world) do
+					for _, entry in section.fill do
+						h.expectTrue(
+							free[entry.debris] == true,
+							`{world.id}/{section.id} needs {Debris.get(entry.debris).name}, `
+								.. "which no free tool can clear"
+						)
+					end
+				end
+			end
+		end)
+
 		h.it("pays more per bag unit the harder it is to reach", function()
 			local grass = Debris.get(Debris.Grass)
 			local log = Debris.get(Debris.Log)

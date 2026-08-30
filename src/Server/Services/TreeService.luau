@@ -87,10 +87,28 @@ local function makeStump(position: Vector3, sectionId: string, parent: Instance)
 	end)
 
 	stumps[part] = { part = part, health = STUMP_HEALTH, sectionId = sectionId }
-	WorldService.registerExtraUnits(sectionId, CHIPS_PER_STUMP * DebrisConfig.get(DebrisConfig.Chips).unitsPerLevel)
 	return part
 end
 
+--[[
+	Plants one tree, with the prompt that fells it.
+
+	A tree does not count towards clearing the section it stands in, and this is
+	deliberate rather than an oversight. It used to: four units of timber were
+	added to the section's demand when the tree was planted and taken off again
+	when it was felled. Felling needs a saw, the cheapest of which is $3,200,
+	and every scrap of debris in the whole of The House is worth $2,013 — so the
+	three trees in its backyard added twelve units that could not be removed at
+	any price, to a section the world cannot be finished without. Worse, felling
+	one left a stump, and the stump added three more units of its own that only
+	a $140,000 grinder could take away, so buying the saw made the section
+	harder rather than finishing it. The first world of the game was unwinnable.
+
+	Everything that lies on a tile can be cleared with bare hands, so a section
+	is always finishable by the work the run is actually balanced around. Trees
+	and stumps sit on top of that: they pay, they count for quests, and they are
+	there for anyone who wants them.
+]]
 local function makeTree(position: Vector3, sectionId: string, parent: Instance)
 	local model = Instance.new("Model")
 	model.Name = "Tree"
@@ -131,7 +149,6 @@ local function makeTree(position: Vector3, sectionId: string, parent: Instance)
 		sectionId = sectionId,
 		felled = false,
 	}
-	WorldService.registerExtraUnits(sectionId, LOGS_PER_TREE * DebrisConfig.get(DebrisConfig.Log).unitsPerLevel)
 end
 
 --- Scatters `count` points inside a section, keeping clear of the house.
@@ -183,7 +200,15 @@ local function equippedTool(player: Player): Types.ToolDef?
 end
 
 --- Awards debris to the bag, leaving anything that will not fit on the ground.
-local function awardOrDrop(player: Player, debrisId: number, units: number, position: Vector3, sectionId: string): number
+--[[
+	Hands over a tree's worth of wood, dropping whatever will not fit in the bag.
+
+	This used to also count the wood off the section's total, because the wood
+	had been counted onto it when the tree was planted. Neither happens now: a
+	tree and its stump are worth cash and count for the quests that ask for
+	them, but they are not part of what "clear" means. See `makeTree`.
+]]
+local function awardOrDrop(player: Player, debrisId: number, units: number, position: Vector3): number
 	local taken = BagService.add(player, debrisId, units)
 	local left = units - taken
 
@@ -222,12 +247,6 @@ local function awardOrDrop(player: Player, debrisId: number, units: number, posi
 				pile:SetAttribute("Units", remaining - got)
 			end
 		end)
-	end
-
-	if sectionId ~= "" then
-		-- Completion counts the wood as cleared once it leaves the tree, whether
-		-- it went into a bag or onto the ground.
-		WorldService.consumeUnits(sectionId, units)
 	end
 
 	return taken
@@ -289,7 +308,7 @@ local function fellTree(player: Player, tree: Tree)
 	end)
 
 	local logUnits = LOGS_PER_TREE * DebrisConfig.get(DebrisConfig.Log).unitsPerLevel
-	awardOrDrop(player, DebrisConfig.Log, logUnits, base, tree.sectionId)
+	awardOrDrop(player, DebrisConfig.Log, logUnits, base)
 
 	if container then
 		makeStump(base, tree.sectionId, container)
@@ -346,7 +365,7 @@ function onGrind(player: Player, part: BasePart)
 
 	stumps[part] = nil
 	local chips = CHIPS_PER_STUMP * DebrisConfig.get(DebrisConfig.Chips).unitsPerLevel
-	awardOrDrop(player, DebrisConfig.Chips, chips, part.Position, stump.sectionId)
+	awardOrDrop(player, DebrisConfig.Chips, chips, part.Position)
 	part:Destroy()
 end
 
