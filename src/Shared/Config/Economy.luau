@@ -22,8 +22,9 @@ Economy.BASE_TRAILER_DISTANCE = 48
 Economy.PORTABLE_TRAILER_DISTANCE = 22
 --- However short the walk gets, dumping is never instantaneous.
 Economy.MIN_TRAILER_DISTANCE = 6
---- Seconds lost per dump: the walk-up and the sell animation.
-Economy.DUMP_OVERHEAD = 0.6
+--- Seconds lost per dump: the walk-up plus the pour itself, which takes a
+--- fixed couple of seconds however big the bag is.
+Economy.DUMP_OVERHEAD = 0.6 + GameConfig.BAG_EMPTY_SECONDS
 --- Fraction of a swath already cut on the previous pass. Real play overlaps.
 Economy.OVERLAP_WASTE = 0.18
 
@@ -48,11 +49,14 @@ function Economy.tilesPerSecond(
 	averageHeight: number,
 	mods: Balance.Modifiers?
 ): number
-	local cutMultiplier = Balance.cutRateMultiplier(levels)
+	local cutMultiplier = Balance.cutRateMultiplier(levels, tool.id)
 	local moveSpeed = if tool.vehicle then tool.vehicle.speed else Balance.walkSpeed(levels, mods)
 
-	-- Area the tool can physically process, in tiles per second.
-	local swathTiles = tool.deck * (tool.reach / GameConfig.TILE_SIZE)
+	-- Area the tool can physically process, in tiles per second. A pickup tool
+	-- works one tile per swing whatever its paper deck says, and the model has
+	-- to agree with the server about that or the simulator flatters the reel
+	-- mower era and the curve tunes itself wrong.
+	local swathTiles = if tool.mode == "pickup" then 1 else tool.deck * (tool.reach / GameConfig.TILE_SIZE)
 	local swingLimit = tool.rate * cutMultiplier * swathTiles
 
 	-- Area the player can actually reach by moving, in tiles per second.
@@ -106,15 +110,16 @@ function Economy.cashPerSecond(
 		return 0
 	end
 
-	local unitsPerTile = averageHeight * def.unitsPerLevel * Balance.yieldMultiplier(levels)
+	local unitsPerTile = averageHeight * def.unitsPerLevel * Balance.yieldMultiplier(levels, tool.id)
 	local unitsPerSecond = tiles * unitsPerTile
 	local bagUnitsPerSecond = unitsPerSecond * def.weight
 
+	-- Money arrives when the bag is emptied, so a working cycle is fill-then-
+	-- walk: the bag fills, the player hikes to the trailer, and the payout
+	-- lands all at once. Bigger bags mean fewer hikes; Haul shortens them.
 	local capacity = Balance.bagCapacity(levels, mods)
 	local fillSeconds = capacity / math.max(bagUnitsPerSecond, 1e-9)
 
-	-- Levels past the first widen the dump radius, so the player can sell from
-	-- further out and turn around sooner. Without this, those levels sold nothing.
 	local base = if Balance.hasPortableTrailer(levels)
 		then Economy.PORTABLE_TRAILER_DISTANCE
 		else Economy.BASE_TRAILER_DISTANCE
@@ -151,16 +156,21 @@ function Economy.lawnUtilisation(
 end
 
 --- Debris units a zone holds when freshly grown.
-function Economy.sectionUnits(section: Types.ZoneDef, averageHeight: number, yieldMultiplier: number): number
+function Economy.sectionUnits(section: Types.ZoneDef, yieldMultiplier: number): number
 	local tiles = section.rect.w * section.rect.d * section.density
-	-- Weighted mean units-per-level across the zone's debris mix.
-	local totalWeight, weightedUnits = 0, 0
+	-- Weighted mean of units-per-level *and* height across the zone's own fill
+	-- mix. Using the section's real heights matters: a teaching lawn seeded
+	-- short is genuinely quicker than a farm seeded tall, and a model that ran
+	-- both at one flat height could not see the difference designers tune.
+	local totalWeight, weightedUnits, weightedHeight = 0, 0, 0
 	for _, entry in section.fill do
 		local def = DebrisConfig.get(entry.debris)
 		totalWeight += entry.weight
 		weightedUnits += entry.weight * def.unitsPerLevel
+		weightedHeight += entry.weight * (entry.heightMin + entry.heightMax) * 0.5
 	end
 	local unitsPerLevel = if totalWeight > 0 then weightedUnits / totalWeight else 0
+	local averageHeight = if totalWeight > 0 then weightedHeight / totalWeight else 0
 	return tiles * averageHeight * unitsPerLevel * yieldMultiplier
 end
 

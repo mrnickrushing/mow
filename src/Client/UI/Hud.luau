@@ -25,6 +25,7 @@ local Format = require(Shared.Util.Format)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local MowController = require(script.Parent.Parent.Controllers.MowController)
+local Journal = require(script.Parent.Journal)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 local Theme = require(script.Parent.Theme)
 
@@ -65,6 +66,7 @@ local NOTICE_COLORS: { [string]: Color3 } = {
 	denied = Theme.colors.danger,
 	afford = Theme.colors.cash,
 	sectionClear = Theme.colors.cash,
+	sectionUnlock = Theme.colors.cash,
 }
 
 local ICONS: { [string]: string } = {
@@ -170,6 +172,8 @@ local function buildRightColumn(gui: ScreenGui)
 	inner.AnchorPoint = Vector2.new(0.5, 0.5)
 
 	-- The journal, with a badge when something in it is waiting to be read.
+	-- Pressing it opens the book, which matters most on touch where Tab does
+	-- not exist.
 	local book = Instance.new("TextButton")
 	book.Name = "Journal"
 	book.Size = UDim2.fromOffset(62, 62)
@@ -185,6 +189,10 @@ local function buildRightColumn(gui: ScreenGui)
 	book.Parent = column
 	Theme.corner(book, 8)
 	Theme.stroke(book, 3, Theme.colors.outline, 0.05)
+
+	book.Activated:Connect(function()
+		Journal.toggle()
+	end)
 
 	journalBadge = circle(book, 22, Theme.colors.danger)
 	journalBadge.Name = "Badge"
@@ -408,37 +416,97 @@ end
 --------------------------------------------------------------------
 
 --[[
-	The money an armful just earned, floating up beside the crosshair.
+	The gold tally: one number that climbs while money is arriving.
 
-	Screen space rather than over the leaf itself: with a blower clearing a wide
-	arc there is no single leaf it belongs to, and a number that appears in the
-	same place every time is one the eye stops having to search for.
+	This is the reference's paycheck moment translated — as the bag pours into
+	the trailer, a single `+4.36$` counts up sip by sip rather than a shower of
+	little popups. One climbing number reads as a transaction in progress; many
+	separate ones read as noise. When nothing has arrived for a beat, it drifts
+	up and fades, and the next pour starts a fresh count.
 ]]
+local tallyAmount = 0
+local tallyLabel: TextLabel? = nil
+local tallyFadeAt = 0
+
 function Hud.gain(amount: number)
 	if amount <= 0 then
 		return
 	end
 
-	local label = Theme.text({
-		name = "Gain",
-		text = `+{Format.cashSuffix(amount)}`,
-		size = UDim2.fromOffset(240, 40),
-		position = UDim2.fromOffset(30, 60),
-		parent = gainHolder,
-		align = Enum.TextXAlignment.Center,
-		color = Theme.colors.tips,
-		textSize = 30,
-	})
+	tallyAmount += amount
+	tallyFadeAt = os.clock() + 0.8
 
-	local info = TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	TweenService:Create(label, info, { Position = UDim2.fromOffset(30, 0), TextTransparency = 1 }):Play()
+	local existing = tallyLabel
+	local label: TextLabel
+	if existing then
+		label = existing
+	else
+		label = Theme.text({
+			name = "Tally",
+			text = "",
+			size = UDim2.fromOffset(280, 44),
+			position = UDim2.fromOffset(10, 40),
+			parent = gainHolder,
+			align = Enum.TextXAlignment.Center,
+			color = Theme.colors.tips,
+			textSize = 34,
+		})
+		tallyLabel = label
+	end
+	label.Text = `+{Format.cashSuffix(tallyAmount)}`
+	label.TextTransparency = 0
+	local stroke = label:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Transparency = 0
+	end
+end
 
+--- Lets the tally go once the stream has stopped feeding it.
+local function stepTally()
+	local label = tallyLabel
+	if not label or tallyAmount <= 0 or os.clock() < tallyFadeAt then
+		return
+	end
+
+	tallyAmount = 0
+	tallyLabel = nil
+
+	local info = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(label, info, { Position = label.Position - UDim2.fromOffset(0, 34), TextTransparency = 1 })
+		:Play()
 	local stroke = label:FindFirstChildOfClass("UIStroke")
 	if stroke then
 		TweenService:Create(stroke, info, { Transparency = 1 }):Play()
 	end
+	task.delay(0.85, function()
+		label:Destroy()
+	end)
+end
 
-	task.delay(0.95, function()
+--- The clippings an armful just added, in white — cash it is not, yet.
+function Hud.bagged(units: number)
+	if units < 1 then
+		return
+	end
+
+	local label = Theme.text({
+		name = "Bagged",
+		text = `+{units}`,
+		size = UDim2.fromOffset(160, 34),
+		position = UDim2.fromOffset(60, 96),
+		parent = gainHolder,
+		align = Enum.TextXAlignment.Center,
+		color = Theme.colors.text,
+		textSize = 24,
+	})
+
+	local info = TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(label, info, { Position = UDim2.fromOffset(60, 44), TextTransparency = 1 }):Play()
+	local stroke = label:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		TweenService:Create(stroke, info, { Transparency = 1 }):Play()
+	end
+	task.delay(0.75, function()
 		label:Destroy()
 	end)
 end
@@ -484,7 +552,7 @@ end
 	ground; clearing a whole garage is the one moment in a run worth stopping
 	the player for, so it gets a medal and the middle of the screen.
 ]]
-function Hud.card(message: string, banner: string)
+function Hud.card(message: string, banner: string, accent: string?)
 	local frame = Instance.new("Frame")
 	frame.Name = "Card"
 	frame.Size = UDim2.fromOffset(540, 128)
@@ -525,7 +593,7 @@ function Hud.card(message: string, banner: string)
 
 	local ribbonText = Theme.text({
 		name = "Banner",
-		text = banner,
+		text = if accent then `{banner} <font color="#5cb2ff">{accent}</font>` else banner,
 		size = UDim2.fromScale(1, 1),
 		position = UDim2.fromScale(0, 0),
 		parent = ribbon,
@@ -594,10 +662,10 @@ local function refresh()
 		elseif state.bagWeight >= state.bagCapacity * 0.8 then Theme.colors.warn
 		else Theme.colors.text
 
-	-- What one leaf is worth right now, which is the number the whole economy
-	-- is denominated in and the one an upgrade visibly moves.
-	local perLeaf = Debris.get(Debris.Leaves).value * math.max(state.cashMultiplier, 1)
-	rateLabel.Text = `{Format.cashSuffix(perLeaf)} / leaf`
+	-- What one clipping is worth right now, which is the number the whole
+	-- economy is denominated in and the one an upgrade visibly moves.
+	local perClipping = Debris.get(Debris.Grass).value * math.max(state.cashMultiplier, 1)
+	rateLabel.Text = `{Format.cashSuffix(perClipping)} / clipping`
 
 	local tool = Tools.get(state.equippedTool)
 	toolIcon.Text = if tool then ICONS[tool.category] or "🧰" else ""
@@ -638,9 +706,18 @@ function Hud.start()
 	build()
 	refresh()
 
+	task.spawn(function()
+		while true do
+			task.wait(0.15)
+			stepTally()
+		end
+	end)
+
 	PlayerState.Changed:Connect(refresh)
 	MowController.MowingChanged.Event:Connect(refresh)
-	MowController.Collected.Event:Connect(Hud.gain)
+	MowController.Collected.Event:Connect(function(units: number)
+		Hud.bagged(units)
+	end)
 
 	-- On touch the round tool button is the trigger as well as the readout. On a
 	-- mouse the pointer is locked to the middle of the screen in first person,
@@ -659,13 +736,28 @@ function Hud.start()
 	end
 
 	local notify = Remotes.event(Remotes.NOTIFY)
-	notify.OnClientEvent:Connect(function(kind: any, message: any)
+	notify.OnClientEvent:Connect(function(kind: any, message: any, amount: any)
 		if type(kind) ~= "string" or type(message) ~= "string" then
 			return
 		end
 
+		-- The pour feeds the tally silently, sip by sip; a lump-sum sale (the
+		-- Empty Bag product) feeds the same counter and keeps its toast.
+		if kind == "tally" then
+			if type(amount) == "number" then
+				Hud.gain(amount)
+			end
+			return
+		end
+		if kind == "sale" and type(amount) == "number" then
+			Hud.gain(amount)
+		end
+
 		if kind == "sectionClear" then
 			Hud.card(message, "COMPLETED!")
+		elseif kind == "sectionUnlock" then
+			-- The message is just the section's name; the card carries the rest.
+			Hud.card(`A new area is open!`, "Unlocked :", message)
 		elseif kind == "quest" then
 			Hud.toast(kind, `✅ {message}`)
 		else

@@ -66,6 +66,11 @@ local GameConfig = {
 	BASE_FUEL = 100,
 	--- Radius in studs within which the trailer accepts a dump.
 	BASE_DUMP_RADIUS = 12,
+
+	-- Seconds a full bag takes to pour into the trailer. The pour is the
+	-- paycheck moment — one gold number counting up as the clippings stream in
+	-- — so it is deliberately not instant, whatever the bag's size.
+	BAG_EMPTY_SECONDS = 2.5,
 	--- Fraction of the round payout pool a player earns per 1% contributed.
 	ROUND_COMPLETION_BONUS = 60,
 
@@ -74,6 +79,11 @@ local GameConfig = {
 	--------------------------------------------------------------------
 	INTERMISSION_SECONDS = 45,
 	--- Zone completion above this fraction switches on missed-spot markers.
+	-- Cash bonus each finished section adds to everyone's multiplier for the
+	-- rest of the run. This is the run's progression spine: the world literally
+	-- pays better the more of it you have cleaned.
+	SECTION_CASH_BOOST = 0.3,
+
 	MISSED_SPOT_THRESHOLD = 0.95,
 	--- Cap on simultaneously highlighted missed tiles.
 	MISSED_SPOT_MAX_MARKERS = 24,

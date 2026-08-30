@@ -119,10 +119,12 @@ export type ToolCategory =
 --[[
 	How a tool is used.
 
-	`pickup` targets one thing at a time — you look at a leaf, it lights up, you
-	take it. `swath` sweeps everything in a rectangle ahead of you. The first is
-	what bare hands and a rake do; the second is what a mower or a blower does,
-	and the jump between them is most of what buying a blower feels like.
+	`pickup` targets one thing at a time — you look at a tuft of grass or a
+	pile of leaves, it lights up, you take it. `swath` sweeps everything in a
+	rectangle ahead of you. Hands, the rake and the little reel mower work the
+	first way; the ride-on mowers work the second, and the jump between them —
+	a whole stripe of lawn vanishing under a zero turn — is most of what the
+	upgrade ladder is climbing toward.
 ]]
 export type ToolMode = "pickup" | "swath"
 

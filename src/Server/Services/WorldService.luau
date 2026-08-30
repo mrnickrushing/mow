@@ -17,6 +17,7 @@ local Cutting = require(Shared.Cutting)
 local GameConfig = require(Shared.Config.GameConfig)
 local Grid = require(Shared.Grid)
 local Palette = require(Shared.Config.Palette)
+local Upgrades = require(Shared.Config.Upgrades)
 local Worlds = require(Shared.Config.Worlds)
 local Types = require(Shared.Types)
 local Build = require(script.Parent.Parent.Lib.Build)
@@ -56,6 +57,16 @@ local exitSignal = Instance.new("BindableEvent")
 --- knows when it is touched; deciding what leaving *means* belongs to the run,
 --- so it listens rather than the world calling into it.
 WorldService.ExitReached = exitSignal.Event
+
+local gateSignal = Instance.new("BindableEvent")
+--- Fires with (player, sectionId) when someone tries to pay a cash gate. The
+--- world owns the door and the prompt; whether the money is there and what
+--- opening means belongs to the run, so it listens.
+WorldService.GateTried = gateSignal.Event
+
+local stationSignal = Instance.new("BindableEvent")
+--- Fires with (player, upgradeId) when someone uses an upgrade station.
+WorldService.StationTried = stationSignal.Event
 
 --- Sections whose gate is open for this run. Open-ness is a property of the
 --- run, but it is asked about on the hot cutting path once per tile, so it
@@ -707,6 +718,135 @@ end
 	the big open lots stay open, which is where the wide-deck mowers earn their
 	price.
 ]]
+--[[
+	Upgrade stations: the shop, standing in the world.
+
+	One board per upgrade line, in a row in front of the shed. The board shows
+	the buyer's own current level, the next one, and the price — text the client
+	fills in locally, because levels are per-player and one shared sign cannot
+	be right for two people. The prompt on the board is the purchase.
+
+	This is most of what "the shed" means now: the journal remains for reading
+	quests and prices at a distance, but buying is something you walk up and do.
+]]
+local function buildUpgradeStations(world: Types.WorldDef, parent: Folder)
+	local folder = Build.folder("UpgradeStations", parent)
+	local centre = WorldService.tilePointFlat(world.shed.x, world.shed.z)
+
+	-- A row across the shed's open front, facing the lawn.
+	local count = #Upgrades.list
+	local spacing = 7
+	local startX = -(count - 1) * spacing * 0.5
+
+	for index, def in Upgrades.list do
+		local at = centre + Vector3.new(startX + (index - 1) * spacing, 0, -16)
+
+		Build.part({
+			name = "Post",
+			size = Vector3.new(0.8, 5, 0.8),
+			cframe = CFrame.new(at + Vector3.new(0, 2.5, 0)),
+			color = Palette.color(Palette.fence.rail),
+			material = Enum.Material.Wood,
+			parent = folder,
+		})
+
+		local board = Build.part({
+			name = def.id,
+			size = Vector3.new(6, 3.4, 0.6),
+			cframe = CFrame.new(at + Vector3.new(0, 6, 0)),
+			color = Palette.color(Palette.fence.picket),
+			material = Enum.Material.WoodPlanks,
+			parent = folder,
+		})
+		board:SetAttribute("UpgradeId", def.id)
+
+		local prompt = Build.prompt(board, "Buy", def.name, 9)
+		prompt.Triggered:Connect(function(player: Player)
+			stationSignal:Fire(player, def.id)
+		end)
+	end
+end
+
+--[[
+	A blue door with a price on it, for each section bought with run cash.
+
+	The door is the shop: the price hangs on the wood, the prompt is on the
+	handle, and paying is something you do standing in front of it with money
+	swept off the lawn. It stands at the middle of the section's near edge —
+	the same edge the signs use — and is destroyed the moment the section opens.
+]]
+local function buildCashGates(world: Types.WorldDef, parent: Folder): { [string]: Model }
+	local gates: { [string]: Model } = {}
+	local folder = Build.folder("CashGates", parent)
+
+	for _, section in world.sections do
+		if Worlds.unlockKind(section) ~= "cash" then
+			continue
+		end
+
+		local r = section.rect
+		local at = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z)
+
+		local gate = Instance.new("Model")
+		gate.Name = section.id
+		gate:SetAttribute("SectionId", section.id)
+		gate.Parent = folder
+
+		-- A blue door in a wooden arch. Opening simply removes the model, so
+		-- the door does not need hinges — only presence.
+		Build.part({
+			name = "Arch",
+			size = Vector3.new(14, 2, 2),
+			cframe = CFrame.new(at + Vector3.new(0, 11, 0)),
+			color = Palette.color(Palette.fence.rail),
+			material = Enum.Material.Wood,
+			parent = gate,
+		})
+
+		for side = -1, 1, 2 do
+			Build.part({
+				name = "Post",
+				size = Vector3.new(2, 12, 2),
+				cframe = CFrame.new(at + Vector3.new(side * 6, 5, 0)),
+				color = Palette.color(Palette.fence.rail),
+				material = Enum.Material.Wood,
+				parent = gate,
+			})
+		end
+
+		local door = Build.part({
+			name = "Door",
+			size = Vector3.new(10, 10, 1),
+			cframe = CFrame.new(at + Vector3.new(0, 5, 0)),
+			color = Color3.fromRGB(96, 122, 196),
+			material = Enum.Material.WoodPlanks,
+			parent = gate,
+		})
+
+		local gui = Build.billboard(door, UDim2.fromOffset(160, 70), 4, 90)
+		Build.label(gui, "Unlock", UDim2.fromScale(1, 0.5), UDim2.fromScale(0, 0), 0.8)
+		local price = Build.label(
+			gui,
+			`${string.format("%.2f", section.cost)}`,
+			UDim2.fromScale(1, 0.5),
+			UDim2.fromScale(0, 0.5),
+			0.9
+		)
+		price.TextColor3 = Color3.fromRGB(126, 226, 108)
+
+		local prompt = Build.prompt(door, "Unlock", section.name, 10)
+		prompt.Triggered:Connect(function(player: Player)
+			gateSignal:Fire(player, section.id)
+		end)
+
+		gates[section.id] = gate
+	end
+
+	return gates
+end
+
+local cashGates: { [string]: Model } = {}
+
 local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 	local context: Structures.Context = {
 		parent = parent,
@@ -910,6 +1050,8 @@ function WorldService.load(worldId: string)
 	WorldService.shedPart = buildShed(world, parent)
 	WorldService.trailerPart = buildTrailer(world, parent)
 	WorldService.sectionSigns = buildSectionSigns(world, parent)
+	cashGates = buildCashGates(world, parent)
+	buildUpgradeStations(world, parent)
 	buildSectionStructures(world, parent)
 	exitPart = nil
 	buildExit(world, parent)
@@ -995,6 +1137,12 @@ end
 function WorldService.setSectionOpen(sectionId: string, open: boolean)
 	if open then
 		openSections[sectionId] = true
+		-- An open section has no door: the purchase consumes it.
+		local gate = cashGates[sectionId]
+		if gate then
+			cashGates[sectionId] = nil
+			gate:Destroy()
+		end
 	else
 		openSections[sectionId] = nil
 	end

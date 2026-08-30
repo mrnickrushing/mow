@@ -1,13 +1,17 @@
 --!strict
 --[[
-	Upgrades — the six purchasable stat lines sold at the Shed.
+	Upgrades — the stat lines sold at the boards in front of the shed.
+
+	These are the upgrades that belong to the *player* rather than to any one
+	tool: how much you carry, how fast you walk, what you charge, how far the
+	trailer reaches. Cut speed and yield are not here — those belong to each
+	tool's own three-slot tree in ToolUpgrades, which is where the journal
+	sells them.
 
 	Each line has a geometric cost curve (`baseCost * costGrowth^level`) and a
-	value curve that is either additive or multiplicative from `base`.
-
-	Bag Capacity is deliberately the cheapest early line: fewer trips to the
-	trailer is the single biggest early-game speed-up, which mirrors how the
-	reference game's players rank bag upgrades first.
+	value curve that is either additive or multiplicative from `base`. The bag
+	is deliberately the cheapest early line: fewer trips to the trailer is the
+	single biggest early-game speed-up.
 ]]
 
 local Types = require(script.Parent.Parent.Types)
@@ -17,7 +21,7 @@ local Upgrades = {}
 local list: { Types.UpgradeDef } = {
 	{
 		id = "bag",
-		name = "Grasp",
+		name = "Bag",
 		description = "Carry more before you have to walk back to the trailer.",
 		maxLevel = 15,
 		baseCost = 3,
@@ -26,33 +30,6 @@ local list: { Types.UpgradeDef } = {
 		step = 1.55,
 		mode = "mul",
 		suffix = " units",
-	},
-	{
-		id = "speed",
-		name = "Power",
-		description = "Sharper blades swing faster and bite deeper into tall grass.",
-		-- Deliberately short. A tile cannot take less than one pass, so past a
-		-- few levels this line would be selling nothing. Four honest levels beat
-		-- twelve where most do not move the number.
-		maxLevel = 4,
-		baseCost = 2,
-		costGrowth = 2.1,
-		base = 1,
-		step = 0.16,
-		mode = "add",
-		suffix = "x",
-	},
-	{
-		id = "yield",
-		name = "Harvest",
-		description = "Chop finer and get more out of every square of lawn.",
-		maxLevel = 12,
-		baseCost = 14,
-		costGrowth = 2.0,
-		base = 1,
-		step = 0.18,
-		mode = "add",
-		suffix = "x debris",
 	},
 	{
 		id = "walk",

@@ -146,8 +146,8 @@ function TileService.applyPasses(
 		indices = Grid.rasterizeSwath(grid, position.X, position.Z, look.X, look.Z, tool.deck, tool.reach, scratch)
 	end
 
-	local levelsAvailable = tool.power * passes
-	local yieldMultiplier = Balance.yieldMultiplier(run.upgrades)
+	local levelsAvailable = Balance.toolPower(tool, run.upgrades) * passes
+	local yieldMultiplier = Balance.yieldMultiplier(run.upgrades, tool.id)
 	local capacity = BagService.capacity(player)
 
 	for _, index in indices do

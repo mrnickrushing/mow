@@ -46,6 +46,8 @@ local wavesCleared: { [string]: number } = {}
 local wavesNeeded: { [string]: number } = {}
 --- True once the last required section is clear and the grate is open.
 local exitOpen = false
+--- Sections fully finished (all waves), which is what earns the cash boost.
+local sectionsFinished = 0
 
 local roundState: RemoteEvent
 --- How often run state is broadcast, in Hz. The client interpolates the clock.
@@ -70,6 +72,11 @@ end
 
 function RunService.isExitOpen(): boolean
 	return exitOpen
+end
+
+--- The run-wide cash bonus earned so far: 0.3 per finished section.
+function RunService.sectionBoost(): number
+	return sectionsFinished * GameConfig.SECTION_CASH_BOOST
 end
 
 function RunService.worldId(): string
@@ -199,14 +206,31 @@ local function onSectionCleared(world: Types.WorldDef, section: Types.ZoneDef)
 	-- the corner.
 	EconomyService.notifyAll(
 		"sectionClear",
-		`Congratulations! You collected everything in the {section.name}!`,
+		`Congratulations! You cleared the whole {section.name}!`,
 		nil
 	)
 
+	-- The world pays better the more of it you have cleaned. This is the run's
+	-- progression spine: the boost applies to everyone, forever, this run —
+	-- which is also what makes helping a slower player worth a fast one's time.
+	sectionsFinished += 1
+	EconomyService.notifyAll(
+		"quest",
+		`{section.name} completed! Cash boost is now +{math.floor(RunService.sectionBoost() * 100 + 0.5)}%!`,
+		nil
+	)
+
+	local openedNames = {}
 	for _, dependent in dependentsOf(world, section.id) do
 		if Worlds.unlockKind(dependent) == "completion" then
-			openSection(dependent.id, true)
+			openSection(dependent.id, false)
+			table.insert(openedNames, dependent.name)
 		end
+	end
+	-- The unlock rides the completion card rather than being its own toast, as
+	-- one moment: you finished this, so you get that.
+	for _, name in openedNames do
+		EconomyService.notifyAll("sectionUnlock", name, nil)
 	end
 
 	if not exitOpen and requiredSectionsDone(world) then
@@ -234,6 +258,7 @@ local function beginRun(id: string)
 	table.clear(wavesCleared)
 	table.clear(wavesNeeded)
 	exitOpen = false
+	sectionsFinished = 0
 
 	-- Wave counts are fixed at the start. Letting a late joiner raise them would
 	-- move the goalposts on everyone already partway through a section.
@@ -298,6 +323,42 @@ local function loseRun()
 	broadcast()
 end
 
+--[[
+	A player paying a cash gate. Opens the section for everyone: the door is
+	one door, and whoever reaches it with the money first holds it open for the
+	rest — which is one more way a fast player carries a slow one.
+]]
+local function onGateTried(player: Player, sectionId: string)
+	if phase ~= "running" then
+		return
+	end
+
+	local world = WorldService.world
+	local section = if world then Worlds.section(world, sectionId) else nil
+	if not section or Worlds.unlockKind(section) ~= "cash" then
+		return
+	end
+	if WorldService.isSectionOpen(sectionId) then
+		return
+	end
+
+	-- A gate deeper in the chain cannot be bought early: the door is reachable
+	-- only through the section before it, and a teleporting exploiter should
+	-- not get further than a walking player.
+	if section.requires and not WorldService.isSectionOpen(section.requires) then
+		return
+	end
+
+	if not EconomyService.spend(player, section.cost) then
+		EconomyService.notify(player, "denied", `You need {Format.cash(section.cost)} to open this`, nil)
+		return
+	end
+
+	openSection(sectionId, false)
+	EconomyService.notifyAll("sectionUnlock", section.name, nil)
+	broadcast()
+end
+
 --- A player reaching the open grate finishes the run for everyone.
 function RunService.reachExit(player: Player)
 	if phase ~= "running" or not exitOpen then
@@ -329,6 +390,12 @@ function RunService.start()
 	-- Contribution drives the end-of-run split; it is counted from the cut
 	-- signal so no other service has to know a run is being scored.
 	WorldService.ExitReached:Connect(RunService.reachExit)
+	WorldService.GateTried:Connect(onGateTried)
+
+	-- Every player's cash multiplier carries the run's section bonus.
+	EconomyService.addModifierSource(function(_player: Player)
+		return { sectionBoost = RunService.sectionBoost() }
+	end)
 
 	TileService.Cut:Connect(function(player: Player, _index: number, _debrisId: number, levels: number)
 		local run = RunState.find(player)

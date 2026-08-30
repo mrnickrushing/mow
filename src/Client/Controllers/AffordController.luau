@@ -16,10 +16,12 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local ToolUpgrades = require(Shared.Config.ToolUpgrades)
 local Tools = require(Shared.Config.Tools)
 local Upgrades = require(Shared.Config.Upgrades)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 local Hud = require(script.Parent.Parent.UI.Hud)
+local Journal = require(script.Parent.Parent.UI.Journal)
 
 local AffordController = {}
 
@@ -55,6 +57,24 @@ local function check()
 		end
 	end
 
+	-- The equipped tool's own three slots, by the tool's own names — "You can
+	-- now afford Throttle!" tells the player to open the book.
+	for toolId in state.ownedTools do
+		if toolId == state.equippedTool then
+			for _, slot in ToolUpgrades.treeFor(toolId) do
+				local level = state.upgrades[slot.key] or 0
+				local cost = ToolUpgrades.costAt(slot, level)
+				if cost and state.cash >= cost then
+					local key = `slot:{slot.key}:{level}`
+					if not announced[key] then
+						announced[key] = true
+						Hud.toast("afford", `You can now afford {slot.name}!`)
+					end
+				end
+			end
+		end
+	end
+
 	-- Tools are the larger jump, so the cheapest one still missing is the one
 	-- worth naming; the rest will announce themselves in turn.
 	for _, tool in Tools.list do
@@ -72,7 +92,12 @@ local function check()
 end
 
 function AffordController.start()
-	PlayerState.Changed:Connect(check)
+	PlayerState.Changed:Connect(function()
+		check()
+		-- The HUD's journal icon carries the same red dot as the book's own
+		-- Upgrades tab, and for the same reason.
+		Hud.setJournalBadge(Journal.somethingAffordable())
+	end)
 end
 
 return AffordController

@@ -17,6 +17,7 @@ local Balance = require("../tests/.build/Shared/Config/Balance")
 local Debris = require("../tests/.build/Shared/Config/Debris")
 local Economy = require("../tests/.build/Shared/Config/Economy")
 local Format = require("../tests/.build/Shared/Util/Format")
+local ToolUpgrades = require("../tests/.build/Shared/Config/ToolUpgrades")
 local Tools = require("../tests/.build/Shared/Config/Tools")
 local Upgrades = require("../tests/.build/Shared/Config/Upgrades")
 local Worlds = require("../tests/.build/Shared/Config/Worlds")
@@ -81,7 +82,7 @@ local function sectionUnits(section, yieldMultiplier: number): (number, number)
 			heaviest, heaviestWeight = entry.debris, entry.weight
 		end
 	end
-	return Economy.sectionUnits(section, AVERAGE_HEIGHT, yieldMultiplier), heaviest
+	return Economy.sectionUnits(section, yieldMultiplier), heaviest
 end
 
 type Candidate = { kind: string, id: string, cost: number, gain: number, roi: number }
@@ -91,16 +92,33 @@ local function candidates(state: State, world, debrisId: number): { Candidate }
 	local base = income(state, world, debrisId)
 	local out: { Candidate } = {}
 
+	local heldTool = bestTool(state, world, debrisId)
+
 	for _, def in Upgrades.list do
 		local cost = Upgrades.costAt(def, state.levels[def.id])
-		if cost then
+		if cost and heldTool then
 			local levels = table.clone(state.levels)
 			levels[def.id] += 1
-			local toolId = bestTool(state, world, debrisId)
-			if toolId then
-				local gain = Economy.cashPerSecond(Tools.expect(toolId), levels, world, debrisId, AVERAGE_HEIGHT) - base
+			local gain = Economy.cashPerSecond(Tools.expect(heldTool), levels, world, debrisId, AVERAGE_HEIGHT) - base
+			if gain > 0 then
+				table.insert(out, { kind = "upgrade", id = def.id, cost = cost, gain = gain, roi = gain / cost })
+			end
+		end
+	end
+
+	-- The held tool's own three slots compete with everything else on the same
+	-- return-on-investment footing, which is how a real player weighs them.
+	if heldTool then
+		for _, slot in ToolUpgrades.treeFor(heldTool) do
+			local level = state.levels[slot.key] or 0
+			local cost = ToolUpgrades.costAt(slot, level)
+			if cost then
+				local levels = table.clone(state.levels)
+				levels[slot.key] = level + 1
+				local gain = Economy.cashPerSecond(Tools.expect(heldTool), levels, world, debrisId, AVERAGE_HEIGHT)
+					- base
 				if gain > 0 then
-					table.insert(out, { kind = "upgrade", id = def.id, cost = cost, gain = gain, roi = gain / cost })
+					table.insert(out, { kind = "upgrade", id = slot.key, cost = cost, gain = gain, roi = gain / cost })
 				end
 			end
 		end
@@ -140,12 +158,29 @@ local function simulate(world)
 			continue
 		end
 
+		-- A cash gate is paid at the door before any of its work can start. If
+		-- the money is not there by the time the player reaches it, that is a
+		-- config bug worth failing loudly on, not waiting through.
+		if Worlds.unlockKind(section) == "cash" then
+			if state.cash < section.cost then
+				stalled = string.format(
+					"%s: gate costs %s, has %s",
+					section.name,
+					Format.cash(section.cost),
+					Format.cash(state.cash)
+				)
+				break
+			end
+			state.cash -= section.cost
+		end
+
 		local waves = Worlds.wavesFor(section, PLAYERS)
 		local sectionStart = state.seconds
 
 		for wave = 1, waves do
-			local yieldMultiplier = Balance.yieldMultiplier(state.levels)
-			local units, debrisId = sectionUnits(section, yieldMultiplier)
+			-- Units are counted at base yield; each tool's own yield multiplier
+			-- is applied to income, not to how much lawn exists.
+			local units, debrisId = sectionUnits(section, 1)
 			-- The work splits between everyone present.
 			units /= PLAYERS
 
@@ -194,7 +229,6 @@ local function simulate(world)
 				local perSecond = Economy.tilesPerSecond(tool, state.levels, AVERAGE_HEIGHT)
 					* AVERAGE_HEIGHT
 					* Debris.get(debrisId).unitsPerLevel
-					* yieldMultiplier
 				if perSecond <= 0 then
 					stalled = `{section.name}: throughput fell to zero`
 					break
@@ -213,7 +247,7 @@ local function simulate(world)
 					cleared += wait * perSecond
 
 					if pick.kind == "upgrade" then
-						state.levels[pick.id] += 1
+						state.levels[pick.id] = (state.levels[pick.id] or 0) + 1
 					else
 						state.owned[pick.id] = true
 					end

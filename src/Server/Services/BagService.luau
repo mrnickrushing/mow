@@ -1,6 +1,12 @@
 --!strict
 --[[
-	BagService — what a player is carrying, and what happens when they dump it.
+	BagService — the clippings you are carrying, and the trailer that buys them.
+
+	Money arrives when the bag is emptied, not while you mow. The loop is the
+	original one: mow until the bag fills, walk it to the trailer, watch the
+	payout land in one satisfying lump. Capacity decides how long you can stay
+	on the lawn between trips, which is what the Grasp upgrade and the Infinite
+	Bag pass actually buy — fewer interruptions, not a bigger number.
 
 	The bag is tracked in *weight*, not item count: a log takes fifteen units of
 	space and a clipping takes one, so hauling wood is a real decision rather
@@ -125,30 +131,88 @@ function BagService.baseValue(player: Player): number
 	return total
 end
 
---- Sells everything the player is carrying. Returns the cash paid.
-function BagService.dump(player: Player): number
+--[[
+	Sells `weightToSell` worth of the bag's contents. Returns the cash paid.
+
+	Contents drain cheapest-per-weight first. That order matters with mixed
+	loads: the drain is a queue, and paying the logs out last means a player
+	who felled a tree keeps its value pending a little longer rather than
+	having it jump the clippings it was mixed in with.
+]]
+local function sell(player: Player, weightToSell: number): number
 	local bag = bagFor(player)
-	if bag.weight <= 0 then
+	if bag.weight <= 0 or weightToSell <= 0 then
 		return 0
 	end
 
-	local base = BagService.baseValue(player)
+	local property = WorldService.world
+	local worldMultiplier = if property then property.payoutMultiplier else 1
+	local chipper = hasChipper(player)
+
+	local run = RunState.find(player)
+	local personal = if run
+		then Balance.cashMultiplier(run.upgrades, EconomyService.modifiers(player))
+		else 1
+
+	local remaining = weightToSell
 	local unitsSold = 0
-	for _, units in bag.units do
-		unitsSold += units
+	local base = 0
+
+	for debrisId, held in bag.units do
+		if remaining <= 0 then
+			break
+		end
+		local def = DebrisConfig.get(debrisId)
+		local units = math.min(held, remaining / def.weight)
+		if units > 0 then
+			local value = def.value * units * worldMultiplier
+			if chipper and (debrisId == DebrisConfig.Log or debrisId == DebrisConfig.Chips) then
+				value *= CHIPPER_MULTIPLIER
+			end
+			base += value
+			unitsSold += units
+			remaining -= units * def.weight
+
+			local left = held - units
+			if left < 1e-6 then
+				bag.units[debrisId] = nil
+			else
+				bag.units[debrisId] = left
+			end
+		end
 	end
 
-	table.clear(bag.units)
-	bag.weight = 0
+	if unitsSold <= 0 then
+		return 0
+	end
 
-	local paid = EconomyService.award(player, base)
+	bag.weight = math.max(bag.weight - (weightToSell - remaining), 0)
+
+	local paid = EconomyService.award(player, base * personal)
 
 	DataService.withProfile(player, function(profile)
 		profile.stats.unitsSold += unitsSold
 	end)
 
-	EconomyService.notify(player, "sale", `Sold {Format.count(unitsSold)} for {Format.cash(paid)}`, paid)
 	soldSignal:Fire(player, unitsSold, paid)
+	return paid
+end
+
+--[[
+	Sells up to `weight` of the bag's contents. The trailer pour: called a few
+	times a second while the player stands in range, so the bag empties as a
+	stream and the tally on screen counts up with it.
+]]
+function BagService.sellUpTo(player: Player, weight: number): number
+	return sell(player, math.min(weight, bagFor(player).weight))
+end
+
+--- Empties the whole bag at once — the Empty Bag product, not the trailer.
+function BagService.dump(player: Player): number
+	local paid = sell(player, bagFor(player).weight)
+	if paid > 0 then
+		EconomyService.notify(player, "sale", `Emptied the bag for {Format.cash(paid)}`, paid)
+	end
 	return paid
 end
 

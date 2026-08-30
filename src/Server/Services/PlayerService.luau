@@ -9,14 +9,15 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
+local GameConfig = require(Shared.Config.GameConfig)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local BagService = require(script.Parent.BagService)
+local WorldService = require(script.Parent.WorldService)
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
-local WorldService = require(script.Parent.WorldService)
 
 local PlayerService = {}
 
@@ -140,7 +141,8 @@ end
 -- Selling
 --------------------------------------------------------------------
 
---- True when the player is close enough to a trailer to sell.
+--- True when the player is close enough to the trailer to empty the bag into
+--- it. The radius grows with the Haul line, which is what those levels buy.
 function PlayerService.canDump(player: Player): boolean
 	local run = RunState.find(player)
 	local character = player.Character
@@ -155,12 +157,37 @@ function PlayerService.canDump(player: Player): boolean
 	return offset.X * offset.X + offset.Z * offset.Z <= radius * radius
 end
 
+--[[
+	The pour. While a player stands in trailer range, their bag streams out at
+	a rate that empties any bag in a couple of seconds, and each sip is sent
+	down as a `tally` so the client's gold counter climbs with the stream.
+
+	Nothing is pressed and nothing is held: walking up with a full bag is the
+	whole interaction, and the pause while it pours is the moment the trip was
+	for.
+]]
+local function stepPour(elapsed: number)
+	for _, player in Players:GetPlayers() do
+		if BagService.weight(player) > 0 and PlayerService.canDump(player) then
+			local capacity = math.max(BagService.capacity(player), 1)
+			local sip = capacity / GameConfig.BAG_EMPTY_SECONDS * elapsed
+			local paid = BagService.sellUpTo(player, sip)
+			if paid > 0 then
+				EconomyService.notify(player, "tally", "", paid)
+				PlayerService.pushLive(player)
+			end
+		end
+	end
+end
+
+--- The DUMP remote is only the Empty Bag product's path now; the trailer
+--- pours on its own.
 local function onDump(player: Player)
 	if BagService.weight(player) <= 0 then
 		return
 	end
 	if not PlayerService.canDump(player) then
-		EconomyService.notify(player, "tooFar", "Get closer to the trailer", nil)
+		EconomyService.notify(player, "tooFar", "Empty your bag at the trailer", nil)
 		return
 	end
 	BagService.dump(player)
@@ -223,7 +250,8 @@ function PlayerService.start()
 	-- (owned tools, upgrade levels, unlocked zones) only go out when they change.
 	task.spawn(function()
 		while true do
-			task.wait(1 / PUSH_HZ)
+			local elapsed = task.wait(1 / PUSH_HZ)
+			stepPour(elapsed)
 			for _, player in Players:GetPlayers() do
 				PlayerService.pushLive(player)
 			end
