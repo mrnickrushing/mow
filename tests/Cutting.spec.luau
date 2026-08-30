@@ -5,6 +5,7 @@ local ChunkCodec = require("./.build/Shared/ChunkCodec")
 local Cutting = require("./.build/Shared/Cutting")
 local Debris = require("./.build/Shared/Config/Debris")
 local GameConfig = require("./.build/Shared/Config/GameConfig")
+local Grid = require("./.build/Shared/Grid")
 local Tools = require("./.build/Shared/Config/Tools")
 local h = require("./harness")
 
@@ -12,6 +13,24 @@ local ROOMY = 1e9
 
 local function grassTile(height: number, wet: boolean?): number
 	return ChunkCodec.pack(Debris.Grass, height, wet)
+end
+
+--- A grid with a tile buffer, so targeting can be asked real questions.
+local function lawn(width: number, depth: number): (any, buffer)
+	local grid = Grid.new(width, depth)
+	return grid, buffer.create(Grid.tileCount(grid))
+end
+
+local function put(grid: any, tiles: buffer, tx: number, tz: number, byte: number)
+	buffer.writeu8(tiles, Grid.toIndex(grid, tx, tz) - 1, byte)
+end
+
+local function open(_index: number): boolean
+	return true
+end
+
+local function shut(_index: number): boolean
+	return false
 end
 
 return function()
@@ -171,6 +190,73 @@ return function()
 			local outcome = Cutting.evaluate(sticks, Tools.expect("chainsaw"), 3, 1, true, weightPerLevel)
 			h.expectEqual(outcome.levels, 1, "one level of sticks should just fit")
 			h.expectClose(outcome.weight, weightPerLevel)
+		end)
+	end)
+
+	h.describe("Cutting — what a pickup tool is pointed at", function()
+		local hands = Tools.expect("hands")
+		local rake = Tools.expect("rake")
+
+		h.it("takes the pile under the player when there is one", function()
+			local grid, tiles = lawn(8, 8)
+			put(grid, tiles, 2, 2, ChunkCodec.pack(Debris.Leaves, 2, false))
+			local x, z = Grid.tileToWorld(grid, 2, 2)
+			h.expectEqual(
+				Cutting.pickupTarget(grid, tiles, x, z, 0, 1, hands, open),
+				Grid.toIndex(grid, 2, 2)
+			)
+		end)
+
+		h.it("reaches ahead along the heading", function()
+			local grid, tiles = lawn(8, 8)
+			put(grid, tiles, 2, 4, ChunkCodec.pack(Debris.Leaves, 1, false))
+			local x, z = Grid.tileToWorld(grid, 2, 2)
+			h.expectEqual(
+				Cutting.pickupTarget(grid, tiles, x, z, 0, 1, hands, open),
+				Grid.toIndex(grid, 2, 4),
+				"a pile a tile and a half ahead should be within reach"
+			)
+		end)
+
+		h.it("finds nothing on a clear lawn", function()
+			local grid, tiles = lawn(8, 8)
+			local x, z = Grid.tileToWorld(grid, 2, 2)
+			h.expectEqual(Cutting.pickupTarget(grid, tiles, x, z, 0, 1, hands, open), nil)
+		end)
+
+		h.it("will not target a section whose gate is shut", function()
+			local grid, tiles = lawn(8, 8)
+			put(grid, tiles, 2, 2, ChunkCodec.pack(Debris.Leaves, 3, false))
+			local x, z = Grid.tileToWorld(grid, 2, 2)
+			h.expectEqual(Cutting.pickupTarget(grid, tiles, x, z, 0, 1, hands, shut), nil)
+		end)
+
+		h.it("reaches past debris the tool cannot shift to debris it can", function()
+			-- A rake pointed through a hedge should find the leaves behind it
+			-- rather than locking onto something it will only ever refuse.
+			local grid, tiles = lawn(8, 8)
+			put(grid, tiles, 2, 3, ChunkCodec.pack(Debris.Hedge, 2, false))
+			put(grid, tiles, 2, 4, ChunkCodec.pack(Debris.Leaves, 2, false))
+			local x, z = Grid.tileToWorld(grid, 2, 2)
+			h.expectEqual(
+				Cutting.pickupTarget(grid, tiles, x, z, 0, 1, rake, open),
+				Grid.toIndex(grid, 2, 4)
+			)
+		end)
+
+		h.it("gives bare hands something to take whatever the debris is", function()
+			-- Hands are the one tool that must never come up empty, or a section
+			-- full of debris you cannot afford the tool for is a dead run.
+			for _, debrisId in { Debris.Leaves, Debris.Grass, Debris.Weeds, Debris.Hedge, Debris.Sticks } do
+				local grid, tiles = lawn(8, 8)
+				put(grid, tiles, 2, 2, ChunkCodec.pack(debrisId, GameConfig.MAX_HEIGHT, false))
+				local x, z = Grid.tileToWorld(grid, 2, 2)
+				h.expectEqual(
+					Cutting.pickupTarget(grid, tiles, x, z, 0, 1, hands, open),
+					Grid.toIndex(grid, 2, 2),
+					`hands should be able to target debris {debrisId}`
+				)
+			end
 		end)
 	end)
 

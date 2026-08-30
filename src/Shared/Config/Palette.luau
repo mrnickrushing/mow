@@ -156,6 +156,12 @@ Palette.ui = {
 	panelLight = rgb(62, 46, 32),
 	accent = rgb(252, 176, 46),
 	progress = rgb(255, 232, 224),
+	--- The outline on the pile a pickup tool is pointed at. Deliberately white
+	--- rather than the amber accent: it has to read against leaves in every
+	--- shade the autumn palette runs to, and only white does.
+	target = rgb(255, 255, 255),
+	--- The blue underline on the selected hotbar slot.
+	selected = rgb(92, 178, 255),
 }
 
 --------------------------------------------------------------------

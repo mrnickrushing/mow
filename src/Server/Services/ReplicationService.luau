@@ -6,6 +6,11 @@
 	per tile, and only to clients close enough to see them. A player who walks
 	into a fresh area asks for those chunks explicitly, which keeps the steady
 	stream small without anyone ever seeing stale grass.
+
+	This is a transport and nothing more: it is handed a grid and a tile buffer
+	by whoever generated them and never reaches back for the world itself. That
+	keeps the dependency pointing one way — the thing that builds a world tells
+	the thing that streams it, not the other way about.
 ]]
 
 local Players = game:GetService("Players")
@@ -17,15 +22,53 @@ local ChunkCodec = require(Shared.ChunkCodec)
 local GameConfig = require(Shared.Config.GameConfig)
 local Grid = require(Shared.Grid)
 local Remotes = require(Shared.Remotes)
-local WorldService = require(script.Parent.WorldService)
 
 local ReplicationService = {}
 
+--- What a client is told about the loaded world when it joins or a run starts.
+export type WorldInfo = {
+	propertyId: string,
+	width: number,
+	depth: number,
+	totalUnits: number,
+}
+
 local dirty: { [number]: boolean } = {}
 local dirtyCount = 0
+local grid: Grid.Grid? = nil
+local tiles: buffer? = nil
+local info: WorldInfo? = nil
 local chunkDelta: RemoteEvent
 local requestChunks: RemoteEvent
 local worldInfo: RemoteEvent
+
+--[[
+	Points the replicator at a freshly generated world.
+
+	Called once per load. Any chunks still pending from the previous world are
+	dropped, because their indices mean something different now.
+]]
+function ReplicationService.attach(newGrid: Grid.Grid, newTiles: buffer, newInfo: WorldInfo)
+	table.clear(dirty)
+	dirtyCount = 0
+	grid = newGrid
+	tiles = newTiles
+	info = newInfo
+end
+
+--- Keeps the joiner payload current when the world's totals move — a section
+--- refilling adds debris back, and a client that joins after that should be
+--- told the new total rather than the one the map started with.
+function ReplicationService.setTotalUnits(total: number)
+	local current = info
+	if current then
+		current.totalUnits = total
+	end
+end
+
+function ReplicationService.isAttached(): boolean
+	return grid ~= nil
+end
 
 function ReplicationService.markDirty(chunkIndex: number)
 	if not dirty[chunkIndex] then
@@ -36,9 +79,9 @@ end
 
 --- Marks the chunk containing a tile index.
 function ReplicationService.markTileDirty(tileIndex: number)
-	local grid = WorldService.grid
-	if grid then
-		ReplicationService.markDirty(Grid.chunkOfTileIndex(grid, tileIndex))
+	local theGrid = grid
+	if theGrid then
+		ReplicationService.markDirty(Grid.chunkOfTileIndex(theGrid, tileIndex))
 	end
 end
 
@@ -53,40 +96,39 @@ end
 
 --- Sends the given chunks in full to one player, split to fit the remote cap.
 function ReplicationService.sendChunks(player: Player, chunkIndices: { number })
-	local grid = WorldService.grid
-	local tiles = WorldService.tiles
-	if not grid or not tiles or #chunkIndices == 0 then
+	local theGrid = grid
+	local theTiles = tiles
+	if not theGrid or not theTiles or #chunkIndices == 0 then
 		return
 	end
 
-	local perPacket = ChunkCodec.maxChunksPerPacket(grid)
+	local perPacket = ChunkCodec.maxChunksPerPacket(theGrid)
 	local batch = table.create(math.min(perPacket, #chunkIndices))
 
 	for _, chunkIndex in chunkIndices do
 		table.insert(batch, chunkIndex)
 		if #batch >= perPacket then
-			chunkDelta:FireClient(player, ChunkCodec.encode(grid, tiles, batch))
+			chunkDelta:FireClient(player, ChunkCodec.encode(theGrid, theTiles, batch))
 			table.clear(batch)
 		end
 	end
 
 	if #batch > 0 then
-		chunkDelta:FireClient(player, ChunkCodec.encode(grid, tiles, batch))
+		chunkDelta:FireClient(player, ChunkCodec.encode(theGrid, theTiles, batch))
 	end
 end
 
 --- Tells a player which property is loaded and how big its grid is.
 function ReplicationService.sendWorldInfo(player: Player)
-	local grid = WorldService.grid
-	local property = WorldService.world
-	if not grid or not property then
+	local current = info
+	if not current then
 		return
 	end
 	worldInfo:FireClient(player, {
-		propertyId = property.id,
-		width = grid.width,
-		depth = grid.depth,
-		totalUnits = WorldService.totalUnits,
+		propertyId = current.propertyId,
+		width = current.width,
+		depth = current.depth,
+		totalUnits = current.totalUnits,
 	})
 end
 
@@ -101,9 +143,9 @@ local function flush()
 		return
 	end
 
-	local grid = WorldService.grid
-	local tiles = WorldService.tiles
-	if not grid or not tiles then
+	local theGrid = grid
+	local theTiles = tiles
+	if not theGrid or not theTiles then
 		table.clear(dirty)
 		dirtyCount = 0
 		return
@@ -119,12 +161,12 @@ local function flush()
 	-- Precompute chunk centres once, then test each player against them.
 	local centres = table.create(#indices)
 	for i, chunkIndex in indices do
-		local cx, cz = Grid.chunkFromIndex(grid, chunkIndex)
-		local x, z = Grid.chunkCentre(grid, cx, cz)
+		local cx, cz = Grid.chunkFromIndex(theGrid, chunkIndex)
+		local x, z = Grid.chunkCentre(theGrid, cx, cz)
 		centres[i] = Vector2.new(x, z)
 	end
 
-	local perPacket = ChunkCodec.maxChunksPerPacket(grid)
+	local perPacket = ChunkCodec.maxChunksPerPacket(theGrid)
 	local radiusSq = GameConfig.REPLICATION_RADIUS * GameConfig.REPLICATION_RADIUS
 
 	for _, player in Players:GetPlayers() do
@@ -138,13 +180,13 @@ local function flush()
 				if offset.X * offset.X + offset.Y * offset.Y <= radiusSq then
 					table.insert(batch, chunkIndex)
 					if #batch >= perPacket then
-						chunkDelta:FireClient(player, ChunkCodec.encode(grid, tiles, batch))
+						chunkDelta:FireClient(player, ChunkCodec.encode(theGrid, theTiles, batch))
 						batch = {}
 					end
 				end
 			end
 			if #batch > 0 then
-				chunkDelta:FireClient(player, ChunkCodec.encode(grid, tiles, batch))
+				chunkDelta:FireClient(player, ChunkCodec.encode(theGrid, theTiles, batch))
 			end
 		end
 	end
@@ -161,13 +203,13 @@ function ReplicationService.start()
 		if type(payload) ~= "table" then
 			return
 		end
-		local grid = WorldService.grid
-		if not grid then
+		local theGrid = grid
+		if not theGrid then
 			return
 		end
 
 		local wanted = {}
-		local chunkCount = Grid.chunkCount(grid)
+		local chunkCount = Grid.chunkCount(theGrid)
 		for _, value in payload :: { any } do
 			if type(value) == "number" and value >= 1 and value <= chunkCount and value % 1 == 0 then
 				table.insert(wanted, value)
@@ -180,9 +222,7 @@ function ReplicationService.start()
 	end)
 
 	Players.PlayerAdded:Connect(function(player)
-		if WorldService.isLoaded() then
-			ReplicationService.sendWorldInfo(player)
-		end
+		ReplicationService.sendWorldInfo(player)
 	end)
 
 	local accumulator = 0

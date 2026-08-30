@@ -116,11 +116,22 @@ export type ToolCategory =
 	| "Grinder"
 	| "Chipper"
 
+--[[
+	How a tool is used.
+
+	`pickup` targets one thing at a time — you look at a leaf, it lights up, you
+	take it. `swath` sweeps everything in a rectangle ahead of you. The first is
+	what bare hands and a rake do; the second is what a mower or a blower does,
+	and the jump between them is most of what buying a blower feels like.
+]]
+export type ToolMode = "pickup" | "swath"
+
 export type ToolDef = {
 	id: string,
 	name: string,
 	tier: number,
 	category: ToolCategory,
+	mode: ToolMode?,
 	cost: number,
 	currency: "Cash" | "Tips",
 	--- Swath width in tiles.
@@ -139,7 +150,15 @@ export type ToolDef = {
 	fuelBurn: number,
 	--- Set for rideable tools.
 	vehicle: VehicleStats?,
+	--- Held rather than tapped: the blower runs until you switch it off.
+	toggle: boolean?,
 	description: string,
+	--- Robux to rent the tool for the current run only.
+	robuxOnce: number?,
+	--- Robux to keep it across every future run.
+	robuxPermanent: number?,
+	--- Struck-through "was" price shown beside the permanent option.
+	robuxWas: number?,
 }
 
 export type VehicleStats = {

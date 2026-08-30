@@ -40,8 +40,6 @@ local phase: Phase = "lobby"
 local worldId = Worlds.STARTER_ID
 local endsAt = 0
 local startedAt = 0
---- Section ids whose gate is open for this run.
-local openSections: { [string]: boolean } = {}
 --- Waves already cleared, per section.
 local wavesCleared: { [string]: number } = {}
 --- Waves needed, fixed when the run starts so a late joiner cannot inflate it.
@@ -60,10 +58,6 @@ local LOBBY_SECONDS = 20
 
 function RunService.phase(): Phase
 	return phase
-end
-
-function RunService.isSectionOpen(sectionId: string): boolean
-	return openSections[sectionId] == true
 end
 
 function RunService.secondsLeft(): number
@@ -94,7 +88,7 @@ local function sectionSnapshot(): { any }
 		table.insert(out, {
 			id = section.id,
 			name = section.name,
-			open = openSections[section.id] == true,
+			open = WorldService.isSectionOpen(section.id),
 			optional = section.optional == true,
 			wave = wavesCleared[section.id] or 0,
 			waves = wavesNeeded[section.id] or 1,
@@ -125,10 +119,10 @@ RunService.broadcast = broadcast
 --------------------------------------------------------------------
 
 local function openSection(sectionId: string, announce: boolean)
-	if openSections[sectionId] then
+	if WorldService.isSectionOpen(sectionId) then
 		return
 	end
-	openSections[sectionId] = true
+	WorldService.setSectionOpen(sectionId, true)
 
 	local world = WorldService.world
 	local section = if world then Worlds.section(world, sectionId) else nil
@@ -229,7 +223,7 @@ local function beginRun(id: string)
 	WorldService.load(id)
 	ReplicationService.broadcastWorldInfo()
 
-	table.clear(openSections)
+	WorldService.closeAllSections()
 	table.clear(wavesCleared)
 	table.clear(wavesNeeded)
 	exitOpen = false
@@ -327,6 +321,8 @@ function RunService.start()
 
 	-- Contribution drives the end-of-run split; it is counted from the cut
 	-- signal so no other service has to know a run is being scored.
+	WorldService.ExitReached:Connect(RunService.reachExit)
+
 	TileService.Cut:Connect(function(player: Player, _index: number, _debrisId: number, levels: number)
 		local run = RunState.find(player)
 		if run then
@@ -347,7 +343,7 @@ function RunService.start()
 				-- cut signal alone.
 				for _, section in world.sections do
 					if
-						openSections[section.id]
+						WorldService.isSectionOpen(section.id)
 						and (wavesCleared[section.id] or 0) < (wavesNeeded[section.id] or 1)
 						and isSectionClear(section.id)
 					then

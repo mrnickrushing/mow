@@ -18,7 +18,6 @@ local Grid = require(Shared.Grid)
 local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
 local ReplicationService = require(script.Parent.ReplicationService)
-local RunService = require(script.Parent.RunService)
 local WorldService = require(script.Parent.WorldService)
 
 local SweepService = {}
@@ -51,7 +50,7 @@ function SweepService.sweep(player: Player, fraction: number): number
 	end
 
 	local sectionId = WorldService.sectionIdAt(Grid.toIndex(grid, tx, tz))
-	if sectionId == "" or not RunService.isSectionOpen(sectionId) then
+	if sectionId == "" or not WorldService.isSectionOpen(sectionId) then
 		EconomyService.notify(player, "denied", "Stand somewhere the gate is open", nil)
 		return 0
 	end

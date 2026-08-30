@@ -69,8 +69,39 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 	local space = math.max(state.bagCapacity - state.bagWeight, 0)
 	local yieldMultiplier = Balance.yieldMultiplier(state.upgrades)
 
-	local indices =
-		Grid.rasterizeSwath(grid, root.Position.X, root.Position.Z, look.X, look.Z, tool.deck, tool.reach, predictScratch)
+	-- Same branch the server takes: one tile for a pickup tool, a rectangle for
+	-- a swath one. Predicting the wrong shape would flash the wrong grass away.
+	local indices: { number }
+	if tool.mode == "pickup" then
+		table.clear(predictScratch)
+		local target = Cutting.pickupTarget(
+			grid,
+			tiles,
+			root.Position.X,
+			root.Position.Z,
+			look.X,
+			look.Z,
+			tool,
+			function(index)
+				return PlayerState.isSectionOpen(PlayerState.sectionIdAt(index))
+			end
+		)
+		if target then
+			predictScratch[1] = target
+		end
+		indices = predictScratch
+	else
+		indices = Grid.rasterizeSwath(
+			grid,
+			root.Position.X,
+			root.Position.Z,
+			look.X,
+			look.Z,
+			tool.deck,
+			tool.reach,
+			predictScratch
+		)
+	end
 
 	for _, index in indices do
 		local byte = buffer.readu8(tiles, index - 1)

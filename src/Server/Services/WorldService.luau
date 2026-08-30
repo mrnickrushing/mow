@@ -51,6 +51,17 @@ local loadedSignal = Instance.new("BindableEvent")
 --- Fires with the world definition once a new world is ready.
 WorldService.Loaded = loadedSignal.Event
 
+local exitSignal = Instance.new("BindableEvent")
+--- Fires with the player who used the way out. The world builds the grate and
+--- knows when it is touched; deciding what leaving *means* belongs to the run,
+--- so it listens rather than the world calling into it.
+WorldService.ExitReached = exitSignal.Event
+
+--- Sections whose gate is open for this run. Open-ness is a property of the
+--- run, but it is asked about on the hot cutting path once per tile, so it
+--- lives beside the tiles rather than a service call away.
+local openSections: { [string]: boolean } = {}
+
 local container: Folder? = nil
 local rng = Random.new()
 
@@ -853,8 +864,7 @@ function WorldService.openExit()
 	local prompt = Build.prompt(grate, "Leave", "Way Out", 14)
 	prompt.HoldDuration = 0.6
 	prompt.Triggered:Connect(function(player: Player)
-		local RunServiceModule = require(script.Parent.RunService)
-		RunServiceModule.reachExit(player)
+		exitSignal:Fire(player)
 	end)
 end
 
@@ -882,8 +892,19 @@ function WorldService.load(worldId: string)
 	WorldService.grid = grid
 	WorldService.tiles = tiles
 	WorldService.world = world
+	table.clear(openSections)
 
 	seedTiles(world, grid, tiles)
+
+	-- The replicator is handed the buffer it is to stream, rather than reaching
+	-- back here for it. Done after seeding so the totals it reports to joiners
+	-- are the finished ones.
+	ReplicationService.attach(grid, tiles, {
+		propertyId = world.id,
+		width = grid.width,
+		depth = grid.depth,
+		totalUnits = WorldService.totalUnits,
+	})
 	buildGround(world, grid, parent)
 	buildHouse(world, parent)
 	WorldService.shedPart = buildShed(world, parent)
@@ -960,6 +981,30 @@ function WorldService.isLoaded(): boolean
 	return WorldService.grid ~= nil
 end
 
+--------------------------------------------------------------------
+-- Section gates
+--------------------------------------------------------------------
+
+--- True when this run has opened `sectionId`'s gate. Ground belonging to no
+--- section — paths, the street, the shed apron — is never open, because there
+--- is nothing there to clear.
+function WorldService.isSectionOpen(sectionId: string): boolean
+	return openSections[sectionId] == true
+end
+
+function WorldService.setSectionOpen(sectionId: string, open: boolean)
+	if open then
+		openSections[sectionId] = true
+	else
+		openSections[sectionId] = nil
+	end
+end
+
+--- Shuts every gate, for the start of a fresh run.
+function WorldService.closeAllSections()
+	table.clear(openSections)
+end
+
 --- Fraction of the world's debris that has been cleared, 0..1.
 function WorldService.completion(): number
 	if WorldService.totalUnits <= 0 then
@@ -977,6 +1022,7 @@ end
 function WorldService.registerExtraUnits(sectionId: string, units: number)
 	WorldService.totalUnits += units
 	WorldService.remainingUnits += units
+	ReplicationService.setTotalUnits(WorldService.totalUnits)
 	local section = WorldService.sections[sectionId]
 	if section then
 		section.totalUnits += units
@@ -1043,6 +1089,7 @@ function WorldService.refillSection(sectionId: string)
 	state.remainingUnits = fresh
 	WorldService.totalUnits += fresh - before
 	WorldService.remainingUnits += fresh - before
+	ReplicationService.setTotalUnits(WorldService.totalUnits)
 
 	for chunkIndex in dirty do
 		ReplicationService.markDirty(chunkIndex)

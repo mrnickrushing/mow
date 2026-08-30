@@ -189,6 +189,64 @@ return function()
 		end)
 	end)
 
+	h.describe("Grid — targeting ahead", function()
+		h.it("finds the nearest acceptable tile along the heading", function()
+			local grid = Grid.new(20, 20)
+			local wx, wz = Grid.tileToWorld(grid, 5, 5)
+			local wanted = Grid.toIndex(grid, 5, 8)
+
+			local found = Grid.targetAhead(grid, wx, wz, 0, 1, TILE * 6, function(index)
+				return index == wanted
+			end)
+			h.expectEqual(found, wanted)
+		end)
+
+		h.it("prefers the closer of two candidates", function()
+			local grid = Grid.new(20, 20)
+			local wx, wz = Grid.tileToWorld(grid, 5, 5)
+			local near = Grid.toIndex(grid, 5, 6)
+			local far = Grid.toIndex(grid, 5, 9)
+
+			local found = Grid.targetAhead(grid, wx, wz, 0, 1, TILE * 8, function(index)
+				return index == near or index == far
+			end)
+			h.expectEqual(found, near, "should take the nearer leaf")
+		end)
+
+		h.it("falls back to the tile underfoot", function()
+			-- Standing in a drift should not mean stepping back to reach it.
+			local grid = Grid.new(20, 20)
+			local wx, wz = Grid.tileToWorld(grid, 7, 7)
+			local underfoot = Grid.toIndex(grid, 7, 7)
+
+			local found = Grid.targetAhead(grid, wx, wz, 0, 1, TILE * 3, function(index)
+				return index == underfoot
+			end)
+			h.expectEqual(found, underfoot)
+		end)
+
+		h.it("returns nothing when there is nothing to take", function()
+			local grid = Grid.new(20, 20)
+			local wx, wz = Grid.tileToWorld(grid, 5, 5)
+			local found = Grid.targetAhead(grid, wx, wz, 0, 1, TILE * 5, function()
+				return false
+			end)
+			h.expectTrue(found == nil)
+		end)
+
+		h.it("never targets outside the grid", function()
+			local grid = Grid.new(10, 10)
+			local wx, wz = Grid.tileToWorld(grid, 9, 9)
+			local found = Grid.targetAhead(grid, wx, wz, 1, 1, TILE * 8, function()
+				return true
+			end)
+			if found then
+				local tx, tz = Grid.fromIndex(grid, found)
+				h.expectTrue(Grid.inBounds(grid, tx, tz), "target escaped the grid")
+			end
+		end)
+	end)
+
 	h.describe("Grid — rectangles", function()
 		h.it("lists exactly the tiles inside a rect", function()
 			local grid = Grid.new(20, 20)
