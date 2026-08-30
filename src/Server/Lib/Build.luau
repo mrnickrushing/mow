@@ -204,7 +204,12 @@ function Build.sidingWall(
 	for index = 0, boards - 1 do
 		local y = centre.Y - size.Y * 0.5 + boardHeight * (index + 0.5)
 		local shade = if index % 2 == 0 then Palette.house.siding else Palette.house.sidingShade
-		Build.part({
+		-- The lap course is a siding model rather than a painted slab. It is
+		-- stretched along the wall rather than tiled, which costs one part
+		-- instead of sixty and keeps the lap lines horizontal, because that is
+		-- the direction they run in.
+		Build.mesh({
+			prop = "Siding",
 			name = "Board",
 			size = Vector3.new(
 				math.abs(along.X) * width + math.abs(facing.X) * thickness,
@@ -213,7 +218,6 @@ function Build.sidingWall(
 			),
 			cframe = CFrame.new(Vector3.new(centre.X, y, centre.Z)),
 			color = Palette.color(shade),
-			material = Enum.Material.WoodPlanks,
 			parent = folder,
 		})
 	end

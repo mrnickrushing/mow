@@ -28,6 +28,7 @@ local DebrisConfig = require(Shared.Config.Debris)
 local GameConfig = require(Shared.Config.GameConfig)
 local Grid = require(Shared.Grid)
 local Palette = require(Shared.Config.Palette)
+local Props = require(Shared.Config.Props)
 local Worlds = require(Shared.Config.Worlds)
 local Remotes = require(Shared.Remotes)
 
@@ -109,6 +110,21 @@ local function newPart(leaf: boolean): Part
 		local mesh = Instance.new("SpecialMesh")
 		mesh.MeshType = Enum.MeshType.Sphere
 		mesh.Name = "Blade"
+		mesh.Parent = part
+	else
+		--[[
+			A tile of grass is a clump of grass, not a cube of it.
+
+			Every uncut tile used to be one four-by-four box as tall as the
+			grass on it, which is why a property read as a chequerboard of
+			coloured squares from any distance — hundreds of them, edge to
+			edge, over the whole lawn. It is the same one part per tile as
+			before, so the budget and the pooling are unchanged; the part just
+			carries a model of a clump instead of being a box.
+		]]
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.FileMesh
+		mesh.Name = "Clump"
 		mesh.Parent = part
 	end
 
@@ -283,6 +299,17 @@ end
 
 --- Grass, weeds and hedges keep the block form, because their height falling is
 --- what makes a mower upgrade legible.
+--- Which clump model stands in for each kind of debris.
+local CLUMP_FOR: { [number]: Props.Prop } = {
+	[DebrisConfig.Grass] = Props.catalogue.GrassTuft,
+	[DebrisConfig.Weeds] = Props.catalogue.Weeds,
+	[DebrisConfig.Hedge] = Props.catalogue.Bush,
+	[DebrisConfig.Sticks] = Props.catalogue.Twigs,
+}
+
+--- A few yaws to spread the clumps around, so a lawn is not a stamped grid.
+local TILE_YAW = { 0, 37, 74, 111, 148, 185, 222, 259, 296, 333 }
+
 local function drawBlock(index: number, wx: number, wz: number, floor: number, height: number, debrisId: number, locked: boolean)
 	local parts = slots(index, 1, false)
 	local part = parts[1]
@@ -294,6 +321,28 @@ local function drawBlock(index: number, wx: number, wz: number, floor: number, h
 	part.Color = if locked then desaturate(color) else color
 	part.Material = if debrisId == DebrisConfig.Sticks then Enum.Material.Wood else Enum.Material.Grass
 	part.Transparency = 0
+
+	-- The clump that stands in for this tile, sized to the grass actually on
+	-- it, and turned a different way per tile so a mown row is not a row of
+	-- identical models.
+	local clump = part:FindFirstChild("Clump")
+	if clump and clump:IsA("SpecialMesh") then
+		local def = CLUMP_FOR[debrisId] or CLUMP_FOR[DebrisConfig.Grass]
+		if def then
+			if clump.MeshId ~= def.mesh then
+				clump.MeshId = def.mesh
+				clump.TextureId = def.texture or ""
+			end
+			clump.Scale = Vector3.new(
+				TILE / def.native.X,
+				studs / def.native.Y,
+				TILE / def.native.Z
+			)
+			clump.Offset = Vector3.zero
+		end
+	end
+	part.Orientation = Vector3.new(0, TILE_YAW[(index % #TILE_YAW) + 1], 0)
+
 	part.Parent = detailFolder
 end
 
