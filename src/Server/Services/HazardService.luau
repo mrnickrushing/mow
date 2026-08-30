@@ -23,6 +23,7 @@ local Build = require(script.Parent.Parent.Lib.Build)
 local EconomyService = require(script.Parent.EconomyService)
 local ReplicationService = require(script.Parent.ReplicationService)
 local WorldService = require(script.Parent.WorldService)
+local PlayerService = require(script.Parent.PlayerService)
 
 local HazardService = {}
 
@@ -32,6 +33,9 @@ local SPRINKLER_PERIOD = 42
 local SPRINKLER_RADIUS = 7
 --- Seconds a wasp sting slows the player.
 local STING_SECONDS = 3
+
+--- Players still shaking off a sting, mapped to when it wears off.
+local stung: { [Player]: number } = {}
 --- Fraction of the bag the dog makes off with.
 local DOG_THEFT = 0.15
 
@@ -69,12 +73,12 @@ end
 
 local function makeSprinkler(tx: number, tz: number, parent: Instance)
 	local at = WorldService.tilePointToWorld(tx, tz)
-	local head = Build.part({
+	local head = Build.mesh({
+		prop = "Sprinkler",
 		name = "Sprinkler",
-		size = Vector3.new(1.2, 1.6, 1.2),
-		cframe = CFrame.new(at + Vector3.new(0, 0.8, 0)),
-		color = Color3.fromRGB(78, 96, 108),
-		material = Enum.Material.Metal,
+		size = Vector3.new(2.2, 2.2, 2.2),
+		collisionSize = Vector3.new(1.2, 1.6, 1.2),
+		cframe = CFrame.new(at + Vector3.new(0, 1.1, 0)),
 		canCollide = false,
 		parent = parent,
 	})
@@ -115,12 +119,12 @@ end
 
 local function makeWaspNest(tx: number, tz: number, parent: Instance)
 	local at = WorldService.tilePointToWorld(tx, tz)
-	local nest = Build.part({
+	local nest = Build.mesh({
+		prop = "WaspNest",
 		name = "WaspNest",
-		size = Vector3.new(3, 3.6, 3),
+		size = Vector3.new(3, 3.9, 3),
+		collisionSize = Vector3.new(3, 3.6, 3),
 		cframe = CFrame.new(at + Vector3.new(0, 9, 0)),
-		color = Color3.fromRGB(168, 142, 96),
-		material = Enum.Material.Sand,
 		canCollide = false,
 		parent = parent,
 	})
@@ -133,18 +137,24 @@ local function makeWaspNest(tx: number, tz: number, parent: Instance)
 		end
 		nest:Destroy()
 
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if humanoid then
-			local original = humanoid.WalkSpeed
-			humanoid.WalkSpeed = original * 0.45
-			EconomyService.notify(player, "stall", "Stung! Shake it off", nil)
-			task.delay(STING_SECONDS, function()
-				if humanoid.Parent then
-					humanoid.WalkSpeed = original
+		-- The sting is a modifier rather than a value written straight onto the
+		-- humanoid. Writing it directly meant anything that recomputed walk
+		-- speed while you were stung — buying a Stride level was the easy one —
+		-- cancelled the penalty, and worse, the delayed restore then put back a
+		-- speed from before the upgrade and left it wrong for the rest of the
+		-- run.
+		stung[player] = os.clock() + STING_SECONDS
+		PlayerService.applyCharacterStats(player)
+		EconomyService.notify(player, "stall", "Stung! Shake it off", nil)
+		task.delay(STING_SECONDS, function()
+			local until_ = stung[player]
+			if until_ and os.clock() >= until_ - 0.05 then
+				stung[player] = nil
+				if player.Parent then
+					PlayerService.applyCharacterStats(player)
 				end
-			end)
-		end
+			end
+		end)
 
 		-- Worth doing anyway: a cleared nest pays a tip.
 		EconomyService.awardTips(player, 1)
@@ -157,12 +167,12 @@ end
 
 local function makeDog(tx: number, tz: number, parent: Instance)
 	local at = WorldService.tilePointToWorld(tx, tz)
-	local dog = Build.part({
+	local dog = Build.mesh({
+		prop = "Dog",
 		name = "Dog",
-		size = Vector3.new(2.4, 2.4, 4.5),
-		cframe = CFrame.new(at + Vector3.new(0, 1.2, 0)),
-		color = Color3.fromRGB(146, 108, 66),
-		material = Enum.Material.Fabric,
+		size = Vector3.new(2.4, 3.4, 4.5),
+		collisionSize = Vector3.new(2.4, 2.4, 4.5),
+		cframe = CFrame.new(at + Vector3.new(0, 1.7, 0)),
 		canCollide = false,
 		parent = parent,
 	})
@@ -270,6 +280,14 @@ function HazardService.generate(world: Types.WorldDef)
 end
 
 function HazardService.start()
+	EconomyService.addModifierSource(function(player: Player)
+		return { stung = stung[player] ~= nil }
+	end)
+
+	Players.PlayerRemoving:Connect(function(player)
+		stung[player] = nil
+	end)
+
 	WorldService.Loaded:Connect(HazardService.generate)
 
 	local world = WorldService.world

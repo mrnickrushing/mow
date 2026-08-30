@@ -34,6 +34,8 @@ export type Modifiers = {
 	--- Additive bonus from sections the run has finished: 0.3 per section by
 	--- default, so three cleared sections read as "+90%".
 	sectionBoost: number?,
+	--- True while a wasp sting is wearing off.
+	stung: boolean?,
 }
 
 local EMPTY_MODIFIERS: Modifiers = {}
@@ -72,6 +74,14 @@ function Balance.walkSpeed(levels: UpgradeLevels, mods: Modifiers?): number
 	local speed = valueOf(levels, "walk")
 	if m.fastFeet then
 		speed *= 1.3
+	end
+	-- A sting belongs here rather than being written straight onto the humanoid,
+	-- so that anything which recomputes walk speed — buying a Stride level, a
+	-- pass changing, respawning — keeps the penalty instead of cancelling it,
+	-- and so the sting wearing off cannot restore a speed that has since gone
+	-- stale.
+	if m.stung then
+		speed *= GameConfig.STING_WALK_PENALTY
 	end
 	return speed
 end

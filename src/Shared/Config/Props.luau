@@ -1,0 +1,76 @@
+--!strict
+--[[
+	Props — the mesh catalogue the world is built from.
+
+	Every prop in the game used to be a rectangle: bins were boxes, hedges were
+	boxes, the dog was a box, and a tree was a brown box under a green one. This
+	is the list of real models that replaced them.
+
+	Each entry is a mesh asset and the size that mesh is when Roblox imports it.
+	That native size matters: a `SpecialMesh` renders at its own size times its
+	`Scale` and pays no attention to the part it hangs on, so the only way to
+	ask for "a bin four studs wide" is to divide the size you want by the size
+	the mesh already is. `Build.mesh` does that division; everything else just
+	names a prop and a size.
+
+	Meshes rather than whole models on purpose. A model would have to be loaded
+	through `InsertService` at run time, which needs the place published and the
+	assets owned by whoever runs it — it fails outright in an unpublished Studio
+	session. A mesh id is content, like an image: it renders anywhere, costs one
+	part, and survives `rojo build` because it lives in this file rather than in
+	a binary the project would have to carry.
+]]
+
+local Props = {}
+
+export type Prop = {
+	mesh: string,
+	texture: string?,
+	--- The size Roblox gives this mesh on import, before any scaling.
+	native: Vector3,
+	--- Tint applied to the part under the mesh. Untextured meshes need it.
+	color: Color3?,
+}
+
+local function prop(mesh: string, texture: string?, x: number, y: number, z: number, color: Color3?): Prop
+	return { mesh = mesh, texture = texture, native = Vector3.new(x, y, z), color = color }
+end
+
+local catalogue: { [string]: Prop } = {
+	-- Yard clutter, the things debris hides against.
+	Bin = prop("rbxassetid://111382182448892", "rbxassetid://122437876857070", 3.634, 6.000, 3.418),
+	Crate = prop("rbxassetid://136480727286301", "rbxassetid://118895997883552", 5.000, 3.040, 4.043),
+	Planter = prop("rbxassetid://132421447542728", "rbxassetid://78012514749472", 2.619, 4.000, 2.644),
+	Chair = prop("rbxassetid://106467236413072", "rbxassetid://133666995767237", 3.446, 4.500, 3.576),
+	Barrel = prop("rbxassetid://83356930625729", "rbxassetid://104527617496431", 4.000, 4.236, 3.980),
+	Rock = prop("rbxassetid://132924624861328", "rbxassetid://89076492492334", 1.447, 4.000, 1.451),
+
+	-- Planting.
+	Bush = prop("rbxassetid://72280757885260", "rbxassetid://140562129266244", 3.736, 8.000, 3.700),
+	Hedge = prop("rbxassetid://72280757885260", "rbxassetid://140562129266244", 3.736, 8.000, 3.700),
+	Tree = prop("rbxassetid://131361580865388", "rbxassetid://92687150630349", 15.156, 22.768, 16.000),
+	Stump = prop("rbxassetid://132967367565646", "rbxassetid://88604401051093", 1.683, 2.500, 1.560),
+	Log = prop("rbxassetid://135854002039541", "rbxassetid://136724661905485", 2.500, 0.985, 1.650),
+	LeafPile = prop("rbxassetid://130494819737391", "rbxassetid://97469677584763", 4.596, 2.000, 4.592),
+
+	-- Structures.
+	Fence = prop("rbxassetid://109120828950770", "rbxassetid://99346791051845", 5.272, 3.059, 0.600),
+	Shed = prop("rbxassetid://136505549556407", "rbxassetid://130296685263073", 15.868, 18.000, 15.692),
+	Trailer = prop("rbxassetid://72699501903410", "rbxassetid://119991357734404", 7.030, 5.706, 12.000),
+
+	-- Things that move or matter.
+	RidingMower = prop("rbxassetid://89706697093178", "rbxassetid://120136128501167", 5.476, 6.000, 9.364),
+	Dog = prop("rbxassetid://74175582988973", "rbxassetid://77296052752514", 1.527, 4.000, 3.141),
+	Sprinkler = prop("rbxassetid://133265868962502", "rbxassetid://140459804380273", 1.568, 2.000, 1.575),
+	WaspNest = prop("rbxassetid://109192227690970", "rbxassetid://91421064853539", 2.784, 4.000, 2.774),
+	GoldenBlade = prop("rbxassetid://76860455179857", "rbxassetid://118765026020204", 0.993, 1.974, 1.000),
+}
+
+Props.catalogue = catalogue
+
+--- The prop by name, or nil when nothing in the catalogue answers to it.
+function Props.get(name: string): Prop?
+	return catalogue[name]
+end
+
+return Props

@@ -25,9 +25,12 @@ local Remotes = require(Shared.Remotes)
 
 local ReplicationService = {}
 
+--- Shortest gap between two answers to the same client asking for the world.
+local WORLD_INFO_ASK_INTERVAL = 0.5
+
 --- What a client is told about the loaded world when it joins or a run starts.
 export type WorldInfo = {
-	propertyId: string,
+	worldId: string,
 	width: number,
 	depth: number,
 	totalUnits: number,
@@ -125,7 +128,7 @@ function ReplicationService.sendWorldInfo(player: Player)
 		return
 	end
 	worldInfo:FireClient(player, {
-		propertyId = current.propertyId,
+		worldId = current.worldId,
 		width = current.width,
 		depth = current.depth,
 		totalUnits = current.totalUnits,
@@ -223,6 +226,32 @@ function ReplicationService.start()
 
 	Players.PlayerAdded:Connect(function(player)
 		ReplicationService.sendWorldInfo(player)
+	end)
+
+	--[[
+		A client asking which world it is standing in.
+
+		The send used to be one-shot — once when you joined and once when a run
+		began — so a client whose handler connected a moment after either, which
+		in a Studio solo test is every time, never learned the world at all.
+		Nothing said so: chunks still arrived and grass still cut, but the
+		client could not name the section under its feet, so it predicted no
+		cuts, showed no gain numbers, drew no missed-spot beacons and left
+		locked ground looking open. Letting the client ask, and keep asking
+		until it has an answer, closes that for good.
+	]]
+	local lastAsked: { [Player]: number } = {}
+	worldInfo.OnServerEvent:Connect(function(player)
+		local now = os.clock()
+		if now - (lastAsked[player] or -math.huge) < WORLD_INFO_ASK_INTERVAL then
+			return
+		end
+		lastAsked[player] = now
+		ReplicationService.sendWorldInfo(player)
+	end)
+
+	Players.PlayerRemoving:Connect(function(player)
+		lastAsked[player] = nil
 	end)
 
 	local accumulator = 0

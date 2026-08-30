@@ -9,6 +9,7 @@
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
@@ -33,8 +34,58 @@ function VehicleController.hasVehicleEquipped(): boolean
 	return tool ~= nil and tool.vehicle ~= nil
 end
 
+--- The seat the local player is riding, if it is a vehicle seat.
+local function ridingSeat(): VehicleSeat?
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local seat = humanoid and humanoid.SeatPart
+	if seat and seat:IsA("VehicleSeat") then
+		return seat
+	end
+	return nil
+end
+
+--[[
+	Turns the seat's throttle into actual movement.
+
+	A `VehicleSeat` only drives parts joined to it through a motor, and these
+	mowers are welded to it — so the seat gathered the rider's input into
+	`Throttle` and `Steer` and nothing whatsoever consumed it. Every rideable
+	mower in the game sat dead still, which made the three most expensive tools
+	on the ladder props you could sit on, and a bought one strictly worse than
+	bare hands: an equipped vehicle you are not riding cuts nothing at all.
+
+	Driving the assembly directly is the smallest fix that keeps the arcade
+	feel the deck widths are designed around. The seat is network-owned by
+	whoever is sitting on it, so this runs on their own client and the mower
+	still collides with fences, walls and the house like any other object.
+]]
+local function drive()
+	local seat = ridingSeat()
+	if not seat then
+		return
+	end
+
+	local look = seat.CFrame.LookVector
+	local flat = Vector3.new(look.X, 0, look.Z)
+	if flat.Magnitude < 1e-3 then
+		return
+	end
+
+	-- Vertical velocity is left alone, so gravity, kerbs and the drop off the
+	-- end of a rooftop all still behave.
+	local current = seat.AssemblyLinearVelocity
+	local wanted = flat.Unit * (seat.ThrottleFloat * seat.MaxSpeed)
+	seat.AssemblyLinearVelocity = Vector3.new(wanted.X, current.Y, wanted.Z)
+
+	-- Steer is +1 to the right, and a right turn is clockwise seen from above.
+	seat.AssemblyAngularVelocity = Vector3.new(0, -seat.SteerFloat * seat.TurnSpeed, 0)
+end
+
 function VehicleController.start()
 	remote = Remotes.event(Remotes.VEHICLE)
+
+	RunService.Heartbeat:Connect(drive)
 
 	ContextActionService:BindAction(ACTION_NAME, function(_, inputState)
 		if inputState ~= Enum.UserInputState.Begin then

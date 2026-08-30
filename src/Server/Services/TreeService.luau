@@ -70,12 +70,12 @@ local onGrind: (Player, BasePart) -> ()
 --------------------------------------------------------------------
 
 local function makeStump(position: Vector3, sectionId: string, parent: Instance): BasePart
-	local part = Build.part({
+	local part = Build.mesh({
+		prop = "Stump",
 		name = "Stump",
-		size = Vector3.new(4.5, 2.2, 4.5),
+		size = Vector3.new(5, 2.4, 4.6),
+		collisionSize = Vector3.new(4.5, 2.2, 4.5),
 		cframe = CFrame.new(position + Vector3.new(0, 1.1, 0)),
-		color = Palette.color(Palette.tree.trunk),
-		material = Enum.Material.Wood,
 		parent = parent,
 	})
 
@@ -95,25 +95,23 @@ local function makeTree(position: Vector3, sectionId: string, parent: Instance)
 	local model = Instance.new("Model")
 	model.Name = "Tree"
 
-	local height = rng:NextNumber(20, 30)
-	local trunk = Build.part({
-		name = "Trunk",
-		size = Vector3.new(3.4, height, 3.4),
-		cframe = CFrame.new(position + Vector3.new(0, height * 0.5, 0)),
-		color = Palette.color(Palette.tree.trunk),
-		material = Enum.Material.Wood,
-		parent = model,
-	})
+	local height = rng:NextNumber(22, 30)
 
-	local canopyRadius = rng:NextNumber(11, 16)
-	Build.part({
-		name = "Canopy",
-		size = Vector3.new(canopyRadius, canopyRadius * 0.8, canopyRadius),
-		cframe = CFrame.new(position + Vector3.new(0, height + canopyRadius * 0.25, 0)),
-		-- Autumn canopy, picked from the same golds the leaves use.
-		color = Palette.color(Palette.tree.canopy[rng:NextInteger(1, #Palette.tree.canopy)]),
-		material = Enum.Material.Grass,
-		canCollide = false,
+	--[[
+		One mesh for the whole tree, on a slim collision column.
+
+		The tree used to be a brown box with a green box balanced on it. The
+		model carries its own trunk and canopy, so the part underneath only has
+		to be something to walk into and hang the Chop prompt on — a column the
+		width of the trunk, rather than a block the width of the leaves.
+	]]
+	local trunk = Build.mesh({
+		prop = "Tree",
+		name = "Trunk",
+		-- Proportions of the source mesh, so a taller tree is not a fatter one.
+		size = Vector3.new(height * 0.666, height, height * 0.703),
+		collisionSize = Vector3.new(3.4, height, 3.4),
+		cframe = CFrame.new(position + Vector3.new(0, height * 0.5, 0)),
 		parent = model,
 	})
 
@@ -191,12 +189,13 @@ local function awardOrDrop(player: Player, debrisId: number, units: number, posi
 
 	if left > 0 then
 		local def = DebrisConfig.get(debrisId)
-		local pile = Build.part({
+		-- Timber looks like timber; everything else drops as a heap of leaves.
+		local pile = Build.mesh({
+			prop = if debrisId == DebrisConfig.Log then "Log" else "LeafPile",
 			name = "Pile",
-			size = Vector3.new(5, 2, 3),
+			size = Vector3.new(5, 2.4, 4),
+			collisionSize = Vector3.new(5, 2, 3),
 			cframe = CFrame.new(position + Vector3.new(0, 1, 0)),
-			color = Color3.new(def.color[1], def.color[2], def.color[3]),
-			material = Enum.Material.Wood,
 			canCollide = false,
 			parent = container,
 		})

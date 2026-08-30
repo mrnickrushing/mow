@@ -26,6 +26,7 @@ local Worlds = require(Shared.Config.Worlds)
 local BagService = require(script.Parent.BagService)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
+local PlayerService = require(script.Parent.PlayerService)
 local QuestService = require(script.Parent.QuestService)
 local ReplicationService = require(script.Parent.ReplicationService)
 local RunState = require(script.Parent.RunState)
@@ -53,6 +54,9 @@ local roundState: RemoteEvent
 --- How often run state is broadcast, in Hz. The client interpolates the clock.
 local BROADCAST_HZ = 2
 local LOBBY_SECONDS = 20
+--- How long past the lobby's clock to wait for a pick before giving up and
+--- loading the starter world, so an empty server never sits on the menu.
+local LOBBY_IDLE_RESTART = 100
 
 --------------------------------------------------------------------
 -- Queries
@@ -106,6 +110,22 @@ local function sectionSnapshot(): { any }
 	return out
 end
 
+--- The worlds a level select can offer, with what each player has unlocked
+--- resolved per player by the client from `beaten`.
+local function worldChoices(): { { id: string, name: string, tagline: string, difficulty: string, requires: string? } }
+	local out = {}
+	for _, world in Worlds.list do
+		table.insert(out, {
+			id = world.id,
+			name = world.name,
+			tagline = world.tagline,
+			difficulty = world.difficulty,
+			requires = world.requiresWorld,
+		})
+	end
+	return out
+end
+
 local function broadcast()
 	local world = WorldService.world
 	roundState:FireAllClients({
@@ -115,6 +135,7 @@ local function broadcast()
 		worldId = if world then world.id else "",
 		worldName = if world then world.name else "",
 		exitOpen = exitOpen,
+		worlds = worldChoices(),
 		sections = sectionSnapshot(),
 	})
 end
@@ -306,6 +327,11 @@ local function winRun()
 				EconomyService.notify(player, "reward", `New best: {Format.clock(elapsed)}`, nil)
 			end
 		end)
+
+		-- The world just beaten is what unlocks the next one, and the level
+		-- select is about to be shown, so the client needs to hear about it
+		-- before it draws the rows rather than on the next full push.
+		PlayerService.push(player)
 	end
 
 	broadcast()
@@ -359,6 +385,72 @@ local function onGateTried(player: Player, sectionId: string)
 	broadcast()
 end
 
+--[[
+	A player flipping a hidden switch. Opens the section it belongs to.
+
+	The switch only counts once the section hiding it is open, so a player who
+	finds their way somewhere they have not earned yet cannot skip a gate with
+	it. Opening goes through `openSection`, which is what advances the quest
+	that waits on this.
+]]
+local function onSwitchTried(player: Player, sectionId: string)
+	if phase ~= "running" then
+		return
+	end
+
+	local world = WorldService.world
+	local section = if world then Worlds.section(world, sectionId) else nil
+	if not section or Worlds.unlockKind(section) ~= "button" then
+		return
+	end
+	if WorldService.isSectionOpen(sectionId) then
+		return
+	end
+
+	local hostId = section.buttonIn
+	if hostId and not WorldService.isSectionOpen(hostId) then
+		return
+	end
+
+	openSection(sectionId, false)
+	EconomyService.notifyAll("sectionUnlock", section.name, nil)
+	EconomyService.notify(player, "quest", `You found the switch for the {section.name}`, nil)
+	broadcast()
+end
+
+--[[
+	A player picking the next world from the level select.
+
+	Beating a world sends everyone back here rather than dropping them into the
+	same lawn again, so this is how a run actually starts once the first one has
+	ended. Only worlds the picker has unlocked count — the ladder is
+	`requiresWorld`, and the check lives here rather than on the client because
+	the client is never trusted with what it may play.
+]]
+local function onWorldSelected(player: Player, worldId: any)
+	if phase ~= "lobby" or type(worldId) ~= "string" then
+		return
+	end
+
+	local profile = DataService.get(player)
+	local beaten = if profile then profile.worldsBeaten else {}
+	local allowed = false
+	for _, world in Worlds.availableTo(beaten) do
+		if world.id == worldId then
+			allowed = true
+			break
+		end
+	end
+	if not allowed then
+		EconomyService.notify(player, "denied", "Beat the world before it to unlock that one", nil)
+		return
+	end
+
+	local world = Worlds.expect(worldId)
+	EconomyService.notifyAll("round", `{player.DisplayName} picked {world.name}`, nil)
+	beginRun(worldId)
+end
+
 --- A player reaching the open grate finishes the run for everyone.
 function RunService.reachExit(player: Player)
 	if phase ~= "running" or not exitOpen then
@@ -391,6 +483,9 @@ function RunService.start()
 	-- signal so no other service has to know a run is being scored.
 	WorldService.ExitReached:Connect(RunService.reachExit)
 	WorldService.GateTried:Connect(onGateTried)
+	WorldService.SwitchTried:Connect(onSwitchTried)
+
+	Remotes.event(Remotes.SELECT_WORLD).OnServerEvent:Connect(onWorldSelected)
 
 	-- Every player's cash multiplier carries the run's section bonus.
 	EconomyService.addModifierSource(function(_player: Player)
@@ -439,8 +534,12 @@ function RunService.start()
 					broadcast()
 				end
 			else
-				if RunService.secondsLeft() <= 0 then
-					beginRun(worldId)
+				-- The lobby is the level select, so it waits to be told what to
+				-- play. The timer is only a backstop for an empty server, or
+				-- one where nobody picks: it drops back to the starter world
+				-- rather than sitting on a menu forever.
+				if RunService.secondsLeft() <= -LOBBY_IDLE_RESTART then
+					beginRun(Worlds.STARTER_ID)
 				else
 					broadcast()
 				end

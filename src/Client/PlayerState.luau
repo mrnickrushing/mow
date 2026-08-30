@@ -18,6 +18,10 @@ local Types = require(Shared.Types)
 
 local PlayerState = {}
 
+--- How often, and how many times, to ask the server which world this is.
+local WORLD_INFO_ASK_INTERVAL = 1
+local WORLD_INFO_ASK_TRIES = 30
+
 export type State = {
 	cash: number,
 	tips: number,
@@ -39,6 +43,8 @@ export type State = {
 	hasPortableTrailer: boolean,
 	rentalSecondsLeft: number,
 	rentalToolId: string,
+	--- Worlds finished, which is what the level select locks its rows on.
+	worldsBeaten: { [string]: boolean },
 }
 
 local state: State = {
@@ -60,6 +66,7 @@ local state: State = {
 	hasPortableTrailer = false,
 	rentalSecondsLeft = 0,
 	rentalToolId = "",
+	worldsBeaten = {},
 }
 
 local world: Types.WorldDef? = nil
@@ -189,6 +196,9 @@ local function applyPayload(payload: any)
 		if type(payload.upgrades) == "table" then
 			state.upgrades = payload.upgrades
 		end
+		if type(payload.worldsBeaten) == "table" then
+			state.worldsBeaten = payload.worldsBeaten
+		end
 
 		state.hasPortableTrailer = payload.hasPortableTrailer == true
 	end
@@ -212,6 +222,20 @@ function PlayerState.start()
 		end
 		totalUnits = if type(info.totalUnits) == "number" then info.totalUnits else 0
 		worldSignal:Fire(world)
+	end)
+
+	-- The server sends this once when you join and once when a run begins, and
+	-- the handler above may well not exist yet at either moment. Ask for it,
+	-- and keep asking until it arrives, rather than run the whole session
+	-- without ever knowing which world this is.
+	task.spawn(function()
+		for _ = 1, WORLD_INFO_ASK_TRIES do
+			if world then
+				return
+			end
+			worldInfo:FireServer()
+			task.wait(WORLD_INFO_ASK_INTERVAL)
+		end
 	end)
 end
 

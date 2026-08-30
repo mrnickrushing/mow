@@ -170,4 +170,107 @@ function Theme.bar(parent: Instance, size: UDim2, position: UDim2, color: Color3
 	return track, fill
 end
 
+--[[
+	Keeps a fixed-size panel on screen on a small viewport.
+
+	The journal is drawn at 940x560 with its tab strip hanging off the left
+	edge, so anything narrower than about 1160 pushed the tabs and the close
+	button off screen entirely — which on a phone, or a windowed client, is
+	most of them. Rather than reflow the layout, the whole panel is scaled to
+	fit, which keeps the book a book at every size.
+
+	`width` and `height` are the room the panel needs including anything that
+	hangs outside it. `reservedY` is screen height the panel does not get — the
+	gap above a column pinned below the top edge, plus any margin to leave under
+	it — so a column that starts part way down the screen is measured against
+	what is actually left rather than the whole of it.
+]]
+function Theme.fitToViewport(panel: GuiObject, width: number, height: number, reservedY: number?): UIScale
+	local scale = Instance.new("UIScale")
+	scale.Parent = panel
+
+	-- The screen the panel actually gets is the ScreenGui's own area, which is
+	-- the viewport less the top inset. Measuring against the raw viewport
+	-- overstates the room available by that inset and leaves the panel's top
+	-- edge off screen.
+	local screen = panel:FindFirstAncestorWhichIsA("ScreenGui")
+
+	local function fit()
+		local area: Vector2
+		if screen and screen.AbsoluteSize.Y > 0 then
+			area = screen.AbsoluteSize
+		else
+			local camera = workspace.CurrentCamera
+			area = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+		end
+		if area.X <= 0 or area.Y <= 0 then
+			return
+		end
+		local usableY = math.max(area.Y - (reservedY or 0), 1)
+		scale.Scale = math.clamp(math.min(area.X / width, usableY / height), 0.35, 1)
+	end
+
+	fit()
+	if screen then
+		screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+	end
+	local camera = workspace.CurrentCamera
+	if camera then
+		camera:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+	end
+	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+		local current = workspace.CurrentCamera
+		if current then
+			current:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+		end
+		fit()
+	end)
+
+	return scale
+end
+
+--------------------------------------------------------------------
+-- The cursor
+--------------------------------------------------------------------
+
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local panelsOpen = 0
+local cursorHold: RBXScriptConnection? = nil
+
+--[[
+	Frees the mouse while a full-screen panel is open.
+
+	The camera is pinned to first person — zoom locked at 0.5 studs — and Roblox
+	locks the cursor to the middle of the screen whenever it is. Every control
+	in the journal and the store therefore sat somewhere the cursor could never
+	reach: its tabs, its close button, and the Buy buttons that are the only way
+	in the whole game to buy a tool. A `Modal` button asks the engine for the
+	cursor back, and holding `MouseBehavior` open each frame alongside it covers
+	the camera module reasserting the lock — belt and braces, because a menu you
+	cannot click is the same as no menu.
+
+	Reference counted, so the journal and the store can be open in any order
+	without one closing stealing the other's cursor.
+]]
+function Theme.holdCursor(open: boolean)
+	panelsOpen = math.max(panelsOpen + (if open then 1 else -1), 0)
+
+	if panelsOpen > 0 then
+		if not cursorHold then
+			cursorHold = RunService.RenderStepped:Connect(function()
+				if UserInputService.MouseBehavior ~= Enum.MouseBehavior.Default then
+					UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				end
+			end)
+		end
+	elseif cursorHold then
+		cursorHold:Disconnect()
+		cursorHold = nil
+		-- Handing it back to the camera, which re-locks it for first person.
+		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+	end
+end
+
 return Theme

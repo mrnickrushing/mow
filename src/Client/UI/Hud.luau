@@ -136,6 +136,17 @@ local function buildRightColumn(gui: ScreenGui)
 	column.BackgroundTransparency = 1
 	column.Parent = gui
 
+	--[[
+		The column is laid out in fixed pixels running down from 78 below the
+		top edge, so on a short viewport its lower half — the fuel gauge, the
+		tool button that doubles as the touch action control, and the word under
+		it — ran off the bottom of the screen and sat on top of the round timer.
+		Scaling it to the room actually left below its start keeps the whole
+		column on screen, and leaves it untouched at its designed size on any
+		display tall enough for it.
+	]]
+	Theme.fitToViewport(column, 240, 420, 90)
+
 	multiplierLabel = Theme.text({
 		name = "Multiplier",
 		text = "",
