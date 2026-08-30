@@ -520,7 +520,22 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		the chunks meet without a seam.
 	]]
 	local carpet = Props.catalogue.LawnPanel
-	local color = baseColor(debrisId, 1)
+
+	--[[
+		Far enough away, a lawn is two things: lawn, and leaves on it.
+
+		Weeds, hedge clippings and fallen sticks each had their own colour out
+		here, and the hedge green and the stick brown are dark enough that a
+		chunk of either landed as a distinct dark rectangle among the green
+		ones. You cannot tell a weed from a hedge clipping at four hundred
+		studs, so pretending to is only a way of drawing tile edges. Leaves stay
+		their own colour because a drift genuinely is the thing you can see from
+		across a property.
+	]]
+	local color = baseColor(
+		if debrisId == DebrisConfig.Leaves then DebrisConfig.Leaves else DebrisConfig.Grass,
+		1
+	)
 
 	part.Size = Vector3.new(studs, thickness, studs)
 	part.CFrame = CFrame.new(x, floor + thickness * 0.5, z)

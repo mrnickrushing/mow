@@ -193,6 +193,31 @@ local function render()
 	end
 end
 
+--[[
+	The screens that only mean something during a run.
+
+	The level select is the one screen that appears without being asked for, and
+	it used to appear on top of all of these: the wave counter, the objective
+	from the run just finished, the bag, and a clock still visibly counting
+	down. Reading "Collect 5 leaves (0/5)" behind "PICK A PROPERTY", over a
+	timer running out on nothing, is a menu that looks like a game still in
+	progress. They stand down while it is up.
+]]
+local PLAY_SCREENS = { "MowRound", "MowHud", "MowHotbar" }
+
+local function setPlayScreens(visible: boolean)
+	local playerGui = player:FindFirstChildOfClass("PlayerGui")
+	if not playerGui then
+		return
+	end
+	for _, name in PLAY_SCREENS do
+		local screen = playerGui:FindFirstChild(name)
+		if screen and screen:IsA("ScreenGui") then
+			screen.Enabled = visible
+		end
+	end
+end
+
 function LevelSelect.setOpen(open: boolean)
 	if open == isOpen then
 		return
@@ -200,6 +225,7 @@ function LevelSelect.setOpen(open: boolean)
 	isOpen = open
 	gui.Enabled = open
 	Theme.holdCursor(open)
+	setPlayScreens(not open)
 	if open then
 		render()
 	end
