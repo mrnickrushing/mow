@@ -24,6 +24,14 @@ export type FillEntry = {
 	heightMax: number,
 }
 
+--- How a zone is opened.
+--- `cash` is bought at the shed; `completion` opens free once another zone is
+--- finished; `button` opens by finding a switch hidden elsewhere on the map.
+export type ZoneUnlock = "cash" | "completion" | "button"
+
+--- Structures a zone generates around itself.
+export type ZoneKind = "open" | "room" | "pool" | "maze" | "roof"
+
 export type ZoneDef = {
 	id: string,
 	name: string,
@@ -34,6 +42,18 @@ export type ZoneDef = {
 	trees: number?,
 	stumps: number?,
 	hazards: { string }?,
+	--- Height of this zone's floor above GROUND_Y. Lets a rooftop sit over the
+	--- house and a basement sit under the lawn while the grid stays flat: zones
+	--- never overlap in X/Z, so one elevation per zone is enough.
+	elevation: number?,
+	unlock: ZoneUnlock?,
+	--- For `completion` unlocks, the zone that has to be finished first.
+	requires: string?,
+	--- For `button` unlocks, the zone the switch is hidden in.
+	buttonIn: string?,
+	kind: ZoneKind?,
+	--- Props scattered through the zone for debris to hide against.
+	clutter: number?,
 }
 
 export type PropertyDef = {
@@ -52,6 +72,9 @@ export type PropertyDef = {
 	trailer: { x: number, z: number },
 	spawn: { x: number, z: number },
 	houseRect: Rect?,
+	--- `house` properties generate the detailed residential treatment; `lot`
+	--- properties are the big open maps the wide-deck mowers are built for.
+	style: ("house" | "lot")?,
 }
 
 --- Plain RGB triple so config modules never need the Roblox `Color3` global.

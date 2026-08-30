@@ -45,13 +45,20 @@ local function newState(): State
 		levels[def.id] = 0
 	end
 	local starter = Properties.expect(Properties.STARTER_ID)
+	local starterZones: { [string]: boolean } = {}
+	for _, zone in starter.zones do
+		if zone.cost <= 0 then
+			starterZones[zone.id] = true
+		end
+	end
+
 	return {
 		cash = 0,
 		lifetime = 0,
 		seconds = 0,
 		levels = levels,
 		owned = { [Tools.STARTER_ID] = true },
-		ownedZones = { [starter.id] = { [starter.zones[1].id] = true } },
+		ownedZones = { [starter.id] = starterZones },
 		toolId = Tools.STARTER_ID,
 		propertyId = Properties.STARTER_ID,
 	}
@@ -88,8 +95,16 @@ local function refresh(state: State)
 		if state.lifetime >= property.unlockLifetimeCash then
 			state.propertyId = property.id
 			if not state.ownedZones[property.id] then
-				-- The first zone of a property comes free with the unlock.
-				state.ownedZones[property.id] = { [property.zones[1].id] = true }
+				-- The first zone comes free with the unlock, and so does anything
+				-- earned rather than bought — the rooftop and the garage are
+				-- opened by playing, so a tuning run should count their lawn.
+				local owned: { [string]: boolean } = {}
+				for _, zone in property.zones do
+					if zone.cost <= 0 then
+						owned[zone.id] = true
+					end
+				end
+				state.ownedZones[property.id] = owned
 			end
 		end
 	end

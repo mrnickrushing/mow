@@ -137,6 +137,7 @@ local function lot(o: LotOptions): Types.PropertyDef
 	}
 
 	return {
+		style = "lot",
 		id = o.id,
 		name = o.name,
 		tagline = o.tagline,
@@ -154,20 +155,153 @@ local function lot(o: LotOptions): Types.PropertyDef
 	}
 end
 
-local list: { Types.PropertyDef } = {
-	lot({
+
+--------------------------------------------------------------------
+-- The detailed residential property
+--------------------------------------------------------------------
+
+--- Roof height above the lawn. The rooftop zone sits on the house footprint.
+local ROOF_ELEVATION = 24
+--- Basement floor below the lawn, reached by a stairwell cut in the ground.
+local BASEMENT_ELEVATION = -18
+
+--[[
+	Builds the Starter House: one property with real structure rather than an
+	open field.
+
+	Zones never overlap in X/Z, which is what lets each carry a single elevation
+	and keeps the tile grid flat. The rooftop therefore takes the house's own
+	footprint, and the basement gets its own patch of ground with a stairwell
+	rather than sitting under the house.
+
+	Not every zone is bought. The rooftop opens free once the front yard is
+	finished, and the garage opens by finding a switch in the shed opposite it —
+	so at least some of the map is earned by playing rather than by paying.
+]]
+local function detailedHouse(): Types.PropertyDef
+	local zones: { Types.ZoneDef } = {
+		{
+			id = "front_yard",
+			name = "Front Yard",
+			cost = 0,
+			rect = { x = 26, z = 8, w = 44, d = 22 },
+			density = 0.8,
+			fill = { grass(1, 2), mix(Debris.Leaves, 0.5, 1, 2) },
+			kind = "open",
+			clutter = 6,
+		},
+		{
+			id = "driveway",
+			name = "Driveway",
+			cost = 500,
+			rect = { x = 4, z = 8, w = 18, d = 22 },
+			density = 0.72,
+			fill = { grass(1, 2), mix(Debris.Leaves, 1.2, 1, 3) },
+			kind = "open",
+			clutter = 5,
+		},
+		{
+			id = "garage",
+			name = "Garage",
+			cost = 0,
+			rect = { x = 4, z = 32, w = 18, d = 14 },
+			density = 0.9,
+			fill = { mix(Debris.Leaves, 1, 2, 3), mix(Debris.Sticks, 0.4, 1, 2) },
+			kind = "room",
+			unlock = "button",
+			buttonIn = "driveway",
+			clutter = 8,
+		},
+		{
+			id = "rooftop",
+			name = "Rooftop",
+			cost = 0,
+			rect = { x = 26, z = 34, w = 44, d = 20 },
+			density = 0.85,
+			fill = { mix(Debris.Leaves, 1, 2, 3), mix(Debris.Sticks, 0.3, 1, 2) },
+			kind = "roof",
+			elevation = ROOF_ELEVATION,
+			unlock = "completion",
+			requires = "front_yard",
+			clutter = 3,
+		},
+		{
+			id = "side_alley",
+			name = "Side Alley",
+			cost = 3000,
+			rect = { x = 74, z = 8, w = 18, d = 42 },
+			density = 0.88,
+			fill = { grass(2, 3), mix(Debris.Leaves, 1.4, 2, 3), mix(Debris.Weeds, 0.5, 2, 3) },
+			kind = "open",
+			clutter = 9,
+		},
+		{
+			id = "backyard",
+			name = "Backyard",
+			cost = 6000,
+			rect = { x = 26, z = 58, w = 44, d = 18 },
+			density = 0.86,
+			fill = { grass(2, 3), mix(Debris.Weeds, 0.4, 1, 2), mix(Debris.Hedge, 0.3, 2, 3) },
+			kind = "open",
+			trees = 3,
+			clutter = 10,
+		},
+		{
+			id = "pool_deck",
+			name = "Pool Deck",
+			cost = 20000,
+			rect = { x = 4, z = 50, w = 18, d = 26 },
+			density = 0.8,
+			fill = { mix(Debris.Leaves, 2, 2, 3), mix(Debris.Sticks, 0.5, 1, 2) },
+			kind = "pool",
+			hazards = { "sprinkler" },
+			clutter = 7,
+		},
+		{
+			id = "hedge_maze",
+			name = "Hedge Maze",
+			cost = 60000,
+			rect = { x = 26, z = 80, w = 44, d = 14 },
+			density = 0.9,
+			fill = { grass(3, 3), mix(Debris.Hedge, 1.6, 3, 3), mix(Debris.Leaves, 0.8, 2, 3) },
+			kind = "maze",
+			hazards = { "wasps" },
+			clutter = 4,
+		},
+		{
+			id = "basement",
+			name = "Basement",
+			cost = 200000,
+			rect = { x = 74, z = 58, w = 18, d = 22 },
+			density = 0.95,
+			fill = { mix(Debris.Sticks, 1, 2, 3), mix(Debris.Leaves, 1.2, 3, 3) },
+			kind = "room",
+			elevation = BASEMENT_ELEVATION,
+			clutter = 12,
+		},
+	}
+
+	return {
 		id = "starter_house",
 		name = "Starter House",
-		tagline = "Somebody has to cut it. Might as well be you.",
+		tagline = "Somebody has to clean it. Might as well be you.",
 		unlockLifetimeCash = 0,
-		scale = 1,
+		gridWidth = 96,
+		gridDepth = 96,
 		roundSeconds = 1500,
-		economyScale = 1,
-		density = 0.82,
+		payoutMultiplier = 1,
 		baseGround = { 0.31, 0.45, 0.22 },
-		trees = 6,
-		stumps = 2,
-	}),
+		zones = zones,
+		houseRect = { x = 26, z = 34, w = 44, d = 20 },
+		shed = { x = 82, z = 54 },
+		trailer = { x = 48, z = 4 },
+		spawn = { x = 48, z = 2 },
+		style = "house",
+	}
+end
+
+local list: { Types.PropertyDef } = {
+	detailedHouse(),
 	lot({
 		id = "corner_lot",
 		name = "Corner Lot",
@@ -291,6 +425,22 @@ function Properties.zoneAt(property: Types.PropertyDef, tx: number, tz: number):
 		end
 	end
 	return nil
+end
+
+--- Floor height of the zone containing a tile, or 0 for open ground.
+--- Both the server's tile placement and the client's renderer read this, so a
+--- rooftop needs no extra replication to sit at the right height.
+function Properties.elevationAt(property: Types.PropertyDef, tx: number, tz: number): number
+	local zone = Properties.zoneAt(property, tx, tz)
+	if not zone then
+		return 0
+	end
+	return zone.elevation or 0
+end
+
+--- How a zone opens. Defaults to a straight cash purchase.
+function Properties.unlockKind(zone: Types.ZoneDef): Types.ZoneUnlock
+	return zone.unlock or "cash"
 end
 
 --- Properties the player has earned the right to see in the rotation.

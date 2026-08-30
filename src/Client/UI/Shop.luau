@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
+local Properties = require(Shared.Config.Properties)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local Upgrades = require(Shared.Config.Upgrades)
@@ -206,18 +207,37 @@ local function renderZones()
 	for order, zone in property.zones do
 		local owned = state.unlockedZones[zone.id] == true
 		local tiles = zone.rect.w * zone.rect.d
+		local kind = Properties.unlockKind(zone)
+
+		-- Earned zones show how to earn them rather than a price, so the shop
+		-- never implies a rooftop is something you can simply buy.
+		local effect, costLabel
+		if owned then
+			effect = "Unlocked"
+		elseif kind == "completion" then
+			local required = Properties.zone(property, zone.requires or "")
+			effect = `Opens when the {if required then required.name else "previous area"} is 100% clear`
+			costLabel = "EARN IT"
+		elseif kind == "button" then
+			local host = Properties.zone(property, zone.buttonIn or "")
+			effect = `A switch somewhere in the {if host then host.name else "property"} opens this`
+			costLabel = "FIND IT"
+		else
+			effect = "More to clear means more to earn before the round ends"
+		end
 
 		addRow({
 			title = zone.name,
-			detail = `{Format.count(tiles)} tiles of lawn on {property.name}`,
-			effect = if owned then "Unlocked" else "More lawn means more to cut before the round ends",
+			detail = `{Format.count(tiles)} tiles on {property.name}`,
+			effect = effect,
 			cost = zone.cost,
-			costLabel = if zone.cost <= 0 then "FREE" else nil,
+			costLabel = if costLabel then costLabel elseif zone.cost <= 0 then "FREE" else nil,
 			owned = owned,
 			equipped = owned,
-			affordable = state.cash >= zone.cost,
+			-- Nothing to buy, so never render it as an affordable purchase.
+			affordable = kind == "cash" and state.cash >= zone.cost,
 			buy = function()
-				if not owned then
+				if not owned and kind == "cash" then
 					purchaseRemote:FireServer("zone", zone.id)
 				end
 			end,

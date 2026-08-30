@@ -20,6 +20,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local ChunkCodec = require(Shared.ChunkCodec)
 local GameConfig = require(Shared.Config.GameConfig)
 local Grid = require(Shared.Grid)
+local Properties = require(Shared.Config.Properties)
 local GrassRenderer = require(script.Parent.GrassRenderer)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 
@@ -106,7 +107,10 @@ local function scan()
 					local tx, tz = Grid.fromIndex(grid, index)
 					local wx, wz = Grid.tileToWorld(grid, tx, tz)
 					local marker = acquireMarker(found)
-					marker.CFrame = CFrame.new(wx, GameConfig.GROUND_Y + 13, wz)
+					-- On the tile's own floor, so a beacon on the roof does not
+					-- appear to be floating over the lawn instead.
+					local floor = GameConfig.GROUND_Y + Properties.elevationAt(property, tx, tz)
+					marker.CFrame = CFrame.new(wx, floor + 13, wz)
 					marker.Parent = folder
 				end
 			end

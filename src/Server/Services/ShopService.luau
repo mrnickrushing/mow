@@ -163,6 +163,17 @@ function ShopService.buyZone(player: Player, zoneId: string): Result
 		return fail("You already own that zone")
 	end
 
+	-- Earned zones are not for sale. Without this, the shop would happily sell
+	-- the rooftop for nothing and skip the front yard it is meant to reward.
+	local kind = Properties.unlockKind(zone :: Types.ZoneDef)
+	if kind ~= "cash" then
+		return fail(
+			if kind == "completion"
+				then "Finish the zone this one sits above first"
+				else "This one opens some other way — go and find it"
+		)
+	end
+
 	local cost = (zone :: Types.ZoneDef).cost
 	if cost > 0 and not EconomyService.spend(player, cost) then
 		return fail("Not enough cash")
@@ -172,6 +183,40 @@ function ShopService.buyZone(player: Player, zoneId: string): Result
 	EconomyService.notify(player, "purchase", `Unlocked {(zone :: Types.ZoneDef).name}`, cost)
 	PlayerService.push(player)
 	return OK
+end
+
+--[[
+	Grants a zone without charging for it.
+
+	Used by the completion gate and the hidden button. Returns false when the
+	player already had it, so callers can stay quiet rather than announcing the
+	same unlock every time a condition is re-checked.
+]]
+function ShopService.grantZone(player: Player, zoneId: string, message: string): boolean
+	local profile = DataService.get(player)
+	local property = WorldService.property
+	if not profile or not property then
+		return false
+	end
+
+	local zone = Properties.zone(property, zoneId)
+	if not zone then
+		return false
+	end
+
+	local owned = profile.unlockedZones[property.id]
+	if not owned then
+		owned = {}
+		profile.unlockedZones[property.id] = owned
+	end
+	if owned[zoneId] then
+		return false
+	end
+
+	owned[zoneId] = true
+	EconomyService.notify(player, "reward", message, nil)
+	PlayerService.push(player)
+	return true
 end
 
 --------------------------------------------------------------------
@@ -212,7 +257,7 @@ local function attachZonePrompts()
 
 	for zoneId, post in WorldService.zoneSigns do
 		local zone = Properties.zone(property, zoneId)
-		if zone then
+		if zone and Properties.unlockKind(zone) == "cash" then
 			local prompt = Instance.new("ProximityPrompt")
 			prompt.ActionText = `Unlock {Format.cash(zone.cost)}`
 			prompt.ObjectText = zone.name

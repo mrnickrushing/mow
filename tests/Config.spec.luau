@@ -173,16 +173,102 @@ return function()
 			end
 		end)
 
-		h.it("never puts a zone under the house", function()
+		h.it("only lets a zone sit on the house footprint if it is a roof", function()
+			-- The rooftop deliberately takes the house's own footprint. Anything
+			-- else overlapping the house would be debris buried inside a wall.
 			for _, property in Properties.list do
 				local house = property.houseRect
 				if house then
 					for _, zone in property.zones do
+						if rectsOverlap(zone.rect, house) then
+							h.expectTrue(
+								(zone.elevation or 0) > 0,
+								`{property.id}: {zone.id} overlaps the house at ground level`
+							)
+							h.expectEqual(zone.kind, "roof", `{property.id}: {zone.id} is on the house but not a roof`)
+						end
+					end
+				end
+			end
+		end)
+
+		h.it("prices cash zones and gives away the rest", function()
+			for _, property in Properties.list do
+				h.expectEqual(property.zones[1].cost, 0, `{property.id}: the first zone must be free`)
+
+				for index, zone in property.zones do
+					local kind = Properties.unlockKind(zone)
+					if kind == "cash" then
+						if index > 1 then
+							h.expectTrue(zone.cost > 0, `{property.id}: {zone.id} is a cash zone costing nothing`)
+						end
+					else
+						-- Earned, not bought: charging as well would be a double gate.
+						h.expectEqual(zone.cost, 0, `{property.id}: {zone.id} unlocks by {kind} but also charges`)
+					end
+				end
+			end
+		end)
+
+		h.it("points every non-cash unlock at a zone that exists", function()
+			for _, property in Properties.list do
+				for _, zone in property.zones do
+					local kind = Properties.unlockKind(zone)
+					if kind == "completion" then
+						h.expectTrue(zone.requires ~= nil, `{property.id}: {zone.id} unlocks on completion of nothing`)
+						h.expectTrue(
+							Properties.zone(property, zone.requires :: string) ~= nil,
+							`{property.id}: {zone.id} requires unknown zone {zone.requires}`
+						)
 						h.expectFalse(
-							rectsOverlap(zone.rect, house),
-							`{property.id}: {zone.id} overlaps the house`
+							zone.requires == zone.id,
+							`{property.id}: {zone.id} requires itself`
+						)
+					elseif kind == "button" then
+						h.expectTrue(zone.buttonIn ~= nil, `{property.id}: {zone.id} has no button location`)
+						h.expectTrue(
+							Properties.zone(property, zone.buttonIn :: string) ~= nil,
+							`{property.id}: {zone.id} hides its button in unknown zone {zone.buttonIn}`
+						)
+						h.expectFalse(
+							zone.buttonIn == zone.id,
+							`{property.id}: {zone.id} hides its own button inside itself`
 						)
 					end
+				end
+			end
+		end)
+
+		h.it("never gates a zone behind one that is itself harder to reach", function()
+			-- A completion gate has to depend on something already reachable, or
+			-- the player is locked out of both forever.
+			for _, property in Properties.list do
+				local order: { [string]: number } = {}
+				for index, zone in property.zones do
+					order[zone.id] = index
+				end
+				for _, zone in property.zones do
+					if zone.requires then
+						h.expectTrue(
+							order[zone.requires] < order[zone.id],
+							`{property.id}: {zone.id} depends on {zone.requires}, which comes later`
+						)
+					end
+				end
+			end
+		end)
+
+		h.it("reports the elevation of a tile in each zone", function()
+			for _, property in Properties.list do
+				for _, zone in property.zones do
+					local tx = zone.rect.x + zone.rect.w // 2
+					local tz = zone.rect.z + zone.rect.d // 2
+					h.expectClose(
+						Properties.elevationAt(property, tx, tz),
+						zone.elevation or 0,
+						1e-9,
+						`{property.id}/{zone.id} elevation`
+					)
 				end
 			end
 		end)
@@ -213,14 +299,17 @@ return function()
 			end
 		end)
 
-		h.it("gives the first zone away free and charges for the rest", function()
+		h.it("climbs in price across the cash zones of a property", function()
 			for _, property in Properties.list do
-				h.expectEqual(property.zones[1].cost, 0, `{property.id}: the first zone must be free`)
 				local previous = 0
-				for index = 2, #property.zones do
-					local zone = property.zones[index]
-					h.expectTrue(zone.cost > previous, `{property.id}: {zone.id} is not dearer than the zone before`)
-					previous = zone.cost
+				for _, zone in property.zones do
+					if Properties.unlockKind(zone) == "cash" and zone.cost > 0 then
+						h.expectTrue(
+							zone.cost > previous,
+							`{property.id}: {zone.id} is not dearer than the cash zone before it`
+						)
+						previous = zone.cost
+					end
 				end
 			end
 		end)

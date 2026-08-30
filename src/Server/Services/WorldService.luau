@@ -19,10 +19,13 @@ local Grid = require(Shared.Grid)
 local Properties = require(Shared.Config.Properties)
 local Types = require(Shared.Types)
 local Build = require(script.Parent.Parent.Lib.Build)
+local Structures = require(script.Parent.Parent.Lib.Structures)
 
 local WorldService = {}
 
 local TILE = GameConfig.TILE_SIZE
+--- Wall height of a house, which is what the rooftop zone sits on.
+local ROOF_HEIGHT = 24
 
 export type ZoneState = {
 	def: Types.ZoneDef,
@@ -57,16 +60,33 @@ local function toColor(rgb: Types.Color3Like): Color3
 	return Color3.new(rgb[1], rgb[2], rgb[3])
 end
 
---- World position of a tile centre, on the ground plane.
+--- Floor height at a tile, which is the rooftop's or basement's if it has one.
+function WorldService.elevationAt(tx: number, tz: number): number
+	local property = WorldService.property
+	if not property then
+		return 0
+	end
+	return Properties.elevationAt(property, tx, tz)
+end
+
+--- World position of a tile centre, on that tile's own floor.
 function WorldService.tileCentre(index: number): Vector3
 	local grid = assert(WorldService.grid, "world not loaded")
 	local tx, tz = Grid.fromIndex(grid, index)
 	local x, z = Grid.tileToWorld(grid, tx, tz)
-	return Vector3.new(x, GameConfig.GROUND_Y, z)
+	return Vector3.new(x, GameConfig.GROUND_Y + WorldService.elevationAt(tx, tz), z)
 end
 
---- World position of a tile-space point, on the ground plane.
+--- World position of a tile-space point, on that tile's own floor.
 function WorldService.tilePointToWorld(tx: number, tz: number): Vector3
+	local grid = assert(WorldService.grid, "world not loaded")
+	local x, z = Grid.tileToWorld(grid, tx, tz)
+	return Vector3.new(x, GameConfig.GROUND_Y + WorldService.elevationAt(tx, tz), z)
+end
+
+--- Ground-plane position, ignoring any zone elevation. Used when placing the
+--- structures that create those elevations in the first place.
+function WorldService.tilePointFlat(tx: number, tz: number): Vector3
 	local grid = assert(WorldService.grid, "world not loaded")
 	local x, z = Grid.tileToWorld(grid, tx, tz)
 	return Vector3.new(x, GameConfig.GROUND_Y, z)
@@ -149,25 +169,51 @@ local function buildGround(property: Types.PropertyDef, grid: Grid.Grid, parent:
 	local width = grid.width * TILE
 	local depth = grid.depth * TILE
 
-	Build.part({
-		name = "Ground",
-		size = Vector3.new(width, 4, depth),
-		cframe = CFrame.new(width * 0.5, GameConfig.GROUND_Y - 2, depth * 0.5),
-		color = toColor(property.baseGround),
-		material = Enum.Material.Grass,
-		parent = parent,
-	})
+	-- Anything below ground needs the lawn opened over it, or the room is buried
+	-- and the player walks across its ceiling without ever finding the way in.
+	local holes: { Types.Rect } = {}
+	for _, zone in property.zones do
+		if (zone.elevation or 0) < 0 then
+			table.insert(holes, zone.rect)
+		end
+	end
 
-	-- A wider apron so the property does not appear to float in the void.
-	Build.part({
-		name = "Surrounds",
-		size = Vector3.new(width + 260, 3, depth + 260),
-		cframe = CFrame.new(width * 0.5, GameConfig.GROUND_Y - 3.6, depth * 0.5),
-		color = Color3.fromRGB(96, 118, 74),
-		material = Enum.Material.Grass,
-		castShadow = false,
-		parent = parent,
-	})
+	local slabs = Structures.subtractAll({ x = 0, z = 0, w = grid.width, d = grid.depth }, holes)
+	for index, slab in slabs do
+		Build.part({
+			name = `Ground{index}`,
+			size = Vector3.new(slab.w * TILE, 4, slab.d * TILE),
+			cframe = CFrame.new(
+				(slab.x + slab.w * 0.5) * TILE,
+				GameConfig.GROUND_Y - 2,
+				(slab.z + slab.d * 0.5) * TILE
+			),
+			color = toColor(property.baseGround),
+			material = Enum.Material.Grass,
+			parent = parent,
+		})
+	end
+
+	-- A ring of apron around the lot so it does not float in the void. Built as
+	-- four strips rather than one slab, so it never re-covers a sunken room.
+	local apron = 130
+	local strips: { { centre: Vector2, size: Vector2 } } = {
+		{ centre = Vector2.new(width * 0.5, -apron * 0.5), size = Vector2.new(width + apron * 2, apron) },
+		{ centre = Vector2.new(width * 0.5, depth + apron * 0.5), size = Vector2.new(width + apron * 2, apron) },
+		{ centre = Vector2.new(-apron * 0.5, depth * 0.5), size = Vector2.new(apron, depth) },
+		{ centre = Vector2.new(width + apron * 0.5, depth * 0.5), size = Vector2.new(apron, depth) },
+	}
+	for _, strip in strips do
+		Build.part({
+			name = "Surrounds",
+			size = Vector3.new(strip.size.X, 3, strip.size.Y),
+			cframe = CFrame.new(strip.centre.X, GameConfig.GROUND_Y - 2.2, strip.centre.Y),
+			color = Color3.fromRGB(96, 118, 74),
+			material = Enum.Material.Grass,
+			castShadow = false,
+			parent = parent,
+		})
+	end
 
 	-- The road along the south edge, with the trailer parked at the curb.
 	Build.part({
@@ -187,8 +233,8 @@ local function buildHouse(property: Types.PropertyDef, parent: Folder)
 		return
 	end
 
-	local centre = WorldService.tilePointToWorld(rect.x + rect.w * 0.5, rect.z + rect.d * 0.5)
-	local size = Vector3.new(rect.w * TILE, 20, rect.d * TILE)
+	local centre = WorldService.tilePointFlat(rect.x + rect.w * 0.5, rect.z + rect.d * 0.5)
+	local size = Vector3.new(rect.w * TILE, ROOF_HEIGHT, rect.d * TILE)
 
 	local house = Build.folder("House", parent)
 	Build.box("Walls", centre, size, Color3.fromRGB(226, 219, 202), Enum.Material.Concrete, house)
@@ -212,7 +258,7 @@ local function buildHouse(property: Types.PropertyDef, parent: Folder)
 end
 
 local function buildShed(property: Types.PropertyDef, parent: Folder): BasePart
-	local centre = WorldService.tilePointToWorld(property.shed.x, property.shed.z)
+	local centre = WorldService.tilePointFlat(property.shed.x, property.shed.z)
 	local shed = Build.folder("Shed", parent)
 
 	local walls = Build.box("Walls", centre, Vector3.new(18, 13, 16), Color3.fromRGB(140, 92, 62), Enum.Material.Wood, shed)
@@ -244,7 +290,7 @@ local function buildShed(property: Types.PropertyDef, parent: Folder): BasePart
 end
 
 local function buildTrailer(property: Types.PropertyDef, parent: Folder): BasePart
-	local centre = WorldService.tilePointToWorld(property.trailer.x, property.trailer.z)
+	local centre = WorldService.tilePointFlat(property.trailer.x, property.trailer.z)
 	local trailer = Build.folder("Trailer", parent)
 
 	local bed = Build.box("Bed", centre, Vector3.new(24, 4, 12), Color3.fromRGB(72, 78, 88), Enum.Material.DiamondPlate, trailer)
@@ -280,10 +326,13 @@ local function buildZoneSigns(property: Types.PropertyDef, parent: Folder): { [s
 	local folder = Build.folder("ZoneSigns", parent)
 
 	for _, zone in property.zones do
-		if zone.cost > 0 then
+		-- A rooftop is earned and a garage is found, so neither gets a price tag.
+		-- Signs also stand on the ground plane rather than the zone's own floor,
+		-- so a basement's sign is at the top of its stairs and not sealed inside.
+		if zone.cost > 0 and Properties.unlockKind(zone) == "cash" then
 			local r = zone.rect
 			-- Stand the sign at the edge of the zone nearest the road.
-			local at = WorldService.tilePointToWorld(r.x + r.w * 0.5, r.z)
+			local at = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z)
 
 			local post = Build.part({
 				name = zone.id,
@@ -300,6 +349,101 @@ local function buildZoneSigns(property: Types.PropertyDef, parent: Folder): { [s
 	end
 
 	return signs
+end
+
+--[[
+	Builds everything a zone needs beyond its tiles.
+
+	Rooms get walls, the pool gets water, the maze gets hedges, and every zone
+	gets its share of clutter. Only `house` properties get the full treatment;
+	the big open lots stay open, which is where the wide-deck mowers earn their
+	price.
+]]
+local function buildZoneStructures(property: Types.PropertyDef, parent: Folder)
+	local context: Structures.Context = {
+		parent = parent,
+		flat = function(tx: number, tz: number): Vector3
+			return WorldService.tilePointFlat(tx, tz)
+		end,
+		tileSize = TILE,
+		groundY = GameConfig.GROUND_Y,
+		rng = rng,
+	}
+
+	local detailed = property.style == "house"
+
+	for _, zone in property.zones do
+		local kind = zone.kind or "open"
+		local elevation = zone.elevation or 0
+
+		if detailed then
+			if kind == "room" then
+				Structures.room(context, zone, 16, elevation < 0)
+			elseif kind == "pool" then
+				Structures.pool(context, zone)
+			elseif kind == "maze" then
+				Structures.maze(context, zone)
+			elseif kind == "roof" then
+				-- The roof slab is the floor the rooftop's debris rests on.
+				local r = zone.rect
+				local centre = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z + r.d * 0.5)
+				Build.part({
+					name = "RoofDeck",
+					size = Vector3.new(r.w * TILE + 4, 2, r.d * TILE + 4),
+					cframe = CFrame.new(centre + Vector3.new(0, elevation - 1, 0)),
+					color = Color3.fromRGB(97, 66, 54),
+					material = Enum.Material.Slate,
+					parent = parent,
+				})
+				-- A parapet, so a player on the roof does not simply walk off it.
+				for _, side in
+					{
+						Vector3.new(0, 0, -(r.d * TILE) * 0.5),
+						Vector3.new(0, 0, (r.d * TILE) * 0.5),
+					}
+				do
+					Build.part({
+						name = "Parapet",
+						size = Vector3.new(r.w * TILE + 4, 4, 1.5),
+						cframe = CFrame.new(centre + side + Vector3.new(0, elevation + 2, 0)),
+						color = Color3.fromRGB(86, 58, 48),
+						material = Enum.Material.Slate,
+						parent = parent,
+					})
+				end
+				for _, side in
+					{
+						Vector3.new(-(r.w * TILE) * 0.5, 0, 0),
+						Vector3.new((r.w * TILE) * 0.5, 0, 0),
+					}
+				do
+					Build.part({
+						name = "Parapet",
+						size = Vector3.new(1.5, 4, r.d * TILE + 4),
+						cframe = CFrame.new(centre + side + Vector3.new(0, elevation + 2, 0)),
+						color = Color3.fromRGB(86, 58, 48),
+						material = Enum.Material.Slate,
+						parent = parent,
+					})
+				end
+			end
+
+			-- Stairs into anything not on the lawn.
+			if elevation > 0 then
+				local r = zone.rect
+				local bottom = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z - 2)
+				local top = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z) + Vector3.new(0, elevation, 0)
+				Structures.stairs(context, bottom, top, 10, 14, parent)
+			elseif elevation < 0 then
+				local r = zone.rect
+				local top = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z - 1)
+				local bottom = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z + 3) + Vector3.new(0, elevation, 0)
+				Structures.stairs(context, top, bottom, 10, 12, parent)
+			end
+		end
+
+		Structures.clutter(context, zone, zone.clutter or 0)
+	end
 end
 
 --------------------------------------------------------------------
@@ -333,13 +477,14 @@ function WorldService.load(propertyId: string)
 	WorldService.shedPart = buildShed(property, parent)
 	WorldService.trailerPart = buildTrailer(property, parent)
 	WorldService.zoneSigns = buildZoneSigns(property, parent)
+	buildZoneStructures(property, parent)
 
 	-- Fence the outer boundary so the lot reads as a property, not a plane.
 	local width = grid.width * TILE
 	local depth = grid.depth * TILE
 	Build.fence(parent, 0, 0, width, depth, 6, Color3.fromRGB(150, 132, 104), 14)
 
-	local spawnAt = WorldService.tilePointToWorld(property.spawn.x, property.spawn.z)
+	local spawnAt = WorldService.tilePointFlat(property.spawn.x, property.spawn.z)
 	local spawnPart = Build.part({
 		name = "SpawnPad",
 		size = Vector3.new(20, 0.4, 20),

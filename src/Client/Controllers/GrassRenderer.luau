@@ -49,6 +49,8 @@ local unlockedZones: { [string]: boolean } = {}
 --- Zone id per tile, resolved once per world rather than per frame. Looking a
 --- tile's zone up through the rect list every refresh was the obvious cost here.
 local tileZone: { string } = {}
+--- Floor height per tile, from the same pass. Zero for open ground.
+local tileElevation: { number } = {}
 
 local requestChunks: RemoteEvent
 local chunkDelta: RemoteEvent
@@ -110,9 +112,12 @@ local function buildZoneMap(propertyId: string, theGrid: Grid.Grid)
 	end
 	for _, zone in property.zones do
 		local r = zone.rect
+		local elevation = zone.elevation or 0
 		for tz = r.z, math.min(r.z + r.d - 1, theGrid.depth - 1) do
 			for tx = r.x, math.min(r.x + r.w - 1, theGrid.width - 1) do
-				tileZone[Grid.toIndex(theGrid, tx, tz)] = zone.id
+				local index = Grid.toIndex(theGrid, tx, tz)
+				tileZone[index] = zone.id
+				tileElevation[index] = elevation
 			end
 		end
 	end
@@ -161,9 +166,10 @@ local function drawTile(theGrid: Grid.Grid, theTiles: buffer, index: number, zon
 	local tx, tz = Grid.fromIndex(theGrid, index)
 	local wx, wz = Grid.tileToWorld(theGrid, tx, tz)
 	local studs = height * HEIGHT_STUD
+	local floor = GameConfig.GROUND_Y + (tileElevation[index] or 0)
 
 	part.Size = Vector3.new(TILE, studs, TILE)
-	part.CFrame = CFrame.new(wx, GameConfig.GROUND_Y + studs * 0.5, wz)
+	part.CFrame = CFrame.new(wx, floor + studs * 0.5, wz)
 	part.Color = colorFor(ChunkCodec.debris(byte), zoneLocked)
 	part.Transparency = if ChunkCodec.isWet(byte) then 0.15 else 0
 	part.Parent = detailFolder
@@ -176,6 +182,7 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 
 	local remaining, samples = 0, 0
 	local debrisId = DebrisConfig.Grass
+	local floor = GameConfig.GROUND_Y
 	for lz = 0, theGrid.chunkTiles - 1, 2 do
 		for lx = 0, theGrid.chunkTiles - 1, 2 do
 			local tx, tz = baseX + lx, baseZ + lz
@@ -186,6 +193,7 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 				if height > 0 then
 					remaining += height
 					debrisId = ChunkCodec.debris(byte)
+					floor = GameConfig.GROUND_Y + (tileElevation[Grid.toIndex(theGrid, tx, tz)] or 0)
 				end
 			end
 		end
@@ -214,7 +222,7 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	local x, z = Grid.chunkCentre(theGrid, cx, cz)
 
 	part.Size = Vector3.new(studs, math.max(averageHeight, 0.2), studs)
-	part.CFrame = CFrame.new(x, GameConfig.GROUND_Y + part.Size.Y * 0.5, z)
+	part.CFrame = CFrame.new(x, floor + part.Size.Y * 0.5, z)
 	part.Color = colorFor(debrisId, false)
 	part.Transparency = 0
 	part.Parent = lodFolder
@@ -323,6 +331,7 @@ local function resetWorld(width: number, depth: number)
 	grid = Grid.new(width, depth)
 	tiles = buffer.create(width * depth)
 	table.clear(tileZone)
+	table.clear(tileElevation)
 end
 
 --- The zones the local player owns, so locked ground can be tinted.

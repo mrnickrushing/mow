@@ -118,13 +118,48 @@ a few levels the line would be selling nothing.
 
 ### Zones and properties
 
-Six zones per property — Front Yard (free), Driveway, Backyard, Side Garden,
-Orchard, The Back Forty — and six properties in rotation:
+Two kinds of map, deliberately.
 
-Starter House → Corner Lot → The Ranch → The Orchard Estate → Riverside Golf
-Course → The Overgrown Manor
+**The Starter House is a detailed residential property**, in the mould of the
+game this borrows from. Nine zones, and not all of them are for sale:
 
-Each is larger, denser and pays more. Properties unlock on lifetime earnings.
+| Zone | Opens by | Notes |
+| --- | --- | --- |
+| Front Yard | free | |
+| Driveway | $500 | |
+| Garage | **a hidden switch** | walled room; the switch is in the driveway |
+| Rooftop | **clearing the front yard** | 24 studs up, porch stairs, parapet |
+| Side Alley | $3,000 | |
+| Backyard | $6,000 | trees |
+| Pool Deck | $20,000 | real pool, sprinklers |
+| Hedge Maze | $60,000 | hedge walls, wasps |
+| Basement | $200,000 | sunken open-topped cellar, stairs down |
+
+Two of the nine are **earned rather than bought**. A map where every door has a
+price tag is a shop, not a place.
+
+**The later five are open lots** — Corner Lot, The Ranch, The Orchard Estate,
+Riverside Golf Course, The Overgrown Manor — each larger, denser and paying
+more. They stay open on purpose: that is where an eleven-tile deck earns its
+price. Properties unlock on lifetime earnings.
+
+### Verticality and interiors
+
+Zones carry an `elevation`. Since zones never overlap in X/Z, one height per
+zone is enough to support both a rooftop and a cellar while the tile grid stays
+flat — the rooftop takes the house's own footprint, and the basement gets its
+own patch of lawn with the ground cut open above it.
+
+Both the server's tile placement and the client's renderer read the same
+`Properties.elevationAt`, so a rooftop costs nothing extra on the wire.
+
+### Clutter is a mechanic, not decoration
+
+Every zone scatters props — bins, planters, crates, patio chairs, barrels,
+bushes; boxes and shelves indoors. A completion bar over an empty field makes
+the last few percent a tedious sweep. The same bar over a cluttered yard makes
+it a hunt. Props never collide, so they can hide a tile but never wall you off
+from one.
 
 ## Balance
 
@@ -133,7 +168,7 @@ player through the whole ladder and prints time-to-unlock for everything. It
 runs in CI.
 
 Current curve, roughly: first mower at 3½ minutes, gas mower at 28, riding mower
-at 6 hours, zero-turn at 6¾, commercial deck at 7¼, everything maxed around 7½.
+at 5¾ hours, zero-turn at 6½, commercial deck at 7, everything maxed around 7¼.
 A real player is not ROI-optimal, so treat those as a floor.
 
 **Known tuning weakness:** the endgame compresses. The top three tools land
@@ -183,3 +218,8 @@ Deliberately out of scope, and why:
 - **Sound and music.** No audio at all yet.
 - **Tutorial.** New players get the free front yard and the HUD hints; there is
   no guided first-run sequence.
+- **Art direction.** The look is placeholder geometry in a summer palette. The
+  reference game is autumnal and far more detailed; matching it properly needs
+  reference images, which no amount of reading its wikis will supply.
+- **Interiors are shells.** The garage and basement are walled rooms with props,
+  not furnished spaces, and the house itself has no interior at all.
