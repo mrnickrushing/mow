@@ -416,37 +416,69 @@ end
 --------------------------------------------------------------------
 
 --[[
-	The money an armful just earned, floating up beside the crosshair.
+	The gold tally: one number that climbs while money is arriving.
 
-	Screen space rather than over the leaf itself: with a blower clearing a wide
-	arc there is no single leaf it belongs to, and a number that appears in the
-	same place every time is one the eye stops having to search for.
+	This is the reference's paycheck moment translated — as the bag pours into
+	the trailer, a single `+4.36$` counts up sip by sip rather than a shower of
+	little popups. One climbing number reads as a transaction in progress; many
+	separate ones read as noise. When nothing has arrived for a beat, it drifts
+	up and fades, and the next pour starts a fresh count.
 ]]
+local tallyAmount = 0
+local tallyLabel: TextLabel? = nil
+local tallyFadeAt = 0
+
 function Hud.gain(amount: number)
 	if amount <= 0 then
 		return
 	end
 
-	local label = Theme.text({
-		name = "Gain",
-		text = `+{Format.cashSuffix(amount)}`,
-		size = UDim2.fromOffset(240, 40),
-		position = UDim2.fromOffset(30, 60),
-		parent = gainHolder,
-		align = Enum.TextXAlignment.Center,
-		color = Theme.colors.tips,
-		textSize = 30,
-	})
+	tallyAmount += amount
+	tallyFadeAt = os.clock() + 0.8
 
-	local info = TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	TweenService:Create(label, info, { Position = UDim2.fromOffset(30, 0), TextTransparency = 1 }):Play()
+	local existing = tallyLabel
+	local label: TextLabel
+	if existing then
+		label = existing
+	else
+		label = Theme.text({
+			name = "Tally",
+			text = "",
+			size = UDim2.fromOffset(280, 44),
+			position = UDim2.fromOffset(10, 40),
+			parent = gainHolder,
+			align = Enum.TextXAlignment.Center,
+			color = Theme.colors.tips,
+			textSize = 34,
+		})
+		tallyLabel = label
+	end
+	label.Text = `+{Format.cashSuffix(tallyAmount)}`
+	label.TextTransparency = 0
+	local stroke = label:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Transparency = 0
+	end
+end
 
+--- Lets the tally go once the stream has stopped feeding it.
+local function stepTally()
+	local label = tallyLabel
+	if not label or tallyAmount <= 0 or os.clock() < tallyFadeAt then
+		return
+	end
+
+	tallyAmount = 0
+	tallyLabel = nil
+
+	local info = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(label, info, { Position = label.Position - UDim2.fromOffset(0, 34), TextTransparency = 1 })
+		:Play()
 	local stroke = label:FindFirstChildOfClass("UIStroke")
 	if stroke then
 		TweenService:Create(stroke, info, { Transparency = 1 }):Play()
 	end
-
-	task.delay(0.95, function()
+	task.delay(0.85, function()
 		label:Destroy()
 	end)
 end
@@ -674,6 +706,13 @@ function Hud.start()
 	build()
 	refresh()
 
+	task.spawn(function()
+		while true do
+			task.wait(0.15)
+			stepTally()
+		end
+	end)
+
 	PlayerState.Changed:Connect(refresh)
 	MowController.MowingChanged.Event:Connect(refresh)
 	MowController.Collected.Event:Connect(function(units: number)
@@ -702,8 +741,14 @@ function Hud.start()
 			return
 		end
 
-		-- Emptying the bag is the paycheck moment, so the amount gets the big
-		-- gold float as well as the toast.
+		-- The pour feeds the tally silently, sip by sip; a lump-sum sale (the
+		-- Empty Bag product) feeds the same counter and keeps its toast.
+		if kind == "tally" then
+			if type(amount) == "number" then
+				Hud.gain(amount)
+			end
+			return
+		end
 		if kind == "sale" and type(amount) == "number" then
 			Hud.gain(amount)
 		end

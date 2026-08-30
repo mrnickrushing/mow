@@ -66,6 +66,11 @@ local GameConfig = {
 	BASE_FUEL = 100,
 	--- Radius in studs within which the trailer accepts a dump.
 	BASE_DUMP_RADIUS = 12,
+
+	-- Seconds a full bag takes to pour into the trailer. The pour is the
+	-- paycheck moment — one gold number counting up as the clippings stream in
+	-- — so it is deliberately not instant, whatever the bag's size.
+	BAG_EMPTY_SECONDS = 2.5,
 	--- Fraction of the round payout pool a player earns per 1% contributed.
 	ROUND_COMPLETION_BONUS = 60,
 

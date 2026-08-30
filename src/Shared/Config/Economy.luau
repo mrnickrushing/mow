@@ -22,8 +22,9 @@ Economy.BASE_TRAILER_DISTANCE = 48
 Economy.PORTABLE_TRAILER_DISTANCE = 22
 --- However short the walk gets, dumping is never instantaneous.
 Economy.MIN_TRAILER_DISTANCE = 6
---- Seconds lost per dump: the walk-up and the sell animation.
-Economy.DUMP_OVERHEAD = 0.6
+--- Seconds lost per dump: the walk-up plus the pour itself, which takes a
+--- fixed couple of seconds however big the bag is.
+Economy.DUMP_OVERHEAD = 0.6 + GameConfig.BAG_EMPTY_SECONDS
 --- Fraction of a swath already cut on the previous pass. Real play overlaps.
 Economy.OVERLAP_WASTE = 0.18
 

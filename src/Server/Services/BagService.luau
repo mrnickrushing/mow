@@ -198,7 +198,16 @@ local function sell(player: Player, weightToSell: number): number
 	return paid
 end
 
---- Empties the whole bag for cash — the paycheck moment of the loop.
+--[[
+	Sells up to `weight` of the bag's contents. The trailer pour: called a few
+	times a second while the player stands in range, so the bag empties as a
+	stream and the tally on screen counts up with it.
+]]
+function BagService.sellUpTo(player: Player, weight: number): number
+	return sell(player, math.min(weight, bagFor(player).weight))
+end
+
+--- Empties the whole bag at once — the Empty Bag product, not the trailer.
 function BagService.dump(player: Player): number
 	local paid = sell(player, bagFor(player).weight)
 	if paid > 0 then
