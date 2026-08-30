@@ -13,6 +13,7 @@ local suites = {
 	require("./ChunkCodec.spec"),
 	require("./Balance.spec"),
 	require("./Config.spec"),
+	require("./Cutting.spec"),
 }
 
 for _, suite in suites do

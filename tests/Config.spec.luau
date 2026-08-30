@@ -12,14 +12,15 @@ local Debris = require("./.build/Shared/Config/Debris")
 local Monetization = require("./.build/Shared/Config/Monetization")
 local Properties = require("./.build/Shared/Config/Properties")
 local Tools = require("./.build/Shared/Config/Tools")
+local Types = require("./.build/Shared/Types")
 local Upgrades = require("./.build/Shared/Config/Upgrades")
 local h = require("./harness")
 
-local function rectsOverlap(a, b): boolean
+local function rectsOverlap(a: Types.Rect, b: Types.Rect): boolean
 	return a.x < b.x + b.w and b.x < a.x + a.w and a.z < b.z + b.d and b.z < a.z + a.d
 end
 
-local function pointInRect(x: number, z: number, r): boolean
+local function pointInRect(x: number, z: number, r: Types.Rect): boolean
 	return x >= r.x and z >= r.z and x < r.x + r.w and z < r.z + r.d
 end
 

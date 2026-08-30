@@ -42,7 +42,7 @@ if "$ANALYZE" analyze \
 	--definitions="$DEFS" \
 	--sourcemap=sourcemap.json \
 	--settings="$SETTINGS" \
-	$(find src tests -name '*.luau' | sort); then
+	$(find src tests -path tests/.build -prune -o -name '*.luau' -print | sort); then
 	echo "  types ok"
 else
 	echo "  TYPE ERRORS"
