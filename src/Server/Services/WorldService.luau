@@ -346,22 +346,12 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	-- Windows down the front, with teal surrounds.
 	for _, ratio in { -0.32, 0.3 } do
 		local at = Vector3.new(centre.X + width * ratio, 12, frontZ - 0.7)
-		Build.part({
-			name = "WindowFrame",
-			size = Vector3.new(9, 9, 0.6),
-			cframe = CFrame.new(at),
-			color = Palette.color(Palette.house.trim),
-			material = Enum.Material.SmoothPlastic,
-			canCollide = false,
-			parent = house,
-		})
-		Build.part({
+		Build.mesh({
+			prop = "Window",
 			name = "Window",
-			size = Vector3.new(7.4, 7.4, 0.4),
-			cframe = CFrame.new(at - Vector3.new(0, 0, 0.3)),
-			color = Palette.color(Palette.house.window),
-			material = Enum.Material.Glass,
-			transparency = 0.25,
+			size = Vector3.new(9, 9, 0.9),
+			collisionSize = Vector3.new(9, 9, 0.6),
+			cframe = CFrame.new(at),
 			canCollide = false,
 			parent = house,
 		})
@@ -397,12 +387,12 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	-- Square tapered columns carrying a porch roof.
 	for _, side in { -1, 1 } do
 		local x = porchX + side * (porchWidth * 0.5 - 1.6)
-		Build.part({
+		Build.mesh({
+			prop = "Column",
 			name = "Column",
-			size = Vector3.new(2.2, 13, 2.2),
+			size = Vector3.new(2.6, 13, 2.6),
+			collisionSize = Vector3.new(2.2, 13, 2.2),
 			cframe = CFrame.new(x, 10.8, porchZ - porchDepth * 0.5 + 1.4),
-			color = Palette.color(Palette.house.column),
-			material = Enum.Material.WoodPlanks,
 			parent = porch,
 		})
 	end
@@ -425,48 +415,38 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 
 	-- Rail: top bar plus balusters, down the open side of the porch.
 	local railZ = porchZ - porchDepth * 0.5 + 0.6
-	Build.part({
-		name = "RailTop",
-		size = Vector3.new(porchWidth - 4, 0.7, 0.8),
-		cframe = CFrame.new(porchX, 8, railZ),
-		color = Palette.color(Palette.house.porchRail),
-		material = Enum.Material.Wood,
-		parent = porch,
-	})
-	for index = 0, 9 do
-		Build.part({
-			name = "Baluster",
-			size = Vector3.new(0.5, 3.6, 0.5),
-			cframe = CFrame.new(
-				porchX - (porchWidth - 5) * 0.5 + (porchWidth - 5) * index / 9,
-				6.1,
-				railZ
-			),
-			color = Palette.color(Palette.house.porchRail),
-			material = Enum.Material.Wood,
-			canCollide = false,
+	local railSpan = porchWidth - 4
+	local railSections = math.max(math.floor(railSpan / 10 + 0.5), 1)
+	local railWidth = railSpan / railSections
+	for index = 0, railSections - 1 do
+		Build.mesh({
+			prop = "Railing",
+			name = "RailTop",
+			size = Vector3.new(railWidth, 4.2, 0.9),
+			collisionSize = Vector3.new(railWidth, 4.2, 0.8),
+			cframe = CFrame.new(porchX - railSpan * 0.5 + railWidth * (index + 0.5), 6.4, railZ),
 			parent = porch,
 		})
 	end
 
 	-- Steps down to the path.
 	for step = 0, 2 do
-		Build.part({
+		Build.mesh({
+			prop = "StepBlock",
 			name = "Step",
 			size = Vector3.new(porchWidth * 0.5, 1.3, 3),
+			collisionSize = Vector3.new(porchWidth * 0.5, 1.3, 3),
 			cframe = CFrame.new(porchX, 3.3 - step * 1.2, porchZ - porchDepth * 0.5 - 1.6 - step * 2.6),
-			color = Palette.color(Palette.house.porch),
-			material = Enum.Material.WoodPlanks,
 			parent = porch,
 		})
 	end
 
-	Build.part({
+	Build.mesh({
+		prop = "Door",
 		name = "Door",
-		size = Vector3.new(6.5, 11, 0.6),
+		size = Vector3.new(6.5, 11, 0.9),
+		collisionSize = Vector3.new(6.5, 11, 0.6),
 		cframe = CFrame.new(porchX, 9.5, frontZ - 0.4),
-		color = Palette.color(Palette.house.door),
-		material = Enum.Material.Wood,
 		canCollide = false,
 		parent = house,
 	})
@@ -477,27 +457,14 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 
 	local garageX = centre.X + width * 0.28
 	local garage = Build.folder("GarageFront", house)
-	Build.part({
+	Build.mesh({
+		prop = "GarageDoor",
 		name = "GarageDoor",
-		size = Vector3.new(width * 0.34, 13, 0.8),
+		size = Vector3.new(width * 0.34, 13, 1.2),
+		collisionSize = Vector3.new(width * 0.34, 13, 0.8),
 		cframe = CFrame.new(garageX, 10.5, frontZ - 0.5),
-		color = Palette.color(Palette.house.garage),
-		material = Enum.Material.SmoothPlastic,
 		parent = garage,
 	})
-	-- The horizontal panel lines that make a flat slab read as a garage door.
-	for line = 0, 5 do
-		Build.part({
-			name = "Panel",
-			size = Vector3.new(width * 0.34, 0.35, 0.3),
-			cframe = CFrame.new(garageX, 5 + line * 2.2, frontZ - 0.95),
-			color = Palette.color(Palette.house.garageLine),
-			material = Enum.Material.SmoothPlastic,
-			canCollide = false,
-			castShadow = false,
-			parent = garage,
-		})
-	end
 	Build.part({
 		name = "GarageFrame",
 		size = Vector3.new(width * 0.34 + 2, 15, 0.5),
@@ -571,12 +538,12 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 	end
 
 	-- Counter run along the back and one side.
-	local counter = Build.part({
+	local counter = Build.mesh({
+		prop = "Counter",
 		name = "ShedCounter",
 		size = Vector3.new(width - 4, 6, 5),
+		collisionSize = Vector3.new(width - 4, 6, 5),
 		cframe = CFrame.new(centre + Vector3.new(0, 3, depth * 0.5 - 4)),
-		color = Palette.color(Palette.house.porch),
-		material = Enum.Material.WoodPlanks,
 		parent = shed,
 	})
 	Build.part({
@@ -587,28 +554,8 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 		material = Enum.Material.WoodPlanks,
 		parent = shed,
 	})
-	-- Drawer fronts with handles, which is what makes it read as cabinetry.
-	for index = 0, 4 do
-		local x = -width * 0.5 + 4 + index * 5.4
-		Build.part({
-			name = "Drawer",
-			size = Vector3.new(4.4, 4.4, 0.4),
-			cframe = CFrame.new(centre + Vector3.new(x, 3.2, depth * 0.5 - 6.6)),
-			color = Palette.color(Palette.rgb(120, 78, 48)),
-			material = Enum.Material.WoodPlanks,
-			canCollide = false,
-			parent = shed,
-		})
-		Build.part({
-			name = "Handle",
-			size = Vector3.new(2.6, 0.4, 0.3),
-			cframe = CFrame.new(centre + Vector3.new(x, 4.4, depth * 0.5 - 6.9)),
-			color = Palette.color(Palette.rgb(186, 186, 190)),
-			material = Enum.Material.Metal,
-			canCollide = false,
-			parent = shed,
-		})
-	end
+	-- No drawer fronts or handles: the counter model has its own cabinetry, and
+	-- the old ones were drawn on top of it.
 
 	-- Pegboard on the side wall with tools hung on it.
 	Build.part({
@@ -732,12 +679,12 @@ local function buildSectionSigns(world: Types.WorldDef, parent: Folder): { [stri
 			-- Stand the sign at the edge of the section nearest the road.
 			local at = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z)
 
-			local post = Build.part({
+			local post = Build.mesh({
+				prop = "Sign",
 				name = section.id,
-				size = Vector3.new(1, 12, 1),
+				size = Vector3.new(7, 12, 1.4),
+				collisionSize = Vector3.new(1, 12, 1),
 				cframe = CFrame.new(at + Vector3.new(0, 6, -2)),
-				color = Palette.color(Palette.fence.rail),
-				material = Enum.Material.Wood,
 				canCollide = false,
 				parent = folder,
 			})
@@ -786,15 +733,16 @@ local function buildUpgradeStations(world: Types.WorldDef, parent: Folder)
 			cframe = CFrame.new(at + Vector3.new(0, 2.5, 0)),
 			color = Palette.color(Palette.fence.rail),
 			material = Enum.Material.Wood,
+			transparency = 1,
 			parent = folder,
 		})
 
-		local board = Build.part({
+		local board = Build.mesh({
+			prop = "ShopBoard",
 			name = def.id,
-			size = Vector3.new(6, 3.4, 0.6),
-			cframe = CFrame.new(at + Vector3.new(0, 6, 0)),
-			color = Palette.color(Palette.fence.picket),
-			material = Enum.Material.WoodPlanks,
+			size = Vector3.new(7, 8, 1.2),
+			collisionSize = Vector3.new(6, 3.4, 0.6),
+			cframe = CFrame.new(at + Vector3.new(0, 4.6, 0)),
 			parent = folder,
 		})
 		board:SetAttribute("UpgradeId", def.id)
@@ -853,12 +801,12 @@ local function buildCashGates(world: Types.WorldDef, parent: Folder): { [string]
 			})
 		end
 
-		local door = Build.part({
+		local door = Build.mesh({
+			prop = "Gate",
 			name = "Door",
-			size = Vector3.new(10, 10, 1),
+			size = Vector3.new(12, 11, 1.8),
+			collisionSize = Vector3.new(10, 10, 1),
 			cframe = CFrame.new(at + Vector3.new(0, 5, 0)),
-			color = Color3.fromRGB(96, 122, 196),
-			material = Enum.Material.WoodPlanks,
 			parent = gate,
 		})
 
@@ -1251,12 +1199,12 @@ local function buildExit(world: Types.WorldDef, parent: Folder)
 		parent = parent,
 	})
 
-	local grate = Build.part({
+	local grate = Build.mesh({
+		prop = "Grate",
 		name = "ExitGrate",
-		size = Vector3.new(11, 13, 1),
+		size = Vector3.new(11, 13, 2),
+		collisionSize = Vector3.new(11, 13, 1),
 		cframe = CFrame.new(at + Vector3.new(0, 6.5, -0.8)),
-		color = Palette.color(Palette.rgb(96, 100, 104)),
-		material = Enum.Material.DiamondPlate,
 		parent = parent,
 	})
 	grate:SetAttribute("Shut", true)
