@@ -365,30 +365,75 @@ end
 --------------------------------------------------------------------
 
 --- A sunken pool in the middle of a deck zone, with water you can see.
-function Structures.pool(context: Context, zone: Types.ZoneDef)
+--- How far a pool is inset from its zone's edge, leaving deck to clean.
+local POOL_INSET = 4
+
+--[[
+	The tiles a pool's water covers.
+
+	Shared with the ground builder and the tile filler: the lawn needs a hole
+	cut here or the pool is buried under it, and the grass must not be sown
+	here or it floats on the water.
+]]
+function Structures.poolRect(zone: Types.ZoneDef): Types.Rect
 	local r = zone.rect
+	return {
+		x = r.x + POOL_INSET,
+		z = r.z + POOL_INSET,
+		w = math.max(r.w - POOL_INSET * 2, 4),
+		d = math.max(r.d - POOL_INSET * 2, 4),
+	}
+end
+
+function Structures.pool(context: Context, zone: Types.ZoneDef)
 	local tile = context.tileSize
 	local folder = Build.folder(`Pool_{zone.id}`, context.parent)
 
-	-- Inset from the zone edge so there is deck left to actually clean.
-	local inset = 4
-	local width = math.max(r.w - inset * 2, 4) * tile
-	local depth = math.max(r.d - inset * 2, 4) * tile
+	local r = zone.rect
+	local basin = Structures.poolRect(zone)
+	local width = basin.w * tile
+	local depth = basin.d * tile
 	local centre = context.flat(r.x + r.w * 0.5, r.z + r.d * 0.5)
 
+	--[[
+		A pan, not a block.
+
+		The basin was one solid eight-stud box with the water part inside it, so
+		the pool was a slab of concrete with its water sealed in the middle
+		where nobody could see it, let alone swim in it. A floor and four walls
+		leave a hole with water in it, which is what a pool is.
+	]]
+	local depthBelow = 6
+	local rim = 1.5
+	local floorY = -depthBelow - 0.5
+
 	Build.part({
-		name = "PoolBasin",
-		size = Vector3.new(width + 3, 8, depth + 3),
-		cframe = CFrame.new(centre - Vector3.new(0, 4.2, 0)),
+		name = "PoolFloor",
+		size = Vector3.new(width + rim * 2, 1, depth + rim * 2),
+		cframe = CFrame.new(centre + Vector3.new(0, floorY, 0)),
 		color = Palette.color(Palette.ground.path),
 		material = Enum.Material.Concrete,
 		parent = folder,
 	})
 
+	Structures.wallRing({
+		name = "PoolWall",
+		centre = centre + Vector3.new(0, -depthBelow, 0),
+		width = width + rim * 2,
+		depth = depth + rim * 2,
+		height = depthBelow,
+		thickness = rim,
+		color = Palette.color(Palette.ground.path),
+		material = Enum.Material.Concrete,
+		parent = folder,
+	})
+
+	-- Sitting just below the lip, so the surface reads as water in a hole
+	-- rather than as a sheet laid over the lawn.
 	local water = Build.part({
 		name = "Water",
-		size = Vector3.new(width, 6, depth),
-		cframe = CFrame.new(centre - Vector3.new(0, 3.4, 0)),
+		size = Vector3.new(width, depthBelow - 0.6, depth),
+		cframe = CFrame.new(centre + Vector3.new(0, -(depthBelow - 0.6) * 0.5 - 0.6, 0)),
 		color = Palette.color(Palette.props.pool),
 		material = Enum.Material.Glass,
 		transparency = 0.35,

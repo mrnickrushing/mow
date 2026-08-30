@@ -64,6 +64,10 @@ local catalogue: { [string]: Prop } = {
 	Sprinkler = prop("rbxassetid://133265868962502", "rbxassetid://140459804380273", 1.568, 2.000, 1.575),
 	WaspNest = prop("rbxassetid://109192227690970", "rbxassetid://91421064853539", 2.784, 4.000, 2.774),
 	GoldenBlade = prop("rbxassetid://76860455179857", "rbxassetid://118765026020204", 0.993, 1.974, 1.000),
+
+	-- The stock on the shed shelf.
+	Sack = prop("rbxassetid://138022973254032", "rbxassetid://92817985554289", 2.943, 4.000, 3.277),
+	LeafBlower = prop("rbxassetid://120198329733477", "rbxassetid://127839085444983", 2.114, 3.000, 4.231),
 }
 
 Props.catalogue = catalogue
