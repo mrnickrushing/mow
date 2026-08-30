@@ -105,7 +105,10 @@ local function buildVehicle(tool: Types.ToolDef, at: CFrame, parent: Instance): 
 		end
 	end
 
-	body.Massless = true
+	-- The body keeps its mass on purpose. It is the wide, low box; the seat is
+	-- a small one perched above it. Making the body weightless left the whole
+	-- machine balanced on the seat like an inverted pendulum, and the first
+	-- push of throttle rolled it onto its back.
 	model.PrimaryPart = seat
 	model.Parent = parent
 	return model, seat

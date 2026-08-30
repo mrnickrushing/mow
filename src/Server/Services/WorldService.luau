@@ -1132,13 +1132,24 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 		rng = rng,
 	}
 
-	local detailed = world.style == "house"
+	--[[
+		Structure is driven by the section, not by the world's style.
 
+		This whole block used to be wrapped in `world.style == "house"`, which
+		meant the Gas Station — a lot, not a house — got no rooms, no floors and
+		no stairs. Its Workshop is a sunken room, and the ground is cut away for
+		anything sunken whatever the style, so the last required section of that
+		world was an eighteen-stud hole with no floor and no way in or out. It
+		never showed because nothing could load that world; now that beating one
+		world leads to the next, it very much can. What a section is made of is
+		its own business: `kind` and `elevation` decide it, and the style only
+		decides the fencing and dressing further down.
+	]]
 	for _, section in world.sections do
 		local kind = section.kind or "open"
 		local elevation = section.elevation or 0
 
-		if detailed then
+		do
 			-- A roof's parapet stands on a deck that overhangs the section by
 			-- two studs, so the gap in it — and the flight that arrives at it
 			-- — are measured from the deck's edge, not the section's.
