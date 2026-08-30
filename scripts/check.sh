@@ -62,7 +62,10 @@ fi
 
 echo "== build =="
 mkdir -p build
-if "$ROJO" build default.project.json -o build/MowAllTheLawns.rbxl >/dev/null; then
+# Both formats: .rbxl is what Studio loads fastest, .rbxlx is the XML form the
+# release publishes. Rojo picks the format from the extension.
+if "$ROJO" build default.project.json -o build/MowAllTheLawns.rbxl >/dev/null \
+	&& "$ROJO" build default.project.json -o build/MowAllTheLawns.rbxlx >/dev/null; then
 	echo "  place builds ok"
 else
 	echo "  BUILD FAILED"
