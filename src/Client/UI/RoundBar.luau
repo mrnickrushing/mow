@@ -23,6 +23,7 @@ local player = Players.LocalPlayer
 local propertyLabel: TextLabel
 local timerLabel: TextLabel
 local percentLabel: TextLabel
+local objectiveLabel: TextLabel
 local fill: Frame
 
 local secondsLeft = 0
@@ -34,48 +35,66 @@ local function build()
 	gui.ResetOnSpawn = false
 	gui.Parent = player:WaitForChild("PlayerGui")
 
-	local panel = Theme.panel({
-		name = "Round",
-		size = UDim2.fromOffset(420, 78),
-		position = UDim2.new(0.5, 0, 0, 12),
-		anchor = Vector2.new(0.5, 0),
-		parent = gui,
-	})
+	-- Zone name and progress sit top-left with no panel behind them, the way the
+	-- reference does it: the outline carries the legibility instead.
+	local corner = Instance.new("Frame")
+	corner.Name = "Zone"
+	corner.Size = UDim2.fromOffset(360, 70)
+	corner.Position = UDim2.fromOffset(18, 76)
+	corner.BackgroundTransparency = 1
+	corner.Parent = gui
+
+	local pin = Instance.new("TextLabel")
+	pin.Name = "Pin"
+	pin.Text = "📍"
+	pin.Size = UDim2.fromOffset(28, 28)
+	pin.Position = UDim2.fromOffset(0, 0)
+	pin.BackgroundTransparency = 1
+	pin.TextSize = 24
+	pin.Font = Theme.font
+	pin.Parent = corner
 
 	propertyLabel = Theme.text({
 		name = "Property",
 		text = "",
-		size = UDim2.new(1, -140, 0, 22),
-		position = UDim2.fromOffset(14, 8),
-		parent = panel,
-		textSize = 17,
+		size = UDim2.fromOffset(220, 28),
+		position = UDim2.fromOffset(32, 0),
+		parent = corner,
+		textSize = 22,
 	})
-
-	timerLabel = Theme.text({
-		name = "Timer",
-		text = "0:00",
-		size = UDim2.fromOffset(110, 22),
-		position = UDim2.new(1, -14, 0, 8),
-		anchor = Vector2.new(1, 0),
-		parent = panel,
-		color = Theme.colors.tips,
-		align = Enum.TextXAlignment.Right,
-		textSize = 19,
-	})
-
-	local _, bar = Theme.bar(panel, UDim2.new(1, -28, 0, 18), UDim2.fromOffset(14, 36), Theme.colors.grass)
-	fill = bar
 
 	percentLabel = Theme.text({
 		name = "Percent",
-		text = "0%",
-		size = UDim2.new(1, -28, 0, 16),
-		position = UDim2.fromOffset(14, 58),
-		parent = panel,
-		color = Theme.colors.subtext,
+		text = "0.0%",
+		size = UDim2.fromOffset(100, 28),
+		position = UDim2.fromOffset(258, 0),
+		parent = corner,
 		align = Enum.TextXAlignment.Right,
-		textSize = 13,
-		bold = false,
+		textSize = 20,
+	})
+
+	local _, bar = Theme.bar(corner, UDim2.fromOffset(340, 16), UDim2.fromOffset(4, 32), Theme.colors.progress)
+	fill = bar
+
+	objectiveLabel = Theme.text({
+		name = "Objective",
+		text = "",
+		size = UDim2.fromOffset(340, 24),
+		position = UDim2.fromOffset(4, 52),
+		parent = corner,
+		textSize = 17,
+	})
+
+	-- The clock lives bottom-right, counting down, as in the reference.
+	timerLabel = Theme.text({
+		name = "Timer",
+		text = "0:00",
+		size = UDim2.fromOffset(240, 46),
+		position = UDim2.new(1, -22, 1, -16),
+		anchor = Vector2.new(1, 1),
+		parent = gui,
+		align = Enum.TextXAlignment.Right,
+		textSize = 38,
 	})
 end
 
@@ -93,15 +112,18 @@ function RoundBar.start()
 
 		local completion = if type(state.completion) == "number" then state.completion else 0
 		fill.Size = UDim2.fromScale(math.clamp(completion, 0, 1), 1)
-		percentLabel.Text = `{Format.percent(completion)} of the property clear`
+		percentLabel.Text = Format.percent(completion)
 
 		if phase == "intermission" then
-			propertyLabel.Text = "Next property coming up"
+			propertyLabel.Text = "Next up"
+			objectiveLabel.Text = "Getting the next property ready"
 			fill.BackgroundColor3 = Theme.colors.tips
 		else
 			propertyLabel.Text = state.propertyName or ""
-			-- Turning amber near the end is the only cue that the clock matters.
-			fill.BackgroundColor3 = if completion >= 1 then Theme.colors.tips else Theme.colors.grass
+			objectiveLabel.Text = if completion >= 1
+				then "Clear! Nice work"
+				else "Clear the property before the clock runs out"
+			fill.BackgroundColor3 = if completion >= 1 then Theme.colors.tips else Theme.colors.progress
 		end
 	end)
 

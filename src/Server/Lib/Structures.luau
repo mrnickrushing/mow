@@ -10,6 +10,7 @@
 	planters and patio furniture makes it a hunt. Clutter is the mechanic.
 ]]
 
+local Palette = require(game:GetService("ReplicatedStorage").Shared.Config.Palette)
 local Types = require(game:GetService("ReplicatedStorage").Shared.Types)
 local Build = require(script.Parent.Build)
 
@@ -81,19 +82,19 @@ end
 type PropSpec = { name: string, size: Vector3, color: Color3, material: Enum.Material }
 
 local YARD_PROPS: { PropSpec } = {
-	{ name = "Bin", size = Vector3.new(4, 6, 4), color = Color3.fromRGB(58, 78, 62), material = Enum.Material.Plastic },
-	{ name = "Planter", size = Vector3.new(6, 3, 6), color = Color3.fromRGB(142, 92, 66), material = Enum.Material.Slate },
-	{ name = "Crate", size = Vector3.new(5, 5, 5), color = Color3.fromRGB(158, 120, 74), material = Enum.Material.WoodPlanks },
-	{ name = "Chair", size = Vector3.new(4, 4, 4), color = Color3.fromRGB(216, 214, 206), material = Enum.Material.Plastic },
-	{ name = "Barrel", size = Vector3.new(4, 5.5, 4), color = Color3.fromRGB(96, 104, 112), material = Enum.Material.Metal },
-	{ name = "Bush", size = Vector3.new(7, 5, 7), color = Color3.fromRGB(44, 96, 44), material = Enum.Material.Grass },
+	{ name = "Bin", size = Vector3.new(4, 6.5, 4), color = Palette.color(Palette.props.bin), material = Enum.Material.Plastic },
+	{ name = "Planter", size = Vector3.new(6, 3, 6), color = Palette.color(Palette.props.planter), material = Enum.Material.Brick },
+	{ name = "Crate", size = Vector3.new(5, 5, 5), color = Palette.color(Palette.props.crate), material = Enum.Material.WoodPlanks },
+	{ name = "Chair", size = Vector3.new(4, 4, 4), color = Palette.color(Palette.props.chair), material = Enum.Material.Plastic },
+	{ name = "Barrel", size = Vector3.new(4, 5.5, 4), color = Palette.color(Palette.props.barrel), material = Enum.Material.Metal },
+	{ name = "Bush", size = Vector3.new(7, 5.5, 7), color = Palette.color(Palette.hedge), material = Enum.Material.Grass },
 }
 
 local ROOM_PROPS: { PropSpec } = {
-	{ name = "Box", size = Vector3.new(5, 5, 5), color = Color3.fromRGB(168, 138, 96), material = Enum.Material.Cardboard },
-	{ name = "Shelf", size = Vector3.new(3, 10, 8), color = Color3.fromRGB(120, 88, 60), material = Enum.Material.Wood },
-	{ name = "Toolbox", size = Vector3.new(5, 3, 3), color = Color3.fromRGB(180, 62, 54), material = Enum.Material.Metal },
-	{ name = "Drum", size = Vector3.new(4, 6, 4), color = Color3.fromRGB(72, 92, 108), material = Enum.Material.Metal },
+	{ name = "Box", size = Vector3.new(5, 5, 5), color = Palette.color(Palette.props.crate), material = Enum.Material.Cardboard },
+	{ name = "Shelf", size = Vector3.new(3, 10, 8), color = Palette.color(Palette.house.porch), material = Enum.Material.Wood },
+	{ name = "Toolbox", size = Vector3.new(5, 3, 3), color = Palette.color(Palette.rgb(198, 74, 62)), material = Enum.Material.Metal },
+	{ name = "Drum", size = Vector3.new(4, 6, 4), color = Palette.color(Palette.props.barrel), material = Enum.Material.Metal },
 }
 
 --[[
@@ -156,12 +157,14 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 		name = "Floor",
 		size = Vector3.new(width, 2, depth),
 		cframe = CFrame.new(centre - Vector3.new(0, 1, 0)),
-		color = Color3.fromRGB(104, 100, 96),
+		color = Palette.color(Palette.ground.stoneDark),
 		material = Enum.Material.Concrete,
 		parent = folder,
 	})
 
-	local wallColor = if sunken then Color3.fromRGB(88, 84, 80) else Color3.fromRGB(196, 190, 178)
+	local wallColor = if sunken
+		then Palette.color(Palette.house.brickDark)
+		else Palette.color(Palette.house.siding)
 	local sides = {
 		{ Vector3.new(0, 0, -depth * 0.5), Vector3.new(width, wallHeight, 1.5) },
 		{ Vector3.new(0, 0, depth * 0.5), Vector3.new(width, wallHeight, 1.5) },
@@ -185,7 +188,7 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 			name = "Ceiling",
 			size = Vector3.new(width + 2, 1.5, depth + 2),
 			cframe = CFrame.new(centre + Vector3.new(0, wallHeight, 0)),
-			color = Color3.fromRGB(84, 78, 72),
+			color = Palette.color(Palette.house.roof),
 			material = Enum.Material.Slate,
 			parent = folder,
 		})
@@ -213,7 +216,7 @@ function Structures.stairs(context: Context, from: Vector3, to: Vector3, width: 
 			name = "Step",
 			size = Vector3.new(width, math.max(math.abs(stepRise), 0.6) + 0.6, stepRun + 0.4),
 			cframe = CFrame.lookAt(at, at + direction),
-			color = Color3.fromRGB(176, 170, 158),
+			color = Palette.color(Palette.ground.path),
 			material = Enum.Material.Concrete,
 			parent = parent,
 		})
@@ -240,7 +243,7 @@ function Structures.pool(context: Context, zone: Types.ZoneDef)
 		name = "PoolBasin",
 		size = Vector3.new(width + 3, 8, depth + 3),
 		cframe = CFrame.new(centre - Vector3.new(0, 4.2, 0)),
-		color = Color3.fromRGB(226, 232, 236),
+		color = Palette.color(Palette.ground.path),
 		material = Enum.Material.Concrete,
 		parent = folder,
 	})
@@ -249,7 +252,7 @@ function Structures.pool(context: Context, zone: Types.ZoneDef)
 		name = "Water",
 		size = Vector3.new(width, 6, depth),
 		cframe = CFrame.new(centre - Vector3.new(0, 3.4, 0)),
-		color = Color3.fromRGB(72, 158, 206),
+		color = Palette.color(Palette.props.pool),
 		material = Enum.Material.Glass,
 		transparency = 0.35,
 		canCollide = false,
@@ -292,7 +295,7 @@ function Structures.maze(context: Context, zone: Types.ZoneDef)
 					name = "Hedge",
 					size = Vector3.new(tile, 9, tile * 0.9),
 					cframe = CFrame.new(at + Vector3.new(0, 4.5, 0)),
-					color = Color3.fromRGB(38, 88, 40),
+					color = Palette.color(Palette.hedge),
 					material = Enum.Material.Grass,
 					parent = folder,
 				})

@@ -20,6 +20,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local DebrisConfig = require(Shared.Config.Debris)
 local Format = require(Shared.Util.Format)
+local Palette = require(Shared.Config.Palette)
 local Tools = require(Shared.Config.Tools)
 local Types = require(Shared.Types)
 local BagService = require(script.Parent.BagService)
@@ -72,7 +73,7 @@ local function makeStump(position: Vector3, zoneId: string, parent: Instance): B
 		name = "Stump",
 		size = Vector3.new(4.5, 2.2, 4.5),
 		cframe = CFrame.new(position + Vector3.new(0, 1.1, 0)),
-		color = Color3.fromRGB(94, 68, 44),
+		color = Palette.color(Palette.tree.trunk),
 		material = Enum.Material.Wood,
 		parent = parent,
 	})
@@ -98,7 +99,7 @@ local function makeTree(position: Vector3, zoneId: string, parent: Instance)
 		name = "Trunk",
 		size = Vector3.new(3.4, height, 3.4),
 		cframe = CFrame.new(position + Vector3.new(0, height * 0.5, 0)),
-		color = Color3.fromRGB(102, 72, 48),
+		color = Palette.color(Palette.tree.trunk),
 		material = Enum.Material.Wood,
 		parent = model,
 	})
@@ -108,7 +109,8 @@ local function makeTree(position: Vector3, zoneId: string, parent: Instance)
 		name = "Canopy",
 		size = Vector3.new(canopyRadius, canopyRadius * 0.8, canopyRadius),
 		cframe = CFrame.new(position + Vector3.new(0, height + canopyRadius * 0.25, 0)),
-		color = Color3.fromRGB(52, 108, 46),
+		-- Autumn canopy, picked from the same golds the leaves use.
+		color = Palette.color(Palette.tree.canopy[rng:NextInteger(1, #Palette.tree.canopy)]),
 		material = Enum.Material.Grass,
 		canCollide = false,
 		parent = model,

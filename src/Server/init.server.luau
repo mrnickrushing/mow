@@ -16,6 +16,7 @@ local Remotes = require(Shared.Remotes)
 Remotes.init()
 
 local Services = script.Services
+local AtmosphereService = require(Services.AtmosphereService)
 local DataService = require(Services.DataService)
 local WorldService = require(Services.WorldService)
 local ReplicationService = require(Services.ReplicationService)
@@ -40,6 +41,7 @@ local SweepService = require(Services.SweepService)
 
 -- Order matters: data before anything that reads a profile, world before
 -- anything that reads the grid, replication before anything that marks tiles.
+AtmosphereService.start()
 DataService.start()
 EconomyService.start()
 ReplicationService.start()

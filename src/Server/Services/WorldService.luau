@@ -16,6 +16,7 @@ local ChunkCodec = require(Shared.ChunkCodec)
 local Cutting = require(Shared.Cutting)
 local GameConfig = require(Shared.Config.GameConfig)
 local Grid = require(Shared.Grid)
+local Palette = require(Shared.Config.Palette)
 local Properties = require(Shared.Config.Properties)
 local Types = require(Shared.Types)
 local Build = require(script.Parent.Parent.Lib.Build)
@@ -208,7 +209,7 @@ local function buildGround(property: Types.PropertyDef, grid: Grid.Grid, parent:
 			name = "Surrounds",
 			size = Vector3.new(strip.size.X, 3, strip.size.Y),
 			cframe = CFrame.new(strip.centre.X, GameConfig.GROUND_Y - 2.2, strip.centre.Y),
-			color = Color3.fromRGB(96, 118, 74),
+			color = Palette.color(Palette.ground.lawnDark),
 			material = Enum.Material.Grass,
 			castShadow = false,
 			parent = parent,
@@ -220,40 +221,246 @@ local function buildGround(property: Types.PropertyDef, grid: Grid.Grid, parent:
 		name = "Road",
 		size = Vector3.new(width + 240, 0.6, 26),
 		cframe = CFrame.new(width * 0.5, GameConfig.GROUND_Y + 0.05, -16),
-		color = Color3.fromRGB(62, 62, 66),
+		color = Palette.color(Palette.ground.road),
 		material = Enum.Material.Asphalt,
 		castShadow = false,
 		parent = parent,
 	})
 end
 
+--[[
+	The house: cream lap siding, teal roof trim, a brick foundation, a covered
+	porch with square columns and a rail, and an attached sectional garage door.
+
+	Built from the reference's silhouette rather than as a box, because the porch
+	and the teal trim are what make it read as that kind of suburban house at a
+	glance.
+]]
 local function buildHouse(property: Types.PropertyDef, parent: Folder)
 	local rect = property.houseRect
 	if not rect then
 		return
 	end
 
-	local centre = WorldService.tilePointFlat(rect.x + rect.w * 0.5, rect.z + rect.d * 0.5)
-	local size = Vector3.new(rect.w * TILE, ROOF_HEIGHT, rect.d * TILE)
-
 	local house = Build.folder("House", parent)
-	Build.box("Walls", centre, size, Color3.fromRGB(226, 219, 202), Enum.Material.Concrete, house)
+	local centre = WorldService.tilePointFlat(rect.x + rect.w * 0.5, rect.z + rect.d * 0.5)
+	local width, depth = rect.w * TILE, rect.d * TILE
+	local wallHeight = ROOF_HEIGHT - 4
+
+	-- Brick foundation the siding sits on.
 	Build.part({
-		name = "Roof",
-		size = Vector3.new(size.X + 4, 3, size.Z + 4),
-		cframe = CFrame.new(centre + Vector3.new(0, size.Y + 1.5, 0)),
-		color = Color3.fromRGB(97, 66, 54),
-		material = Enum.Material.Slate,
+		name = "Foundation",
+		size = Vector3.new(width + 1.5, 4, depth + 1.5),
+		cframe = CFrame.new(centre + Vector3.new(0, 2, 0)),
+		color = Palette.color(Palette.house.brick),
+		material = Enum.Material.Brick,
+		parent = house,
+	})
+
+	-- Solid core, so the shell is never see-through at a corner.
+	Build.part({
+		name = "Core",
+		size = Vector3.new(width - 1, wallHeight, depth - 1),
+		cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight * 0.5, 0)),
+		color = Palette.color(Palette.house.sidingShade),
+		material = Enum.Material.WoodPlanks,
+		parent = house,
+	})
+
+	local wallCentreY = 4 + wallHeight * 0.5
+	local faces = {
+		{ offset = Vector3.new(0, wallCentreY, -depth * 0.5), facing = Vector3.new(0, 0, 1), size = Vector3.new(width, wallHeight, 1) },
+		{ offset = Vector3.new(0, wallCentreY, depth * 0.5), facing = Vector3.new(0, 0, 1), size = Vector3.new(width, wallHeight, 1) },
+		{ offset = Vector3.new(-width * 0.5, wallCentreY, 0), facing = Vector3.new(1, 0, 0), size = Vector3.new(1, wallHeight, depth) },
+		{ offset = Vector3.new(width * 0.5, wallCentreY, 0), facing = Vector3.new(1, 0, 0), size = Vector3.new(1, wallHeight, depth) },
+	}
+	for _, face in faces do
+		Build.sidingWall(house, centre + face.offset, face.size, face.facing, 2.6)
+	end
+
+	-- The teal band under the eaves, the single most identifying colour here.
+	Build.part({
+		name = "Trim",
+		size = Vector3.new(width + 4, 2.2, depth + 4),
+		cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight + 1, 0)),
+		color = Palette.color(Palette.house.trim),
+		material = Enum.Material.SmoothPlastic,
 		parent = house,
 	})
 	Build.part({
+		name = "Roof",
+		size = Vector3.new(width + 5, 2.4, depth + 5),
+		cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight + 3, 0)),
+		color = Palette.color(Palette.house.roof),
+		material = Enum.Material.Slate,
+		parent = house,
+	})
+
+	local frontZ = centre.Z - depth * 0.5
+
+	-- Windows down the front, with teal surrounds.
+	for _, ratio in { -0.32, 0.3 } do
+		local at = Vector3.new(centre.X + width * ratio, 12, frontZ - 0.7)
+		Build.part({
+			name = "WindowFrame",
+			size = Vector3.new(9, 9, 0.6),
+			cframe = CFrame.new(at),
+			color = Palette.color(Palette.house.trim),
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			parent = house,
+		})
+		Build.part({
+			name = "Window",
+			size = Vector3.new(7.4, 7.4, 0.4),
+			cframe = CFrame.new(at - Vector3.new(0, 0, 0.3)),
+			color = Palette.color(Palette.house.window),
+			material = Enum.Material.Glass,
+			transparency = 0.25,
+			canCollide = false,
+			parent = house,
+		})
+	end
+
+	--------------------------------------------------------------------
+	-- Porch
+	--------------------------------------------------------------------
+
+	local porch = Build.folder("Porch", house)
+	local porchDepth = 14
+	local porchWidth = width * 0.42
+	local porchZ = frontZ - porchDepth * 0.5
+	local porchX = centre.X - width * 0.18
+
+	Build.part({
+		name = "PorchBrick",
+		size = Vector3.new(porchWidth, 3.6, porchDepth),
+		cframe = CFrame.new(porchX, 1.8, porchZ),
+		color = Palette.color(Palette.house.brick),
+		material = Enum.Material.Brick,
+		parent = porch,
+	})
+	Build.part({
+		name = "PorchDeck",
+		size = Vector3.new(porchWidth, 0.8, porchDepth),
+		cframe = CFrame.new(porchX, 3.9, porchZ),
+		color = Palette.color(Palette.house.porch),
+		material = Enum.Material.WoodPlanks,
+		parent = porch,
+	})
+
+	-- Square tapered columns carrying a porch roof.
+	for _, side in { -1, 1 } do
+		local x = porchX + side * (porchWidth * 0.5 - 1.6)
+		Build.part({
+			name = "Column",
+			size = Vector3.new(2.2, 13, 2.2),
+			cframe = CFrame.new(x, 10.8, porchZ - porchDepth * 0.5 + 1.4),
+			color = Palette.color(Palette.house.column),
+			material = Enum.Material.WoodPlanks,
+			parent = porch,
+		})
+	end
+	Build.part({
+		name = "PorchRoof",
+		size = Vector3.new(porchWidth + 3, 1.6, porchDepth + 2),
+		cframe = CFrame.new(porchX, 18, porchZ),
+		color = Palette.color(Palette.house.roof),
+		material = Enum.Material.Slate,
+		parent = porch,
+	})
+	Build.part({
+		name = "PorchTrim",
+		size = Vector3.new(porchWidth + 3.4, 1, porchDepth + 2.4),
+		cframe = CFrame.new(porchX, 17, porchZ),
+		color = Palette.color(Palette.house.trim),
+		material = Enum.Material.SmoothPlastic,
+		parent = porch,
+	})
+
+	-- Rail: top bar plus balusters, down the open side of the porch.
+	local railZ = porchZ - porchDepth * 0.5 + 0.6
+	Build.part({
+		name = "RailTop",
+		size = Vector3.new(porchWidth - 4, 0.7, 0.8),
+		cframe = CFrame.new(porchX, 8, railZ),
+		color = Palette.color(Palette.house.porchRail),
+		material = Enum.Material.Wood,
+		parent = porch,
+	})
+	for index = 0, 9 do
+		Build.part({
+			name = "Baluster",
+			size = Vector3.new(0.5, 3.6, 0.5),
+			cframe = CFrame.new(
+				porchX - (porchWidth - 5) * 0.5 + (porchWidth - 5) * index / 9,
+				6.1,
+				railZ
+			),
+			color = Palette.color(Palette.house.porchRail),
+			material = Enum.Material.Wood,
+			canCollide = false,
+			parent = porch,
+		})
+	end
+
+	-- Steps down to the path.
+	for step = 0, 2 do
+		Build.part({
+			name = "Step",
+			size = Vector3.new(porchWidth * 0.5, 1.3, 3),
+			cframe = CFrame.new(porchX, 3.3 - step * 1.2, porchZ - porchDepth * 0.5 - 1.6 - step * 2.6),
+			color = Palette.color(Palette.house.porch),
+			material = Enum.Material.WoodPlanks,
+			parent = porch,
+		})
+	end
+
+	Build.part({
 		name = "Door",
-		size = Vector3.new(7, 11, 0.6),
-		cframe = CFrame.new(centre + Vector3.new(0, 5.5, -size.Z * 0.5)),
-		color = Color3.fromRGB(88, 60, 44),
+		size = Vector3.new(6.5, 11, 0.6),
+		cframe = CFrame.new(porchX, 9.5, frontZ - 0.4),
+		color = Palette.color(Palette.house.door),
 		material = Enum.Material.Wood,
 		canCollide = false,
 		parent = house,
+	})
+
+	--------------------------------------------------------------------
+	-- Attached garage door
+	--------------------------------------------------------------------
+
+	local garageX = centre.X + width * 0.28
+	local garage = Build.folder("GarageFront", house)
+	Build.part({
+		name = "GarageDoor",
+		size = Vector3.new(width * 0.34, 13, 0.8),
+		cframe = CFrame.new(garageX, 10.5, frontZ - 0.5),
+		color = Palette.color(Palette.house.garage),
+		material = Enum.Material.SmoothPlastic,
+		parent = garage,
+	})
+	-- The horizontal panel lines that make a flat slab read as a garage door.
+	for line = 0, 5 do
+		Build.part({
+			name = "Panel",
+			size = Vector3.new(width * 0.34, 0.35, 0.3),
+			cframe = CFrame.new(garageX, 5 + line * 2.2, frontZ - 0.95),
+			color = Palette.color(Palette.house.garageLine),
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			castShadow = false,
+			parent = garage,
+		})
+	end
+	Build.part({
+		name = "GarageFrame",
+		size = Vector3.new(width * 0.34 + 2, 15, 0.5),
+		cframe = CFrame.new(garageX, 10, frontZ - 0.2),
+		color = Palette.color(Palette.house.trim),
+		material = Enum.Material.SmoothPlastic,
+		canCollide = false,
+		parent = garage,
 	})
 end
 
@@ -261,12 +468,12 @@ local function buildShed(property: Types.PropertyDef, parent: Folder): BasePart
 	local centre = WorldService.tilePointFlat(property.shed.x, property.shed.z)
 	local shed = Build.folder("Shed", parent)
 
-	local walls = Build.box("Walls", centre, Vector3.new(18, 13, 16), Color3.fromRGB(140, 92, 62), Enum.Material.Wood, shed)
+	local walls = Build.box("Walls", centre, Vector3.new(18, 13, 16), Palette.color(Palette.props.shed), Enum.Material.WoodPlanks, shed)
 	Build.part({
 		name = "Roof",
 		size = Vector3.new(21, 2, 19),
 		cframe = CFrame.new(centre + Vector3.new(0, 14, 0)),
-		color = Color3.fromRGB(74, 52, 40),
+		color = Palette.color(Palette.house.trim),
 		material = Enum.Material.Slate,
 		parent = shed,
 	})
@@ -275,7 +482,7 @@ local function buildShed(property: Types.PropertyDef, parent: Folder): BasePart
 		name = "Counter",
 		size = Vector3.new(14, 5, 3),
 		cframe = CFrame.new(centre + Vector3.new(0, 2.5, -9)),
-		color = Color3.fromRGB(168, 116, 78),
+		color = Palette.color(Palette.house.porch),
 		material = Enum.Material.WoodPlanks,
 		parent = shed,
 	})
@@ -293,13 +500,13 @@ local function buildTrailer(property: Types.PropertyDef, parent: Folder): BasePa
 	local centre = WorldService.tilePointFlat(property.trailer.x, property.trailer.z)
 	local trailer = Build.folder("Trailer", parent)
 
-	local bed = Build.box("Bed", centre, Vector3.new(24, 4, 12), Color3.fromRGB(72, 78, 88), Enum.Material.DiamondPlate, trailer)
+	local bed = Build.box("Bed", centre, Vector3.new(24, 4, 12), Palette.color(Palette.props.bin), Enum.Material.DiamondPlate, trailer)
 	for _, offset in { Vector3.new(-12, 3.5, 0), Vector3.new(12, 3.5, 0) } do
 		Build.part({
 			name = "Side",
 			size = Vector3.new(0.8, 5, 12),
 			cframe = CFrame.new(centre + offset + Vector3.new(0, 2, 0)),
-			color = Color3.fromRGB(58, 64, 74),
+			color = Palette.color(Palette.props.binLid),
 			material = Enum.Material.DiamondPlate,
 			parent = trailer,
 		})
@@ -338,7 +545,7 @@ local function buildZoneSigns(property: Types.PropertyDef, parent: Folder): { [s
 				name = zone.id,
 				size = Vector3.new(1, 12, 1),
 				cframe = CFrame.new(at + Vector3.new(0, 6, -2)),
-				color = Color3.fromRGB(120, 84, 56),
+				color = Palette.color(Palette.fence.rail),
 				material = Enum.Material.Wood,
 				canCollide = false,
 				parent = folder,
@@ -391,7 +598,7 @@ local function buildZoneStructures(property: Types.PropertyDef, parent: Folder)
 					name = "RoofDeck",
 					size = Vector3.new(r.w * TILE + 4, 2, r.d * TILE + 4),
 					cframe = CFrame.new(centre + Vector3.new(0, elevation - 1, 0)),
-					color = Color3.fromRGB(97, 66, 54),
+					color = Palette.color(Palette.house.roof),
 					material = Enum.Material.Slate,
 					parent = parent,
 				})
@@ -406,7 +613,7 @@ local function buildZoneStructures(property: Types.PropertyDef, parent: Folder)
 						name = "Parapet",
 						size = Vector3.new(r.w * TILE + 4, 4, 1.5),
 						cframe = CFrame.new(centre + side + Vector3.new(0, elevation + 2, 0)),
-						color = Color3.fromRGB(86, 58, 48),
+						color = Palette.color(Palette.house.trim),
 						material = Enum.Material.Slate,
 						parent = parent,
 					})
@@ -421,7 +628,7 @@ local function buildZoneStructures(property: Types.PropertyDef, parent: Folder)
 						name = "Parapet",
 						size = Vector3.new(1.5, 4, r.d * TILE + 4),
 						cframe = CFrame.new(centre + side + Vector3.new(0, elevation + 2, 0)),
-						color = Color3.fromRGB(86, 58, 48),
+						color = Palette.color(Palette.house.trim),
 						material = Enum.Material.Slate,
 						parent = parent,
 					})
@@ -482,14 +689,34 @@ function WorldService.load(propertyId: string)
 	-- Fence the outer boundary so the lot reads as a property, not a plane.
 	local width = grid.width * TILE
 	local depth = grid.depth * TILE
-	Build.fence(parent, 0, 0, width, depth, 6, Color3.fromRGB(150, 132, 104), 14)
+
+	if property.style == "house" then
+		-- Picket fencing on three sides, open at the kerb where players arrive.
+		local fences = Build.folder("Fences", parent)
+		local corners = {
+			{ Vector3.new(0, 0, 0), Vector3.new(0, 0, depth) },
+			{ Vector3.new(0, 0, depth), Vector3.new(width, 0, depth) },
+			{ Vector3.new(width, 0, depth), Vector3.new(width, 0, 0) },
+		}
+		for index, run in corners do
+			Build.picketFence(fences, run[1], run[2], 9, index == 2)
+		end
+
+		-- A flagstone path from the kerb up to the porch, and a paved driveway.
+		local pathCentre = WorldService.tilePointFlat(48, 20)
+		Build.flagstone(parent, pathCentre + Vector3.new(0, 0.25, 0), Vector2.new(20, 96), 5, rng)
+		local driveCentre = WorldService.tilePointFlat(13, 19)
+		Build.flagstone(parent, driveCentre + Vector3.new(0, 0.25, 0), Vector2.new(68, 84), 6, rng)
+	else
+		Build.fence(parent, 0, 0, width, depth, 6, Palette.color(Palette.fence.rail), 14)
+	end
 
 	local spawnAt = WorldService.tilePointFlat(property.spawn.x, property.spawn.z)
 	local spawnPart = Build.part({
 		name = "SpawnPad",
 		size = Vector3.new(20, 0.4, 20),
 		cframe = CFrame.new(spawnAt + Vector3.new(0, 0.2, 0)),
-		color = Color3.fromRGB(206, 198, 172),
+		color = Palette.color(Palette.ground.path),
 		material = Enum.Material.Concrete,
 		castShadow = false,
 		parent = parent,

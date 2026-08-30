@@ -12,6 +12,7 @@
 	Ids are stored in three bits on the wire, so 0..7 only.
 ]]
 
+local Palette = require(script.Parent.Palette)
 local Types = require(script.Parent.Parent.Types)
 
 local Debris = {}
@@ -37,8 +38,8 @@ local defs: { [number]: Types.DebrisDef } = {
 		value = 0,
 		weight = 0,
 		unitsPerLevel = 0,
-		color = { 0.35, 0.29, 0.22 },
-		cutColor = { 0.35, 0.29, 0.22 },
+		color = Palette.ground.soil,
+		cutColor = Palette.ground.soil,
 		tools = {},
 	},
 	[Debris.Grass] = {
@@ -48,8 +49,8 @@ local defs: { [number]: Types.DebrisDef } = {
 		value = 0.10,
 		weight = 1,
 		unitsPerLevel = 4,
-		color = { 0.29, 0.55, 0.20 },
-		cutColor = { 0.42, 0.66, 0.30 },
+		color = Palette.grass.blade,
+		cutColor = Palette.grass.cut,
 		tools = { "Shears", "Mower", "Trimmer" },
 	},
 	[Debris.Leaves] = {
@@ -59,8 +60,8 @@ local defs: { [number]: Types.DebrisDef } = {
 		value = 0.15,
 		weight = 1,
 		unitsPerLevel = 4,
-		color = { 0.72, 0.42, 0.14 },
-		cutColor = { 0.42, 0.66, 0.30 },
+		color = Palette.leaves[2],
+		cutColor = Palette.grass.cut,
 		tools = { "Rake", "Blower" },
 	},
 	[Debris.Weeds] = {
@@ -70,8 +71,8 @@ local defs: { [number]: Types.DebrisDef } = {
 		value = 0.60,
 		weight = 2,
 		unitsPerLevel = 3,
-		color = { 0.48, 0.58, 0.16 },
-		cutColor = { 0.42, 0.66, 0.30 },
+		color = Palette.weeds,
+		cutColor = Palette.grass.cut,
 		tools = { "Trimmer", "Mower" },
 	},
 	[Debris.Hedge] = {
@@ -81,8 +82,8 @@ local defs: { [number]: Types.DebrisDef } = {
 		value = 1.00,
 		weight = 2,
 		unitsPerLevel = 3,
-		color = { 0.16, 0.38, 0.19 },
-		cutColor = { 0.20, 0.45, 0.24 },
+		color = Palette.hedge,
+		cutColor = Palette.grass.cut,
 		tools = { "HedgeTrimmer" },
 	},
 	[Debris.Sticks] = {
@@ -92,8 +93,8 @@ local defs: { [number]: Types.DebrisDef } = {
 		value = 1.80,
 		weight = 3,
 		unitsPerLevel = 2,
-		color = { 0.35, 0.24, 0.14 },
-		cutColor = { 0.42, 0.66, 0.30 },
+		color = Palette.sticks,
+		cutColor = Palette.grass.cut,
 		tools = { "Saw", "Chainsaw" },
 	},
 	[Debris.Log] = {
@@ -103,8 +104,8 @@ local defs: { [number]: Types.DebrisDef } = {
 		value = 26.00,
 		weight = 15,
 		unitsPerLevel = 1,
-		color = { 0.40, 0.26, 0.15 },
-		cutColor = { 0.40, 0.26, 0.15 },
+		color = Palette.log,
+		cutColor = Palette.log,
 		tools = { "Chainsaw" },
 	},
 	[Debris.Chips] = {
@@ -114,8 +115,8 @@ local defs: { [number]: Types.DebrisDef } = {
 		value = 18.00,
 		weight = 10,
 		unitsPerLevel = 1,
-		color = { 0.55, 0.40, 0.24 },
-		cutColor = { 0.55, 0.40, 0.24 },
+		color = Palette.chips,
+		cutColor = Palette.chips,
 		tools = { "Grinder" },
 	},
 }

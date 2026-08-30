@@ -1,25 +1,54 @@
 --!strict
---[[ Theme — one palette and a few builders, so every panel matches. ]]
+--[[
+	Theme — one palette and a few builders, so every panel matches.
+
+	The look is deliberately chunky: a rounded heavy face with a thick dark
+	outline on every piece of text. That outline is not decoration — this UI sits
+	over a bright amber sky and a floor of yellow leaves, and unoutlined white
+	text simply disappears against it.
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Palette = require(ReplicatedStorage:WaitForChild("Shared").Config.Palette)
 
 local Theme = {}
 
 Theme.colors = {
-	panel = Color3.fromRGB(24, 30, 26),
-	panelLight = Color3.fromRGB(36, 45, 38),
-	stroke = Color3.fromRGB(96, 132, 92),
-	text = Color3.fromRGB(240, 246, 238),
-	subtext = Color3.fromRGB(168, 184, 166),
-	grass = Color3.fromRGB(112, 186, 74),
-	grassDark = Color3.fromRGB(62, 122, 46),
-	cash = Color3.fromRGB(126, 214, 108),
-	tips = Color3.fromRGB(246, 200, 88),
-	warn = Color3.fromRGB(238, 132, 76),
-	danger = Color3.fromRGB(226, 90, 84),
-	bag = Color3.fromRGB(196, 158, 96),
+	panel = Palette.color(Palette.ui.panel),
+	panelLight = Palette.color(Palette.ui.panelLight),
+	stroke = Palette.color(Palette.ui.accent),
+	text = Palette.color(Palette.ui.text),
+	subtext = Color3.fromRGB(226, 208, 178),
+	grass = Palette.color(Palette.grass.blade),
+	grassDark = Palette.color(Palette.grass.bladeDark),
+	cash = Palette.color(Palette.ui.cash),
+	tips = Palette.color(Palette.ui.tips),
+	warn = Palette.color(Palette.ui.warn),
+	danger = Palette.color(Palette.ui.danger),
+	bag = Palette.color(Palette.ui.accent),
+	outline = Palette.color(Palette.ui.outline),
+	progress = Palette.color(Palette.ui.progress),
 }
 
-Theme.font = Enum.Font.GothamBold
-Theme.fontRegular = Enum.Font.Gotham
+--- Rounded and heavy, to match the storybook tone of the world.
+Theme.font = Enum.Font.FredokaOne
+Theme.fontRegular = Enum.Font.FredokaOne
+
+--- Thickness of the dark outline behind body text.
+Theme.OUTLINE = 2.5
+Theme.OUTLINE_HEAVY = 3.5
+
+--- Puts a heavy dark outline on a text label so it survives a bright backdrop.
+function Theme.outline(label: TextLabel | TextButton, thickness: number?): UIStroke
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = thickness or Theme.OUTLINE
+	stroke.Color = Theme.colors.outline
+	stroke.Transparency = 0
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.Parent = label
+	return stroke
+end
 
 function Theme.corner(parent: Instance, radius: number): UICorner
 	local corner = Instance.new("UICorner")
@@ -64,11 +93,11 @@ function Theme.panel(options: PanelOptions): Frame
 	frame.Position = options.position
 	frame.AnchorPoint = options.anchor or Vector2.new(0, 0)
 	frame.BackgroundColor3 = Theme.colors.panel
-	frame.BackgroundTransparency = options.transparency or 0.15
+	frame.BackgroundTransparency = options.transparency or 0.2
 	frame.BorderSizePixel = 0
 	frame.Parent = options.parent
-	Theme.corner(frame, 10)
-	Theme.stroke(frame, 1.5)
+	Theme.corner(frame, 12)
+	Theme.stroke(frame, 2.5, Theme.colors.outline, 0.1)
 	return frame
 end
 
@@ -104,6 +133,11 @@ function Theme.text(options: TextOptions): TextLabel
 		label.TextScaled = true
 	end
 	label.Parent = options.parent
+
+	-- Every label gets the outline; the world behind this UI is far too bright
+	-- for plain white text to read against.
+	label.TextStrokeTransparency = 1
+	Theme.outline(label, if options.bold == false then Theme.OUTLINE else Theme.OUTLINE_HEAVY)
 	return label
 end
 
@@ -125,6 +159,12 @@ function Theme.bar(parent: Instance, size: UDim2, position: UDim2, color: Color3
 	fill.BorderSizePixel = 0
 	fill.Parent = track
 	Theme.corner(fill, 6)
+
+	local outline = Instance.new("UIStroke")
+	outline.Thickness = 2
+	outline.Color = Theme.colors.outline
+	outline.Transparency = 0.15
+	outline.Parent = track
 
 	return track, fill
 end
