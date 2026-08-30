@@ -799,9 +799,9 @@ local function build()
 	book.Parent = gui
 	Theme.corner(book, 14)
 
-	local sizeLimit = Instance.new("UISizeConstraint")
-	sizeLimit.MaxSize = Vector2.new(940, 560)
-	sizeLimit.Parent = book
+	-- The tab strip hangs 164 pixels off the book's left edge, so the room the
+	-- journal really needs is wider than the book itself.
+	Theme.fitToViewport(book, 940 + 220, 560 + 60)
 
 	local spread = Instance.new("Frame")
 	spread.Name = "Pages"
@@ -913,7 +913,10 @@ local function build()
 	local close = Instance.new("TextButton")
 	close.Name = "Close"
 	close.Size = UDim2.fromOffset(56, 56)
-	close.Position = UDim2.new(1, 6, 0, -18)
+	-- Tucked inside the cover rather than overhanging its top-right corner:
+	-- overhung, it was the first thing to leave the screen on a short viewport,
+	-- which left the journal with no visible way to shut it.
+	close.Position = UDim2.new(1, -14, 0, 14)
 	close.AnchorPoint = Vector2.new(1, 0)
 	close.Text = "✕"
 	close.Font = Theme.font
@@ -921,6 +924,18 @@ local function build()
 	close.BackgroundColor3 = Color3.fromRGB(214, 72, 60)
 	close.TextColor3 = Color3.fromRGB(255, 246, 240)
 	close.BorderSizePixel = 0
+	--[[
+		Modal is what gives the journal a usable mouse.
+
+		The camera is locked to first person, which pins the cursor to the
+		centre of the screen — so every control in here, the tabs, the tool Buy
+		buttons and this button itself, sat somewhere the cursor could never
+		reach. Tools are only ever bought from this panel, so on a desktop the
+		whole sixteen-tool ladder was unreachable and the run ended at bare
+		hands. A visible modal button releases the mouse for as long as the
+		panel is open, and re-locks it the moment the panel closes.
+	]]
+	close.Modal = true
 	close.Parent = book
 	Theme.corner(close, 10)
 	Theme.outline(close, 3)
@@ -939,6 +954,7 @@ function Journal.setOpen(open: boolean)
 	end
 	isOpen = open
 	gui.Enabled = open
+	Theme.holdCursor(open)
 
 	if open then
 		render()

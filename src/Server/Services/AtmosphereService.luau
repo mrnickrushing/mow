@@ -42,7 +42,9 @@ function AtmosphereService.start()
 	Lighting.EnvironmentDiffuseScale = 0.6
 	Lighting.EnvironmentSpecularScale = 0.3
 	Lighting.GlobalShadows = true
-	Lighting.Technology = Enum.Technology.ShadowMap
+	-- Technology is not scriptable at runtime (writing it throws "lacking
+	-- capability RobloxScript" and aborts the whole server boot). It is set to
+	-- ShadowMap once, in default.project.json, where Studio can apply it.
 	Lighting.FogColor = Palette.color(Palette.sky.fog)
 	Lighting.FogStart = 180
 	Lighting.FogEnd = 1400

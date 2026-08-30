@@ -7,6 +7,7 @@
 ]]
 
 local Palette = require(game:GetService("ReplicatedStorage").Shared.Config.Palette)
+local Props = require(game:GetService("ReplicatedStorage").Shared.Config.Props)
 
 local Build = {}
 
@@ -22,6 +23,73 @@ export type PartOptions = {
 	castShadow: boolean?,
 	parent: Instance?,
 }
+
+export type MeshOptions = {
+	--- A key in the Props catalogue.
+	prop: string,
+	name: string?,
+	--- How big the prop should end up in the world.
+	size: Vector3,
+	cframe: CFrame,
+	--- Collision box, when the prop should be solid to something smaller or
+	--- larger than it looks. Defaults to `size`.
+	collisionSize: Vector3?,
+	color: Color3?,
+	transparency: number?,
+	canCollide: boolean?,
+	castShadow: boolean?,
+	parent: Instance?,
+}
+
+--[[
+	A prop from the catalogue, rendered at the size you ask for.
+
+	The part underneath stays a plain box because that is what the physics and
+	the proximity prompts want; the mesh hanging on it is what anybody actually
+	sees. `SpecialMesh` ignores the part's size and renders at its own, so the
+	scale is worked out here from the mesh's native size — ask for a four-stud
+	bin and you get a four-stud bin whatever the artist exported.
+
+	Falls back to a plain coloured part when a prop name is unknown, so a typo
+	costs a nice model rather than a missing object in the middle of the lawn.
+]]
+function Build.mesh(options: MeshOptions): Part
+	local def = Props.get(options.prop)
+	local part = Build.part({
+		name = options.name or options.prop,
+		size = options.collisionSize or options.size,
+		cframe = options.cframe,
+		color = options.color or (def and def.color) or Color3.fromRGB(255, 255, 255),
+		material = Enum.Material.SmoothPlastic,
+		-- A part carrying a file mesh renders as that mesh rather than as a
+		-- box, and transparency applies to the mesh too, so it stays opaque.
+		transparency = options.transparency or 0,
+		canCollide = options.canCollide,
+		castShadow = options.castShadow,
+		parent = options.parent,
+	})
+
+	if not def then
+		return part
+	end
+
+	-- The box is only there for collision; the mesh carries the look, so it is
+	-- drawn opaque even though the part beneath it is invisible.
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.FileMesh
+	mesh.MeshId = def.mesh
+	if def.texture then
+		mesh.TextureId = def.texture
+	end
+	mesh.Scale = Vector3.new(
+		options.size.X / def.native.X,
+		options.size.Y / def.native.Y,
+		options.size.Z / def.native.Z
+	)
+	mesh.Parent = part
+
+	return part
+end
 
 function Build.part(options: PartOptions): Part
 	local part = Instance.new("Part")
@@ -173,34 +241,29 @@ function Build.picketFence(
 		return folder
 	end
 
+	--[[
+		Fence panels, not a palisade of little boxes.
+
+		This used to be one box per picket plus a wedge cap on each, which is a
+		great many rectangles to say "fence" and still read as a row of blocks.
+		One panel model per section says it in a single mesh.
+	]]
 	local direction = delta.Unit
-	local spacing = 1.6
-	local count = math.max(math.floor(length / spacing), 1)
+	local panelWidth = 5
+	local count = math.max(math.floor(length / panelWidth + 0.5), 1)
+	local span = length / count
 
 	for index = 0, count - 1 do
-		local at = from + direction * (length * (index + 0.5) / count)
-		local shade = if index % 3 == 0 then Palette.fence.picketShade else Palette.fence.picket
-		Build.part({
+		local at = from + direction * (span * (index + 0.5))
+		Build.mesh({
+			prop = "Fence",
 			name = "Picket",
-			size = Vector3.new(1.25, height, 0.5),
-			cframe = CFrame.lookAt(at + Vector3.new(0, height * 0.5, 0), at + direction + Vector3.new(0, height * 0.5, 0))
-				* CFrame.Angles(0, math.rad(90), 0),
-			color = Palette.color(shade),
-			material = Enum.Material.WoodPlanks,
-			canCollide = false,
-			castShadow = false,
-			parent = folder,
-		})
-		-- The pointed cap that stops a fence reading as a row of posts.
-		Build.part({
-			name = "Cap",
-			size = Vector3.new(1.25, 0.9, 0.5),
+			size = Vector3.new(span + 0.2, height, 0.6),
+			collisionSize = Vector3.new(span, height, 0.6),
 			cframe = CFrame.lookAt(
-				at + Vector3.new(0, height + 0.2, 0),
-				at + direction + Vector3.new(0, height + 0.2, 0)
-			) * CFrame.Angles(0, math.rad(90), 0) * CFrame.Angles(0, 0, math.rad(45)),
-			color = Palette.color(Palette.fence.picket),
-			material = Enum.Material.WoodPlanks,
+				at + Vector3.new(0, height * 0.5, 0),
+				at + direction + Vector3.new(0, height * 0.5, 0)
+			) * CFrame.Angles(0, math.rad(90), 0),
 			canCollide = false,
 			castShadow = false,
 			parent = folder,
@@ -221,23 +284,23 @@ function Build.picketFence(
 		})
 	end
 
+	--[[
+		No lattice.
+
+		The crosshatch above the pickets was a hundred and ninety-two little
+		boxes turned forty-two degrees, which is a great deal of geometry to
+		spend on a decoration that now sits on top of a fence model that already
+		looks like a fence. The argument stays so the callers do not have to
+		change, and taller runs simply build a taller panel.
+	]]
 	if lattice then
-		-- A diamond crosshatch panel above the pickets, as on the reference's
-		-- side gates.
-		local panels = math.max(math.floor(length / 4), 1)
-		for index = 0, panels - 1 do
-			local at = from + direction * (length * (index + 0.5) / panels) + Vector3.new(0, height + 2.6, 0)
-			for _, angle in { 42, -42 } do
-				Build.part({
-					name = "Lattice",
-					size = Vector3.new(0.4, 6.5, 0.4),
-					cframe = CFrame.lookAt(at, at + direction) * CFrame.Angles(0, 0, math.rad(angle)),
-					color = Palette.color(Palette.fence.lattice),
-					material = Enum.Material.WoodPlanks,
-					canCollide = false,
-					castShadow = false,
-					parent = folder,
-				})
+		for _, panel in folder:GetChildren() do
+			if panel:IsA("BasePart") then
+				local mesh = panel:FindFirstChildOfClass("SpecialMesh")
+				if mesh then
+					mesh.Scale = Vector3.new(mesh.Scale.X, mesh.Scale.Y * 1.35, mesh.Scale.Z)
+					panel.Size = Vector3.new(panel.Size.X, panel.Size.Y * 1.35, panel.Size.Z)
+				end
 			end
 		end
 	end
@@ -287,15 +350,15 @@ function Build.hedge(parent: Instance, from: Vector3, to: Vector3, height: numbe
 		local at = from + direction * (length * (index + 0.5) / blocks)
 		-- Slight per-block variation, so the hedge does not read as one extrusion.
 		local wobble = ((index % 3) - 1) * 0.6
-		Build.part({
+		Build.mesh({
+			prop = "Hedge",
 			name = "Hedge",
-			size = Vector3.new(length / blocks + 0.6, height + wobble, depth),
+			size = Vector3.new(length / blocks + 1.2, height + wobble, depth + 1),
+			collisionSize = Vector3.new(length / blocks + 0.6, height + wobble, depth),
 			cframe = CFrame.lookAt(
 				at + Vector3.new(0, (height + wobble) * 0.5, 0),
 				at + direction + Vector3.new(0, (height + wobble) * 0.5, 0)
 			) * CFrame.Angles(0, math.rad(90), 0),
-			color = Palette.color(if index % 2 == 0 then Palette.hedge else Palette.rgb(48, 112, 46)),
-			material = Enum.Material.Grass,
 			parent = folder,
 		})
 	end

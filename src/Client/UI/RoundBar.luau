@@ -144,11 +144,13 @@ local function build()
 		textSize = 36,
 	})
 
+	-- Tucked left of the status column rather than directly under it: the
+	-- column grows downward and the two met on a short viewport.
 	fpsLabel = Theme.text({
 		name = "Fps",
 		text = "",
 		size = UDim2.fromOffset(120, 20),
-		position = UDim2.new(1, -26, 1, -62),
+		position = UDim2.new(1, -160, 1, -62),
 		anchor = Vector2.new(1, 1),
 		parent = gui,
 		align = Enum.TextXAlignment.Right,

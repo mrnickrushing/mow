@@ -36,12 +36,12 @@ local rng = Random.new()
 local collectors: { [BasePart]: (Player) -> () } = {}
 
 local function spawnBlade(position: Vector3, section: Types.ZoneDef, parent: Instance)
-	local part = Build.part({
+	local part = Build.mesh({
+		prop = "GoldenBlade",
 		name = "GoldenBlade",
-		size = Vector3.new(1.6, 4, 0.4),
+		size = Vector3.new(2.4, 4.8, 2.4),
+		collisionSize = Vector3.new(1.6, 4, 0.4),
 		cframe = CFrame.new(position + Vector3.new(0, 3, 0)),
-		color = Color3.fromRGB(247, 203, 74),
-		material = Enum.Material.Neon,
 		canCollide = false,
 		castShadow = false,
 		parent = parent,

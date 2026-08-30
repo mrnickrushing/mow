@@ -38,6 +38,8 @@ local player = Players.LocalPlayer
 local intentRemote: UnreliableRemoteEvent
 local mowing = false
 local accumulator = 0
+--- Fractional passes carried between ticks, mirroring the server's own carry.
+local predictCarry = 0
 local predictScratch: { number } = {}
 --- Clippings bagged since the last popup, and when that popup went up.
 local pendingUnits = 0
@@ -202,6 +204,7 @@ local function setMowing(value: boolean)
 	mowing = value
 	if not value then
 		accumulator = 0
+		predictCarry = 0
 	end
 	MowController.MowingChanged:Fire(mowing)
 end
@@ -296,9 +299,25 @@ local function step(delta: number)
 		toolId = state.equippedTool,
 	})
 
+	--[[
+		Fractional passes are carried between ticks, exactly as the server
+		carries them.
+
+		Without the carry the prediction was dead for every tool in the early
+		game: bare hands earn 0.12 of a pass in a tenth of a second, `predict`
+		floors that to nothing and returns, and so the grass only ever moved
+		when the server's chunk delta arrived and not one gain number was ever
+		shown. The server has always accumulated the remainder; this is the
+		same sum on the same numbers.
+	]]
 	local tool = Tools.get(state.equippedTool)
 	if tool then
-		predict(root, flat, state.equippedTool, tool.rate * elapsed * Balance.cutRateMultiplier(state.upgrades, tool.id))
+		predictCarry += Balance.effectiveCutRate(tool, state.upgrades, false) * elapsed
+		local passes = math.floor(predictCarry)
+		if passes > 0 then
+			predictCarry -= passes
+			predict(root, flat, state.equippedTool, passes)
+		end
 	end
 end
 

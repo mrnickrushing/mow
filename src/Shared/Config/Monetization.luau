@@ -273,11 +273,20 @@ end
 --------------------------------------------------------------------
 
 Monetization.rewards = {
-	--- Cash for logging in on consecutive days, indexed by streak day.
-	dailyStreak = { 250, 600, 1400, 3000, 7000, 15000, 40000 },
-	--- Granted every PLAYTIME_INTERVAL seconds of active play.
+	--[[
+		Tips for logging in on consecutive days, indexed by streak day.
+
+		Tips, not cash, and deliberately. Every run starts from nothing and the
+		prices are in single dollars because of it — a rake is eight dollars —
+		so handing a returning player two hundred and fifty of them on arrival
+		bought the first half of the ladder before they had cut a blade of
+		grass. Money is the thing you earn by working; tips are the thing you
+		earn by turning up and by playing well, and they buy their own rewards.
+	]]
+	dailyStreak = { 3, 6, 10, 16, 24, 34, 50 },
+	--- Granted every PLAYTIME_INTERVAL seconds of active play, also as tips.
 	playtimeInterval = 480,
-	playtimeCash = 500,
+	playtimeTips = 5,
 	--- One free two-minute riding mower every this many seconds of play.
 	freeRentalInterval = 1800,
 	freeRentalToolId = "riding_mower",

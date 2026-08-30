@@ -54,12 +54,12 @@ local function claimDaily(player: Player)
 		local index = math.min(profile.dailyStreak, #table_)
 		local amount = table_[index]
 
-		EconomyService.awardRaw(player, amount)
+		EconomyService.awardTips(player, amount)
 		EconomyService.notify(
 			player,
 			"reward",
-			`Day {profile.dailyStreak} streak — {Format.cash(amount)}`,
-			amount
+			`Day {profile.dailyStreak} streak — {amount} tips`,
+			nil
 		)
 	end)
 end
@@ -78,8 +78,8 @@ local function tick(player: Player, delta: number)
 
 	if elapsed >= (nextPlaytimeReward[player] or rewards.playtimeInterval) then
 		nextPlaytimeReward[player] = elapsed + rewards.playtimeInterval
-		EconomyService.awardRaw(player, rewards.playtimeCash)
-		EconomyService.notify(player, "reward", `Still going — {Format.cash(rewards.playtimeCash)}`, nil)
+		EconomyService.awardTips(player, rewards.playtimeTips)
+		EconomyService.notify(player, "reward", `Still going — {rewards.playtimeTips} tips`, nil)
 	end
 
 	if elapsed >= (nextFreeRental[player] or rewards.freeRentalInterval) then

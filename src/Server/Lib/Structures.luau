@@ -25,6 +25,40 @@ export type Context = {
 	rng: Random,
 }
 
+--[[
+	A gap left in a ring of walls.
+
+	`normal` is the outward direction of the side the gap sits in, `offset` how
+	far along that side the gap's centre is from the side's centre, and `width`
+	how wide it is.
+]]
+export type Opening = {
+	normal: Vector3,
+	width: number,
+	offset: number?,
+}
+
+type RingSide = {
+	normal: Vector3,
+	offset: Vector3,
+	span: number,
+	alongX: boolean,
+}
+
+export type WallRingOptions = {
+	name: string,
+	--- Centre of the enclosed floor, at the height the walls stand on.
+	centre: Vector3,
+	width: number,
+	depth: number,
+	height: number,
+	thickness: number,
+	color: Color3,
+	material: Enum.Material,
+	parent: Instance,
+	opening: Opening?,
+}
+
 --------------------------------------------------------------------
 -- Rectangle subtraction, for cutting holes in the ground
 --------------------------------------------------------------------
@@ -79,22 +113,24 @@ end
 -- Clutter
 --------------------------------------------------------------------
 
-type PropSpec = { name: string, size: Vector3, color: Color3, material: Enum.Material }
+--- A prop in the catalogue and how big to build it.
+type PropSpec = { prop: string, size: Vector3 }
 
 local YARD_PROPS: { PropSpec } = {
-	{ name = "Bin", size = Vector3.new(4, 6.5, 4), color = Palette.color(Palette.props.bin), material = Enum.Material.Plastic },
-	{ name = "Planter", size = Vector3.new(6, 3, 6), color = Palette.color(Palette.props.planter), material = Enum.Material.Brick },
-	{ name = "Crate", size = Vector3.new(5, 5, 5), color = Palette.color(Palette.props.crate), material = Enum.Material.WoodPlanks },
-	{ name = "Chair", size = Vector3.new(4, 4, 4), color = Palette.color(Palette.props.chair), material = Enum.Material.Plastic },
-	{ name = "Barrel", size = Vector3.new(4, 5.5, 4), color = Palette.color(Palette.props.barrel), material = Enum.Material.Metal },
-	{ name = "Bush", size = Vector3.new(7, 5.5, 7), color = Palette.color(Palette.hedge), material = Enum.Material.Grass },
+	{ prop = "Bin", size = Vector3.new(4, 6.5, 4) },
+	{ prop = "Planter", size = Vector3.new(5, 4.5, 5) },
+	{ prop = "Crate", size = Vector3.new(5, 3.4, 4.5) },
+	{ prop = "Chair", size = Vector3.new(4, 5, 4) },
+	{ prop = "Barrel", size = Vector3.new(4, 5.5, 4) },
+	{ prop = "Bush", size = Vector3.new(6, 6, 6) },
+	{ prop = "Rock", size = Vector3.new(4, 3, 4) },
 }
 
 local ROOM_PROPS: { PropSpec } = {
-	{ name = "Box", size = Vector3.new(5, 5, 5), color = Palette.color(Palette.props.crate), material = Enum.Material.Cardboard },
-	{ name = "Shelf", size = Vector3.new(3, 10, 8), color = Palette.color(Palette.house.porch), material = Enum.Material.Wood },
-	{ name = "Toolbox", size = Vector3.new(5, 3, 3), color = Palette.color(Palette.rgb(198, 74, 62)), material = Enum.Material.Metal },
-	{ name = "Drum", size = Vector3.new(4, 6, 4), color = Palette.color(Palette.props.barrel), material = Enum.Material.Metal },
+	{ prop = "Crate", size = Vector3.new(5, 3.4, 4.5) },
+	{ prop = "Barrel", size = Vector3.new(4, 6, 4) },
+	{ prop = "Bin", size = Vector3.new(4, 6, 4) },
+	{ prop = "Rock", size = Vector3.new(4, 3, 4) },
 }
 
 --[[
@@ -120,13 +156,11 @@ function Structures.clutter(context: Context, zone: Types.ZoneDef, count: number
 		local tz = context.rng:NextInteger(r.z, r.z + r.d - 1)
 		local at = context.flat(tx, tz) + Vector3.new(0, elevation, 0)
 
-		Build.part({
-			name = spec.name,
+		Build.mesh({
+			prop = spec.prop,
 			size = spec.size,
 			cframe = CFrame.new(at + Vector3.new(0, spec.size.Y * 0.5, 0))
 				* CFrame.Angles(0, context.rng:NextNumber() * math.pi * 2, 0),
-			color = spec.color,
-			material = spec.material,
 			canCollide = false,
 			parent = folder,
 		})
@@ -144,7 +178,94 @@ end
 	a ceiling: the player can see down into it, walk in via the stairs, and the
 	renderer never has to hide a roof to make the inside visible.
 ]]
-function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: number, sunken: boolean)
+--[[
+	Four walls around a rectangle, with at most one gap in them.
+
+	The gap is the whole point. A cellar walled in on all four sides is a sealed
+	box however good the stairs leading to it are, and a rooftop ringed by an
+	unbroken parapet is one you can only fall off. Both were built that way,
+	which left the basement — the last section on the critical path — with no
+	way in, and so no world could be finished.
+]]
+function Structures.wallRing(options: WallRingOptions)
+	local centre = options.centre
+	local halfWidth, halfDepth = options.width * 0.5, options.depth * 0.5
+	local opening = options.opening
+
+	local sides: { RingSide } = {
+		{ normal = Vector3.new(0, 0, -1), offset = Vector3.new(0, 0, -halfDepth), span = options.width, alongX = true },
+		{ normal = Vector3.new(0, 0, 1), offset = Vector3.new(0, 0, halfDepth), span = options.width, alongX = true },
+		{ normal = Vector3.new(-1, 0, 0), offset = Vector3.new(-halfWidth, 0, 0), span = options.depth, alongX = false },
+		{ normal = Vector3.new(1, 0, 0), offset = Vector3.new(halfWidth, 0, 0), span = options.depth, alongX = false },
+	}
+
+	for _, side in sides do
+		-- Where this side is broken, measured along its own length from its
+		-- centre. An empty span leaves the wall whole.
+		local gapLow, gapHigh = 0, 0
+		if opening and side.normal:Dot(opening.normal) > 0.9 then
+			local half = math.max(math.min(opening.width, side.span - 4), 0) * 0.5
+			local reach = side.span * 0.5 - half
+			local at = math.clamp(opening.offset or 0, -reach, reach)
+			gapLow, gapHigh = at - half, at + half
+		end
+
+		local runs: { { number } } = if gapHigh > gapLow
+			then { { -side.span * 0.5, gapLow }, { gapHigh, side.span * 0.5 } }
+			else { { -side.span * 0.5, side.span * 0.5 } }
+
+		for _, run in runs do
+			local low, high = run[1], run[2]
+			local length = high - low
+			if length > 0.1 then
+				local mid = (low + high) * 0.5
+				local size = if side.alongX
+					then Vector3.new(length, options.height, options.thickness)
+					else Vector3.new(options.thickness, options.height, length)
+				local slide = if side.alongX then Vector3.new(mid, 0, 0) else Vector3.new(0, 0, mid)
+				Build.part({
+					name = options.name,
+					size = size,
+					cframe = CFrame.new(
+						centre + side.offset + slide + Vector3.new(0, options.height * 0.5, 0)
+					),
+					color = options.color,
+					material = options.material,
+					parent = options.parent,
+				})
+			end
+		end
+	end
+end
+
+--[[
+	The low wall around a rooftop, with a gap where its stairs arrive.
+
+	It sits on the deck, which overhangs the section by two studs on every side,
+	so the gap lines up with a flight that climbs to the deck's edge rather than
+	to the section's.
+]]
+function Structures.parapet(context: Context, zone: Types.ZoneDef, height: number, opening: Opening?)
+	local r = zone.rect
+	local tile = context.tileSize
+	local elevation = zone.elevation or 0
+	local centre = context.flat(r.x + r.w * 0.5, r.z + r.d * 0.5) + Vector3.new(0, elevation, 0)
+
+	Structures.wallRing({
+		name = "Parapet",
+		centre = centre,
+		width = r.w * tile + 4,
+		depth = r.d * tile + 4,
+		height = height,
+		thickness = 1.5,
+		color = Palette.color(Palette.house.trim),
+		material = Enum.Material.Slate,
+		parent = context.parent,
+		opening = opening,
+	})
+end
+
+function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: number, sunken: boolean, opening: Opening?)
 	local r = zone.rect
 	local elevation = zone.elevation or 0
 	local tile = context.tileSize
@@ -165,22 +286,18 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 	local wallColor = if sunken
 		then Palette.color(Palette.house.brickDark)
 		else Palette.color(Palette.house.siding)
-	local sides = {
-		{ Vector3.new(0, 0, -depth * 0.5), Vector3.new(width, wallHeight, 1.5) },
-		{ Vector3.new(0, 0, depth * 0.5), Vector3.new(width, wallHeight, 1.5) },
-		{ Vector3.new(-width * 0.5, 0, 0), Vector3.new(1.5, wallHeight, depth) },
-		{ Vector3.new(width * 0.5, 0, 0), Vector3.new(1.5, wallHeight, depth) },
-	}
-	for _, side in sides do
-		Build.part({
-			name = "Wall",
-			size = side[2],
-			cframe = CFrame.new(centre + side[1] + Vector3.new(0, wallHeight * 0.5, 0)),
-			color = wallColor,
-			material = Enum.Material.Concrete,
-			parent = folder,
-		})
-	end
+	Structures.wallRing({
+		name = "Wall",
+		centre = centre,
+		width = width,
+		depth = depth,
+		height = wallHeight,
+		thickness = 1.5,
+		color = wallColor,
+		material = Enum.Material.Concrete,
+		parent = folder,
+		opening = opening,
+	})
 
 	-- An above-ground room gets a roof; a sunken one stays open so you can see in.
 	if not sunken then
@@ -197,24 +314,44 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 	return folder
 end
 
---- A flight of steps from `from` down or up to `to`.
-function Structures.stairs(context: Context, from: Vector3, to: Vector3, width: number, steps: number, parent: Instance)
+--- How far one step lifts you. Low enough to walk up without jumping.
+local STEP_RISE = 1.5
+
+--[[
+	A flight of steps from `from` down or up to `to`.
+
+	The step count comes from the climb rather than being handed in. A fixed
+	fourteen steps over a fixed eight-stud run turned the roof's twenty-four
+	studs of height into 1.7-stud risers only 0.6 studs deep, which is a ladder
+	with no tread to stand on — the character jammed halfway up every time. One
+	step per 1.5 studs of climb keeps a flight walkable whatever it has to
+	climb, so long as the caller gives it a run to spread over.
+
+	Each step is placed by its tread rather than its centre, so the top tread
+	lands exactly on `to` and meets the floor it arrives at flush.
+]]
+function Structures.stairs(context: Context, from: Vector3, to: Vector3, width: number, parent: Instance)
 	local delta = to - from
 	local flat = Vector3.new(delta.X, 0, delta.Z)
 	local run = flat.Magnitude
-	if run < 0.1 or steps <= 0 then
+	if run < 0.1 then
 		return
 	end
 
+	local steps = math.max(2, math.ceil(math.abs(delta.Y) / STEP_RISE))
 	local direction = flat.Unit
 	local stepRun = run / steps
 	local stepRise = delta.Y / steps
+	local thickness = math.max(math.abs(stepRise), 0.6) + 0.6
 
 	for index = 1, steps do
-		local at = from + direction * (stepRun * (index - 0.5)) + Vector3.new(0, stepRise * index, 0)
+		local tread = from
+			+ direction * (stepRun * (index - 0.5))
+			+ Vector3.new(0, stepRise * index, 0)
+		local at = tread - Vector3.new(0, thickness * 0.5, 0)
 		Build.part({
 			name = "Step",
-			size = Vector3.new(width, math.max(math.abs(stepRise), 0.6) + 0.6, stepRun + 0.4),
+			size = Vector3.new(width, thickness, stepRun + 0.4),
 			cframe = CFrame.lookAt(at, at + direction),
 			color = Palette.color(Palette.ground.path),
 			material = Enum.Material.Concrete,
@@ -291,12 +428,12 @@ function Structures.maze(context: Context, zone: Types.ZoneDef)
 			local inGap = (tx >= gapA and tx < gapA + 3) or (tx >= gapB and tx < gapB + 3)
 			if not inGap then
 				local at = context.flat(tx, tz)
-				Build.part({
+				Build.mesh({
+					prop = "Hedge",
 					name = "Hedge",
-					size = Vector3.new(tile, 9, tile * 0.9),
+					size = Vector3.new(tile + 1, 9, tile * 0.9 + 1),
+					collisionSize = Vector3.new(tile, 9, tile * 0.9),
 					cframe = CFrame.new(at + Vector3.new(0, 4.5, 0)),
-					color = Palette.color(Palette.hedge),
-					material = Enum.Material.Grass,
 					parent = folder,
 				})
 			end
