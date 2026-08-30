@@ -1,13 +1,12 @@
 --!strict
 --[[
-	BagService — the buffer between the lawn and the wallet.
+	BagService — the clippings you are carrying, and the trailer that buys them.
 
-	Nobody walks anywhere to sell. Everything collected lands in the bag, and
-	the bag drains itself continuously, paying cash as it goes — a fixed
-	fraction of capacity per second, so a bigger bag both buffers a burst and
-	pays out faster. Capacity is the wall a fast tool hits: collect quicker than
-	the bag drains and the tool stalls on a full bag, which is exactly what the
-	capacity upgrade and the Infinite Bag pass remove.
+	Money arrives when the bag is emptied, not while you mow. The loop is the
+	original one: mow until the bag fills, walk it to the trailer, watch the
+	payout land in one satisfying lump. Capacity decides how long you can stay
+	on the lawn between trips, which is what the Grasp upgrade and the Infinite
+	Bag pass actually buy — fewer interruptions, not a bigger number.
 
 	The bag is tracked in *weight*, not item count: a log takes fifteen units of
 	space and a clipping takes one, so hauling wood is a real decision rather
@@ -17,12 +16,11 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
 local DebrisConfig = require(Shared.Config.Debris)
-local Economy = require(Shared.Config.Economy)
+local Format = require(Shared.Util.Format)
 local DataService = require(script.Parent.DataService)
 local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
@@ -200,9 +198,13 @@ local function sell(player: Player, weightToSell: number): number
 	return paid
 end
 
---- Sells everything at once. The Empty Bag product, and the end of a run.
+--- Empties the whole bag for cash — the paycheck moment of the loop.
 function BagService.dump(player: Player): number
-	return sell(player, bagFor(player).weight)
+	local paid = sell(player, bagFor(player).weight)
+	if paid > 0 then
+		EconomyService.notify(player, "sale", `Emptied the bag for {Format.cash(paid)}`, paid)
+	end
+	return paid
 end
 
 --- Empties the bag without paying, used when a round rotates the map.
@@ -223,29 +225,6 @@ end
 function BagService.start()
 	Players.PlayerRemoving:Connect(function(player)
 		bags[player] = nil
-	end)
-
-	-- The drain. Ticked a few times a second rather than per frame: the sums
-	-- involved are tiny, and paying out in visible sips is part of the feel —
-	-- the cash counter should tick up like a meter, not glide.
-	local accumulator = 0
-	RunService.Heartbeat:Connect(function(delta)
-		accumulator += delta
-		if accumulator < 0.25 then
-			return
-		end
-		local elapsed = accumulator
-		accumulator = 0
-
-		for player, bag in bags do
-			if bag.weight > 0 then
-				local capacity = BagService.capacity(player)
-				local drain = capacity * Economy.DRAIN_FRACTION_PER_SECOND * elapsed
-				if drain > 0 then
-					sell(player, math.min(drain, bag.weight))
-				end
-			end
-		end
 	end)
 end
 

@@ -444,6 +444,34 @@ function Hud.gain(amount: number)
 	end)
 end
 
+--- The clippings an armful just added, in white — cash it is not, yet.
+function Hud.bagged(units: number)
+	if units < 1 then
+		return
+	end
+
+	local label = Theme.text({
+		name = "Bagged",
+		text = `+{units}`,
+		size = UDim2.fromOffset(160, 34),
+		position = UDim2.fromOffset(60, 96),
+		parent = gainHolder,
+		align = Enum.TextXAlignment.Center,
+		color = Theme.colors.text,
+		textSize = 24,
+	})
+
+	local info = TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(label, info, { Position = UDim2.fromOffset(60, 44), TextTransparency = 1 }):Play()
+	local stroke = label:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		TweenService:Create(stroke, info, { Transparency = 1 }):Play()
+	end
+	task.delay(0.75, function()
+		label:Destroy()
+	end)
+end
+
 function Hud.toast(kind: string, message: string)
 	toastOrder += 1
 
@@ -595,10 +623,10 @@ local function refresh()
 		elseif state.bagWeight >= state.bagCapacity * 0.8 then Theme.colors.warn
 		else Theme.colors.text
 
-	-- What one leaf is worth right now, which is the number the whole economy
-	-- is denominated in and the one an upgrade visibly moves.
-	local perLeaf = Debris.get(Debris.Leaves).value * math.max(state.cashMultiplier, 1)
-	rateLabel.Text = `{Format.cashSuffix(perLeaf)} / leaf`
+	-- What one clipping is worth right now, which is the number the whole
+	-- economy is denominated in and the one an upgrade visibly moves.
+	local perClipping = Debris.get(Debris.Grass).value * math.max(state.cashMultiplier, 1)
+	rateLabel.Text = `{Format.cashSuffix(perClipping)} / clipping`
 
 	local tool = Tools.get(state.equippedTool)
 	toolIcon.Text = if tool then ICONS[tool.category] or "🧰" else ""
@@ -641,7 +669,9 @@ function Hud.start()
 
 	PlayerState.Changed:Connect(refresh)
 	MowController.MowingChanged.Event:Connect(refresh)
-	MowController.Collected.Event:Connect(Hud.gain)
+	MowController.Collected.Event:Connect(function(units: number)
+		Hud.bagged(units)
+	end)
 
 	-- On touch the round tool button is the trigger as well as the readout. On a
 	-- mouse the pointer is locked to the middle of the screen in first person,
@@ -660,9 +690,15 @@ function Hud.start()
 	end
 
 	local notify = Remotes.event(Remotes.NOTIFY)
-	notify.OnClientEvent:Connect(function(kind: any, message: any)
+	notify.OnClientEvent:Connect(function(kind: any, message: any, amount: any)
 		if type(kind) ~= "string" or type(message) ~= "string" then
 			return
+		end
+
+		-- Emptying the bag is the paycheck moment, so the amount gets the big
+		-- gold float as well as the toast.
+		if kind == "sale" and type(amount) == "number" then
+			Hud.gain(amount)
 		end
 
 		if kind == "sectionClear" then

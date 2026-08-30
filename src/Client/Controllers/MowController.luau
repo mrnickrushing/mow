@@ -18,9 +18,9 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
-local ChunkCodec = require(Shared.ChunkCodec)
+
 local Cutting = require(Shared.Cutting)
-local DebrisConfig = require(Shared.Config.Debris)
+
 local GameConfig = require(Shared.Config.GameConfig)
 local Palette = require(Shared.Config.Palette)
 local Grid = require(Shared.Grid)
@@ -39,8 +39,8 @@ local intentRemote: UnreliableRemoteEvent
 local mowing = false
 local accumulator = 0
 local predictScratch: { number } = {}
---- Cash earned since the last popup, and when that popup went up.
-local pendingCash = 0
+--- Clippings bagged since the last popup, and when that popup went up.
+local pendingUnits = 0
 local lastPopupAt = 0
 
 --- How often a swath tool is allowed to throw a number up.
@@ -54,8 +54,8 @@ local mowingSignal = Instance.new("BindableEvent")
 MowController.MowingChanged = mowingSignal
 
 local collectedSignal = Instance.new("BindableEvent")
---- Fires with the cash value of an armful the moment it is predicted, so the
---- number is on screen on the frame of the click rather than a round trip later.
+--- Fires with the clippings an armful put in the bag, the moment it is
+--- predicted, so the number is on screen on the frame of the cut.
 MowController.Collected = collectedSignal
 
 local function rootPart(): BasePart?
@@ -68,18 +68,18 @@ local function rootPart(): BasePart?
 end
 
 --[[
-	Announces what an armful was worth.
+	Announces what just went into the bag.
 
-	A pickup fires the moment it lands, because one pile is one transaction. A
-	swath covers a dozen tiles a tick and would otherwise bury the screen in
-	numbers, so its take is pooled and released at a readable rate.
+	A pickup fires the moment it lands, because one tuft is one grab. A swath
+	covers a dozen tiles a tick and would otherwise bury the screen in numbers,
+	so its take is pooled and released at a readable rate.
 
-	The amount is money rather than a count of leaves: the reference shows cash
-	flying off every armful, and a player watching `+0.05$` go by is being told
-	something about their upgrades that `+4` is not.
+	The number is clippings, not cash: money does not exist until the bag is
+	emptied at the trailer, and pretending otherwise on screen would teach the
+	player the loop wrong.
 ]]
-local function announce(tool: Types.ToolDef, cash: number)
-	pendingCash += cash
+local function announce(tool: Types.ToolDef, units: number)
+	pendingUnits += units
 
 	if tool.mode ~= "pickup" then
 		local now = os.clock()
@@ -89,11 +89,12 @@ local function announce(tool: Types.ToolDef, cash: number)
 		lastPopupAt = now
 	end
 
-	if pendingCash < 0.005 then
+	local whole = math.floor(pendingUnits)
+	if whole < 1 then
 		return
 	end
-	MowController.Collected:Fire(pendingCash)
-	pendingCash = 0
+	MowController.Collected:Fire(whole)
+	pendingUnits -= whole
 end
 
 --[[
@@ -154,7 +155,7 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 		)
 	end
 
-	local cash = 0
+	local bagged = 0
 
 	-- A tool that moves debris rather than absorbing it throws some of it. This
 	-- is what stops a blower reading as a delete key: the whole appeal is
@@ -185,12 +186,12 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 
 			GrassRenderer.predictCut(index, outcome.levels)
 			space -= outcome.weight
-			cash += outcome.units * DebrisConfig.get(ChunkCodec.debris(byte)).value * state.cashMultiplier
+			bagged += outcome.units
 		end
 	end
 
-	if cash > 0 then
-		announce(tool, cash)
+	if bagged > 0 then
+		announce(tool, bagged)
 	end
 end
 

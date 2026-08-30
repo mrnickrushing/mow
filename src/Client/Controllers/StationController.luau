@@ -12,7 +12,6 @@
 	grey when you cannot — is personal, so it is applied here.
 ]]
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -23,8 +22,6 @@ local PlayerState = require(script.Parent.Parent.PlayerState)
 local Theme = require(script.Parent.Parent.UI.Theme)
 
 local StationController = {}
-
-local player = Players.LocalPlayer
 
 type Card = {
 	name: TextLabel,

@@ -16,14 +16,14 @@ local Types = require(script.Parent.Parent.Types)
 
 local Economy = {}
 
---[[
-	The bag drains itself, paying cash as it goes; nobody walks anywhere to
-	sell. This fraction of capacity drains per second, which makes capacity the
-	throughput stat: a bigger bag both buffers a burst and pays out faster, and
-	a tool that collects faster than the bag drains is throttled to the drain —
-	which is exactly the wall the capacity upgrade removes.
-]]
-Economy.DRAIN_FRACTION_PER_SECOND = 0.25
+--- Assumed round-trip distance to the trailer, in studs, before upgrades.
+Economy.BASE_TRAILER_DISTANCE = 48
+--- Portable trailer shortens the walk to roughly this.
+Economy.PORTABLE_TRAILER_DISTANCE = 22
+--- However short the walk gets, dumping is never instantaneous.
+Economy.MIN_TRAILER_DISTANCE = 6
+--- Seconds lost per dump: the walk-up and the sell animation.
+Economy.DUMP_OVERHEAD = 0.6
 --- Fraction of a swath already cut on the previous pass. Real play overlaps.
 Economy.OVERLAP_WASTE = 0.18
 
@@ -51,8 +51,11 @@ function Economy.tilesPerSecond(
 	local cutMultiplier = Balance.cutRateMultiplier(levels)
 	local moveSpeed = if tool.vehicle then tool.vehicle.speed else Balance.walkSpeed(levels, mods)
 
-	-- Area the tool can physically process, in tiles per second.
-	local swathTiles = tool.deck * (tool.reach / GameConfig.TILE_SIZE)
+	-- Area the tool can physically process, in tiles per second. A pickup tool
+	-- works one tile per swing whatever its paper deck says, and the model has
+	-- to agree with the server about that or the simulator flatters the reel
+	-- mower era and the curve tunes itself wrong.
+	local swathTiles = if tool.mode == "pickup" then 1 else tool.deck * (tool.reach / GameConfig.TILE_SIZE)
 	local swingLimit = tool.rate * cutMultiplier * swathTiles
 
 	-- Area the player can actually reach by moving, in tiles per second.
@@ -110,20 +113,23 @@ function Economy.cashPerSecond(
 	local unitsPerSecond = tiles * unitsPerTile
 	local bagUnitsPerSecond = unitsPerSecond * def.weight
 
-	-- Sustained throughput is whichever is slower: the tool putting debris in,
-	-- or the bag paying it out. The capacity buffer smooths bursts but cannot
-	-- beat the drain over a whole section.
+	-- Money arrives when the bag is emptied, so a working cycle is fill-then-
+	-- walk: the bag fills, the player hikes to the trailer, and the payout
+	-- lands all at once. Bigger bags mean fewer hikes; Haul shortens them.
 	local capacity = Balance.bagCapacity(levels, mods)
-	local drainPerSecond = capacity * Economy.DRAIN_FRACTION_PER_SECOND
-	local paidWeightPerSecond = math.min(bagUnitsPerSecond, drainPerSecond)
-	local paidUnitsPerSecond = paidWeightPerSecond / def.weight
+	local fillSeconds = capacity / math.max(bagUnitsPerSecond, 1e-9)
 
-	local cashPerSecond = paidUnitsPerSecond
-		* def.value
-		* world.payoutMultiplier
-		* Balance.cashMultiplier(levels, mods)
+	local base = if Balance.hasPortableTrailer(levels)
+		then Economy.PORTABLE_TRAILER_DISTANCE
+		else Economy.BASE_TRAILER_DISTANCE
+	local reach = Balance.dumpRadius(levels) - GameConfig.BASE_DUMP_RADIUS
+	local distance = math.max(base - reach, Economy.MIN_TRAILER_DISTANCE)
+	local travelSeconds = distance / math.max(Balance.walkSpeed(levels, mods), 1) + Economy.DUMP_OVERHEAD
 
-	return cashPerSecond * Economy.fuelDutyCycle(tool, levels, mods)
+	local unitsPerLoad = capacity / def.weight
+	local cashPerLoad = unitsPerLoad * def.value * world.payoutMultiplier * Balance.cashMultiplier(levels, mods)
+
+	return cashPerLoad / (fillSeconds + travelSeconds) * Economy.fuelDutyCycle(tool, levels, mods)
 end
 
 --[[
@@ -149,16 +155,21 @@ function Economy.lawnUtilisation(
 end
 
 --- Debris units a zone holds when freshly grown.
-function Economy.sectionUnits(section: Types.ZoneDef, averageHeight: number, yieldMultiplier: number): number
+function Economy.sectionUnits(section: Types.ZoneDef, yieldMultiplier: number): number
 	local tiles = section.rect.w * section.rect.d * section.density
-	-- Weighted mean units-per-level across the zone's debris mix.
-	local totalWeight, weightedUnits = 0, 0
+	-- Weighted mean of units-per-level *and* height across the zone's own fill
+	-- mix. Using the section's real heights matters: a teaching lawn seeded
+	-- short is genuinely quicker than a farm seeded tall, and a model that ran
+	-- both at one flat height could not see the difference designers tune.
+	local totalWeight, weightedUnits, weightedHeight = 0, 0, 0
 	for _, entry in section.fill do
 		local def = DebrisConfig.get(entry.debris)
 		totalWeight += entry.weight
 		weightedUnits += entry.weight * def.unitsPerLevel
+		weightedHeight += entry.weight * (entry.heightMin + entry.heightMax) * 0.5
 	end
 	local unitsPerLevel = if totalWeight > 0 then weightedUnits / totalWeight else 0
+	local averageHeight = if totalWeight > 0 then weightedHeight / totalWeight else 0
 	return tiles * averageHeight * unitsPerLevel * yieldMultiplier
 end
 

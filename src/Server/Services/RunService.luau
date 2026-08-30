@@ -206,7 +206,7 @@ local function onSectionCleared(world: Types.WorldDef, section: Types.ZoneDef)
 	-- the corner.
 	EconomyService.notifyAll(
 		"sectionClear",
-		`Congratulations! You collected everything in the {section.name}!`,
+		`Congratulations! You cleared the whole {section.name}!`,
 		nil
 	)
 

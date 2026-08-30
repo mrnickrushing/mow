@@ -64,6 +64,12 @@ local list: { Types.ToolDef } = {
 		name = "Push Reel Mower",
 		tier = 2,
 		category = "Mower",
+		-- Tuft by tuft, like the hands it replaces — just faster and deeper.
+		-- Swath mowing is what the ride-on mowers sell: the moment you sit on a
+		-- zero turn and a whole stripe of lawn vanishes under you is the single
+		-- biggest before/after in the game, and it only lands if everything
+		-- before it worked one patch at a time.
+		mode = "pickup",
 		cost = 25,
 		currency = "Cash",
 		deck = 1,

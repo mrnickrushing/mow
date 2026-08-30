@@ -81,7 +81,7 @@ local function sectionUnits(section, yieldMultiplier: number): (number, number)
 			heaviest, heaviestWeight = entry.debris, entry.weight
 		end
 	end
-	return Economy.sectionUnits(section, AVERAGE_HEIGHT, yieldMultiplier), heaviest
+	return Economy.sectionUnits(section, yieldMultiplier), heaviest
 end
 
 type Candidate = { kind: string, id: string, cost: number, gain: number, roi: number }
