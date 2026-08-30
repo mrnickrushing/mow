@@ -9,7 +9,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
-local Shop = require(script.Parent.Parent.UI.Shop)
+local Journal = require(script.Parent.Parent.UI.Journal)
 local Store = require(script.Parent.Parent.UI.Store)
 
 local ShedController = {}
@@ -45,9 +45,9 @@ local function step()
 	-- Only act on the transition, so a player who closes the shop while still
 	-- standing at the counter is not fighting it reopening every frame.
 	if inRange and not wasInRange then
-		Shop.setOpen(true)
-	elseif not inRange and wasInRange and Shop.isOpen() then
-		Shop.setOpen(false)
+		Journal.setOpen(true)
+	elseif not inRange and wasInRange and Journal.isOpen() then
+		Journal.setOpen(false)
 	end
 	wasInRange = inRange
 end
@@ -55,10 +55,10 @@ end
 function ShedController.start()
 	ContextActionService:BindAction(ACTION_NAME, function(_, inputState)
 		if inputState == Enum.UserInputState.Begin then
-			Shop.toggle()
+			Journal.toggle()
 		end
 		return Enum.ContextActionResult.Sink
-	end, false, Enum.KeyCode.B, Enum.KeyCode.ButtonY)
+	end, false, Enum.KeyCode.B, Enum.KeyCode.Tab, Enum.KeyCode.ButtonY)
 
 	ContextActionService:BindAction("MowAllTheLawns_Store", function(_, inputState)
 		if inputState == Enum.UserInputState.Begin then

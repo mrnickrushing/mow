@@ -15,6 +15,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
 local Remotes = require(Shared.Remotes)
+local Journal = require(script.Parent.Journal)
 local Theme = require(script.Parent.Theme)
 
 local RoundBar = {}
@@ -116,14 +117,26 @@ function RoundBar.start()
 
 		if phase == "intermission" then
 			propertyLabel.Text = "Next up"
-			objectiveLabel.Text = "Getting the next property ready"
 			fill.BackgroundColor3 = Theme.colors.tips
 		else
 			propertyLabel.Text = state.propertyName or ""
-			objectiveLabel.Text = if completion >= 1
-				then "Clear! Nice work"
-				else "Clear the property before the clock runs out"
 			fill.BackgroundColor3 = if completion >= 1 then Theme.colors.tips else Theme.colors.progress
+		end
+	end)
+
+	-- The objective under the bar is the current quest, which is what actually
+	-- tells a new player what to do next.
+	task.spawn(function()
+		while true do
+			task.wait(0.35)
+			local text, progress, target = Journal.currentObjective()
+			if text then
+				objectiveLabel.Text = `☐ {text} ({progress}/{target})`
+				objectiveLabel.TextColor3 = Theme.colors.text
+			else
+				objectiveLabel.Text = "Clear the property before the clock runs out"
+				objectiveLabel.TextColor3 = Theme.colors.subtext
+			end
 		end
 	end)
 

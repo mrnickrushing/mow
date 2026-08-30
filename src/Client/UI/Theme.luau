@@ -28,6 +28,7 @@ Theme.colors = {
 	bag = Palette.color(Palette.ui.accent),
 	outline = Palette.color(Palette.ui.outline),
 	progress = Palette.color(Palette.ui.progress),
+	accent = Palette.color(Palette.ui.accent),
 }
 
 --- Rounded and heavy, to match the storybook tone of the world.

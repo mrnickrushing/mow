@@ -20,6 +20,7 @@ local Types = require(Shared.Types)
 local Build = require(script.Parent.Parent.Lib.Build)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
+local QuestService = require(script.Parent.QuestService)
 local ShopService = require(script.Parent.ShopService)
 local WorldService = require(script.Parent.WorldService)
 
@@ -120,6 +121,11 @@ local function checkGates()
 			if isZoneClear(zone.requires :: string) then
 				local required = Properties.zone(property, zone.requires :: string)
 				local requiredName = if required then required.name else zone.requires
+				for _, player in Players:GetPlayers() do
+					if DataService.get(player) then
+						QuestService.advance(player, "clearZone", 1, zone.requires)
+					end
+				end
 				for _, player in Players:GetPlayers() do
 					if DataService.get(player) then
 						ShopService.grantZone(

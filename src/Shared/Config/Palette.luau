@@ -40,14 +40,28 @@ Palette.sky = {
 -- Debris
 --------------------------------------------------------------------
 
---- Leaves are drawn from these at random so a drift is not one flat colour.
+--[[
+	Leaves are drawn from these at random so a drift is never one flat colour.
+
+	Weighted towards orange with golds either side and a few deep reds, which is
+	what a real drift looks like and what stops a carpet of them reading as a
+	single painted surface.
+]]
 Palette.leaves = {
-	rgb(255, 202, 66),
+	rgb(255, 206, 74),
 	rgb(252, 176, 46),
-	rgb(246, 146, 34),
-	rgb(232, 114, 32),
-	rgb(255, 224, 112),
+	rgb(248, 148, 36),
+	rgb(240, 124, 30),
+	rgb(228, 96, 34),
+	rgb(255, 228, 120),
+	rgb(246, 160, 40),
+	--- The occasional red one, scattered through the reference's yards.
+	rgb(196, 58, 38),
+	rgb(214, 76, 40),
 }
+
+--- Underside of a leaf, used on the ones that land face down.
+Palette.leafPale = rgb(252, 214, 142)
 
 Palette.grass = {
 	blade = rgb(142, 194, 76),

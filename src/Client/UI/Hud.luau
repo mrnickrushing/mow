@@ -30,6 +30,7 @@ local toolLabel: TextLabel
 local sellLabel: TextLabel
 local hintLabel: TextLabel
 local toastHolder: Frame
+local bannerHolder: Frame
 local fuelPanel: Frame
 local fuelFill: Frame
 local fuelLabel: TextLabel
@@ -43,6 +44,9 @@ local NOTICE_COLORS: { [string]: Color3 } = {
 	tooFar = Theme.colors.warn,
 	purchase = Theme.colors.grass,
 	reward = Theme.colors.tips,
+	quest = Theme.colors.cash,
+	round = Theme.colors.accent,
+	denied = Theme.colors.danger,
 }
 
 --------------------------------------------------------------------
@@ -132,16 +136,16 @@ local function build(): ScreenGui
 	local _, fill = Theme.bar(bag, UDim2.fromOffset(240, 12), UDim2.fromOffset(58, 58), Theme.colors.bag)
 	bagFill = fill
 
-	-- Equipped tool, above the hotbar in the centre.
+	-- Equipped tool name, just above the hotbar slots.
 	toolLabel = Theme.text({
 		name = "Tool",
 		text = "Hand Shears",
-		size = UDim2.fromOffset(420, 30),
-		position = UDim2.new(0.5, 0, 1, -96),
+		size = UDim2.fromOffset(420, 28),
+		position = UDim2.new(0.5, 0, 1, -100),
 		anchor = Vector2.new(0.5, 1),
 		parent = gui,
 		align = Enum.TextXAlignment.Center,
-		textSize = 24,
+		textSize = 21,
 	})
 
 	-- Fuel, only shown while holding something that burns it.
@@ -180,7 +184,7 @@ local function build(): ScreenGui
 		name = "Hint",
 		text = "",
 		size = UDim2.fromOffset(560, 30),
-		position = UDim2.new(0.5, 0, 1, -128),
+		position = UDim2.new(0.5, 0, 1, -134),
 		anchor = Vector2.new(0.5, 1),
 		parent = gui,
 		color = Theme.colors.tips,
@@ -202,6 +206,12 @@ local function build(): ScreenGui
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 	layout.Padding = UDim.new(0, 6)
 	layout.Parent = toastHolder
+
+	bannerHolder = Instance.new("Frame")
+	bannerHolder.Name = "Banners"
+	bannerHolder.Size = UDim2.fromScale(1, 1)
+	bannerHolder.BackgroundTransparency = 1
+	bannerHolder.Parent = gui
 
 	return gui
 end
@@ -238,6 +248,45 @@ function Hud.toast(kind: string, message: string)
 			return
 		end
 		local fade = TweenService:Create(frame, TweenInfo.new(0.35), { BackgroundTransparency = 1 })
+		fade:Play()
+		fade.Completed:Wait()
+		frame:Destroy()
+	end)
+end
+
+--[[
+	A wide banner across the lower middle of the screen.
+
+	Reserved for quest completions: the toast column on the right is easy to
+	miss while you are looking at the ground.
+]]
+function Hud.banner(message: string)
+	local frame = Instance.new("Frame")
+	frame.Name = "Banner"
+	frame.Size = UDim2.fromOffset(520, 46)
+	frame.Position = UDim2.new(0.5, 0, 0.66, 0)
+	frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	frame.BackgroundColor3 = Theme.colors.panel
+	frame.BackgroundTransparency = 0.25
+	frame.BorderSizePixel = 0
+	frame.Parent = bannerHolder
+	Theme.corner(frame, 10)
+	Theme.stroke(frame, 2.5, Theme.colors.outline, 0.1)
+
+	Theme.text({
+		text = message,
+		size = UDim2.new(1, -20, 1, 0),
+		position = UDim2.fromOffset(10, 0),
+		parent = frame,
+		align = Enum.TextXAlignment.Center,
+		textSize = 24,
+	})
+
+	task.delay(2.2, function()
+		if not frame.Parent then
+			return
+		end
+		local fade = TweenService:Create(frame, TweenInfo.new(0.4), { BackgroundTransparency = 1 })
 		fade:Play()
 		fade.Completed:Wait()
 		frame:Destroy()
@@ -311,6 +360,11 @@ function Hud.start()
 	local notify = Remotes.event(Remotes.NOTIFY)
 	notify.OnClientEvent:Connect(function(kind: any, message: any)
 		if type(kind) == "string" and type(message) == "string" then
+			-- A finished objective gets the banner treatment rather than a toast
+			-- in the corner, because it is the one moment worth interrupting for.
+			if kind == "quest" then
+				Hud.banner("✅ You completed a quest!")
+			end
 			Hud.toast(kind, message)
 		end
 	end)

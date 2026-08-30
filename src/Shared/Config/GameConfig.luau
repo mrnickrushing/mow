@@ -47,11 +47,11 @@ local GameConfig = {
 	-- Client rendering
 	--------------------------------------------------------------------
 	--- Tiles within this radius of the camera render as individual parts.
-	DETAIL_RADIUS = 72,
+	DETAIL_RADIUS = 56,
 	--- Chunks within this radius render as a single flat LOD plane.
 	LOD_RADIUS = 460,
 	--- Hard ceiling on pooled tile parts, protecting low-end devices.
-	MAX_TILE_PARTS = 4500,
+	MAX_TILE_PARTS = 6000,
 	--- How often the renderer rebuilds its visible set, in Hz.
 	RENDER_REFRESH_HZ = 8,
 

@@ -37,6 +37,9 @@ export type Profile = {
 	unlockedZones: { [string]: { [string]: boolean } },
 	fuel: number,
 	stats: Stats,
+	--- Progress counter per quest id, and the ids already finished.
+	questProgress: { [string]: number },
+	questsDone: { [string]: boolean },
 	dailyStreak: number,
 	dailyLastClaim: number,
 	playtime: number,
@@ -75,6 +78,8 @@ function DefaultData.template(): Profile
 			goldenBlades = 0,
 			treesFelled = 0,
 		},
+		questProgress = {},
+		questsDone = {},
 		dailyStreak = 0,
 		dailyLastClaim = 0,
 		playtime = 0,

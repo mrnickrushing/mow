@@ -21,6 +21,7 @@ local Upgrades = require(Shared.Config.Upgrades)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local PlayerService = require(script.Parent.PlayerService)
+local QuestService = require(script.Parent.QuestService)
 local WorldService = require(script.Parent.WorldService)
 
 local ShopService = {}
@@ -106,6 +107,7 @@ function ShopService.buyTool(player: Player, toolId: string): Result
 	profile.ownedTools[toolId] = true
 	-- Equip it immediately: nobody buys a mower in order to keep holding shears.
 	profile.equippedTool = toolId
+	QuestService.advance(player, "tool", 1, toolId)
 
 	EconomyService.notify(player, "purchase", `Bought {tool.name}`, tool.cost)
 	PlayerService.push(player)
@@ -133,6 +135,7 @@ function ShopService.buyUpgrade(player: Player, upgradeId: string): Result
 	end
 
 	profile.upgrades[upgradeId] = level + 1
+	QuestService.advance(player, "upgrade", 1, upgradeId)
 
 	-- Walk speed and bag capacity both come from upgrades, so the character and
 	-- the client's numbers have to be refreshed the moment one is bought.
@@ -180,6 +183,7 @@ function ShopService.buyZone(player: Player, zoneId: string): Result
 	end
 
 	owned[zoneId] = true
+	QuestService.advance(player, "zone", 1, zoneId)
 	EconomyService.notify(player, "purchase", `Unlocked {(zone :: Types.ZoneDef).name}`, cost)
 	PlayerService.push(player)
 	return OK
@@ -214,6 +218,7 @@ function ShopService.grantZone(player: Player, zoneId: string, message: string):
 	end
 
 	owned[zoneId] = true
+	QuestService.advance(player, "zone", 1, zoneId)
 	EconomyService.notify(player, "reward", message, nil)
 	PlayerService.push(player)
 	return true

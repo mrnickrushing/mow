@@ -464,35 +464,164 @@ local function buildHouse(property: Types.PropertyDef, parent: Folder)
 	})
 end
 
+--[[
+	The shed: a workshop you walk into, not a signpost.
+
+	Plank ceiling, pegboard wall, a run of counters, a hanging lantern and the
+	stock floating above the counter with loud labels. Almost every purchase in
+	the game happens here, so it is worth being a room.
+]]
 local function buildShed(property: Types.PropertyDef, parent: Folder): BasePart
 	local centre = WorldService.tilePointFlat(property.shed.x, property.shed.z)
 	local shed = Build.folder("Shed", parent)
 
-	local walls = Build.box("Walls", centre, Vector3.new(18, 13, 16), Palette.color(Palette.props.shed), Enum.Material.WoodPlanks, shed)
+	local width, depth, height = 30, 26, 16
+
 	Build.part({
-		name = "Roof",
-		size = Vector3.new(21, 2, 19),
-		cframe = CFrame.new(centre + Vector3.new(0, 14, 0)),
-		color = Palette.color(Palette.house.trim),
-		material = Enum.Material.Slate,
+		name = "Floor",
+		size = Vector3.new(width, 1, depth),
+		cframe = CFrame.new(centre + Vector3.new(0, 0.5, 0)),
+		color = Palette.color(Palette.ground.stoneDark),
+		material = Enum.Material.Concrete,
 		parent = shed,
 	})
 
+	-- Three walls and an open front, so you can see the stock from the lawn.
+	local walls = {
+		{ Vector3.new(0, height * 0.5, depth * 0.5), Vector3.new(width, height, 1.2) },
+		{ Vector3.new(-width * 0.5, height * 0.5, 0), Vector3.new(1.2, height, depth) },
+		{ Vector3.new(width * 0.5, height * 0.5, 0), Vector3.new(1.2, height, depth) },
+	}
+	for _, wall in walls do
+		Build.part({
+			name = "Wall",
+			size = wall[2],
+			cframe = CFrame.new(centre + wall[1]),
+			color = Palette.color(Palette.props.shed),
+			material = Enum.Material.Concrete,
+			parent = shed,
+		})
+	end
+
+	-- Plank ceiling, laid across so the grain shows.
+	local planks = 12
+	for index = 0, planks - 1 do
+		Build.part({
+			name = "Plank",
+			size = Vector3.new(width / planks - 0.15, 1, depth),
+			cframe = CFrame.new(centre + Vector3.new(-width * 0.5 + width * (index + 0.5) / planks, height, 0)),
+			color = Palette.color(if index % 2 == 0 then Palette.fence.picket else Palette.fence.picketShade),
+			material = Enum.Material.WoodPlanks,
+			parent = shed,
+		})
+	end
+
+	-- Counter run along the back and one side.
 	local counter = Build.part({
-		name = "Counter",
-		size = Vector3.new(14, 5, 3),
-		cframe = CFrame.new(centre + Vector3.new(0, 2.5, -9)),
+		name = "ShedCounter",
+		size = Vector3.new(width - 4, 6, 5),
+		cframe = CFrame.new(centre + Vector3.new(0, 3, depth * 0.5 - 4)),
 		color = Palette.color(Palette.house.porch),
 		material = Enum.Material.WoodPlanks,
 		parent = shed,
 	})
+	Build.part({
+		name = "CounterTop",
+		size = Vector3.new(width - 3.4, 0.7, 5.6),
+		cframe = CFrame.new(centre + Vector3.new(0, 6.3, depth * 0.5 - 4)),
+		color = Palette.color(Palette.fence.picket),
+		material = Enum.Material.WoodPlanks,
+		parent = shed,
+	})
+	-- Drawer fronts with handles, which is what makes it read as cabinetry.
+	for index = 0, 4 do
+		local x = -width * 0.5 + 4 + index * 5.4
+		Build.part({
+			name = "Drawer",
+			size = Vector3.new(4.4, 4.4, 0.4),
+			cframe = CFrame.new(centre + Vector3.new(x, 3.2, depth * 0.5 - 6.6)),
+			color = Palette.color(Palette.rgb(120, 78, 48)),
+			material = Enum.Material.WoodPlanks,
+			canCollide = false,
+			parent = shed,
+		})
+		Build.part({
+			name = "Handle",
+			size = Vector3.new(2.6, 0.4, 0.3),
+			cframe = CFrame.new(centre + Vector3.new(x, 4.4, depth * 0.5 - 6.9)),
+			color = Palette.color(Palette.rgb(186, 186, 190)),
+			material = Enum.Material.Metal,
+			canCollide = false,
+			parent = shed,
+		})
+	end
 
-	local gui = Build.billboard(walls, UDim2.fromScale(11, 3.4), 11, 260)
-	Build.label(gui, "THE SHED", UDim2.fromScale(1, 0.55), UDim2.fromScale(0, 0), 2.2)
+	-- Pegboard on the side wall with tools hung on it.
+	Build.part({
+		name = "Pegboard",
+		size = Vector3.new(0.5, 10, depth - 8),
+		cframe = CFrame.new(centre + Vector3.new(width * 0.5 - 1.2, 9, 0)),
+		color = Palette.color(Palette.rgb(206, 186, 146)),
+		material = Enum.Material.Pebble,
+		canCollide = false,
+		parent = shed,
+	})
+	for index = 0, 2 do
+		Build.part({
+			name = "HungTool",
+			size = Vector3.new(1.2, 1.6, 6),
+			cframe = CFrame.new(centre + Vector3.new(width * 0.5 - 2.2, 11 - index * 3.4, -4 + index * 4)),
+			color = Palette.color(if index == 1 then Palette.ui.accent else Palette.rgb(64, 66, 70)),
+			material = Enum.Material.Metal,
+			canCollide = false,
+			parent = shed,
+		})
+	end
+
+	-- Hanging lantern, the warm point of light in the room.
+	local lantern = Build.part({
+		name = "Lantern",
+		size = Vector3.new(2.4, 3, 2.4),
+		cframe = CFrame.new(centre + Vector3.new(0, height - 4, -2)),
+		color = Palette.color(Palette.ui.tips),
+		material = Enum.Material.Neon,
+		canCollide = false,
+		parent = shed,
+	})
+	local glow = Instance.new("PointLight")
+	glow.Color = Palette.color(Palette.ui.tips)
+	glow.Range = 26
+	glow.Brightness = 2
+	glow.Parent = lantern
+
+	-- Floating stock above the counter, with loud labels.
+	local displays = {
+		{ label = "Upgrade Bag", rainbow = false, color = Palette.rgb(96, 206, 140), offset = -8.5 },
+		{ label = "Infinite Bag", rainbow = true, color = Palette.ui.tips, offset = 0 },
+		{ label = "Leaf Blower", rainbow = false, color = Palette.rgb(120, 168, 220), offset = 8.5 },
+	}
+	for _, display in displays do
+		local item = Build.part({
+			name = display.label,
+			size = Vector3.new(4, 4, 4),
+			cframe = CFrame.new(centre + Vector3.new(display.offset, 9.5, depth * 0.5 - 4)),
+			color = Palette.color(display.color),
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			parent = shed,
+		})
+		local sign = Build.billboard(item, UDim2.fromScale(9, 3), 4, 90)
+		if display.rainbow then
+			Build.rainbowText(sign, display.label, UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), 1.5)
+		else
+			Build.label(sign, display.label, UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), 1.5)
+		end
+	end
+
+	local gui = Build.billboard(counter, UDim2.fromScale(13, 3.6), 14, 280)
+	Build.label(gui, "THE SHED", UDim2.fromScale(1, 0.56), UDim2.fromScale(0, 0), 2.4)
 	Build.label(gui, "Tools & Upgrades", UDim2.fromScale(1, 0.4), UDim2.fromScale(0, 0.58), 1.2)
 
-	walls.Name = "ShedWalls"
-	counter.Name = "ShedCounter"
 	return counter
 end
 
@@ -701,6 +830,20 @@ function WorldService.load(propertyId: string)
 		for index, run in corners do
 			Build.picketFence(fences, run[1], run[2], 9, index == 2)
 		end
+
+		-- The court wall and hedges that border the reference's side yard.
+		local scenery = Build.folder("Scenery", parent)
+		-- Just outside the pool deck rather than on it, so the wall never
+		-- stands on tiles the player still has to clear.
+		Build.chainLinkWall(
+			scenery,
+			WorldService.tilePointFlat(2, 50),
+			WorldService.tilePointFlat(2, 78),
+			7,
+			12
+		)
+		Build.hedge(scenery, WorldService.tilePointFlat(72, 8), WorldService.tilePointFlat(72, 54), 13, 7)
+		Build.hedge(scenery, WorldService.tilePointFlat(24, 78), WorldService.tilePointFlat(72, 78), 13, 7)
 
 		-- A flagstone path from the kerb up to the porch, and a paved driveway.
 		local pathCentre = WorldService.tilePointFlat(48, 20)

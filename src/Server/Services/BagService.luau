@@ -30,6 +30,10 @@ export type Bag = {
 
 local bags: { [Player]: Bag } = {}
 
+--- Fires as (player, units, cash) whenever a bag is sold.
+local soldSignal = Instance.new("BindableEvent")
+BagService.Sold = soldSignal.Event
+
 local function bagFor(player: Player): Bag
 	local bag = bags[player]
 	if not bag then
@@ -143,6 +147,7 @@ function BagService.dump(player: Player): number
 	end)
 
 	EconomyService.notify(player, "sale", `Sold {Format.count(unitsSold)} for {Format.cash(paid)}`, paid)
+	soldSignal:Fire(player, unitsSold, paid)
 	return paid
 end
 

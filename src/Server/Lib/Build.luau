@@ -245,6 +245,118 @@ function Build.picketFence(
 	return folder
 end
 
+--[[
+	Text with every letter its own colour.
+
+	Used for the headline items in the shed. It is deliberately loud: the point
+	of a shop display is to be the brightest thing in the room.
+]]
+function Build.rainbowText(parent: Instance, text: string, size: UDim2, position: UDim2, scale: number): TextLabel
+	local hues = {
+		"#FF5A4E", "#FF9B32", "#FFD23F", "#7ED957",
+		"#4EC3F0", "#7B6CF6", "#E85AC8",
+	}
+	local pieces = {}
+	local index = 0
+	for character in text:gmatch(utf8.charpattern) do
+		if character == " " then
+			table.insert(pieces, " ")
+		else
+			index += 1
+			table.insert(pieces, `<font color="{hues[(index % #hues) + 1]}">{character}</font>`)
+		end
+	end
+
+	local label = Build.label(parent, table.concat(pieces), size, position, scale)
+	label.TextStrokeTransparency = 0.1
+	return label
+end
+
+--- A blocky hedge, the green wall that borders most of the reference's yards.
+function Build.hedge(parent: Instance, from: Vector3, to: Vector3, height: number, depth: number): Folder
+	local folder = Build.folder("Hedge", parent)
+	local delta = to - from
+	local length = delta.Magnitude
+	if length < 1 then
+		return folder
+	end
+
+	local direction = delta.Unit
+	local blocks = math.max(math.floor(length / 6), 1)
+	for index = 0, blocks - 1 do
+		local at = from + direction * (length * (index + 0.5) / blocks)
+		-- Slight per-block variation, so the hedge does not read as one extrusion.
+		local wobble = ((index % 3) - 1) * 0.6
+		Build.part({
+			name = "Hedge",
+			size = Vector3.new(length / blocks + 0.6, height + wobble, depth),
+			cframe = CFrame.lookAt(
+				at + Vector3.new(0, (height + wobble) * 0.5, 0),
+				at + direction + Vector3.new(0, (height + wobble) * 0.5, 0)
+			) * CFrame.Angles(0, math.rad(90), 0),
+			color = Palette.color(if index % 2 == 0 then Palette.hedge else Palette.rgb(48, 112, 46)),
+			material = Enum.Material.Grass,
+			parent = folder,
+		})
+	end
+	return folder
+end
+
+--- A brick retaining wall topped with chain-link, as along the reference's court.
+function Build.chainLinkWall(parent: Instance, from: Vector3, to: Vector3, brickHeight: number, meshHeight: number): Folder
+	local folder = Build.folder("CourtWall", parent)
+	local delta = to - from
+	local length = delta.Magnitude
+	if length < 1 then
+		return folder
+	end
+
+	local direction = delta.Unit
+	local mid = from + direction * (length * 0.5)
+
+	Build.part({
+		name = "Retaining",
+		size = Vector3.new(2.2, brickHeight, length),
+		cframe = CFrame.lookAt(mid + Vector3.new(0, brickHeight * 0.5, 0), mid + direction + Vector3.new(0, brickHeight * 0.5, 0)),
+		color = Palette.color(Palette.house.brick),
+		material = Enum.Material.Brick,
+		parent = folder,
+	})
+
+	-- The mesh itself: a translucent dark panel plus posts, which reads as
+	-- chain-link at play distance without thousands of wire parts.
+	Build.part({
+		name = "Mesh",
+		size = Vector3.new(0.4, meshHeight, length),
+		cframe = CFrame.lookAt(
+			mid + Vector3.new(0, brickHeight + meshHeight * 0.5, 0),
+			mid + direction + Vector3.new(0, brickHeight + meshHeight * 0.5, 0)
+		),
+		color = Palette.color(Palette.rgb(58, 84, 58)),
+		material = Enum.Material.DiamondPlate,
+		transparency = 0.45,
+		canCollide = false,
+		castShadow = false,
+		parent = folder,
+	})
+
+	local posts = math.max(math.floor(length / 14), 1)
+	for index = 0, posts do
+		local at = from + direction * (length * index / posts)
+		Build.part({
+			name = "Post",
+			size = Vector3.new(0.9, meshHeight + 1, 0.9),
+			cframe = CFrame.new(at + Vector3.new(0, brickHeight + (meshHeight + 1) * 0.5, 0)),
+			color = Palette.color(Palette.rgb(72, 96, 72)),
+			material = Enum.Material.Metal,
+			canCollide = false,
+			castShadow = false,
+			parent = folder,
+		})
+	end
+	return folder
+end
+
 --- Irregular flagstone paving, the surface most of the reference is laid with.
 function Build.flagstone(parent: Instance, centre: Vector3, size: Vector2, tile: number, rng: Random): Folder
 	local folder = Build.folder("Paving", parent)

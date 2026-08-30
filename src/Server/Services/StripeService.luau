@@ -21,6 +21,7 @@ local Format = require(Shared.Util.Format)
 local GameConfig = require(Shared.Config.GameConfig)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
+local QuestService = require(script.Parent.QuestService)
 local TileService = require(script.Parent.TileService)
 
 local StripeService = {}
@@ -59,6 +60,7 @@ local function bank(player: Player, run: Run)
 		p.stats.stripes += 1
 	end)
 
+	QuestService.advance(player, "stripe", 1)
 	EconomyService.notify(player, "stripe", `Clean stripe — {run.tiles} tiles, {Format.cash(bonus)}`, bonus)
 end
 

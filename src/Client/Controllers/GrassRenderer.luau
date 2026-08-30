@@ -37,9 +37,9 @@ local TILE = GameConfig.TILE_SIZE
 local HEIGHT_STUD = GameConfig.HEIGHT_STUD
 
 --- Leaves drawn per height level on a tile.
-local LEAVES_PER_LEVEL = 2
+local LEAVES_PER_LEVEL = 3
 --- Cap, so a deep drift never explodes the part budget.
-local MAX_LEAVES_PER_TILE = 6
+local MAX_LEAVES_PER_TILE = 8
 
 local grid: Grid.Grid? = nil
 local tiles: buffer? = nil
@@ -49,7 +49,12 @@ local lodFolder: Folder? = nil
 
 --- Tile index -> the parts currently drawing it.
 local active: { [number]: { Part } } = {}
-local pool: { Part } = {}
+--- Blocks and leaves are shaped differently, so they cannot share a pool:
+--- handing a leaf's mesh to a grass block would leave an ellipse on the lawn.
+local blockPool: { Part } = {}
+local leafPool: { Part } = {}
+--- Whether the parts currently drawing a tile are leaves.
+local activeIsLeaf: { [number]: boolean } = {}
 local lodParts: { [number]: Part } = {}
 local known: { [number]: boolean } = {}
 local requested: { [number]: boolean } = {}
@@ -85,7 +90,7 @@ end
 -- Part pool
 --------------------------------------------------------------------
 
-local function newPart(): Part
+local function newPart(leaf: boolean): Part
 	local part = Instance.new("Part")
 	part.Anchored = true
 	part.CanCollide = false
@@ -95,15 +100,41 @@ local function newPart(): Part
 	part.Material = Enum.Material.SmoothPlastic
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
+
+	if leaf then
+		-- A leaf is a silhouette, not a box. Built-in mesh types give a rounded
+		-- blade and a pointed one for free, with no uploaded asset: a floor of
+		-- rectangles at this density reads as one sheet of orange, which is the
+		-- opposite of the drift of separate leaves we are after.
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Name = "Blade"
+		mesh.Parent = part
+	end
+
 	return part
 end
 
-local function acquire(): Part
-	local part = table.remove(pool)
+local function poolFor(leaf: boolean): { Part }
+	return if leaf then leafPool else blockPool
+end
+
+local function acquire(leaf: boolean): Part
+	local part = table.remove(poolFor(leaf))
 	if part then
 		return part
 	end
-	return newPart()
+	return newPart(leaf)
+end
+
+local function recycle(part: Part, leaf: boolean)
+	part.Parent = nil
+	local target = poolFor(leaf)
+	if #target < GameConfig.MAX_TILE_PARTS then
+		table.insert(target, part)
+	else
+		part:Destroy()
+	end
 end
 
 local function release(index: number)
@@ -111,38 +142,36 @@ local function release(index: number)
 	if not parts then
 		return
 	end
+	local leaf = activeIsLeaf[index] == true
 	active[index] = nil
+	activeIsLeaf[index] = nil
 	for _, part in parts do
-		part.Parent = nil
-		if #pool < GameConfig.MAX_TILE_PARTS then
-			table.insert(pool, part)
-		else
-			part:Destroy()
-		end
+		recycle(part, leaf)
 	end
 end
 
 --- Resizes a tile's part list to exactly `count`, reusing what is already there.
-local function slots(index: number, count: number): { Part }
+local function slots(index: number, count: number, leaf: boolean): { Part }
+	-- A tile that changed shape has to give its parts back to the right pool.
+	if active[index] and activeIsLeaf[index] ~= leaf then
+		release(index)
+	end
+
 	local parts = active[index]
 	if not parts then
 		parts = {}
 		active[index] = parts
+		activeIsLeaf[index] = leaf
 	end
 
 	while #parts > count do
 		local part = table.remove(parts)
 		if part then
-			part.Parent = nil
-			if #pool < GameConfig.MAX_TILE_PARTS then
-				table.insert(pool, part)
-			else
-				part:Destroy()
-			end
+			recycle(part, leaf)
 		end
 	end
 	while #parts < count do
-		table.insert(parts, acquire())
+		table.insert(parts, acquire(leaf))
 	end
 
 	return parts
@@ -208,26 +237,43 @@ end
 --[[
 	A drift of separate leaves lying flat on the ground.
 
-	Each leaf is a thin oblong quad at its own angle and offset, stacked in
-	slightly raised layers so a deep pile reads as depth rather than as one
-	thicker slab.
+	Each leaf gets its own shape, angle, tilt, size and shade. The tilt matters
+	more than it sounds: leaves lying at slightly different pitches catch the low
+	sun differently and overlap unevenly, which is what turns a dense scatter
+	into a carpet of individual leaves rather than a painted floor.
 ]]
 local function drawLeaves(index: number, wx: number, wz: number, floor: number, height: number, locked: boolean)
 	local count = math.min(height * LEAVES_PER_LEVEL, MAX_LEAVES_PER_TILE)
-	local parts = slots(index, count)
+	local parts = slots(index, count, true)
 
 	for slot, part in parts do
-		local offsetX = (hash01(index, slot * 3 + 1) - 0.5) * (TILE - 1.1)
-		local offsetZ = (hash01(index, slot * 3 + 2) - 0.5) * (TILE - 1.1)
-		local angle = hash01(index, slot * 3 + 3) * math.pi * 2
-		local scale = 0.82 + hash01(index, slot * 7) * 0.42
+		local offsetX = (hash01(index, slot * 5 + 1) - 0.5) * (TILE + 0.6)
+		local offsetZ = (hash01(index, slot * 5 + 2) - 0.5) * (TILE + 0.6)
+		local yaw = hash01(index, slot * 5 + 3) * math.pi * 2
+		local scale = 0.78 + hash01(index, slot * 5 + 4) * 0.5
+		local shapeRoll = hash01(index, slot * 5 + 5)
 		local layer = (slot - 1) // LEAVES_PER_LEVEL
 
-		local color = Palette.color(Palette.leaves[((index + slot) % #Palette.leaves) + 1])
+		-- A few degrees of pitch and roll, so they never lie perfectly flush.
+		local pitch = (hash01(index, slot * 11 + 1) - 0.5) * 0.34
+		local roll = (hash01(index, slot * 11 + 2) - 0.5) * 0.34
 
-		part.Size = Vector3.new(2.3 * scale, 0.16, 1.75 * scale)
-		part.CFrame = CFrame.new(wx + offsetX, floor + 0.14 + layer * 0.17, wz + offsetZ)
-			* CFrame.Angles(0, angle, 0)
+		local mesh = part:FindFirstChild("Blade")
+		if mesh and mesh:IsA("SpecialMesh") then
+			-- Roughly a third are the pointed maple sort, the rest rounded.
+			mesh.MeshType = if shapeRoll < 0.34 then Enum.MeshType.Prism else Enum.MeshType.Sphere
+		end
+
+		local palette = Palette.leaves
+		local color = Palette.color(palette[((index * 7 + slot * 3) % #palette) + 1])
+		-- One in seven lands pale side up.
+		if hash01(index, slot * 13) > 0.86 then
+			color = Palette.color(Palette.leafPale)
+		end
+
+		part.Size = Vector3.new(3.0 * scale, 0.34, 2.1 * scale)
+		part.CFrame = CFrame.new(wx + offsetX, floor + 0.17 + layer * 0.15, wz + offsetZ)
+			* CFrame.Angles(pitch, yaw, roll)
 		part.Color = if locked then desaturate(color) else color
 		part.Material = Enum.Material.SmoothPlastic
 		part.Transparency = 0
@@ -238,7 +284,7 @@ end
 --- Grass, weeds and hedges keep the block form, because their height falling is
 --- what makes a mower upgrade legible.
 local function drawBlock(index: number, wx: number, wz: number, floor: number, height: number, debrisId: number, locked: boolean)
-	local parts = slots(index, 1)
+	local parts = slots(index, 1, false)
 	local part = parts[1]
 	local studs = height * HEIGHT_STUD
 	local color = baseColor(debrisId, index)
@@ -313,7 +359,7 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	if existing then
 		part = existing
 	else
-		part = newPart()
+		part = newPart(false)
 		part.Name = "Lod"
 		lodParts[chunkIndex] = part
 	end
