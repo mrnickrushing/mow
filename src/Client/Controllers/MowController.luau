@@ -74,7 +74,7 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 
 	for _, index in indices do
 		local byte = buffer.readu8(tiles, index - 1)
-		local owns = PlayerState.ownsZone(PlayerState.zoneIdAt(index))
+		local owns = PlayerState.isSectionOpen(PlayerState.sectionIdAt(index))
 
 		-- Same module the server runs, so a prediction can only be wrong about
 		-- timing, never about the rules. Predicting a locked zone or a full bag

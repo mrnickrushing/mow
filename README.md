@@ -1,12 +1,16 @@
 # Mow all the lawns!
 
-A Roblox co-op mowing game in the vein of *Clean all the leaves!*: up to a dozen
-players share one overgrown property, race a completion bar against the clock,
-and turn clippings into better equipment.
+A Roblox co-op yard-clearing game in the vein of *Clean all the leaves!*. Pick a
+world, arrive with nothing, and clear it section by section against a
+ninety-minute clock. Each section you finish opens the gate to the next; clear
+the last one and the grate opens, you walk out, and you have beaten it.
 
-Cut grass into your bag → dump it at the trailer for cash → buy a wider deck, a
-bigger bag, a louder engine → unlock the next zone → repeat until you are sitting
-on a zero-turn clearing eleven tiles at a time.
+Work debris into your bag → walk to the trailer, it sells on approach → buy a
+wider tool and a bigger bag → open the next gate. Cash and gear last for the run
+and no longer, so every world starts from bare hands.
+
+On a busy server a section fills back up once per player, so eight people do
+eight times the work rather than finishing eight times faster.
 
 ## Getting started
 
@@ -38,15 +42,16 @@ the real Roblox API, run the test suite, and confirm the place still builds.
 luau scripts/simulate.luau
 ```
 
-Plays a virtual player through the entire ladder and prints time-to-unlock for
-every tool, upgrade and property. Run it after any balance change — it is how the
-curve gets tuned without grinding for hours.
+Plays one run of each world from nothing and reports whether it is beatable
+inside the clock, where it stalls, and what gear you finish holding. Pass a
+player count (`luau scripts/simulate.luau 4`) to check wave scaling. Run it after
+any balance change.
 
 ## Layout
 
 | Path | What lives there |
 | --- | --- |
-| `src/Shared/Config/` | Every tunable number: tools, upgrades, debris, properties, monetization, balance |
+| `src/Shared/Config/` | Every tunable number: worlds and their sections, tools, upgrades, debris, monetization, balance |
 | `src/Shared/Grid.luau` | Tile-space geometry and swath rasterisation |
 | `src/Shared/ChunkCodec.luau` | Tile bit packing and the chunk wire format |
 | `src/Server/Services/` | Authoritative game logic |

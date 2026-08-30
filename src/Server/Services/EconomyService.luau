@@ -14,7 +14,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
 local Types = require(Shared.Types)
 local Remotes = require(Shared.Remotes)
-local DataService = require(script.Parent.DataService)
+local RunState = require(script.Parent.RunState)
 
 local EconomyService = {}
 
@@ -47,11 +47,11 @@ function EconomyService.modifiers(player: Player): Balance.Modifiers
 end
 
 function EconomyService.stats(player: Player): Types.PlayerStats?
-	local profile = DataService.get(player)
-	if not profile then
+	local run = RunState.find(player)
+	if not run then
 		return nil
 	end
-	return Balance.stats(profile.upgrades, EconomyService.modifiers(player))
+	return Balance.stats(run.upgrades, EconomyService.modifiers(player))
 end
 
 --------------------------------------------------------------------
@@ -63,38 +63,38 @@ function EconomyService.awardRaw(player: Player, amount: number): number
 	if amount <= 0 then
 		return 0
 	end
-	local profile = DataService.get(player)
-	if not profile then
+	local run = RunState.find(player)
+	if not run then
 		return 0
 	end
-	profile.cash += amount
-	profile.lifetimeCash += amount
+	run.cash += amount
+	run.earned += amount
 	return amount
 end
 
 --- Applies the player's multiplier stack, then awards the result.
 function EconomyService.award(player: Player, baseAmount: number): number
-	local profile = DataService.get(player)
-	if not profile or baseAmount <= 0 then
+	local run = RunState.find(player)
+	if not run or baseAmount <= 0 then
 		return 0
 	end
-	local multiplier = Balance.cashMultiplier(profile.upgrades, EconomyService.modifiers(player))
+	local multiplier = Balance.cashMultiplier(run.upgrades, EconomyService.modifiers(player))
 	return EconomyService.awardRaw(player, baseAmount * multiplier)
 end
 
 --- Deducts `amount` if the player can afford it.
 function EconomyService.spend(player: Player, amount: number): boolean
-	local profile = DataService.get(player)
-	if not profile or amount < 0 or profile.cash < amount then
+	local run = RunState.find(player)
+	if not run or amount < 0 or run.cash < amount then
 		return false
 	end
-	profile.cash -= amount
+	run.cash -= amount
 	return true
 end
 
 function EconomyService.canAfford(player: Player, amount: number): boolean
-	local profile = DataService.get(player)
-	return profile ~= nil and profile.cash >= amount
+	local run = RunState.find(player)
+	return run ~= nil and run.cash >= amount
 end
 
 --------------------------------------------------------------------
@@ -102,18 +102,18 @@ end
 --------------------------------------------------------------------
 
 function EconomyService.awardTips(player: Player, amount: number)
-	local profile = DataService.get(player)
-	if profile and amount > 0 then
-		profile.tips += amount
+	local run = RunState.find(player)
+	if run and amount > 0 then
+		run.tips += amount
 	end
 end
 
 function EconomyService.spendTips(player: Player, amount: number): boolean
-	local profile = DataService.get(player)
-	if not profile or amount < 0 or profile.tips < amount then
+	local run = RunState.find(player)
+	if not run or amount < 0 or run.tips < amount then
 		return false
 	end
-	profile.tips -= amount
+	run.tips -= amount
 	return true
 end
 

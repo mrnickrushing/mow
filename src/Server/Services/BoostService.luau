@@ -16,7 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
 local Tools = require(Shared.Config.Tools)
-local DataService = require(script.Parent.DataService)
+local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
 local VehicleService = require(script.Parent.VehicleService)
 
@@ -104,24 +104,24 @@ end
 ]]
 function BoostService.grantRental(player: Player, toolId: string, seconds: number)
 	local tool = Tools.get(toolId)
-	local profile = DataService.get(player)
-	if not tool or not profile then
+	local run = RunState.find(player)
+	if not tool or not run then
 		return
 	end
 
 	-- Someone who already owns it outright gets the time as a cash boost
 	-- instead, rather than paying for something they have.
-	if profile.ownedTools[toolId] and not rentals[player] then
+	if run.ownedTools[toolId] and not rentals[player] then
 		BoostService.grantCashBoost(player, 2, seconds)
 		EconomyService.notify(player, "reward", `You already own the {tool.name} — have 2x cash instead`, nil)
 		return
 	end
 
 	local existing = rentals[player]
-	local previous = if existing then existing.previousToolId else profile.equippedTool
+	local previous = if existing then existing.previousToolId else run.equippedTool
 
-	profile.ownedTools[toolId] = true
-	profile.equippedTool = toolId
+	run.ownedTools[toolId] = true
+	run.equippedTool = toolId
 
 	rentals[player] = {
 		toolId = toolId,
@@ -171,14 +171,14 @@ local function expireRental(player: Player)
 	end
 	rentals[player] = nil
 
-	local profile = DataService.get(player)
-	if not profile then
+	local run = RunState.find(player)
+	if not run then
 		return
 	end
 
-	profile.ownedTools[rental.toolId] = nil
-	if profile.equippedTool == rental.toolId then
-		profile.equippedTool = rental.previousToolId
+	run.ownedTools[rental.toolId] = nil
+	if run.equippedTool == rental.toolId then
+		run.equippedTool = rental.previousToolId
 	end
 
 	-- If they are sitting on the rented mower, put them back on their feet.

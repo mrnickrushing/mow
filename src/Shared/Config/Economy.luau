@@ -95,7 +95,7 @@ end
 function Economy.cashPerSecond(
 	tool: Types.ToolDef,
 	levels: Balance.UpgradeLevels,
-	property: Types.PropertyDef,
+	world: Types.WorldDef,
 	debrisId: number,
 	averageHeight: number,
 	mods: Balance.Modifiers?
@@ -123,7 +123,7 @@ function Economy.cashPerSecond(
 	local travelSeconds = distance / math.max(Balance.walkSpeed(levels, mods), 1) + Economy.DUMP_OVERHEAD
 
 	local unitsPerLoad = capacity / def.weight
-	local cashPerLoad = unitsPerLoad * def.value * property.payoutMultiplier * Balance.cashMultiplier(levels, mods)
+	local cashPerLoad = unitsPerLoad * def.value * world.payoutMultiplier * Balance.cashMultiplier(levels, mods)
 
 	return cashPerLoad / (fillSeconds + travelSeconds) * Economy.fuelDutyCycle(tool, levels, mods)
 end
@@ -151,11 +151,11 @@ function Economy.lawnUtilisation(
 end
 
 --- Debris units a zone holds when freshly grown.
-function Economy.zoneUnits(zone: Types.ZoneDef, averageHeight: number, yieldMultiplier: number): number
-	local tiles = zone.rect.w * zone.rect.d * zone.density
+function Economy.sectionUnits(section: Types.ZoneDef, averageHeight: number, yieldMultiplier: number): number
+	local tiles = section.rect.w * section.rect.d * section.density
 	-- Weighted mean units-per-level across the zone's debris mix.
 	local totalWeight, weightedUnits = 0, 0
-	for _, entry in zone.fill do
+	for _, entry in section.fill do
 		local def = DebrisConfig.get(entry.debris)
 		totalWeight += entry.weight
 		weightedUnits += entry.weight * def.unitsPerLevel
@@ -167,12 +167,12 @@ end
 --- Cash a single unit of debris is worth on this property, after multipliers.
 function Economy.unitValue(
 	debrisId: number,
-	property: Types.PropertyDef,
+	world: Types.WorldDef,
 	levels: Balance.UpgradeLevels,
 	mods: Balance.Modifiers?
 ): number
 	local def = DebrisConfig.get(debrisId)
-	return def.value * property.payoutMultiplier * Balance.cashMultiplier(levels, mods)
+	return def.value * world.payoutMultiplier * Balance.cashMultiplier(levels, mods)
 end
 
 return Economy

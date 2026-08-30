@@ -15,6 +15,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
 local Remotes = require(Shared.Remotes)
+local PlayerState = require(script.Parent.Parent.PlayerState)
 local Journal = require(script.Parent.Journal)
 local Theme = require(script.Parent.Theme)
 
@@ -108,18 +109,34 @@ function RoundBar.start()
 			return
 		end
 
-		phase = state.phase or "playing"
+		phase = state.phase or "running"
 		secondsLeft = if type(state.secondsLeft) == "number" then state.secondsLeft else 0
+
+		-- Gates open for the whole run, so the open set arrives here rather than
+		-- with the per-player state.
+		if type(state.sections) == "table" then
+			local open: { [string]: boolean } = {}
+			for _, entry in state.sections :: { any } do
+				if type(entry) == "table" and type(entry.id) == "string" and entry.open then
+					open[entry.id] = true
+				end
+			end
+			PlayerState.setOpenSections(open)
+		end
 
 		local completion = if type(state.completion) == "number" then state.completion else 0
 		fill.Size = UDim2.fromScale(math.clamp(completion, 0, 1), 1)
 		percentLabel.Text = Format.percent(completion)
 
-		if phase == "intermission" then
+		if phase == "won" then
+			propertyLabel.Text = "Beaten!"
+		elseif phase == "lost" then
+			propertyLabel.Text = "Out of time"
+		elseif phase == "lobby" then
 			propertyLabel.Text = "Next up"
 			fill.BackgroundColor3 = Theme.colors.tips
 		else
-			propertyLabel.Text = state.propertyName or ""
+			propertyLabel.Text = state.worldName or ""
 			fill.BackgroundColor3 = if completion >= 1 then Theme.colors.tips else Theme.colors.progress
 		end
 	end)
@@ -144,7 +161,7 @@ function RoundBar.start()
 	RunService.Heartbeat:Connect(function(delta)
 		secondsLeft = math.max(secondsLeft - delta, 0)
 		timerLabel.Text = Format.clock(secondsLeft)
-		timerLabel.TextColor3 = if phase == "intermission"
+		timerLabel.TextColor3 = if phase ~= "running"
 			then Theme.colors.subtext
 			elseif secondsLeft <= 60 then Theme.colors.danger
 			else Theme.colors.tips

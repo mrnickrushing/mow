@@ -2,9 +2,9 @@
 --[[
 	MissedSpotController — "you missed a spot".
 
-	Once a zone is nearly clear, the last few uncut tiles get a beacon above
+	Once a section is nearly clear, the last few uncut tiles get a beacon above
 	them. This is a direct answer to the reference game's most common
-	frustration: players hunting a single stray tile across an entire property
+	frustration: players hunting a single stray tile across an entire world
 	with no idea where it is.
 
 	It runs entirely on the client's copy of the tile buffer, so it costs the
@@ -20,7 +20,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local ChunkCodec = require(Shared.ChunkCodec)
 local GameConfig = require(Shared.Config.GameConfig)
 local Grid = require(Shared.Grid)
-local Properties = require(Shared.Config.Properties)
+local Worlds = require(Shared.Config.Worlds)
 local GrassRenderer = require(script.Parent.GrassRenderer)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 
@@ -28,7 +28,7 @@ local MissedSpotController = {}
 
 local container: Folder? = nil
 local markers: { Part } = {}
---- Recomputed on this interval; scanning a whole property is not a per-frame job.
+--- Recomputed on this interval; scanning a whole world is not a per-frame job.
 local SCAN_INTERVAL = 1.5
 
 local function acquireMarker(index: number): Part
@@ -54,27 +54,26 @@ local function acquireMarker(index: number): Part
 end
 
 --[[
-	Finds uncut tiles in zones that are nearly finished.
+	Finds uncut tiles in sections that are nearly finished.
 
-	Only zones past the threshold are scanned, so a player mowing a fresh lawn
+	Only sections past the threshold are scanned, so a player mowing a fresh lawn
 	never sees a beacon, and the marker count is capped so a large half-done
-	property does not turn into a forest of pillars.
+	world does not turn into a forest of pillars.
 ]]
 local function scan()
 	local grid = GrassRenderer.grid()
 	local tiles = GrassRenderer.tiles()
-	local property = PlayerState.property()
+	local world = PlayerState.world()
 	local folder = container
-	if not grid or not tiles or not property or not folder then
+	if not grid or not tiles or not world or not folder then
 		return
 	end
 
-	local state = PlayerState.get()
 	local found = 0
 
-	for _, zone in property.zones do
-		if state.unlockedZones[zone.id] then
-			local r = zone.rect
+	for _, section in world.sections do
+		if PlayerState.isSectionOpen(section.id) then
+			local r = section.rect
 			local total, remaining = 0, 0
 			local stragglers: { number } = {}
 
@@ -94,7 +93,7 @@ local function scan()
 				end
 			end
 
-			-- The zone's own progress decides this, not the whole property's, so
+			-- The section's own progress decides this, not the whole world's, so
 			-- a finished front yard flags its last tile while the back is still
 			-- untouched.
 			local cleared = if total > 0 then 1 - remaining / total else 1
@@ -109,7 +108,7 @@ local function scan()
 					local marker = acquireMarker(found)
 					-- On the tile's own floor, so a beacon on the roof does not
 					-- appear to be floating over the lawn instead.
-					local floor = GameConfig.GROUND_Y + Properties.elevationAt(property, tx, tz)
+					local floor = GameConfig.GROUND_Y + Worlds.elevationAt(world, tx, tz)
 					marker.CFrame = CFrame.new(wx, floor + 13, wz)
 					marker.Parent = folder
 				end

@@ -5,12 +5,12 @@
 	Trees are the one thing in the game that is a real Instance rather than a
 	byte in a buffer, because there are dozens of them rather than thousands and
 	felling one wants to be a visible event. They are also the best money on the
-	property: a log takes fifteen units of bag space against a clipping's one but
+	world: a log takes fifteen units of bag space against a clipping's one but
 	pays far more per unit, so hiking to the orchard is a decision rather than a
 	strict upgrade.
 
 	A felled tree leaves a stump, which only a stump grinder removes, and the
-	property is not at 100% until both are gone.
+	world is not at 100% until both are gone.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -26,6 +26,7 @@ local Types = require(Shared.Types)
 local BagService = require(script.Parent.BagService)
 local Build = require(script.Parent.Parent.Lib.Build)
 local DataService = require(script.Parent.DataService)
+local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
 local WorldService = require(script.Parent.WorldService)
 
@@ -45,14 +46,14 @@ export type Tree = {
 	trunk: BasePart,
 	health: number,
 	maxHealth: number,
-	zoneId: string,
+	sectionId: string,
 	felled: boolean,
 }
 
 export type Stump = {
 	part: BasePart,
 	health: number,
-	zoneId: string,
+	sectionId: string,
 }
 
 local trees: { [Model]: Tree } = {}
@@ -68,7 +69,7 @@ local onGrind: (Player, BasePart) -> ()
 -- Building
 --------------------------------------------------------------------
 
-local function makeStump(position: Vector3, zoneId: string, parent: Instance): BasePart
+local function makeStump(position: Vector3, sectionId: string, parent: Instance): BasePart
 	local part = Build.part({
 		name = "Stump",
 		size = Vector3.new(4.5, 2.2, 4.5),
@@ -85,12 +86,12 @@ local function makeStump(position: Vector3, zoneId: string, parent: Instance): B
 		onGrind(player, part)
 	end)
 
-	stumps[part] = { part = part, health = STUMP_HEALTH, zoneId = zoneId }
-	WorldService.registerExtraUnits(zoneId, CHIPS_PER_STUMP * DebrisConfig.get(DebrisConfig.Chips).unitsPerLevel)
+	stumps[part] = { part = part, health = STUMP_HEALTH, sectionId = sectionId }
+	WorldService.registerExtraUnits(sectionId, CHIPS_PER_STUMP * DebrisConfig.get(DebrisConfig.Chips).unitsPerLevel)
 	return part
 end
 
-local function makeTree(position: Vector3, zoneId: string, parent: Instance)
+local function makeTree(position: Vector3, sectionId: string, parent: Instance)
 	local model = Instance.new("Model")
 	model.Name = "Tree"
 
@@ -129,17 +130,17 @@ local function makeTree(position: Vector3, zoneId: string, parent: Instance)
 		trunk = trunk,
 		health = TREE_HEALTH,
 		maxHealth = TREE_HEALTH,
-		zoneId = zoneId,
+		sectionId = sectionId,
 		felled = false,
 	}
-	WorldService.registerExtraUnits(zoneId, LOGS_PER_TREE * DebrisConfig.get(DebrisConfig.Log).unitsPerLevel)
+	WorldService.registerExtraUnits(sectionId, LOGS_PER_TREE * DebrisConfig.get(DebrisConfig.Log).unitsPerLevel)
 end
 
---- Scatters `count` points inside a zone, keeping clear of the house.
-local function scatter(property: Types.PropertyDef, zone: Types.ZoneDef, count: number): { Vector3 }
+--- Scatters `count` points inside a section, keeping clear of the house.
+local function scatter(world: Types.WorldDef, section: Types.ZoneDef, count: number): { Vector3 }
 	local points: { Vector3 } = {}
-	local r = zone.rect
-	local house = property.houseRect
+	local r = section.rect
+	local house = world.houseRect
 
 	local attempts = 0
 	while #points < count and attempts < count * 20 do
@@ -176,15 +177,15 @@ end
 
 --- The tool a player is holding, if they own and have it equipped.
 local function equippedTool(player: Player): Types.ToolDef?
-	local profile = DataService.get(player)
-	if not profile or not profile.ownedTools[profile.equippedTool] then
+	local run = RunState.find(player)
+	if not run or not run.ownedTools[run.equippedTool] then
 		return nil
 	end
-	return Tools.get(profile.equippedTool)
+	return Tools.get(run.equippedTool)
 end
 
 --- Awards debris to the bag, leaving anything that will not fit on the ground.
-local function awardOrDrop(player: Player, debrisId: number, units: number, position: Vector3, zoneId: string): number
+local function awardOrDrop(player: Player, debrisId: number, units: number, position: Vector3, sectionId: string): number
 	local taken = BagService.add(player, debrisId, units)
 	local left = units - taken
 
@@ -224,10 +225,10 @@ local function awardOrDrop(player: Player, debrisId: number, units: number, posi
 		end)
 	end
 
-	if zoneId ~= "" then
+	if sectionId ~= "" then
 		-- Completion counts the wood as cleared once it leaves the tree, whether
 		-- it went into a bag or onto the ground.
-		WorldService.consumeUnits(zoneId, units)
+		WorldService.consumeUnits(sectionId, units)
 	end
 
 	return taken
@@ -289,10 +290,10 @@ local function fellTree(player: Player, tree: Tree)
 	end)
 
 	local logUnits = LOGS_PER_TREE * DebrisConfig.get(DebrisConfig.Log).unitsPerLevel
-	awardOrDrop(player, DebrisConfig.Log, logUnits, base, tree.zoneId)
+	awardOrDrop(player, DebrisConfig.Log, logUnits, base, tree.sectionId)
 
 	if container then
-		makeStump(base, tree.zoneId, container)
+		makeStump(base, tree.sectionId, container)
 	end
 
 	DataService.withProfile(player, function(profile)
@@ -346,7 +347,7 @@ function onGrind(player: Player, part: BasePart)
 
 	stumps[part] = nil
 	local chips = CHIPS_PER_STUMP * DebrisConfig.get(DebrisConfig.Chips).unitsPerLevel
-	awardOrDrop(player, DebrisConfig.Chips, chips, part.Position, stump.zoneId)
+	awardOrDrop(player, DebrisConfig.Chips, chips, part.Position, stump.sectionId)
 	part:Destroy()
 end
 
@@ -363,41 +364,41 @@ local function clear()
 	end
 end
 
-function TreeService.generate(property: Types.PropertyDef)
+function TreeService.generate(world: Types.WorldDef)
 	clear()
 
-	local world = WorldService.container()
-	if not world then
+	local root = WorldService.container()
+	if not root then
 		return
 	end
-	container = Build.folder("Trees", world)
+	container = Build.folder("Trees", root)
 	local parent = container :: Folder
 
-	for _, zone in property.zones do
-		local treeCount = zone.trees or 0
+	for _, section in world.sections do
+		local treeCount = section.trees or 0
 		if treeCount > 0 then
-			for _, point in scatter(property, zone, treeCount) do
-				makeTree(point, zone.id, parent)
+			for _, point in scatter(world, section, treeCount) do
+				makeTree(point, section.id, parent)
 			end
 		end
 
-		local stumpCount = zone.stumps or 0
+		local stumpCount = section.stumps or 0
 		if stumpCount > 0 then
-			for _, point in scatter(property, zone, stumpCount) do
-				makeStump(point, zone.id, parent)
+			for _, point in scatter(world, section, stumpCount) do
+				makeStump(point, section.id, parent)
 			end
 		end
 	end
 end
 
 function TreeService.start()
-	WorldService.Loaded:Connect(function(property: Types.PropertyDef)
-		TreeService.generate(property)
+	WorldService.Loaded:Connect(function(world: Types.WorldDef)
+		TreeService.generate(world)
 	end)
 
-	local property = WorldService.property
-	if property then
-		TreeService.generate(property)
+	local world = WorldService.world
+	if world then
+		TreeService.generate(world)
 	end
 end
 

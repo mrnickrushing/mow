@@ -35,10 +35,8 @@ RoundBar.start()
 Store.start()
 Hud.start()
 
--- Locked zones render desaturated, so the renderer needs to know what the
--- player owns whenever that changes.
-PlayerState.Changed:Connect(function()
-	GrassRenderer.setUnlockedZones(PlayerState.get().unlockedZones)
+-- Sections behind a shut gate render desaturated, so the renderer follows the
+-- run's open set rather than anything on the player.
+PlayerState.SectionsChanged:Connect(function()
+	GrassRenderer.setOpenSections(PlayerState.openSections())
 end)
-
-GrassRenderer.setUnlockedZones(PlayerState.get().unlockedZones)

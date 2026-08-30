@@ -2,7 +2,7 @@
 --[[
 	CollectibleService — Golden Blades.
 
-	One hidden collectible per zone, worth a large lump of cash and a tip. They
+	One hidden collectible per section, worth a large lump of cash and a tip. They
 	exist because a completion bar alone makes players sweep systematically; a
 	prize hidden in the long grass makes them look. Each is respawned fresh every
 	round, so the hunt renews with the map.
@@ -26,8 +26,8 @@ local WorldService = require(script.Parent.WorldService)
 
 local CollectibleService = {}
 
---- Cash a Golden Blade pays, before the property multiplier.
-local BLADE_CASH = 750
+--- Cash a Golden Blade pays, before the world multiplier.
+local BLADE_CASH = 12
 local BLADE_TIPS = 3
 
 local container: Folder? = nil
@@ -35,7 +35,7 @@ local rng = Random.new()
 --- Blade part -> the function that awards it, shared with AutoCollectService.
 local collectors: { [BasePart]: (Player) -> () } = {}
 
-local function spawnBlade(position: Vector3, zone: Types.ZoneDef, parent: Instance)
+local function spawnBlade(position: Vector3, section: Types.ZoneDef, parent: Instance)
 	local part = Build.part({
 		name = "GoldenBlade",
 		size = Vector3.new(1.6, 4, 0.4),
@@ -69,8 +69,8 @@ local function spawnBlade(position: Vector3, zone: Types.ZoneDef, parent: Instan
 		end
 		part:Destroy()
 
-		local property = WorldService.property
-		local multiplier = if property then property.payoutMultiplier else 1
+		local world = WorldService.world
+		local multiplier = if world then world.payoutMultiplier else 1
 		local paid = EconomyService.award(player, BLADE_CASH * multiplier)
 		EconomyService.awardTips(player, BLADE_TIPS)
 
@@ -80,7 +80,7 @@ local function spawnBlade(position: Vector3, zone: Types.ZoneDef, parent: Instan
 
 		EconomyService.notifyAll(
 			"stripe",
-			`{player.DisplayName} found the Golden Blade in the {zone.name} — {Format.cash(paid)}`,
+			`{player.DisplayName} found the Golden Blade in the {section.name} — {Format.cash(paid)}`,
 			paid
 		)
 	end
@@ -100,32 +100,32 @@ function CollectibleService.collect(part: BasePart, player: Player)
 	end
 end
 
-function CollectibleService.generate(property: Types.PropertyDef)
+function CollectibleService.generate(world: Types.WorldDef)
 	table.clear(collectors)
 	if container then
 		container:Destroy()
 	end
-	local world = WorldService.container()
-	if not world then
+	local container_ = WorldService.container()
+	if not container_ then
 		return
 	end
-	container = Build.folder("Collectibles", world)
+	container = Build.folder("Collectibles", container_)
 	local parent = container :: Folder
 
-	for _, zone in property.zones do
-		local r = zone.rect
+	for _, section in world.sections do
+		local r = section.rect
 		local tx = rng:NextInteger(r.x, r.x + r.w - 1)
 		local tz = rng:NextInteger(r.z, r.z + r.d - 1)
-		spawnBlade(WorldService.tilePointToWorld(tx, tz), zone, parent)
+		spawnBlade(WorldService.tilePointToWorld(tx, tz), section, parent)
 	end
 end
 
 function CollectibleService.start()
 	WorldService.Loaded:Connect(CollectibleService.generate)
 
-	local property = WorldService.property
-	if property then
-		CollectibleService.generate(property)
+	local world = WorldService.world
+	if world then
+		CollectibleService.generate(world)
 	end
 end
 

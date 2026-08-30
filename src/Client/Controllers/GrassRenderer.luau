@@ -28,7 +28,7 @@ local DebrisConfig = require(Shared.Config.Debris)
 local GameConfig = require(Shared.Config.GameConfig)
 local Grid = require(Shared.Grid)
 local Palette = require(Shared.Config.Palette)
-local Properties = require(Shared.Config.Properties)
+local Worlds = require(Shared.Config.Worlds)
 local Remotes = require(Shared.Remotes)
 
 local GrassRenderer = {}
@@ -58,8 +58,8 @@ local activeIsLeaf: { [number]: boolean } = {}
 local lodParts: { [number]: Part } = {}
 local known: { [number]: boolean } = {}
 local requested: { [number]: boolean } = {}
-local unlockedZones: { [string]: boolean } = {}
-local tileZone: { string } = {}
+local openSections: { [string]: boolean } = {}
+local tileSection: { string } = {}
 local tileElevation: { number } = {}
 
 local requestChunks: RemoteEvent
@@ -181,20 +181,20 @@ end
 -- Zones
 --------------------------------------------------------------------
 
-local function buildZoneMap(propertyId: string, theGrid: Grid.Grid)
-	table.clear(tileZone)
+local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
+	table.clear(tileSection)
 	table.clear(tileElevation)
-	local property = Properties.get(propertyId)
-	if not property then
+	local world = Worlds.get(worldId)
+	if not world then
 		return
 	end
-	for _, zone in property.zones do
-		local r = zone.rect
-		local elevation = zone.elevation or 0
+	for _, section in world.sections do
+		local r = section.rect
+		local elevation = section.elevation or 0
 		for tz = r.z, math.min(r.z + r.d - 1, theGrid.depth - 1) do
 			for tx = r.x, math.min(r.x + r.w - 1, theGrid.width - 1) do
 				local index = Grid.toIndex(theGrid, tx, tz)
-				tileZone[index] = zone.id
+				tileSection[index] = section.id
 				tileElevation[index] = elevation
 			end
 		end
@@ -202,11 +202,11 @@ local function buildZoneMap(propertyId: string, theGrid: Grid.Grid)
 end
 
 local function isLocked(index: number): boolean
-	local zoneId = tileZone[index]
-	if not zoneId then
+	local sectionId = tileSection[index]
+	if not sectionId then
 		return false
 	end
-	return not unlockedZones[zoneId]
+	return not openSections[sectionId]
 end
 
 --------------------------------------------------------------------
@@ -479,14 +479,14 @@ local function resetWorld(width: number, depth: number)
 
 	grid = Grid.new(width, depth)
 	tiles = buffer.create(width * depth)
-	table.clear(tileZone)
+	table.clear(tileSection)
 	table.clear(tileElevation)
 end
 
-function GrassRenderer.setUnlockedZones(zones: { [string]: boolean })
+function GrassRenderer.setOpenSections(sections: { [string]: boolean })
 	local theGrid = grid
 	local theTiles = tiles
-	unlockedZones = zones
+	openSections = sections
 
 	if theGrid and theTiles then
 		for index in active do
@@ -495,8 +495,8 @@ function GrassRenderer.setUnlockedZones(zones: { [string]: boolean })
 	end
 end
 
-function GrassRenderer.getUnlockedZones(): { [string]: boolean }
-	return unlockedZones
+function GrassRenderer.getOpenSections(): { [string]: boolean }
+	return openSections
 end
 
 function GrassRenderer.tiles(): buffer?
@@ -545,8 +545,8 @@ function GrassRenderer.start()
 		if type(info) == "table" and type(info.width) == "number" and type(info.depth) == "number" then
 			resetWorld(info.width, info.depth)
 			local theGrid = grid
-			if theGrid and type(info.propertyId) == "string" then
-				buildZoneMap(info.propertyId, theGrid)
+			if theGrid and type(info.worldId) == "string" then
+				buildZoneMap(info.worldId, theGrid)
 			end
 		end
 	end)

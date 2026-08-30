@@ -78,7 +78,7 @@ end
 --- Tells a player which property is loaded and how big its grid is.
 function ReplicationService.sendWorldInfo(player: Player)
 	local grid = WorldService.grid
-	local property = WorldService.property
+	local property = WorldService.world
 	if not grid or not property then
 		return
 	end

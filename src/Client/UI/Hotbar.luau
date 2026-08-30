@@ -30,6 +30,7 @@ local layout: { string } = {}
 local MAX_SLOTS = 6
 
 local ICONS: { [string]: string } = {
+	Hand = "🧤",
 	Shears = "✂️",
 	Rake = "🧹",
 	Mower = "🚜",

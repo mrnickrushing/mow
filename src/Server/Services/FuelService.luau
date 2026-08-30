@@ -15,7 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
 local Tools = require(Shared.Config.Tools)
-local DataService = require(script.Parent.DataService)
+local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
 
 local FuelService = {}
@@ -29,22 +29,22 @@ local REFUEL_RATE = 45
 local warned: { [Player]: boolean } = {}
 
 function FuelService.capacity(player: Player): number
-	local profile = DataService.get(player)
-	if not profile then
+	local run = RunState.find(player)
+	if not run then
 		return 0
 	end
-	return Balance.fuelCapacity(profile.upgrades)
+	return Balance.fuelCapacity(run.upgrades)
 end
 
 function FuelService.remaining(player: Player): number
-	local profile = DataService.get(player)
-	if not profile then
+	local run = RunState.find(player)
+	if not run then
 		return 0
 	end
 	if EconomyService.modifiers(player).infiniteFuel then
-		return Balance.fuelCapacity(profile.upgrades)
+		return Balance.fuelCapacity(run.upgrades)
 	end
-	return profile.fuel
+	return run.fuel
 end
 
 function FuelService.isEmpty(player: Player): boolean
@@ -53,9 +53,10 @@ end
 
 --- Refills the tank to full.
 function FuelService.refill(player: Player)
-	DataService.withProfile(player, function(profile)
-		profile.fuel = Balance.fuelCapacity(profile.upgrades)
-	end)
+	local run = RunState.find(player)
+	if run then
+		run.fuel = Balance.fuelCapacity(run.upgrades)
+	end
 	warned[player] = nil
 end
 
@@ -74,12 +75,12 @@ function FuelService.consume(player: Player, toolId: string, seconds: number): b
 		return true
 	end
 
-	local profile = DataService.get(player)
-	if not profile then
+	local run = RunState.find(player)
+	if not run then
 		return false
 	end
 
-	if profile.fuel <= 0 then
+	if run.fuel <= 0 then
 		if not warned[player] then
 			warned[player] = true
 			EconomyService.notify(player, "stall", `{tool.name} is out of fuel — refill at the shed`, nil)
@@ -87,8 +88,8 @@ function FuelService.consume(player: Player, toolId: string, seconds: number): b
 		return false
 	end
 
-	profile.fuel = math.max(profile.fuel - tool.fuelBurn * seconds, 0)
-	if profile.fuel > 0 then
+	run.fuel = math.max(run.fuel - tool.fuelBurn * seconds, 0)
+	if run.fuel > 0 then
 		warned[player] = nil
 	end
 	return true
@@ -113,13 +114,14 @@ function FuelService.start()
 					if root and root:IsA("BasePart") then
 						local offset = root.Position - shed.Position
 						if offset.X * offset.X + offset.Z * offset.Z <= REFUEL_RADIUS * REFUEL_RADIUS then
-							DataService.withProfile(player, function(profile)
-								local capacity = Balance.fuelCapacity(profile.upgrades)
-								if profile.fuel < capacity then
-									profile.fuel = math.min(profile.fuel + REFUEL_RATE * 0.25, capacity)
+							local run = RunState.find(player)
+							if run then
+								local capacity = Balance.fuelCapacity(run.upgrades)
+								if run.fuel < capacity then
+									run.fuel = math.min(run.fuel + REFUEL_RATE * 0.25, capacity)
 									warned[player] = nil
 								end
-							end)
+							end
 						end
 					end
 				end

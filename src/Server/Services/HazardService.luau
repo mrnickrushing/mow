@@ -6,7 +6,7 @@
 	lawn is hypnotic for about ten minutes and dull after twenty; something that
 	occasionally goes wrong is what keeps a player present.
 
-	Every hazard is opt-in per zone through the `hazards` list in Properties.
+	Every hazard is opt-in per section through the `hazards` list in Worlds.
 ]]
 
 local Players = game:GetService("Players")
@@ -91,7 +91,7 @@ local function makeSprinkler(tx: number, tz: number, parent: Instance)
 	spray.Parent = head
 
 	task.spawn(function()
-		-- Stagger, so a property full of sprinklers does not fire in unison.
+		-- Stagger, so a world full of sprinklers does not fire in unison.
 		task.wait(rng:NextNumber(0, SPRINKLER_PERIOD))
 		while running and head.Parent do
 			spray.Enabled = true
@@ -229,30 +229,30 @@ end
 -- Lifecycle
 --------------------------------------------------------------------
 
-function HazardService.generate(property: Types.PropertyDef)
+function HazardService.generate(world: Types.WorldDef)
 	running = false
 	if container then
 		container:Destroy()
 	end
 
-	local world = WorldService.container()
-	if not world then
+	local container_ = WorldService.container()
+	if not container_ then
 		return
 	end
-	container = Build.folder("Hazards", world)
+	container = Build.folder("Hazards", container_)
 	local parent = container :: Folder
 	running = true
 
-	for _, zone in property.zones do
-		local hazards = zone.hazards
+	for _, section in world.sections do
+		local hazards = section.hazards
 		if hazards then
-			local r = zone.rect
+			local r = section.rect
 			for _, kind in hazards do
 				local tx = rng:NextInteger(r.x + 2, r.x + r.w - 3)
 				local tz = rng:NextInteger(r.z + 2, r.z + r.d - 3)
 
 				if kind == "sprinkler" then
-					-- Two per zone, so there is somewhere dry to retreat to.
+					-- Two per section, so there is somewhere dry to retreat to.
 					makeSprinkler(tx, tz, parent)
 					makeSprinkler(
 						rng:NextInteger(r.x + 2, r.x + r.w - 3),
@@ -272,9 +272,9 @@ end
 function HazardService.start()
 	WorldService.Loaded:Connect(HazardService.generate)
 
-	local property = WorldService.property
-	if property then
-		HazardService.generate(property)
+	local world = WorldService.world
+	if world then
+		HazardService.generate(world)
 	end
 end
 

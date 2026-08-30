@@ -113,7 +113,7 @@ return function()
 		end)
 
 		h.it("stalls early tools outright in wet grass", function()
-			for _, id in { "shears", "reel_mower", "gas_mower" } do
+			for _, id in { "hands", "reel_mower", "gas_mower" } do
 				local tool = Tools.expect(id)
 				h.expectClose(Balance.effectiveCutRate(tool, levels(), true), 0, 1e-9, `{id} should stall`)
 			end

@@ -19,7 +19,7 @@ local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local Types = require(Shared.Types)
 local Build = require(script.Parent.Parent.Lib.Build)
-local DataService = require(script.Parent.DataService)
+local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
 local FuelService = require(script.Parent.FuelService)
 local WorldService = require(script.Parent.WorldService)
@@ -155,17 +155,17 @@ function VehicleService.ridingTool(player: Player): Types.ToolDef?
 end
 
 local function onMount(player: Player)
-	local profile = DataService.get(player)
-	if not profile then
+	local run = RunState.find(player)
+	if not run then
 		return
 	end
 
-	local tool = Tools.get(profile.equippedTool)
+	local tool = Tools.get(run.equippedTool)
 	if not tool or not tool.vehicle then
 		EconomyService.notify(player, "denied", "Equip a riding mower first", nil)
 		return
 	end
-	if not profile.ownedTools[tool.id] then
+	if not run.ownedTools[tool.id] then
 		return
 	end
 

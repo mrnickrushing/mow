@@ -16,6 +16,7 @@ local Balance = require(Shared.Config.Balance)
 local DebrisConfig = require(Shared.Config.Debris)
 local Format = require(Shared.Util.Format)
 local DataService = require(script.Parent.DataService)
+local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
 local WorldService = require(script.Parent.WorldService)
 
@@ -46,11 +47,11 @@ end
 BagService.get = bagFor
 
 function BagService.capacity(player: Player): number
-	local profile = DataService.get(player)
-	if not profile then
+	local run = RunState.find(player)
+	if not run then
 		return 0
 	end
-	return Balance.bagCapacity(profile.upgrades, EconomyService.modifiers(player))
+	return Balance.bagCapacity(run.upgrades, EconomyService.modifiers(player))
 end
 
 function BagService.weight(player: Player): number
@@ -100,13 +101,13 @@ local CHIPPER_MULTIPLIER = 3
 
 --- True once the player owns the wood chipper bolted to their trailer.
 local function hasChipper(player: Player): boolean
-	local profile = DataService.get(player)
-	return profile ~= nil and profile.ownedTools["wood_chipper"] == true
+	local run = RunState.find(player)
+	return run ~= nil and run.ownedTools["wood_chipper"] == true
 end
 
 --- Total cash the current contents would fetch, before multipliers.
 function BagService.baseValue(player: Player): number
-	local property = WorldService.property
+	local property = WorldService.world
 	local multiplier = if property then property.payoutMultiplier else 1
 	local chipper = hasChipper(player)
 	local total = 0

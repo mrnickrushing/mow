@@ -4,24 +4,30 @@ A Roblox co-op mowing game in the mould of *Clean all the leaves!*. Up to a
 dozen players share one overgrown property, race a completion bar against the
 clock, and turn clippings into better equipment.
 
+## The shape of it
+
+**Not a tycoon.** You pick a world from the lobby, arrive with nothing, and
+clear it section by section against a ninety-minute clock. Cash, tools and
+upgrades live for the length of the run and no longer. Clear the last section
+and the grate opens: walk out and you have beaten the world.
+
+What survives a run is small on purpose — best times, lifetime totals, which
+worlds you have beaten, and anything bought with Robux. Nothing you can grind.
+
 ## The loops
 
-**20 seconds.** Hold to mow. Grass falls in a swath as wide as your deck.
-Clippings flow into your bag.
+**20 seconds.** Hold to work. Debris comes up in a swath as wide as your tool.
 
 **2 minutes.** Bag fills, you walk to the trailer, it sells on approach.
 
-**3 minutes.** Cash buys a bag or cut-speed level at the shed. You feel it
-immediately.
+**3 minutes.** Cash buys a bag or speed level at the shed. Prices are in single
+dollars, because you started this run with nothing twenty minutes ago.
 
-**15 minutes.** Cash buys the next tool tier or the next zone gate — a whole new
-area with denser, taller, more valuable debris.
+**One section.** Clear it and the gate to the next opens. On a busy server it
+fills back up first: one wave per player, so eight people do eight times the
+work rather than finishing in an eighth of the time.
 
-**One round.** The server races a shared completion bar to 100% before the
-timer. Scoreboard, payout, rotate to a bigger property.
-
-Cash, tools, upgrades and zone unlocks persist across rounds and sessions. The
-lawn does not.
+**One run.** Six sections, a grate, and a time on the board.
 
 ## What makes it ours
 
@@ -76,90 +82,62 @@ Sixteen ideas do most of the work. In rough order of how much they matter:
 
 16. **Contribution-split payouts.** The round bonus goes by work actually done.
 
-## Progression
+## Worlds
 
-### Tools
+Three, each a chain of sections gated on clearing the one before it.
 
-| # | Tool | Cost | Deck | Power | Rate | Clears |
-| --- | --- | --- | --- | --- | --- | --- |
-| 0 | Hand Shears | free | 1 | 1 | 1.2 | grass ≤2 |
-| 1 | Rake | $12 | 1 | 2 | 1.5 | leaves |
-| 2 | Push Reel Mower | $60 | 1 | 1 | 2.0 | grass ≤2 |
-| 3 | Gas Push Mower | $450 | 2 | 2 | 3.0 | grass |
-| 4 | String Trimmer | $2.5K | 1 | 3 | 4.0 | weeds, grass |
-| 5 | Leaf Blower | $6K | 3 | 3 | 5.0 | leaves |
-| 6 | Self-Propelled Mower | $9K | 3 | 3 | 4.0 | grass |
-| 7 | Hedge Trimmer | $30K | 2 | 3 | 3.5 | hedges |
-| 8 | Pole Saw | $60K | 1 | 3 | 2.0 | sticks |
-| 9 | Chainsaw | $90K | 1 | 3 | 3.0 | sticks, trees |
-| 10 | **Riding Mower** | $260K | 5 | 3 | 6.0 | grass |
-| 11 | Backpack Blower | $900K | 6 | 3 | 9.0 | leaves |
-| 12 | **Zero-Turn** | $2.4M | 7 | 3 | 8.0 | grass, weeds |
-| 13 | Stump Grinder | $6M | 1 | 3 | 2.0 | stumps |
-| 14 | Wood Chipper | $14M | — | — | — | 3x on wood |
-| 15 | **Commercial Deck** | $34M | 11 | 3 | 10.0 | grass, weeds |
+**The House** (Easy) — Front Yard opens the Backyard and the Pool together,
+those open the Maze, the Maze opens the Farm, the Farm opens the Basement.
+Clear the Basement and the grate at the back of it opens.
 
-Tiers 10, 12 and 15 are ridden rather than carried.
+Two areas sit off that path: the **Garage**, opened by finding a switch hidden
+in the front yard, and the **Rooftop**, opened by clearing the front yard.
+Neither is required to finish, which is the point of them — somewhere to go that
+nobody made you go.
+
+**The Mansion** (Medium) — Grand Lawn → East Wing → Orangery → Long Maze →
+Cellars. Bigger in every direction.
+
+**The Gas Station** (Hard) — Forecourt → Wash Bay → Back Lot → Storage Yard →
+Workshop. The longest chain and the most ground.
+
+Later worlds pay more, but only enough to reach the gear they need. Paying
+several times the first world once made them the *easiest*, which the simulator
+caught.
+
+## Tools
+
+Sixteen, priced for a run rather than a career: $8 for a rake, $650,000 for the
+commercial deck that only the last world can reach.
+
+| # | Tool | Cost | Deck | Power |
+| --- | --- | --- | --- | --- |
+| 0 | Bare Hands | free | 1 | 1 |
+| 1 | Rake | $8 | 1 | 2 |
+| 2 | Push Reel Mower | $25 | 1 | 1 |
+| 3 | Gas Push Mower | $60 | 2 | 2 |
+| 4 | String Trimmer | $140 | 1 | 3 |
+| 5 | Leaf Blower | $320 | 3 | 3 |
+| 6 | Self-Propelled Mower | $700 | 3 | 3 |
+| 7 | Hedge Trimmer | $1.5K | 2 | 3 |
+| 8 | Pole Saw | $3.2K | 1 | 3 |
+| 9 | Chainsaw | $6.8K | 1 | 3 |
+| 10 | **Riding Mower** | $14K | 5 | 3 |
+| 11 | Backpack Blower | $30K | 6 | 3 |
+| 12 | **Zero-Turn** | $65K | 7 | 3 |
+| 13 | Stump Grinder | $140K | 1 | 3 |
+| 14 | Wood Chipper | $300K | — | — |
+| 15 | **Commercial Deck** | $650K | 11 | 3 |
+
+**Bare hands can shift anything a tile holds.** That is a rule, not an
+accident: a section full of something you cannot afford the tool for is a dead
+run, and the simulator walled itself twice before this was enforced. Every
+other tool is a speed upgrade, never a gate.
 
 ### Upgrade lines
 
-| Line | Levels | Per level |
-| --- | --- | --- |
-| Leaf Bag | 15 | ×1.55 capacity |
-| Cut Speed | 4 | +16% |
-| Mulching Blades | 12 | +18% debris |
-| Work Boots | 10 | +1.8 studs/s |
-| Business Sense | 10 | +15% cash |
-| Fuel Tank | 8 | ×1.25 |
-| Trailer Hitch | 5 | L1 unlocks the portable trailer, then +6 studs |
-
-Cut Speed is deliberately short. A tile cannot take less than one pass, so past
-a few levels the line would be selling nothing.
-
-### Zones and properties
-
-Two kinds of map, deliberately.
-
-**The Starter House is a detailed residential property**, in the mould of the
-game this borrows from. Nine zones, and not all of them are for sale:
-
-| Zone | Opens by | Notes |
-| --- | --- | --- |
-| Front Yard | free | |
-| Driveway | $500 | |
-| Garage | **a hidden switch** | walled room; the switch is in the driveway |
-| Rooftop | **clearing the front yard** | 24 studs up, porch stairs, parapet |
-| Side Alley | $3,000 | |
-| Backyard | $6,000 | trees |
-| Pool Deck | $20,000 | real pool, sprinklers |
-| Hedge Maze | $60,000 | hedge walls, wasps |
-| Basement | $200,000 | sunken open-topped cellar, stairs down |
-
-Two of the nine are **earned rather than bought**. A map where every door has a
-price tag is a shop, not a place.
-
-**The later five are open lots** — Corner Lot, The Ranch, The Orchard Estate,
-Riverside Golf Course, The Overgrown Manor — each larger, denser and paying
-more. They stay open on purpose: that is where an eleven-tile deck earns its
-price. Properties unlock on lifetime earnings.
-
-### Verticality and interiors
-
-Zones carry an `elevation`. Since zones never overlap in X/Z, one height per
-zone is enough to support both a rooftop and a cellar while the tile grid stays
-flat — the rooftop takes the house's own footprint, and the basement gets its
-own patch of lawn with the ground cut open above it.
-
-Both the server's tile placement and the client's renderer read the same
-`Properties.elevationAt`, so a rooftop costs nothing extra on the wire.
-
-### Clutter is a mechanic, not decoration
-
-Every zone scatters props — bins, planters, crates, patio chairs, barrels,
-bushes; boxes and shelves indoors. A completion bar over an empty field makes
-the last few percent a tedious sweep. The same bar over a cluttered yard makes
-it a hunt. Props never collide, so they can hide a tile but never wall you off
-from one.
+Seven, all reset each run: Leaf Bag, Cut Speed, Mulching Blades, Work Boots,
+Business Sense, Fuel Tank, Trailer Hitch. First levels cost a dollar or two.
 
 ## Balance
 
@@ -167,15 +145,23 @@ from one.
 player through the whole ladder and prints time-to-unlock for everything. It
 runs in CI.
 
-Current curve, roughly: first mower at 3½ minutes, gas mower at 28, riding mower
-at 5¾ hours, zero-turn at 6½, commercial deck at 7, everything maxed around 7¼.
-A real player is not ROI-optimal, so treat those as a floor.
+It now simulates a single run rather than a career, and reports whether a world
+can be beaten inside its clock, where a run stalls, and what gear you finish
+holding. Pass a player count to check wave scaling.
 
-**Known tuning weakness:** the endgame compresses. The top three tools land
-inside about ninety minutes of each other, because income grows exponentially
-while costs do not. Stretching it means raising the late tool costs and the
-property payout multipliers together; the simulator will tell you immediately
-whether it worked.
+Current: all three worlds beaten in 27–30 minutes by a player who never wastes a
+second, or about a third of the ninety-minute clock. Real players are nowhere
+near optimal, so the clock should feel tight rather than generous.
+
+Wave scaling is invariant by construction: a section holds U units per wave and
+needs one wave per player, so the total is N·U shared between N people and
+everybody does U regardless. A full server takes as long as a solo run rather
+than finishing in a fraction of the time. There is a test for it.
+
+**Known tuning weakness:** the three worlds all sit near a third of the clock,
+so difficulty comes from length and complexity rather than from time pressure
+tightening. If the later worlds should feel tense, they need more ground rather
+than richer payouts — richer payouts made them faster last time.
 
 ## Architecture
 

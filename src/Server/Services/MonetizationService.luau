@@ -25,7 +25,7 @@ local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local FuelService = require(script.Parent.FuelService)
 local PlayerService = require(script.Parent.PlayerService)
-local RoundService = require(script.Parent.RoundService)
+local RunService = require(script.Parent.RunService)
 local SweepService = require(script.Parent.SweepService)
 
 local MonetizationService = {}
@@ -98,7 +98,7 @@ local function grantProduct(player: Player, key: string): boolean
 	elseif def.kind == "sweep" then
 		SweepService.sweep(player, def.fraction or 0.05)
 	elseif def.kind == "roundTime" then
-		RoundService.extend(def.seconds or 600)
+		RunService.extend(def.seconds or 600)
 		EconomyService.notifyAll("reward", `{player.DisplayName} added time to the round`, nil)
 	else
 		return false

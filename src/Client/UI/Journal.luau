@@ -17,7 +17,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
-local Properties = require(Shared.Config.Properties)
+local Worlds = require(Shared.Config.Worlds)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local Types = require(Shared.Types)
@@ -168,7 +168,7 @@ local function renderObjectives()
 	end
 end
 
---- The right-hand page of the objectives spread: who else is on the property.
+--- The right-hand page of the objectives spread: who else is on the world.
 local function renderPlayers()
 	heading(rightPage, "Players")
 	local scroll = body(rightPage)
@@ -447,12 +447,11 @@ local function renderCollection()
 	heading(leftPage, "Zones")
 	local scroll = body(leftPage)
 
-	local property = PlayerState.property()
-	local state = PlayerState.get()
-	if property then
-		for order, zone in property.zones do
-			local owned = state.unlockedZones[zone.id] == true
-			local kind = Properties.unlockKind(zone)
+	local world = PlayerState.world()
+	if world then
+		for order, section in world.sections do
+			local owned = PlayerState.isSectionOpen(section.id)
+			local kind = Worlds.unlockKind(section)
 
 			local row = Instance.new("Frame")
 			row.Size = UDim2.new(1, -12, 0, 44)
@@ -461,7 +460,7 @@ local function renderCollection()
 			row.Parent = scroll
 
 			local name = Instance.new("TextLabel")
-			name.Text = if owned then zone.name else `🔒 {zone.name}`
+			name.Text = if owned then section.name else `🔒 {section.name}`
 			name.Size = UDim2.new(1, -100, 1, 0)
 			name.BackgroundTransparency = 1
 			name.Font = Theme.font
@@ -475,7 +474,7 @@ local function renderCollection()
 				then "✓"
 				elseif kind == "completion" then "clear first"
 				elseif kind == "button" then "find switch"
-				else Format.cash(zone.cost)
+				else Format.cash(section.cost)
 			how.Size = UDim2.new(0, 96, 1, 0)
 			how.Position = UDim2.new(1, 0, 0, 0)
 			how.AnchorPoint = Vector2.new(1, 0)
@@ -491,7 +490,7 @@ local function renderCollection()
 	heading(rightPage, "Records")
 	local right = body(rightPage)
 	local lines = {
-		`Lifetime earned: {Format.cash(PlayerState.get().lifetimeCash)}`,
+		`Earned this run: {Format.cash(PlayerState.get().earned)}`,
 		`Tips banked: {Format.count(PlayerState.get().tips)}`,
 		`Bag capacity: {Format.count(PlayerState.get().bagCapacity)}`,
 	}
@@ -519,7 +518,7 @@ local function renderTips()
 		"Walk into the trailer to sell — there is no button to press.",
 		"Grass too thick for your tool will bog it down. That means buy better.",
 		"Cut in long straight lines to bank a Clean Stripe bonus.",
-		"Some zones are not for sale. Clear a yard, or find the switch.",
+		"Some sections are not for sale. Clear a yard, or find the switch.",
 	}
 	for order, tip in tips do
 		local label = Instance.new("TextLabel")

@@ -1,10 +1,10 @@
 --!strict
 --[[
-	WorldService — generates a property and owns its authoritative tile state.
+	WorldService — generates a world and owns its authoritative tile state.
 
 	The tile state is a `buffer`, one byte per tile, and no grass Instance is
 	ever created on the server. Everything else — ground, house, shed, trailer,
-	fences, zone signs — is built once per round from the tables in Properties,
+	fences, section signs — is built once per round from the tables in Worlds,
 	so there is no hand-built map to keep in step with the config.
 ]]
 
@@ -17,37 +17,38 @@ local Cutting = require(Shared.Cutting)
 local GameConfig = require(Shared.Config.GameConfig)
 local Grid = require(Shared.Grid)
 local Palette = require(Shared.Config.Palette)
-local Properties = require(Shared.Config.Properties)
+local Worlds = require(Shared.Config.Worlds)
 local Types = require(Shared.Types)
 local Build = require(script.Parent.Parent.Lib.Build)
+local ReplicationService = require(script.Parent.ReplicationService)
 local Structures = require(script.Parent.Parent.Lib.Structures)
 
 local WorldService = {}
 
 local TILE = GameConfig.TILE_SIZE
---- Wall height of a house, which is what the rooftop zone sits on.
+--- Wall height of a house, which is what the rooftop section sits on.
 local ROOF_HEIGHT = 24
 
-export type ZoneState = {
+export type SectionState = {
 	def: Types.ZoneDef,
-	--- Tile indices belonging to this zone that started with debris.
+	--- Tile indices belonging to this section that started with debris.
 	totalUnits: number,
 	remainingUnits: number,
-	--- World-space centre of the zone, for signs and camera hints.
+	--- World-space centre of the section, for signs and camera hints.
 	centre: Vector3,
 }
 
 WorldService.grid = nil :: Grid.Grid?
 WorldService.tiles = nil :: buffer?
-WorldService.property = nil :: Types.PropertyDef?
---- Zone id per tile index, or "" for ground that belongs to no zone.
-WorldService.tileZone = nil :: { string }?
-WorldService.zones = {} :: { [string]: ZoneState }
+WorldService.world = nil :: Types.WorldDef?
+--- Zone id per tile index, or "" for ground that belongs to no section.
+WorldService.tileSection = nil :: { string }?
+WorldService.sections = {} :: { [string]: SectionState }
 WorldService.totalUnits = 0
 WorldService.remainingUnits = 0
 
 local loadedSignal = Instance.new("BindableEvent")
---- Fires with the property definition once a new world is ready.
+--- Fires with the world definition once a new world is ready.
 WorldService.Loaded = loadedSignal.Event
 
 local container: Folder? = nil
@@ -63,11 +64,11 @@ end
 
 --- Floor height at a tile, which is the rooftop's or basement's if it has one.
 function WorldService.elevationAt(tx: number, tz: number): number
-	local property = WorldService.property
-	if not property then
+	local world = WorldService.world
+	if not world then
 		return 0
 	end
-	return Properties.elevationAt(property, tx, tz)
+	return Worlds.elevationAt(world, tx, tz)
 end
 
 --- World position of a tile centre, on that tile's own floor.
@@ -85,7 +86,7 @@ function WorldService.tilePointToWorld(tx: number, tz: number): Vector3
 	return Vector3.new(x, GameConfig.GROUND_Y + WorldService.elevationAt(tx, tz), z)
 end
 
---- Ground-plane position, ignoring any zone elevation. Used when placing the
+--- Ground-plane position, ignoring any section elevation. Used when placing the
 --- structures that create those elevations in the first place.
 function WorldService.tilePointFlat(tx: number, tz: number): Vector3
 	local grid = assert(WorldService.grid, "world not loaded")
@@ -93,22 +94,22 @@ function WorldService.tilePointFlat(tx: number, tz: number): Vector3
 	return Vector3.new(x, GameConfig.GROUND_Y, z)
 end
 
-function WorldService.zoneIdAt(index: number): string
-	local tileZone = WorldService.tileZone
-	if not tileZone then
+function WorldService.sectionIdAt(index: number): string
+	local tileSection = WorldService.tileSection
+	if not tileSection then
 		return ""
 	end
-	return tileZone[index] or ""
+	return tileSection[index] or ""
 end
 
 --------------------------------------------------------------------
 -- Generation
 --------------------------------------------------------------------
 
---- Picks a debris entry from a zone's weighted fill list.
-local function pickFill(zone: Types.ZoneDef): Types.FillEntry?
+--- Picks a debris entry from a section's weighted fill list.
+local function pickFill(section: Types.ZoneDef): Types.FillEntry?
 	local total = 0
-	for _, entry in zone.fill do
+	for _, entry in section.fill do
 		total += entry.weight
 	end
 	if total <= 0 then
@@ -116,24 +117,24 @@ local function pickFill(zone: Types.ZoneDef): Types.FillEntry?
 	end
 
 	local roll = rng:NextNumber() * total
-	for _, entry in zone.fill do
+	for _, entry in section.fill do
 		roll -= entry.weight
 		if roll <= 0 then
 			return entry
 		end
 	end
-	return zone.fill[#zone.fill]
+	return section.fill[#section.fill]
 end
 
-local function seedTiles(property: Types.PropertyDef, grid: Grid.Grid, tiles: buffer)
-	local tileZone = table.create(Grid.tileCount(grid), "")
-	WorldService.zones = {}
+local function seedTiles(world: Types.WorldDef, grid: Grid.Grid, tiles: buffer)
+	local tileSection = table.create(Grid.tileCount(grid), "")
+	WorldService.sections = {}
 	WorldService.totalUnits = 0
 
-	for _, zone in property.zones do
-		local r = zone.rect
-		local state: ZoneState = {
-			def = zone,
+	for _, section in world.sections do
+		local r = section.rect
+		local state: SectionState = {
+			def = section,
 			totalUnits = 0,
 			remainingUnits = 0,
 			centre = WorldService.tilePointToWorld(r.x + r.w * 0.5, r.z + r.d * 0.5),
@@ -142,10 +143,10 @@ local function seedTiles(property: Types.PropertyDef, grid: Grid.Grid, tiles: bu
 		for tz = r.z, math.min(r.z + r.d - 1, grid.depth - 1) do
 			for tx = r.x, math.min(r.x + r.w - 1, grid.width - 1) do
 				local index = Grid.toIndex(grid, tx, tz)
-				tileZone[index] = zone.id
+				tileSection[index] = section.id
 
-				if rng:NextNumber() <= zone.density then
-					local entry = pickFill(zone)
+				if rng:NextNumber() <= section.density then
+					local entry = pickFill(section)
 					if entry then
 						local height = rng:NextInteger(entry.heightMin, entry.heightMax)
 						height = math.clamp(height, 0, GameConfig.MAX_HEIGHT)
@@ -158,24 +159,24 @@ local function seedTiles(property: Types.PropertyDef, grid: Grid.Grid, tiles: bu
 		end
 
 		state.remainingUnits = state.totalUnits
-		WorldService.zones[zone.id] = state
+		WorldService.sections[section.id] = state
 		WorldService.totalUnits += state.totalUnits
 	end
 
-	WorldService.tileZone = tileZone
+	WorldService.tileSection = tileSection
 	WorldService.remainingUnits = WorldService.totalUnits
 end
 
-local function buildGround(property: Types.PropertyDef, grid: Grid.Grid, parent: Folder)
+local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folder)
 	local width = grid.width * TILE
 	local depth = grid.depth * TILE
 
 	-- Anything below ground needs the lawn opened over it, or the room is buried
 	-- and the player walks across its ceiling without ever finding the way in.
 	local holes: { Types.Rect } = {}
-	for _, zone in property.zones do
-		if (zone.elevation or 0) < 0 then
-			table.insert(holes, zone.rect)
+	for _, section in world.sections do
+		if (section.elevation or 0) < 0 then
+			table.insert(holes, section.rect)
 		end
 	end
 
@@ -189,7 +190,7 @@ local function buildGround(property: Types.PropertyDef, grid: Grid.Grid, parent:
 				GameConfig.GROUND_Y - 2,
 				(slab.z + slab.d * 0.5) * TILE
 			),
-			color = toColor(property.baseGround),
+			color = toColor(world.baseGround),
 			material = Enum.Material.Grass,
 			parent = parent,
 		})
@@ -236,8 +237,8 @@ end
 	and the teal trim are what make it read as that kind of suburban house at a
 	glance.
 ]]
-local function buildHouse(property: Types.PropertyDef, parent: Folder)
-	local rect = property.houseRect
+local function buildHouse(world: Types.WorldDef, parent: Folder)
+	local rect = world.houseRect
 	if not rect then
 		return
 	end
@@ -471,8 +472,8 @@ end
 	stock floating above the counter with loud labels. Almost every purchase in
 	the game happens here, so it is worth being a room.
 ]]
-local function buildShed(property: Types.PropertyDef, parent: Folder): BasePart
-	local centre = WorldService.tilePointFlat(property.shed.x, property.shed.z)
+local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
+	local centre = WorldService.tilePointFlat(world.shed.x, world.shed.z)
 	local shed = Build.folder("Shed", parent)
 
 	local width, depth, height = 30, 26, 16
@@ -625,8 +626,8 @@ local function buildShed(property: Types.PropertyDef, parent: Folder): BasePart
 	return counter
 end
 
-local function buildTrailer(property: Types.PropertyDef, parent: Folder): BasePart
-	local centre = WorldService.tilePointFlat(property.trailer.x, property.trailer.z)
+local function buildTrailer(world: Types.WorldDef, parent: Folder): BasePart
+	local centre = WorldService.tilePointFlat(world.trailer.x, world.trailer.z)
 	local trailer = Build.folder("Trailer", parent)
 
 	local bed = Build.box("Bed", centre, Vector3.new(24, 4, 12), Palette.color(Palette.props.bin), Enum.Material.DiamondPlate, trailer)
@@ -650,28 +651,28 @@ local function buildTrailer(property: Types.PropertyDef, parent: Folder): BasePa
 end
 
 --[[
-	One sign per paid zone.
+	One sign per paid section.
 
 	Zones unlock per player, so there is no physical barrier — a shared collision
 	wall could not be open for one player and shut for another. The sign carries
 	the price and a prompt, the client tints locked ground, and the server simply
-	refuses to cut a tile in a zone the player has not bought.
+	refuses to cut a tile in a section the player has not bought.
 ]]
-local function buildZoneSigns(property: Types.PropertyDef, parent: Folder): { [string]: BasePart }
+local function buildSectionSigns(world: Types.WorldDef, parent: Folder): { [string]: BasePart }
 	local signs: { [string]: BasePart } = {}
 	local folder = Build.folder("ZoneSigns", parent)
 
-	for _, zone in property.zones do
+	for _, section in world.sections do
 		-- A rooftop is earned and a garage is found, so neither gets a price tag.
-		-- Signs also stand on the ground plane rather than the zone's own floor,
+		-- Signs also stand on the ground plane rather than the section's own floor,
 		-- so a basement's sign is at the top of its stairs and not sealed inside.
-		if zone.cost > 0 and Properties.unlockKind(zone) == "cash" then
-			local r = zone.rect
-			-- Stand the sign at the edge of the zone nearest the road.
+		if section.cost > 0 and Worlds.unlockKind(section) == "cash" then
+			local r = section.rect
+			-- Stand the sign at the edge of the section nearest the road.
 			local at = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z)
 
 			local post = Build.part({
-				name = zone.id,
+				name = section.id,
 				size = Vector3.new(1, 12, 1),
 				cframe = CFrame.new(at + Vector3.new(0, 6, -2)),
 				color = Palette.color(Palette.fence.rail),
@@ -679,8 +680,8 @@ local function buildZoneSigns(property: Types.PropertyDef, parent: Folder): { [s
 				canCollide = false,
 				parent = folder,
 			})
-			post:SetAttribute("ZoneId", zone.id)
-			signs[zone.id] = post
+			post:SetAttribute("ZoneId", section.id)
+			signs[section.id] = post
 		end
 	end
 
@@ -688,14 +689,14 @@ local function buildZoneSigns(property: Types.PropertyDef, parent: Folder): { [s
 end
 
 --[[
-	Builds everything a zone needs beyond its tiles.
+	Builds everything a section needs beyond its tiles.
 
-	Rooms get walls, the pool gets water, the maze gets hedges, and every zone
+	Rooms get walls, the pool gets water, the maze gets hedges, and every section
 	gets its share of clutter. Only `house` properties get the full treatment;
 	the big open lots stay open, which is where the wide-deck mowers earn their
 	price.
 ]]
-local function buildZoneStructures(property: Types.PropertyDef, parent: Folder)
+local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 	local context: Structures.Context = {
 		parent = parent,
 		flat = function(tx: number, tz: number): Vector3
@@ -706,22 +707,22 @@ local function buildZoneStructures(property: Types.PropertyDef, parent: Folder)
 		rng = rng,
 	}
 
-	local detailed = property.style == "house"
+	local detailed = world.style == "house"
 
-	for _, zone in property.zones do
-		local kind = zone.kind or "open"
-		local elevation = zone.elevation or 0
+	for _, section in world.sections do
+		local kind = section.kind or "open"
+		local elevation = section.elevation or 0
 
 		if detailed then
 			if kind == "room" then
-				Structures.room(context, zone, 16, elevation < 0)
+				Structures.room(context, section, 16, elevation < 0)
 			elseif kind == "pool" then
-				Structures.pool(context, zone)
+				Structures.pool(context, section)
 			elseif kind == "maze" then
-				Structures.maze(context, zone)
+				Structures.maze(context, section)
 			elseif kind == "roof" then
 				-- The roof slab is the floor the rooftop's debris rests on.
-				local r = zone.rect
+				local r = section.rect
 				local centre = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z + r.d * 0.5)
 				Build.part({
 					name = "RoofDeck",
@@ -766,20 +767,95 @@ local function buildZoneStructures(property: Types.PropertyDef, parent: Folder)
 
 			-- Stairs into anything not on the lawn.
 			if elevation > 0 then
-				local r = zone.rect
+				local r = section.rect
 				local bottom = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z - 2)
 				local top = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z) + Vector3.new(0, elevation, 0)
 				Structures.stairs(context, bottom, top, 10, 14, parent)
 			elseif elevation < 0 then
-				local r = zone.rect
+				local r = section.rect
 				local top = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z - 1)
 				local bottom = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z + 3) + Vector3.new(0, elevation, 0)
 				Structures.stairs(context, top, bottom, 10, 12, parent)
 			end
 		end
 
-		Structures.clutter(context, zone, zone.clutter or 0)
+		Structures.clutter(context, section, section.clutter or 0)
 	end
+end
+
+--------------------------------------------------------------------
+-- The exit
+--------------------------------------------------------------------
+
+local exitPart: BasePart? = nil
+
+--- Builds the grate, shut. It opens when the last section is clear.
+local function buildExit(world: Types.WorldDef, parent: Folder)
+	local at = WorldService.tilePointFlat(world.exit.x, world.exit.z)
+
+	local frame = Build.part({
+		name = "ExitFrame",
+		size = Vector3.new(14, 16, 2),
+		cframe = CFrame.new(at + Vector3.new(0, 8, 0)),
+		color = Palette.color(Palette.house.brickDark),
+		material = Enum.Material.Brick,
+		parent = parent,
+	})
+
+	local grate = Build.part({
+		name = "ExitGrate",
+		size = Vector3.new(11, 13, 1),
+		cframe = CFrame.new(at + Vector3.new(0, 6.5, -0.8)),
+		color = Palette.color(Palette.rgb(96, 100, 104)),
+		material = Enum.Material.DiamondPlate,
+		parent = parent,
+	})
+	grate:SetAttribute("Shut", true)
+
+	local gui = Build.billboard(frame, UDim2.fromScale(9, 3), 11, 220)
+	Build.label(gui, "WAY OUT", UDim2.fromScale(1, 0.55), UDim2.fromScale(0, 0), 2)
+	Build.label(gui, "Locked", UDim2.fromScale(1, 0.4), UDim2.fromScale(0, 0.58), 1.1)
+
+	exitPart = grate
+end
+
+--[[
+	Opens the grate and puts a prompt on it.
+
+	The prompt matters: walking out has to be a deliberate act, so nobody ends
+	the run for the server by wandering past it while still working.
+]]
+function WorldService.openExit()
+	local grate = exitPart
+	if not grate or not grate:GetAttribute("Shut") then
+		return
+	end
+	grate:SetAttribute("Shut", false)
+
+	grate.Transparency = 0.75
+	grate.CanCollide = false
+	grate.Color = Palette.color(Palette.ui.cash)
+	grate.Material = Enum.Material.Neon
+
+	local frame = grate.Parent and grate.Parent:FindFirstChild("ExitFrame")
+	if frame and frame:IsA("BasePart") then
+		local gui = frame:FindFirstChildOfClass("BillboardGui")
+		if gui then
+			local second = gui:FindFirstChild("Label", true)
+			for _, label in gui:GetChildren() do
+				if label:IsA("TextLabel") and label ~= second then
+					label.Text = label.Text == "Locked" and "Open — leave to finish" or label.Text
+				end
+			end
+		end
+	end
+
+	local prompt = Build.prompt(grate, "Leave", "Way Out", 14)
+	prompt.HoldDuration = 0.6
+	prompt.Triggered:Connect(function(player: Player)
+		local RunServiceModule = require(script.Parent.RunService)
+		RunServiceModule.reachExit(player)
+	end)
 end
 
 --------------------------------------------------------------------
@@ -788,11 +864,11 @@ end
 
 WorldService.shedPart = nil :: BasePart?
 WorldService.trailerPart = nil :: BasePart?
-WorldService.zoneSigns = {} :: { [string]: BasePart }
+WorldService.sectionSigns = {} :: { [string]: BasePart }
 
---- Tears down the previous world and generates `propertyId`.
-function WorldService.load(propertyId: string)
-	local property = Properties.expect(propertyId)
+--- Tears down the previous world and generates `worldId`.
+function WorldService.load(worldId: string)
+	local world = Worlds.expect(worldId)
 
 	if container then
 		container:Destroy()
@@ -800,26 +876,28 @@ function WorldService.load(propertyId: string)
 	container = Build.folder("MowWorld", Workspace)
 	local parent = container :: Folder
 
-	local grid = Grid.new(property.gridWidth, property.gridDepth)
+	local grid = Grid.new(world.gridWidth, world.gridDepth)
 	local tiles = buffer.create(Grid.tileCount(grid))
 
 	WorldService.grid = grid
 	WorldService.tiles = tiles
-	WorldService.property = property
+	WorldService.world = world
 
-	seedTiles(property, grid, tiles)
-	buildGround(property, grid, parent)
-	buildHouse(property, parent)
-	WorldService.shedPart = buildShed(property, parent)
-	WorldService.trailerPart = buildTrailer(property, parent)
-	WorldService.zoneSigns = buildZoneSigns(property, parent)
-	buildZoneStructures(property, parent)
+	seedTiles(world, grid, tiles)
+	buildGround(world, grid, parent)
+	buildHouse(world, parent)
+	WorldService.shedPart = buildShed(world, parent)
+	WorldService.trailerPart = buildTrailer(world, parent)
+	WorldService.sectionSigns = buildSectionSigns(world, parent)
+	buildSectionStructures(world, parent)
+	exitPart = nil
+	buildExit(world, parent)
 
-	-- Fence the outer boundary so the lot reads as a property, not a plane.
+	-- Fence the outer boundary so the lot reads as a world, not a plane.
 	local width = grid.width * TILE
 	local depth = grid.depth * TILE
 
-	if property.style == "house" then
+	if world.style == "house" then
 		-- Picket fencing on three sides, open at the kerb where players arrive.
 		local fences = Build.folder("Fences", parent)
 		local corners = {
@@ -854,7 +932,7 @@ function WorldService.load(propertyId: string)
 		Build.fence(parent, 0, 0, width, depth, 6, Palette.color(Palette.fence.rail), 14)
 	end
 
-	local spawnAt = WorldService.tilePointFlat(property.spawn.x, property.spawn.z)
+	local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)
 	local spawnPart = Build.part({
 		name = "SpawnPad",
 		size = Vector3.new(20, 0.4, 20),
@@ -875,14 +953,14 @@ function WorldService.load(propertyId: string)
 	spawnLocation.Neutral = true
 	spawnLocation.Parent = parent
 
-	loadedSignal:Fire(property)
+	loadedSignal:Fire(world)
 end
 
 function WorldService.isLoaded(): boolean
 	return WorldService.grid ~= nil
 end
 
---- Fraction of the property's debris that has been cleared, 0..1.
+--- Fraction of the world's debris that has been cleared, 0..1.
 function WorldService.completion(): number
 	if WorldService.totalUnits <= 0 then
 		return 1
@@ -893,34 +971,90 @@ end
 --[[
 	Adds debris that does not live on a tile — trees and stumps — to the totals.
 
-	Completion means the property is genuinely clear, so a standing oak has to
+	Completion means the world is genuinely clear, so a standing oak has to
 	count against it the same way uncut grass does.
 ]]
-function WorldService.registerExtraUnits(zoneId: string, units: number)
+function WorldService.registerExtraUnits(sectionId: string, units: number)
 	WorldService.totalUnits += units
 	WorldService.remainingUnits += units
-	local zone = WorldService.zones[zoneId]
-	if zone then
-		zone.totalUnits += units
-		zone.remainingUnits += units
+	local section = WorldService.sections[sectionId]
+	if section then
+		section.totalUnits += units
+		section.remainingUnits += units
 	end
 end
 
---- The zone whose rect contains a tile-space point, or "" for open ground.
-function WorldService.zoneIdAtTile(tx: number, tz: number): string
+--- The section whose rect contains a tile-space point, or "" for open ground.
+function WorldService.sectionIdAtTile(tx: number, tz: number): string
 	local grid = WorldService.grid
 	if not grid or not Grid.inBounds(grid, tx, tz) then
 		return ""
 	end
-	return WorldService.zoneIdAt(Grid.toIndex(grid, tx, tz))
+	return WorldService.sectionIdAt(Grid.toIndex(grid, tx, tz))
 end
 
---- Records that `units` were removed from `zoneId`, keeping totals in step.
-function WorldService.consumeUnits(zoneId: string, units: number)
+--[[
+	Fills a section's debris back up for another wave.
+
+	Only that section's tiles are touched, and its own totals are rebuilt from
+	scratch — the world totals are adjusted by the difference so a refill never
+	makes the overall completion bar jump backwards past what has actually been
+	cleared elsewhere.
+]]
+function WorldService.refillSection(sectionId: string)
+	local grid = WorldService.grid
+	local tiles = WorldService.tiles
+	local world = WorldService.world
+	local state = WorldService.sections[sectionId]
+	if not grid or not tiles or not world or not state then
+		return
+	end
+
+	local section = state.def
+	local before = state.remainingUnits
+	local fresh = 0
+	local dirty: { [number]: boolean } = {}
+
+	local r = section.rect
+	for tz = r.z, math.min(r.z + r.d - 1, grid.depth - 1) do
+		for tx = r.x, math.min(r.x + r.w - 1, grid.width - 1) do
+			local index = Grid.toIndex(grid, tx, tz)
+			local byte = 0
+
+			if rng:NextNumber() <= section.density then
+				local entry = pickFill(section)
+				if entry then
+					local height = math.clamp(
+						rng:NextInteger(entry.heightMin, entry.heightMax),
+						0,
+						GameConfig.MAX_HEIGHT
+					)
+					byte = ChunkCodec.pack(entry.debris, height, false)
+					fresh += Cutting.unitsOnTile(byte)
+				end
+			end
+
+			buffer.writeu8(tiles, index - 1, byte)
+			dirty[Grid.chunkOfTileIndex(grid, index)] = true
+		end
+	end
+
+	state.totalUnits = fresh
+	state.remainingUnits = fresh
+	WorldService.totalUnits += fresh - before
+	WorldService.remainingUnits += fresh - before
+
+	for chunkIndex in dirty do
+		ReplicationService.markDirty(chunkIndex)
+	end
+end
+
+--- Records that `units` were removed from `sectionId`, keeping totals in step.
+function WorldService.consumeUnits(sectionId: string, units: number)
 	WorldService.remainingUnits = math.max(WorldService.remainingUnits - units, 0)
-	local zone = WorldService.zones[zoneId]
-	if zone then
-		zone.remainingUnits = math.max(zone.remainingUnits - units, 0)
+	local section = WorldService.sections[sectionId]
+	if section then
+		section.remainingUnits = math.max(section.remainingUnits - units, 0)
 	end
 end
 

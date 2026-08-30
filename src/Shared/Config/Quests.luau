@@ -25,10 +25,10 @@ export type Kind =
 	| "upgrade"
 	--- Bought any tool.
 	| "tool"
-	--- Unlocked a zone by any means.
-	| "zone"
-	--- Cleared a whole zone.
-	| "clearZone"
+	--- Opened a section by any means.
+	| "section"
+	--- Cleared a whole section.
+	| "clearSection"
 	--- Banked a Clean Stripe.
 	| "stripe"
 
@@ -53,35 +53,35 @@ local list: { Quest } = {
 		kind = "collect",
 		text = "Collect 5 leaves",
 		target = 5,
-		reward = 25,
+		reward = 0.5,
 	},
 	{
 		id = "sell_first",
 		kind = "sell",
 		text = "Sell 5 leaves",
 		target = 5,
-		reward = 40,
+		reward = 1,
 	},
 	{
 		id = "open_journal",
 		kind = "journal",
 		text = "Open your journal (TAB)",
 		target = 1,
-		reward = 30,
+		reward = 1,
 	},
 	{
 		id = "first_upgrade",
 		kind = "upgrade",
 		text = "Buy your first upgrade",
 		target = 1,
-		reward = 75,
+		reward = 2,
 	},
 	{
 		id = "open_garage",
-		kind = "zone",
+		kind = "section",
 		text = "Find the switch and open the garage",
 		target = 1,
-		reward = 250,
+		reward = 6,
 		subject = "garage",
 	},
 	{
@@ -89,21 +89,21 @@ local list: { Quest } = {
 		kind = "collect",
 		text = "Collect 100 leaves",
 		target = 100,
-		reward = 200,
+		reward = 5,
 	},
 	{
 		id = "first_tool",
 		kind = "tool",
 		text = "Buy a proper tool from the shed",
 		target = 1,
-		reward = 300,
+		reward = 8,
 	},
 	{
 		id = "clear_front",
-		kind = "clearZone",
+		kind = "clearSection",
 		text = "Clear the Front Yard completely",
 		target = 1,
-		reward = 900,
+		reward = 25,
 		subject = "front_yard",
 	},
 	{
@@ -111,14 +111,14 @@ local list: { Quest } = {
 		kind = "stripe",
 		text = "Bank a clean stripe",
 		target = 1,
-		reward = 400,
+		reward = 12,
 	},
 	{
 		id = "sell_thousand",
 		kind = "sell",
 		text = "Sell 1,000 units in total",
 		target = 1000,
-		reward = 1500,
+		reward = 40,
 	},
 }
 

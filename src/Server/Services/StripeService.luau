@@ -4,7 +4,7 @@
 
 	Cutting in long straight parallel lines is how a lawn actually gets striped,
 	and it is the one place in a genre with almost no skill expression where
-	doing it properly pays. Hold a heading, keep cutting, and a completed run
+	doing it properly pays. Hold a heading, keep cutting, and a completed stripe
 	banks cash and a tip.
 
 	A stripe breaks when the player turns past STRIPE_MAX_DRIFT or stops cutting,
@@ -20,39 +20,40 @@ local Balance = require(Shared.Config.Balance)
 local Format = require(Shared.Util.Format)
 local GameConfig = require(Shared.Config.GameConfig)
 local DataService = require(script.Parent.DataService)
+local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
 local QuestService = require(script.Parent.QuestService)
 local TileService = require(script.Parent.TileService)
 
 local StripeService = {}
 
-export type Run = {
-	--- Heading of the run, as a unit vector in tile space.
+export type Stripe = {
+	--- Heading of the stripe, as a unit vector in tile space.
 	dirX: number,
 	dirZ: number,
 	tiles: number,
-	--- Tiles already counted, so a wide deck does not inflate the run.
+	--- Tiles already counted, so a wide deck does not inflate the stripe.
 	seen: { [number]: boolean },
 	lastAt: number,
 }
 
-local runs: { [Player]: Run } = {}
+local stripes: { [Player]: Stripe } = {}
 
 --- A stripe lapses if no cutting happens for this long.
 local IDLE_TIMEOUT = 1.2
 local MAX_DRIFT_COS = math.cos(math.rad(GameConfig.STRIPE_MAX_DRIFT))
 
-local function bank(player: Player, run: Run)
-	if run.tiles < GameConfig.STRIPE_MIN_TILES then
+local function bank(player: Player, stripe: Stripe)
+	if stripe.tiles < GameConfig.STRIPE_MIN_TILES then
 		return
 	end
 
-	local profile = DataService.get(player)
-	if not profile then
+	local run = RunState.find(player)
+	if not run then
 		return
 	end
 
-	local bonus = Balance.stripeBonus(run.tiles, profile.upgrades, EconomyService.modifiers(player))
+	local bonus = Balance.stripeBonus(stripe.tiles, run.upgrades, EconomyService.modifiers(player))
 	EconomyService.awardRaw(player, bonus)
 	EconomyService.awardTips(player, GameConfig.STRIPE_TIP_REWARD)
 
@@ -61,14 +62,14 @@ local function bank(player: Player, run: Run)
 	end)
 
 	QuestService.advance(player, "stripe", 1)
-	EconomyService.notify(player, "stripe", `Clean stripe — {run.tiles} tiles, {Format.cash(bonus)}`, bonus)
+	EconomyService.notify(player, "stripe", `Clean stripe — {stripe.tiles} tiles, {Format.cash(bonus)}`, bonus)
 end
 
 local function reset(player: Player, dirX: number, dirZ: number)
-	runs[player] = { dirX = dirX, dirZ = dirZ, tiles = 0, seen = {}, lastAt = os.clock() }
+	stripes[player] = { dirX = dirX, dirZ = dirZ, tiles = 0, seen = {}, lastAt = os.clock() }
 end
 
---- Records a cut tile against the player's current run.
+--- Records a cut tile against the player's current stripe.
 local function onCut(player: Player, tileIndex: number)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -83,30 +84,30 @@ local function onCut(player: Player, tileIndex: number)
 	end
 	local dirX, dirZ = look.X / length, look.Z / length
 
-	local run = runs[player]
+	local stripe = stripes[player]
 	local now = os.clock()
 
-	if not run then
+	if not stripe then
 		reset(player, dirX, dirZ)
-		run = runs[player]
-	elseif now - run.lastAt > IDLE_TIMEOUT then
+		stripe = stripes[player]
+	elseif now - stripe.lastAt > IDLE_TIMEOUT then
 		-- Stopped cutting for a moment: bank whatever was there and start over.
-		bank(player, run)
+		bank(player, stripe)
 		reset(player, dirX, dirZ)
-		run = runs[player]
+		stripe = stripes[player]
 	else
-		local alignment = run.dirX * dirX + run.dirZ * dirZ
+		local alignment = stripe.dirX * dirX + stripe.dirZ * dirZ
 		if alignment < MAX_DRIFT_COS then
-			bank(player, run)
+			bank(player, stripe)
 			reset(player, dirX, dirZ)
-			run = runs[player]
+			stripe = stripes[player]
 		end
 	end
 
-	local current = run :: Run
+	local current = stripe :: Stripe
 	current.lastAt = now
 
-	-- Count each tile once, so a wide deck does not multiply the run length.
+	-- Count each tile once, so a wide deck does not multiply the stripe length.
 	if not current.seen[tileIndex] then
 		current.seen[tileIndex] = true
 		current.tiles += 1
@@ -119,7 +120,7 @@ function StripeService.start()
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
-		runs[player] = nil
+		stripes[player] = nil
 	end)
 
 	-- Bank runs that simply stop, rather than only ones that end in a turn.
@@ -127,10 +128,10 @@ function StripeService.start()
 		while true do
 			task.wait(0.5)
 			local now = os.clock()
-			for player, run in runs do
-				if now - run.lastAt > IDLE_TIMEOUT then
-					bank(player, run)
-					runs[player] = nil
+			for player, stripe in stripes do
+				if now - stripe.lastAt > IDLE_TIMEOUT then
+					bank(player, stripe)
+					stripes[player] = nil
 				end
 			end
 		end

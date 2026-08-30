@@ -14,6 +14,7 @@ local Tools = require(Shared.Config.Tools)
 local BagService = require(script.Parent.BagService)
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
+local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
 local WorldService = require(script.Parent.WorldService)
 
@@ -29,7 +30,7 @@ local PUSH_HZ = 5
 export type StatePayload = {
 	cash: number,
 	tips: number,
-	lifetimeCash: number,
+	earned: number,
 	bagWeight: number,
 	bagCapacity: number,
 	bagValue: number,
@@ -38,7 +39,6 @@ export type StatePayload = {
 	equippedTool: string,
 	ownedTools: { [string]: boolean },
 	upgrades: { [string]: number },
-	unlockedZones: { [string]: boolean },
 	walkSpeed: number,
 	dumpRadius: number,
 	hasPortableTrailer: boolean,
@@ -47,31 +47,29 @@ export type StatePayload = {
 }
 
 function PlayerService.buildState(player: Player): StatePayload?
-	local profile = DataService.get(player)
-	if not profile then
+	local run = RunState.find(player)
+	if not run then
 		return nil
 	end
 
 	local mods = EconomyService.modifiers(player)
-	local property = WorldService.property
-	local unlocked = if property then profile.unlockedZones[property.id] or {} else {}
 
 	return {
-		cash = profile.cash,
-		tips = profile.tips,
-		lifetimeCash = profile.lifetimeCash,
+		cash = run.cash,
+		tips = run.tips,
+		earned = run.earned,
 		bagWeight = BagService.weight(player),
 		bagCapacity = BagService.capacity(player),
-		bagValue = BagService.baseValue(player) * Balance.cashMultiplier(profile.upgrades, mods),
-		fuel = profile.fuel,
-		fuelCapacity = Balance.fuelCapacity(profile.upgrades),
-		equippedTool = profile.equippedTool,
-		ownedTools = profile.ownedTools,
-		upgrades = profile.upgrades,
-		unlockedZones = unlocked,
-		walkSpeed = Balance.walkSpeed(profile.upgrades, mods),
-		dumpRadius = Balance.dumpRadius(profile.upgrades),
-		hasPortableTrailer = Balance.hasPortableTrailer(profile.upgrades),
+		bagValue = BagService.baseValue(player) * Balance.cashMultiplier(run.upgrades, mods),
+		fuel = run.fuel,
+		fuelCapacity = Balance.fuelCapacity(run.upgrades),
+		equippedTool = run.equippedTool,
+		ownedTools = run.ownedTools,
+		upgrades = run.upgrades,
+
+		walkSpeed = Balance.walkSpeed(run.upgrades, mods),
+		dumpRadius = Balance.dumpRadius(run.upgrades),
+		hasPortableTrailer = Balance.hasPortableTrailer(run.upgrades),
 		rentalSecondsLeft = BoostService.rentalSecondsLeft(player),
 		rentalToolId = BoostService.rentedTool(player) or "",
 	}
@@ -93,20 +91,20 @@ end
 	rate would waste most of the per-client bandwidth budget on unchanged tables.
 ]]
 function PlayerService.pushLive(player: Player)
-	local profile = DataService.get(player)
-	if not profile then
+	local run = RunState.find(player)
+	if not run then
 		return
 	end
 	local mods = EconomyService.modifiers(player)
 	playerState:FireClient(player, {
 		partial = true,
-		cash = profile.cash,
-		tips = profile.tips,
-		lifetimeCash = profile.lifetimeCash,
+		cash = run.cash,
+		tips = run.tips,
+		earned = run.earned,
 		bagWeight = BagService.weight(player),
 		bagCapacity = BagService.capacity(player),
-		bagValue = BagService.baseValue(player) * Balance.cashMultiplier(profile.upgrades, mods),
-		fuel = profile.fuel,
+		bagValue = BagService.baseValue(player) * Balance.cashMultiplier(run.upgrades, mods),
+		fuel = run.fuel,
 		rentalSecondsLeft = BoostService.rentalSecondsLeft(player),
 	})
 end
@@ -123,14 +121,14 @@ end
 
 --- Applies walk speed from the player's upgrades to their humanoid.
 function PlayerService.applyCharacterStats(player: Player)
-	local profile = DataService.get(player)
+	local run = RunState.find(player)
 	local character = player.Character
-	if not profile or not character then
+	if not run or not character then
 		return
 	end
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
-		humanoid.WalkSpeed = Balance.walkSpeed(profile.upgrades, EconomyService.modifiers(player))
+		humanoid.WalkSpeed = Balance.walkSpeed(run.upgrades, EconomyService.modifiers(player))
 	end
 end
 
@@ -140,15 +138,15 @@ end
 
 --- True when the player is close enough to a trailer to sell.
 function PlayerService.canDump(player: Player): boolean
-	local profile = DataService.get(player)
+	local run = RunState.find(player)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local trailer = WorldService.trailerPart
-	if not profile or not root or not root:IsA("BasePart") or not trailer then
+	if not run or not root or not root:IsA("BasePart") or not trailer then
 		return false
 	end
 
-	local radius = Balance.dumpRadius(profile.upgrades)
+	local radius = Balance.dumpRadius(run.upgrades)
 	local offset = root.Position - trailer.Position
 	return offset.X * offset.X + offset.Z * offset.Z <= radius * radius
 end
@@ -173,11 +171,11 @@ local function onEquip(player: Player, toolId: any)
 	if type(toolId) ~= "string" then
 		return
 	end
-	local profile = DataService.get(player)
-	if not profile or not profile.ownedTools[toolId] or not Tools.get(toolId) then
+	local run = RunState.find(player)
+	if not run or not run.ownedTools[toolId] or not Tools.get(toolId) then
 		return
 	end
-	profile.equippedTool = toolId
+	run.equippedTool = toolId
 	PlayerService.push(player)
 end
 

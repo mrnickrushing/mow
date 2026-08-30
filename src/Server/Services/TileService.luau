@@ -28,10 +28,12 @@ local Tools = require(Shared.Config.Tools)
 local Types = require(Shared.Types)
 local BagService = require(script.Parent.BagService)
 local DataService = require(script.Parent.DataService)
+local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
 local FuelService = require(script.Parent.FuelService)
 local ReplicationService = require(script.Parent.ReplicationService)
 local VehicleService = require(script.Parent.VehicleService)
+local RunService = require(script.Parent.RunService)
 local WorldService = require(script.Parent.WorldService)
 
 local TileService = {}
@@ -68,13 +70,14 @@ local function rootPosition(player: Player): Vector3?
 	return nil
 end
 
---- True when the player has bought the zone a tile belongs to.
-local function ownsZone(profile: any, propertyId: string, zoneId: string): boolean
-	if zoneId == "" then
+--- True when a section's gate is open for this run.
+--- Gates open for everyone at once, so this is a property of the run rather
+--- than of the player asking.
+local function sectionOpen(sectionId: string): boolean
+	if sectionId == "" then
 		return false
 	end
-	local owned = profile.unlockedZones[propertyId]
-	return owned ~= nil and owned[zoneId] == true
+	return RunService.isSectionOpen(sectionId)
 end
 
 --------------------------------------------------------------------
@@ -85,7 +88,7 @@ export type CutResult = {
 	tilesTouched: number,
 	unitsCollected: number,
 	stalled: boolean,
-	blockedByZone: string?,
+	blockedBySection: string?,
 	bagFull: boolean,
 }
 
@@ -107,27 +110,27 @@ function TileService.applyPasses(
 		tilesTouched = 0,
 		unitsCollected = 0,
 		stalled = false,
-		blockedByZone = nil,
+		blockedBySection = nil,
 		bagFull = false,
 	}
 
 	local grid = WorldService.grid
 	local tiles = WorldService.tiles
-	local property = WorldService.property
-	local profile = DataService.get(player)
-	if not grid or not tiles or not property or not profile or passes <= 0 then
+	local property = WorldService.world
+	local run = RunState.find(player)
+	if not grid or not tiles or not property or not run or passes <= 0 then
 		return result
 	end
 
 	local indices = Grid.rasterizeSwath(grid, position.X, position.Z, look.X, look.Z, tool.deck, tool.reach, scratch)
 	local levelsAvailable = tool.power * passes
-	local yieldMultiplier = Balance.yieldMultiplier(profile.upgrades)
+	local yieldMultiplier = Balance.yieldMultiplier(run.upgrades)
 	local capacity = BagService.capacity(player)
 
 	for _, index in indices do
 		local byte = buffer.readu8(tiles, index - 1)
-		local zoneId = WorldService.zoneIdAt(index)
-		local owns = ownsZone(profile, property.id, zoneId)
+		local sectionId = WorldService.sectionIdAt(index)
+		local owns = sectionOpen(sectionId)
 		local space = capacity - BagService.weight(player)
 
 		local outcome = Cutting.evaluate(byte, tool, levelsAvailable, yieldMultiplier, owns, space)
@@ -141,13 +144,13 @@ function TileService.applyPasses(
 			BagService.add(player, debrisId, outcome.units)
 			buffer.writeu8(tiles, index - 1, ChunkCodec.withHeight(byte, height - outcome.levels))
 			ReplicationService.markTileDirty(index)
-			WorldService.consumeUnits(zoneId, outcome.levels * DebrisConfig.get(debrisId).unitsPerLevel)
+			WorldService.consumeUnits(sectionId, outcome.levels * DebrisConfig.get(debrisId).unitsPerLevel)
 
 			result.tilesTouched += 1
 			result.unitsCollected += outcome.units
 			cutSignal:Fire(player, index, debrisId, outcome.levels)
 		elseif outcome.status == "locked" then
-			result.blockedByZone = zoneId
+			result.blockedBySection = sectionId
 		elseif outcome.status == "overgrown" or outcome.status == "wet" then
 			result.stalled = true
 		elseif outcome.status == "bagFull" then
@@ -184,13 +187,13 @@ local function onMowIntent(player: Player, payload: any)
 		return
 	end
 
-	local profile = DataService.get(player)
-	if not profile then
+	local run = RunState.find(player)
+	if not run then
 		return
 	end
 
 	-- The client may only mow with a tool it owns and has equipped.
-	if profile.equippedTool ~= toolId or not profile.ownedTools[toolId] then
+	if run.equippedTool ~= toolId or not run.ownedTools[toolId] then
 		return
 	end
 	local tool = Tools.get(toolId)
@@ -230,7 +233,7 @@ local function onMowIntent(player: Player, payload: any)
 		return
 	end
 
-	local rate = Balance.effectiveCutRate(tool, profile.upgrades, false)
+	local rate = Balance.effectiveCutRate(tool, run.upgrades, false)
 	if rate <= 0 then
 		return
 	end
@@ -250,7 +253,7 @@ local function onMowIntent(player: Player, payload: any)
 
 	local result = TileService.applyPasses(player, actual, look, tool, passes)
 
-	if result.blockedByZone and result.tilesTouched == 0 then
+	if result.blockedBySection and result.tilesTouched == 0 then
 		EconomyService.notify(player, "locked", "You have not bought this zone yet", nil)
 	elseif result.stalled and result.tilesTouched == 0 then
 		EconomyService.notify(player, "stall", `The {tool.name} bogs down here — you need better gear`, nil)

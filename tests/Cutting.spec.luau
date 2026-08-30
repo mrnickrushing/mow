@@ -36,13 +36,23 @@ return function()
 		end)
 
 		h.it("distinguishes overgrown grass from the wrong tool entirely", function()
-			-- Shears reach height 2; height 3 is the overgrowth gate, not a mismatch.
-			local shears = Tools.expect("shears")
-			local tall = Cutting.evaluate(grassTile(3), shears, 3, 1, true, ROOMY)
-			h.expectEqual(tall.status, "overgrown", "tall grass should read as overgrown")
+			-- A reel mower reaches height 2, so height 3 is the overgrowth gate
+			-- rather than a mismatch. Hands are never gated, by design.
+			local reel = Tools.expect("reel_mower")
+			h.expectEqual(
+				Cutting.evaluate(grassTile(3), reel, 3, 1, true, ROOMY).status,
+				"overgrown",
+				"tall grass should read as overgrown"
+			)
 
+			-- Hands do handle leaves, so a genuine mismatch needs a mower on them.
 			local leaves = ChunkCodec.pack(Debris.Leaves, 1, false)
-			h.expectEqual(Cutting.evaluate(leaves, shears, 3, 1, true, ROOMY).status, "wrongTool")
+			h.expectEqual(Cutting.evaluate(leaves, Tools.expect("gas_mower"), 3, 1, true, ROOMY).status, "wrongTool")
+			h.expectEqual(
+				Cutting.evaluate(leaves, Tools.expect("hands"), 3, 1, true, ROOMY).status,
+				"cut",
+				"hands clear leaves"
+			)
 		end)
 
 		h.it("stalls a weak tool in wet grass but not a strong one", function()

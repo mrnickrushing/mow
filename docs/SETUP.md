@@ -39,13 +39,13 @@ mode and says so loudly in the output; nothing persists between sessions.
 
 ## 4. Play
 
-Press **Play**. You start with hand shears on the front yard of the Starter
-House.
+Press **Play**. You start with bare hands in the front yard of The House, with
+ninety minutes on the clock.
 
 | Key | Does |
 | --- | --- |
 | Hold **left mouse** / **E** | Mow |
-| **B** | Open the shed (also opens when you walk up to it) |
+| **TAB** / **B** | Open the journal (also opens at the shed counter) |
 | **G** | Open the Robux store |
 | **F** | Get on or off a riding mower |
 | Walk to the trailer | Sells your bag automatically |

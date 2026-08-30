@@ -1,42 +1,38 @@
 --!strict
 --[[
-	Economy simulator.
+	Run simulator.
 
-	Plays a virtual, reasonably efficient player through the whole ladder and
-	prints how long each tool, upgrade level and property takes to reach. This is
-	how the curve gets tuned: a balance change that turns tier 9 into a wall shows
-	up here in a second rather than twenty hours into a playtest.
+	Plays one world from nothing and reports whether it can be finished inside
+	the clock, which section the run stalls in, and what gear a player has by
+	the end. Runs reset, so the question is no longer "how long to max out" but
+	"is this beatable, and does it stay tense the whole way".
 
 	Run with:  python3 scripts/build_tests.py && luau scripts/simulate.luau
 
-	The player model buys greedily by return on investment — at every step it
-	takes whichever purchase adds the most income per dollar spent. That is a
-	slightly optimistic player, so treat the times below as a floor.
+	The virtual player buys greedily by return on investment and never wastes a
+	second, so treat every time here as a floor.
 ]]
 
 local Balance = require("../tests/.build/Shared/Config/Balance")
 local Debris = require("../tests/.build/Shared/Config/Debris")
 local Economy = require("../tests/.build/Shared/Config/Economy")
 local Format = require("../tests/.build/Shared/Util/Format")
-local Properties = require("../tests/.build/Shared/Config/Properties")
 local Tools = require("../tests/.build/Shared/Config/Tools")
 local Upgrades = require("../tests/.build/Shared/Config/Upgrades")
+local Worlds = require("../tests/.build/Shared/Config/Worlds")
 
---- Typical grass height a player faces, averaged over a property's zones.
+--- Typical debris height a player faces.
 local AVERAGE_HEIGHT = 2.4
---- Give up rather than loop forever if the curve becomes unaffordable.
-local MAX_STEPS = 4000
+--- Players in the run. Waves scale with this, so more hands is more work.
+local PLAYERS = tonumber(({ ... })[1]) or 1
+local MAX_STEPS = 3000
 
 type State = {
 	cash: number,
-	lifetime: number,
 	seconds: number,
 	levels: { [string]: number },
 	owned: { [string]: boolean },
-	--- ownedZones[propertyId][zoneId]
-	ownedZones: { [string]: { [string]: boolean } },
 	toolId: string,
-	propertyId: string,
 }
 
 local function newState(): State
@@ -44,189 +40,82 @@ local function newState(): State
 	for _, def in Upgrades.list do
 		levels[def.id] = 0
 	end
-	local starter = Properties.expect(Properties.STARTER_ID)
-	local starterZones: { [string]: boolean } = {}
-	for _, zone in starter.zones do
-		if zone.cost <= 0 then
-			starterZones[zone.id] = true
-		end
-	end
-
 	return {
 		cash = 0,
-		lifetime = 0,
 		seconds = 0,
 		levels = levels,
 		owned = { [Tools.STARTER_ID] = true },
-		ownedZones = { [starter.id] = starterZones },
 		toolId = Tools.STARTER_ID,
-		propertyId = Properties.STARTER_ID,
 	}
 end
 
---- True once every paid zone on a property has been bought.
-local function propertyFullyOwned(state: State, property): boolean
-	local owned = state.ownedZones[property.id]
-	if not owned then
-		return false
-	end
-	for _, zone in property.zones do
-		if not owned[zone.id] then
-			return false
-		end
-	end
-	return true
-end
-
---- The cheapest zone the player has not yet unlocked on a property.
-local function nextZone(state: State, property)
-	local owned = state.ownedZones[property.id]
-	for _, zone in property.zones do
-		if not owned or not owned[zone.id] then
-			return zone
-		end
-	end
-	return nil
-end
-
---- The best property the player has earned, and the best tool they own for it.
-local function refresh(state: State)
-	for _, property in Properties.list do
-		if state.lifetime >= property.unlockLifetimeCash then
-			state.propertyId = property.id
-			if not state.ownedZones[property.id] then
-				-- The first zone comes free with the unlock, and so does anything
-				-- earned rather than bought — the rooftop and the garage are
-				-- opened by playing, so a tuning run should count their lawn.
-				local owned: { [string]: boolean } = {}
-				for _, zone in property.zones do
-					if zone.cost <= 0 then
-						owned[zone.id] = true
-					end
-				end
-				state.ownedZones[property.id] = owned
-			end
-		end
-	end
-
-	local property = Properties.expect(state.propertyId)
-	local best, bestRate = state.toolId, -1
+--- The best tool the player owns for clearing `debrisId`.
+local function bestTool(state: State, world, debrisId: number): string?
+	local best, bestRate = nil, -1
 	for id in state.owned do
 		local tool = Tools.expect(id)
-		-- Grass is the staple debris; judge tools on how fast they clear it.
-		if Tools.canCut(tool, Debris.Grass, 1) then
-			local rate = Economy.cashPerSecond(tool, state.levels, property, Debris.Grass, AVERAGE_HEIGHT)
+		if Tools.canCut(tool, debrisId, 1) then
+			local rate = Economy.cashPerSecond(tool, state.levels, world, debrisId, AVERAGE_HEIGHT)
 			if rate > bestRate then
 				best, bestRate = id, rate
 			end
 		end
 	end
-	state.toolId = best
+	return best
 end
 
---- Debris units the player's unlocked zones hold on the current property.
-local function availableUnits(state: State, propertyId: string): number
-	local property = Properties.expect(propertyId)
-	local owned = state.ownedZones[propertyId]
-	if not owned then
+--- Cash per second clearing `debrisId` with the best owned tool.
+local function income(state: State, world, debrisId: number): number
+	local id = bestTool(state, world, debrisId)
+	if not id then
 		return 0
 	end
-	local yieldMultiplier = Balance.yieldMultiplier(state.levels)
-	local total = 0
-	for _, zone in property.zones do
-		if owned[zone.id] then
-			total += Economy.zoneUnits(zone, AVERAGE_HEIGHT, yieldMultiplier)
+	return Economy.cashPerSecond(Tools.expect(id), state.levels, world, debrisId, AVERAGE_HEIGHT)
+end
+
+--- Debris units a section holds, and the kind that dominates it.
+local function sectionUnits(section, yieldMultiplier: number): (number, number)
+	local heaviest, heaviestWeight = Debris.Grass, -1
+	for _, entry in section.fill do
+		if entry.weight > heaviestWeight then
+			heaviest, heaviestWeight = entry.debris, entry.weight
 		end
 	end
-	return total
-end
-
-local function rateFor(state: State, propertyId: string, levels, toolId: string, ownedZones): number
-	local property = Properties.expect(propertyId)
-	local tool = Tools.expect(toolId)
-	local raw = Economy.cashPerSecond(tool, levels, property, Debris.Grass, AVERAGE_HEIGHT)
-	if raw <= 0 then
-		return 0
-	end
-
-	local saved = state.ownedZones
-	state.ownedZones = ownedZones
-	local units = availableUnits(state, propertyId)
-	state.ownedZones = saved
-
-	local unitsPerSecond = Economy.tilesPerSecond(tool, levels, AVERAGE_HEIGHT)
-		* AVERAGE_HEIGHT
-		* Debris.get(Debris.Grass).unitsPerLevel
-		* Balance.yieldMultiplier(levels)
-	return raw * Economy.lawnUtilisation(units, unitsPerSecond, property.roundSeconds)
-end
-
-local function income(state: State): number
-	return rateFor(state, state.propertyId, state.levels, state.toolId, state.ownedZones)
-end
-
---- Income if a hypothetical purchase were made, without mutating `state`.
-local function incomeWith(state: State, upgradeId: string?, toolId: string?, zoneId: string?): number
-	local levels = state.levels
-	if upgradeId then
-		levels = table.clone(state.levels)
-		levels[upgradeId] += 1
-	end
-
-	local tool = Tools.expect(toolId or state.toolId)
-	if not Tools.canCut(tool, Debris.Grass, 1) then
-		return -1
-	end
-
-	local ownedZones = state.ownedZones
-	if zoneId then
-		ownedZones = table.clone(state.ownedZones)
-		local forProperty = table.clone(ownedZones[state.propertyId] or {})
-		forProperty[zoneId] = true
-		ownedZones[state.propertyId] = forProperty
-	end
-
-	return rateFor(state, state.propertyId, levels, tool.id, ownedZones)
+	return Economy.sectionUnits(section, AVERAGE_HEIGHT, yieldMultiplier), heaviest
 end
 
 type Candidate = { kind: string, id: string, cost: number, gain: number, roi: number }
 
-local function candidates(state: State): { Candidate }
-	local base = income(state)
+--- Purchases worth making right now, best return first.
+local function candidates(state: State, world, debrisId: number): { Candidate }
+	local base = income(state, world, debrisId)
 	local out: { Candidate } = {}
 
 	for _, def in Upgrades.list do
 		local cost = Upgrades.costAt(def, state.levels[def.id])
 		if cost then
-			local gain = incomeWith(state, def.id, nil) - base
-			if gain > 0 then
-				table.insert(out, { kind = "upgrade", id = def.id, cost = cost, gain = gain, roi = gain / cost })
+			local levels = table.clone(state.levels)
+			levels[def.id] += 1
+			local toolId = bestTool(state, world, debrisId)
+			if toolId then
+				local gain = Economy.cashPerSecond(Tools.expect(toolId), levels, world, debrisId, AVERAGE_HEIGHT) - base
+				if gain > 0 then
+					table.insert(out, { kind = "upgrade", id = def.id, cost = cost, gain = gain, roi = gain / cost })
+				end
 			end
 		end
 	end
 
 	for _, tool in Tools.list do
 		if not state.owned[tool.id] and tool.currency == "Cash" and tool.cost > 0 then
-			local gain = incomeWith(state, nil, tool.id) - base
-			if gain > 0 then
-				table.insert(
-					out,
-					{ kind = "tool", id = tool.id, cost = tool.cost, gain = gain, roi = gain / tool.cost }
-				)
-			end
-		end
-	end
-
-	local property = Properties.expect(state.propertyId)
-	local owned = state.ownedZones[state.propertyId]
-	for _, zone in property.zones do
-		if zone.cost > 0 and (not owned or not owned[zone.id]) then
-			local gain = incomeWith(state, nil, nil, zone.id) - base
-			if gain > 0 then
-				table.insert(
-					out,
-					{ kind = "zone", id = zone.id, cost = zone.cost, gain = gain, roi = gain / zone.cost }
-				)
+			if Tools.canCut(tool, debrisId, 1) then
+				local gain = Economy.cashPerSecond(tool, state.levels, world, debrisId, AVERAGE_HEIGHT) - base
+				if gain > 0 then
+					table.insert(
+						out,
+						{ kind = "tool", id = tool.id, cost = tool.cost, gain = gain, roi = gain / tool.cost }
+					)
+				end
 			end
 		end
 	end
@@ -237,103 +126,159 @@ local function candidates(state: State): { Candidate }
 	return out
 end
 
---- Prints where throughput is currently bottlenecked, to guide tuning.
-local function bottleneck(state: State): string
-	local tool = Tools.expect(state.toolId)
-	local cutMultiplier = Balance.cutRateMultiplier(state.levels)
-	local moveSpeed = if tool.vehicle then tool.vehicle.speed else Balance.walkSpeed(state.levels)
-	local swing = tool.rate * cutMultiplier * tool.deck * (tool.reach / 4)
-	local move = moveSpeed / 4 * tool.deck
-	return if swing < move then "tool" else "movement"
-end
-
 --------------------------------------------------------------------
 -- Run
 --------------------------------------------------------------------
 
-local state = newState()
-refresh(state)
+local function simulate(world)
+	local state = newState()
+	local lines: { string } = {}
+	local stalled: string? = nil
 
-local milestones: { { at: number, text: string } } = {}
-local function note(text: string)
-	table.insert(milestones, { at = state.seconds, text = text })
+	for _, section in world.sections do
+		if section.optional then
+			continue
+		end
+
+		local waves = Worlds.wavesFor(section, PLAYERS)
+		local sectionStart = state.seconds
+
+		for wave = 1, waves do
+			local yieldMultiplier = Balance.yieldMultiplier(state.levels)
+			local units, debrisId = sectionUnits(section, yieldMultiplier)
+			-- The work splits between everyone present.
+			units /= PLAYERS
+
+			local cleared = 0
+			local guard = 0
+
+			while cleared < units and guard < MAX_STEPS do
+				guard += 1
+
+				local toolId = bestTool(state, world, debrisId)
+				if not toolId then
+					-- Nothing in hand touches this. A player would go and buy the
+					-- tool for it, so the simulator does too; only if it is
+					-- unaffordable is the run genuinely walled.
+					local cheapest, cheapestCost = nil, math.huge
+					for _, tool in Tools.list do
+						if
+							not state.owned[tool.id]
+							and tool.currency == "Cash"
+							and Tools.canCut(tool, debrisId, 1)
+							and tool.cost < cheapestCost
+						then
+							cheapest, cheapestCost = tool.id, tool.cost
+						end
+					end
+
+					if cheapest and state.cash >= cheapestCost then
+						state.cash -= cheapestCost
+						state.owned[cheapest] = true
+						toolId = cheapest
+					else
+						stalled = string.format(
+							"%s: needs %s for %s, has %s",
+							section.name,
+							if cheapest then Tools.expect(cheapest).name else "a tool that does not exist",
+							Debris.get(debrisId).name,
+							Format.cash(state.cash)
+						)
+						break
+					end
+				end
+
+				local tool = Tools.expect(toolId)
+				state.toolId = toolId
+
+				local perSecond = Economy.tilesPerSecond(tool, state.levels, AVERAGE_HEIGHT)
+					* AVERAGE_HEIGHT
+					* Debris.get(debrisId).unitsPerLevel
+					* yieldMultiplier
+				if perSecond <= 0 then
+					stalled = `{section.name}: throughput fell to zero`
+					break
+				end
+
+				local rate = income(state, world, debrisId)
+				local options = candidates(state, world, debrisId)
+				local pick = options[1]
+
+				-- Buy only what pays for itself inside the work that is left.
+				local remaining = (units - cleared) / perSecond
+				if pick and rate > 0 and pick.gain * remaining > pick.cost then
+					local wait = math.max(pick.cost - state.cash, 0) / rate
+					state.seconds += wait
+					state.cash += wait * rate - pick.cost
+					cleared += wait * perSecond
+
+					if pick.kind == "upgrade" then
+						state.levels[pick.id] += 1
+					else
+						state.owned[pick.id] = true
+					end
+				else
+					local seconds = (units - cleared) / perSecond
+					state.seconds += seconds
+					state.cash += seconds * rate
+					cleared = units
+				end
+			end
+
+			if stalled then
+				break
+			end
+		end
+
+		table.insert(
+			lines,
+			string.format(
+				"  %9s   %-16s %d wave%s, %s",
+				Format.clock(state.seconds),
+				section.name,
+				waves,
+				if waves == 1 then "" else "s",
+				Format.clock(state.seconds - sectionStart)
+			)
+		)
+
+		if stalled then
+			break
+		end
+	end
+
+	return state, lines, stalled
 end
 
-local seenProperty: { [string]: boolean } = { [Properties.STARTER_ID] = true }
+--------------------------------------------------------------------
+-- Report
+--------------------------------------------------------------------
 
-print("== Mow all the lawns! — progression simulation ==")
-print(string.format("start: %s, %s/s", Tools.expect(state.toolId).name, Format.cash(income(state))))
-print("")
+print(string.format("== Run simulation, %d player%s ==", PLAYERS, if PLAYERS == 1 then "" else "s"))
 
-for step = 1, MAX_STEPS do
-	local options = candidates(state)
-	local rate = income(state)
-	if rate <= 0 then
-		note("income stalled at zero")
-		break
+for _, world in Worlds.list do
+	local state, lines, stalled = simulate(world)
+	local budget = world.runSeconds
+
+	print("")
+	print(string.format("%s  (%s, clock %s)", world.name, world.difficulty, Format.clock(budget)))
+	for _, line in lines do
+		print(line)
 	end
 
-	local pick: Candidate? = options[1]
-	if pick == nil then
-		note("nothing left to buy")
-		break
-	end
-	local chosen = pick :: Candidate
-	if rate <= 0 then
-		note("income stalled at zero")
-		break
-	end
-
-	-- Time spent earning the purchase price.
-	local wait = math.max(pick.cost - state.cash, 0) / rate
-	state.seconds += wait
-	state.cash += wait * rate
-	state.lifetime += wait * rate
-	state.cash -= pick.cost
-
-	if chosen.kind == "zone" then
-		state.ownedZones[state.propertyId][chosen.id] = true
-		local property2 = Properties.expect(state.propertyId)
-		if propertyFullyOwned(state, property2) then
-			note(string.format("finished every zone on %s", property2.name))
-		end
-	elseif chosen.kind == "upgrade" then
-		state.levels[chosen.id] += 1
-		local def = Upgrades.byId[chosen.id]
-		local level = state.levels[chosen.id]
-		if level == def.maxLevel then
-			note(string.format("%s maxed (level %d)", def.name, level))
-		end
+	if stalled then
+		print(string.format("  STALLED — %s", stalled))
+	elseif state.seconds > budget then
+		print(string.format("  FAILED — needs %s, has %s", Format.clock(state.seconds), Format.clock(budget)))
 	else
-		state.owned[chosen.id] = true
-		note(string.format("bought %s (%s)", Tools.expect(chosen.id).name, Format.cash(chosen.cost)))
+		print(
+			string.format(
+				"  beaten in %s, %s to spare (%.0f%% of the clock used)",
+				Format.clock(state.seconds),
+				Format.clock(budget - state.seconds),
+				state.seconds / budget * 100
+			)
+		)
 	end
-
-	local beforeProperty = state.propertyId
-	refresh(state)
-	if state.propertyId ~= beforeProperty and not seenProperty[state.propertyId] then
-		seenProperty[state.propertyId] = true
-		note(string.format("unlocked %s", Properties.expect(state.propertyId).name))
-	end
-
-	if step == MAX_STEPS then
-		note("hit the step limit")
-	end
-end
-
-for _, milestone in milestones do
-	print(string.format("  %10s   %s", Format.clock(milestone.at), milestone.text))
-end
-
-print("")
-print(string.format("total play time to max: %s", Format.clock(state.seconds)))
-print(string.format("final income:           %s/s", Format.cash(income(state))))
-print(string.format("lifetime earned:        %s", Format.cash(state.lifetime)))
-print(string.format("final tool:             %s", Tools.expect(state.toolId).name))
-print(string.format("final property:         %s", Properties.expect(state.propertyId).name))
-print(string.format("final bottleneck:       %s", bottleneck(state)))
-print("")
-print("upgrade levels:")
-for _, def in Upgrades.list do
-	print(string.format("  %-16s %d / %d", def.name, state.levels[def.id], def.maxLevel))
+	print(string.format("  finished holding %s, %s banked", Tools.expect(state.toolId).name, Format.cash(state.cash)))
 end

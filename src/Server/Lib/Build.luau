@@ -3,7 +3,7 @@
 	Build — small helpers for assembling the world out of parts.
 
 	Everything the player walks on is generated at runtime from the tables in
-	Properties, so there is no hand-built map to keep in sync with the config.
+	Worlds, so there is no hand-built map to keep in sync with the config.
 ]]
 
 local Palette = require(game:GetService("ReplicatedStorage").Shared.Config.Palette)
