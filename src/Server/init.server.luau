@@ -30,6 +30,10 @@ local VehicleService = require(Services.VehicleService)
 local CollectibleService = require(Services.CollectibleService)
 local HazardService = require(Services.HazardService)
 local RoundService = require(Services.RoundService)
+local BoostService = require(Services.BoostService)
+local MonetizationService = require(Services.MonetizationService)
+local RewardService = require(Services.RewardService)
+local SweepService = require(Services.SweepService)
 
 -- Order matters: data before anything that reads a profile, world before
 -- anything that reads the grid, replication before anything that marks tiles.
@@ -43,6 +47,10 @@ ShopService.start()
 TreeService.start()
 FuelService.start()
 VehicleService.start()
+BoostService.start()
+SweepService.start()
+MonetizationService.start()
+RewardService.start()
 
 WorldService.load(Properties.STARTER_ID)
 ReplicationService.broadcastWorldInfo()

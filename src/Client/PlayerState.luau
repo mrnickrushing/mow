@@ -35,6 +35,8 @@ export type State = {
 	walkSpeed: number,
 	dumpRadius: number,
 	hasPortableTrailer: boolean,
+	rentalSecondsLeft: number,
+	rentalToolId: string,
 	--- Derived locally from `upgrades`.
 	cutRateMultiplier: number,
 }
@@ -55,6 +57,8 @@ local state: State = {
 	walkSpeed = 16,
 	dumpRadius = 12,
 	hasPortableTrailer = false,
+	rentalSecondsLeft = 0,
+	rentalToolId = "",
 	cutRateMultiplier = 1,
 }
 
@@ -111,7 +115,7 @@ local function applyPayload(payload: any)
 
 	-- A partial push carries only the fast-moving numbers; everything else on
 	-- the state is left exactly as the last full push set it.
-	for _, key in { "cash", "tips", "lifetimeCash", "bagWeight", "bagCapacity", "bagValue", "fuel" } do
+	for _, key in { "cash", "tips", "lifetimeCash", "bagWeight", "bagCapacity", "bagValue", "fuel", "rentalSecondsLeft" } do
 		if type(payload[key]) == "number" then
 			(state :: any)[key] = payload[key]
 		end
@@ -125,6 +129,9 @@ local function applyPayload(payload: any)
 		end
 		if type(payload.equippedTool) == "string" then
 			state.equippedTool = payload.equippedTool
+		end
+		if type(payload.rentalToolId) == "string" then
+			state.rentalToolId = payload.rentalToolId
 		end
 		if type(payload.ownedTools) == "table" then
 			state.ownedTools = payload.ownedTools

@@ -10,6 +10,7 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local Shop = require(script.Parent.Parent.UI.Shop)
+local Store = require(script.Parent.Parent.UI.Store)
 
 local ShedController = {}
 
@@ -58,6 +59,13 @@ function ShedController.start()
 		end
 		return Enum.ContextActionResult.Sink
 	end, false, Enum.KeyCode.B, Enum.KeyCode.ButtonY)
+
+	ContextActionService:BindAction("MowAllTheLawns_Store", function(_, inputState)
+		if inputState == Enum.UserInputState.Begin then
+			Store.toggle()
+		end
+		return Enum.ContextActionResult.Sink
+	end, false, Enum.KeyCode.G, Enum.KeyCode.ButtonSelect)
 
 	RunService.Heartbeat:Connect(step)
 end

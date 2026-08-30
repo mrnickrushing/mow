@@ -273,7 +273,10 @@ local function refresh()
 	end
 
 	local rideable = tool ~= nil and tool.vehicle ~= nil
-	if fraction >= 1 then
+	if state.rentalSecondsLeft > 0 and state.rentalToolId ~= "" then
+		local rented = Tools.get(state.rentalToolId)
+		hintLabel.Text = `{if rented then rented.name else "Rental"} — {Format.clock(state.rentalSecondsLeft)} left`
+	elseif fraction >= 1 then
 		hintLabel.Text = "Bag full — head to the trailer"
 	elseif burnsFuel and state.fuel <= 0 then
 		hintLabel.Text = "Out of fuel — refill at the shed"

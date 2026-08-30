@@ -23,6 +23,7 @@ local BagService = require(script.Parent.BagService)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local ReplicationService = require(script.Parent.ReplicationService)
+local RewardService = require(script.Parent.RewardService)
 local TileService = require(script.Parent.TileService)
 local WorldService = require(script.Parent.WorldService)
 
@@ -147,6 +148,10 @@ local function payOut(completed: boolean)
 					profile.stats.roundsCompleted += 1
 				end
 			end)
+
+			if completed then
+				RewardService.awardFirstCompletion(player)
+			end
 		end
 	end
 end

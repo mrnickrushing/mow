@@ -12,6 +12,7 @@ local Balance = require(Shared.Config.Balance)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local BagService = require(script.Parent.BagService)
+local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local WorldService = require(script.Parent.WorldService)
@@ -41,6 +42,8 @@ export type StatePayload = {
 	walkSpeed: number,
 	dumpRadius: number,
 	hasPortableTrailer: boolean,
+	rentalSecondsLeft: number,
+	rentalToolId: string,
 }
 
 function PlayerService.buildState(player: Player): StatePayload?
@@ -69,6 +72,8 @@ function PlayerService.buildState(player: Player): StatePayload?
 		walkSpeed = Balance.walkSpeed(profile.upgrades, mods),
 		dumpRadius = Balance.dumpRadius(profile.upgrades),
 		hasPortableTrailer = Balance.hasPortableTrailer(profile.upgrades),
+		rentalSecondsLeft = BoostService.rentalSecondsLeft(player),
+		rentalToolId = BoostService.rentedTool(player) or "",
 	}
 end
 
@@ -102,6 +107,7 @@ function PlayerService.pushLive(player: Player)
 		bagCapacity = BagService.capacity(player),
 		bagValue = BagService.baseValue(player) * Balance.cashMultiplier(profile.upgrades, mods),
 		fuel = profile.fuel,
+		rentalSecondsLeft = BoostService.rentalSecondsLeft(player),
 	})
 end
 
@@ -202,6 +208,11 @@ function PlayerService.start()
 	Players.PlayerAdded:Connect(hookCharacter)
 
 	DataService.ProfileLoaded:Connect(function(player: Player)
+		PlayerService.applyCharacterStats(player)
+		PlayerService.push(player)
+	end)
+
+	BoostService.Changed:Connect(function(player: Player)
 		PlayerService.applyCharacterStats(player)
 		PlayerService.push(player)
 	end)
