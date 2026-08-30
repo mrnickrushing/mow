@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
 local Monetization = require(Shared.Config.Monetization)
 local Remotes = require(Shared.Remotes)
+local Tools = require(Shared.Config.Tools)
 local BagService = require(script.Parent.BagService)
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
@@ -26,6 +27,7 @@ local EconomyService = require(script.Parent.EconomyService)
 local FuelService = require(script.Parent.FuelService)
 local PlayerService = require(script.Parent.PlayerService)
 local RunService = require(script.Parent.RunService)
+local RunState = require(script.Parent.RunState)
 local SweepService = require(script.Parent.SweepService)
 
 local MonetizationService = {}
@@ -72,6 +74,47 @@ end
 
 --- Applies a product's effect. Returns false to leave the receipt unprocessed
 --- so Roblox retries later rather than the player losing what they paid for.
+--[[
+	Unlocks a tool bought with Robux.
+
+	`toolRun` puts it in the player's hands for the run in progress; the receipt
+	is still honoured if the run has already ended, because the tool then comes
+	back on the next fresh loadout the moment it is recorded — which only the
+	permanent kind does. A run unlock bought as the timer runs out is the one
+	case a player can lose value, so it is the run state that is written first
+	and the tool equipped immediately, leaving no window where the purchase went
+	through and nothing happened.
+]]
+local function grantTool(player: Player, def: Monetization.ProductDef): boolean
+	local toolId = def.toolId
+	local tool = if toolId then Tools.get(toolId) else nil
+	if not toolId or not tool then
+		return false
+	end
+
+	if def.kind == "toolPermanent" then
+		DataService.withProfile(player, function(profile)
+			profile.permanentTools[toolId] = true
+		end)
+	end
+
+	local run = RunState.find(player)
+	if run then
+		run.ownedTools[toolId] = true
+		run.equippedTool = toolId
+	end
+
+	EconomyService.notify(
+		player,
+		"reward",
+		if def.kind == "toolPermanent"
+			then `{tool.name} unlocked for good`
+			else `{tool.name} unlocked for this run`,
+		nil
+	)
+	return true
+end
+
 local function grantProduct(player: Player, key: string): boolean
 	local def = Monetization.productByKey[key]
 	if not def then
@@ -100,6 +143,10 @@ local function grantProduct(player: Player, key: string): boolean
 	elseif def.kind == "roundTime" then
 		RunService.extend(def.seconds or 600)
 		EconomyService.notifyAll("reward", `{player.DisplayName} added time to the round`, nil)
+	elseif def.kind == "toolRun" or def.kind == "toolPermanent" then
+		if not grantTool(player, def) then
+			return false
+		end
 	else
 		return false
 	end

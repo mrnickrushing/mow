@@ -39,6 +39,9 @@ export type Profile = {
 	stats: Stats,
 	--- Premium currency, bought with Robux and kept forever.
 	tokens: number,
+	--- Tools bought outright with Robux. Handed back at the start of every run,
+	--- which is the only thing besides records that outlives one.
+	permanentTools: { [string]: boolean },
 	questProgress: { [string]: number },
 	questsDone: { [string]: boolean },
 	dailyStreak: number,
@@ -63,6 +66,7 @@ function DefaultData.template(): Profile
 			treesFelled = 0,
 		},
 		tokens = 0,
+		permanentTools = {},
 		questProgress = {},
 		questsDone = {},
 		dailyStreak = 0,
@@ -92,6 +96,10 @@ function DefaultData.migrate(data: any): Profile
 		if data[key] == nil then
 			data[key] = value
 		end
+	end
+
+	if type(data.permanentTools) ~= "table" then
+		data.permanentTools = {}
 	end
 
 	for key, value in fresh.stats do
