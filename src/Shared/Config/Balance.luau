@@ -30,6 +30,9 @@ export type Modifiers = {
 	cashBoost: number?,
 	--- Server-wide event multiplier, 1 when nothing is running.
 	serverBoost: number?,
+	--- Additive bonus from sections the run has finished: 0.3 per section by
+	--- default, so three cleared sections read as "+90%".
+	sectionBoost: number?,
 }
 
 local EMPTY_MODIFIERS: Modifiers = {}
@@ -89,6 +92,9 @@ function Balance.cashMultiplier(levels: UpgradeLevels, mods: Modifiers?): number
 	end
 	multiplier *= m.cashBoost or 1
 	multiplier *= m.serverBoost or 1
+	-- The section bonus multiplies everything else: it is the run's own
+	-- progression, and it should feel bigger the more the player has invested.
+	multiplier *= 1 + (m.sectionBoost or 0)
 	return multiplier
 end
 

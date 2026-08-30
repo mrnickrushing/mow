@@ -42,6 +42,7 @@ function EconomyService.modifiers(player: Player): Balance.Modifiers
 		-- Timed boosts multiply rather than override, so two stack.
 		merged.cashBoost = (merged.cashBoost or 1) * (mods.cashBoost or 1)
 		merged.serverBoost = (merged.serverBoost or 1) * (mods.serverBoost or 1)
+		merged.sectionBoost = (merged.sectionBoost or 0) + (mods.sectionBoost or 0)
 	end
 	return merged
 end

@@ -16,14 +16,14 @@ local Types = require(script.Parent.Parent.Types)
 
 local Economy = {}
 
---- Assumed round-trip distance to the trailer, in studs, before upgrades.
-Economy.BASE_TRAILER_DISTANCE = 48
---- Portable trailer shortens the walk to roughly this.
-Economy.PORTABLE_TRAILER_DISTANCE = 22
---- However short the walk gets, dumping is never instantaneous.
-Economy.MIN_TRAILER_DISTANCE = 6
---- Seconds lost per dump: the walk-up and the sell animation.
-Economy.DUMP_OVERHEAD = 0.6
+--[[
+	The bag drains itself, paying cash as it goes; nobody walks anywhere to
+	sell. This fraction of capacity drains per second, which makes capacity the
+	throughput stat: a bigger bag both buffers a burst and pays out faster, and
+	a tool that collects faster than the bag drains is throttled to the drain —
+	which is exactly the wall the capacity upgrade removes.
+]]
+Economy.DRAIN_FRACTION_PER_SECOND = 0.25
 --- Fraction of a swath already cut on the previous pass. Real play overlaps.
 Economy.OVERLAP_WASTE = 0.18
 
@@ -110,22 +110,20 @@ function Economy.cashPerSecond(
 	local unitsPerSecond = tiles * unitsPerTile
 	local bagUnitsPerSecond = unitsPerSecond * def.weight
 
+	-- Sustained throughput is whichever is slower: the tool putting debris in,
+	-- or the bag paying it out. The capacity buffer smooths bursts but cannot
+	-- beat the drain over a whole section.
 	local capacity = Balance.bagCapacity(levels, mods)
-	local fillSeconds = capacity / math.max(bagUnitsPerSecond, 1e-9)
+	local drainPerSecond = capacity * Economy.DRAIN_FRACTION_PER_SECOND
+	local paidWeightPerSecond = math.min(bagUnitsPerSecond, drainPerSecond)
+	local paidUnitsPerSecond = paidWeightPerSecond / def.weight
 
-	-- Levels past the first widen the dump radius, so the player can sell from
-	-- further out and turn around sooner. Without this, those levels sold nothing.
-	local base = if Balance.hasPortableTrailer(levels)
-		then Economy.PORTABLE_TRAILER_DISTANCE
-		else Economy.BASE_TRAILER_DISTANCE
-	local reach = Balance.dumpRadius(levels) - GameConfig.BASE_DUMP_RADIUS
-	local distance = math.max(base - reach, Economy.MIN_TRAILER_DISTANCE)
-	local travelSeconds = distance / math.max(Balance.walkSpeed(levels, mods), 1) + Economy.DUMP_OVERHEAD
+	local cashPerSecond = paidUnitsPerSecond
+		* def.value
+		* world.payoutMultiplier
+		* Balance.cashMultiplier(levels, mods)
 
-	local unitsPerLoad = capacity / def.weight
-	local cashPerLoad = unitsPerLoad * def.value * world.payoutMultiplier * Balance.cashMultiplier(levels, mods)
-
-	return cashPerLoad / (fillSeconds + travelSeconds) * Economy.fuelDutyCycle(tool, levels, mods)
+	return cashPerSecond * Economy.fuelDutyCycle(tool, levels, mods)
 end
 
 --[[

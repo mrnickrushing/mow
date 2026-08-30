@@ -74,6 +74,11 @@ local GameConfig = {
 	--------------------------------------------------------------------
 	INTERMISSION_SECONDS = 45,
 	--- Zone completion above this fraction switches on missed-spot markers.
+	-- Cash bonus each finished section adds to everyone's multiplier for the
+	-- rest of the run. This is the run's progression spine: the world literally
+	-- pays better the more of it you have cleaned.
+	SECTION_CASH_BOOST = 0.3,
+
 	MISSED_SPOT_THRESHOLD = 0.95,
 	--- Cap on simultaneously highlighted missed tiles.
 	MISSED_SPOT_MAX_MARKERS = 24,

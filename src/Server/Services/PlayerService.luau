@@ -16,7 +16,6 @@ local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
-local WorldService = require(script.Parent.WorldService)
 
 local PlayerService = {}
 
@@ -140,27 +139,10 @@ end
 -- Selling
 --------------------------------------------------------------------
 
---- True when the player is close enough to a trailer to sell.
-function PlayerService.canDump(player: Player): boolean
-	local run = RunState.find(player)
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	local trailer = WorldService.trailerPart
-	if not run or not root or not root:IsA("BasePart") or not trailer then
-		return false
-	end
-
-	local radius = Balance.dumpRadius(run.upgrades)
-	local offset = root.Position - trailer.Position
-	return offset.X * offset.X + offset.Z * offset.Z <= radius * radius
-end
-
+--- The bag drains itself, so a manual dump is just "sell it all now" — kept
+--- because emptying a stalled bag by hand is still faster than waiting.
 local function onDump(player: Player)
 	if BagService.weight(player) <= 0 then
-		return
-	end
-	if not PlayerService.canDump(player) then
-		EconomyService.notify(player, "tooFar", "Get closer to the trailer", nil)
 		return
 	end
 	BagService.dump(player)

@@ -65,6 +65,7 @@ local NOTICE_COLORS: { [string]: Color3 } = {
 	denied = Theme.colors.danger,
 	afford = Theme.colors.cash,
 	sectionClear = Theme.colors.cash,
+	sectionUnlock = Theme.colors.cash,
 }
 
 local ICONS: { [string]: string } = {
@@ -484,7 +485,7 @@ end
 	ground; clearing a whole garage is the one moment in a run worth stopping
 	the player for, so it gets a medal and the middle of the screen.
 ]]
-function Hud.card(message: string, banner: string)
+function Hud.card(message: string, banner: string, accent: string?)
 	local frame = Instance.new("Frame")
 	frame.Name = "Card"
 	frame.Size = UDim2.fromOffset(540, 128)
@@ -525,7 +526,7 @@ function Hud.card(message: string, banner: string)
 
 	local ribbonText = Theme.text({
 		name = "Banner",
-		text = banner,
+		text = if accent then `{banner} <font color="#5cb2ff">{accent}</font>` else banner,
 		size = UDim2.fromScale(1, 1),
 		position = UDim2.fromScale(0, 0),
 		parent = ribbon,
@@ -666,6 +667,9 @@ function Hud.start()
 
 		if kind == "sectionClear" then
 			Hud.card(message, "COMPLETED!")
+		elseif kind == "sectionUnlock" then
+			-- The message is just the section's name; the card carries the rest.
+			Hud.card(`A new area is open!`, "Unlocked :", message)
 		elseif kind == "quest" then
 			Hud.toast(kind, `✅ {message}`)
 		else

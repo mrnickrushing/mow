@@ -93,6 +93,17 @@ return function()
 			)
 		end)
 
+		h.it("multiplies in the run's section bonus", function()
+			-- Three finished sections at +30% each read as +90%, applied on top
+			-- of everything else — the world pays better the cleaner it is.
+			h.expectClose(Balance.cashMultiplier(levels(), { sectionBoost = 0.9 }), 1.9)
+			h.expectClose(
+				Balance.cashMultiplier(levels(), { doubleCash = true, sectionBoost = 0.5 }),
+				3
+			)
+			h.expectClose(Balance.cashMultiplier(levels(), { sectionBoost = 0 }), 1)
+		end)
+
 		h.it("adds the upgrade line on top of purchases", function()
 			local def = Upgrades.byId.cash
 			local expected = Upgrades.valueAt(def, 4) * 2

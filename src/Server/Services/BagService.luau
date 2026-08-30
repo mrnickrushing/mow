@@ -1,6 +1,13 @@
 --!strict
 --[[
-	BagService — what a player is carrying, and what happens when they dump it.
+	BagService — the buffer between the lawn and the wallet.
+
+	Nobody walks anywhere to sell. Everything collected lands in the bag, and
+	the bag drains itself continuously, paying cash as it goes — a fixed
+	fraction of capacity per second, so a bigger bag both buffers a burst and
+	pays out faster. Capacity is the wall a fast tool hits: collect quicker than
+	the bag drains and the tool stalls on a full bag, which is exactly what the
+	capacity upgrade and the Infinite Bag pass remove.
 
 	The bag is tracked in *weight*, not item count: a log takes fifteen units of
 	space and a clipping takes one, so hauling wood is a real decision rather
@@ -10,11 +17,12 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
 local DebrisConfig = require(Shared.Config.Debris)
-local Format = require(Shared.Util.Format)
+local Economy = require(Shared.Config.Economy)
 local DataService = require(script.Parent.DataService)
 local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
@@ -125,31 +133,76 @@ function BagService.baseValue(player: Player): number
 	return total
 end
 
---- Sells everything the player is carrying. Returns the cash paid.
-function BagService.dump(player: Player): number
+--[[
+	Sells `weightToSell` worth of the bag's contents. Returns the cash paid.
+
+	Contents drain cheapest-per-weight first. That order matters with mixed
+	loads: the drain is a queue, and paying the logs out last means a player
+	who felled a tree keeps its value pending a little longer rather than
+	having it jump the clippings it was mixed in with.
+]]
+local function sell(player: Player, weightToSell: number): number
 	local bag = bagFor(player)
-	if bag.weight <= 0 then
+	if bag.weight <= 0 or weightToSell <= 0 then
 		return 0
 	end
 
-	local base = BagService.baseValue(player)
+	local property = WorldService.world
+	local worldMultiplier = if property then property.payoutMultiplier else 1
+	local chipper = hasChipper(player)
+
+	local run = RunState.find(player)
+	local personal = if run
+		then Balance.cashMultiplier(run.upgrades, EconomyService.modifiers(player))
+		else 1
+
+	local remaining = weightToSell
 	local unitsSold = 0
-	for _, units in bag.units do
-		unitsSold += units
+	local base = 0
+
+	for debrisId, held in bag.units do
+		if remaining <= 0 then
+			break
+		end
+		local def = DebrisConfig.get(debrisId)
+		local units = math.min(held, remaining / def.weight)
+		if units > 0 then
+			local value = def.value * units * worldMultiplier
+			if chipper and (debrisId == DebrisConfig.Log or debrisId == DebrisConfig.Chips) then
+				value *= CHIPPER_MULTIPLIER
+			end
+			base += value
+			unitsSold += units
+			remaining -= units * def.weight
+
+			local left = held - units
+			if left < 1e-6 then
+				bag.units[debrisId] = nil
+			else
+				bag.units[debrisId] = left
+			end
+		end
 	end
 
-	table.clear(bag.units)
-	bag.weight = 0
+	if unitsSold <= 0 then
+		return 0
+	end
 
-	local paid = EconomyService.award(player, base)
+	bag.weight = math.max(bag.weight - (weightToSell - remaining), 0)
+
+	local paid = EconomyService.award(player, base * personal)
 
 	DataService.withProfile(player, function(profile)
 		profile.stats.unitsSold += unitsSold
 	end)
 
-	EconomyService.notify(player, "sale", `Sold {Format.count(unitsSold)} for {Format.cash(paid)}`, paid)
 	soldSignal:Fire(player, unitsSold, paid)
 	return paid
+end
+
+--- Sells everything at once. The Empty Bag product, and the end of a run.
+function BagService.dump(player: Player): number
+	return sell(player, bagFor(player).weight)
 end
 
 --- Empties the bag without paying, used when a round rotates the map.
@@ -170,6 +223,29 @@ end
 function BagService.start()
 	Players.PlayerRemoving:Connect(function(player)
 		bags[player] = nil
+	end)
+
+	-- The drain. Ticked a few times a second rather than per frame: the sums
+	-- involved are tiny, and paying out in visible sips is part of the feel —
+	-- the cash counter should tick up like a meter, not glide.
+	local accumulator = 0
+	RunService.Heartbeat:Connect(function(delta)
+		accumulator += delta
+		if accumulator < 0.25 then
+			return
+		end
+		local elapsed = accumulator
+		accumulator = 0
+
+		for player, bag in bags do
+			if bag.weight > 0 then
+				local capacity = BagService.capacity(player)
+				local drain = capacity * Economy.DRAIN_FRACTION_PER_SECOND * elapsed
+				if drain > 0 then
+					sell(player, math.min(drain, bag.weight))
+				end
+			end
+		end
 	end)
 end
 
