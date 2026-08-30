@@ -117,8 +117,11 @@ local house: Types.WorldDef = {
 		{
 			id = "pool_deck",
 			name = "Pool Deck",
-			cost = 0,
-			unlock = "completion",
+			-- A cash gate rather than a completion one: a door with a small
+			-- price on it. The point is the ritual — walking up with money you
+			-- swept off the lawn and buying your way deeper — not a wall.
+			cost = 1,
+			unlock = "cash",
 			requires = "front_yard",
 			rect = { x = 2, z = 62, w = 20, d = 32 },
 			density = 0.88,
@@ -221,8 +224,8 @@ local mansion: Types.WorldDef = {
 		{
 			id = "orangery",
 			name = "Orangery",
-			cost = 0,
-			unlock = "completion",
+			cost = 8,
+			unlock = "cash",
 			requires = "east_wing",
 			rect = { x = 4, z = 52, w = 31, d = 44 },
 			density = 0.95,
@@ -292,8 +295,8 @@ local gasStation: Types.WorldDef = {
 		{
 			id = "wash_bay",
 			name = "Wash Bay",
-			cost = 0,
-			unlock = "completion",
+			cost = 15,
+			unlock = "cash",
 			requires = "forecourt",
 			rect = { x = 4, z = 10, w = 27, d = 46 },
 			density = 0.96,

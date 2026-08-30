@@ -23,6 +23,7 @@ local EconomyService = require(script.Parent.EconomyService)
 local PlayerService = require(script.Parent.PlayerService)
 local QuestService = require(script.Parent.QuestService)
 local RunState = require(script.Parent.RunState)
+local WorldService = require(script.Parent.WorldService)
 
 local ShopService = {}
 
@@ -157,6 +158,15 @@ local function onPurchase(player: Player, kind: any, id: any)
 end
 
 function ShopService.start()
+	-- The upgrade stations in front of the shed are the same purchase with a
+	-- walk attached: the world fires who pressed which board.
+	WorldService.StationTried:Connect(function(player: Player, upgradeId: string)
+		local result = ShopService.buyUpgrade(player, upgradeId)
+		if not result.ok then
+			EconomyService.notify(player, "denied", result.reason or "That did not work", nil)
+		end
+	end)
+
 	local purchase = Remotes.event(Remotes.PURCHASE)
 	purchase.OnServerEvent:Connect(onPurchase)
 

@@ -140,6 +140,22 @@ local function simulate(world)
 			continue
 		end
 
+		-- A cash gate is paid at the door before any of its work can start. If
+		-- the money is not there by the time the player reaches it, that is a
+		-- config bug worth failing loudly on, not waiting through.
+		if Worlds.unlockKind(section) == "cash" then
+			if state.cash < section.cost then
+				stalled = string.format(
+					"%s: gate costs %s, has %s",
+					section.name,
+					Format.cash(section.cost),
+					Format.cash(state.cash)
+				)
+				break
+			end
+			state.cash -= section.cost
+		end
+
 		local waves = Worlds.wavesFor(section, PLAYERS)
 		local sectionStart = state.seconds
 

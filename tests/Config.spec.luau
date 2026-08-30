@@ -261,10 +261,18 @@ return function()
 			end
 		end)
 
-		h.it("charges for nothing: sections are cleared, not bought", function()
+		h.it("puts a price only on cash gates, and always a real one", function()
+			-- Most gates open on clearing; a few are doors with a small price on
+			-- them, paid in run cash at the door itself. A price on any other
+			-- kind of section would be unreachable, and a cash gate priced at
+			-- zero would be a door that opens for free while claiming otherwise.
 			for _, world in Worlds.list do
 				for _, section in world.sections do
-					h.expectEqual(section.cost, 0, `{world.id}/{section.id} still has a price on it`)
+					if Worlds.unlockKind(section) == "cash" then
+						h.expectTrue(section.cost > 0, `{world.id}/{section.id} is a free cash gate`)
+					else
+						h.expectEqual(section.cost, 0, `{world.id}/{section.id} has a price nothing collects`)
+					end
 				end
 			end
 		end)
@@ -310,7 +318,7 @@ return function()
 
 				for _, section in world.sections do
 					local kind = Worlds.unlockKind(section)
-					if kind == "completion" and section.requires then
+					if (kind == "completion" or kind == "cash") and section.requires then
 						reachable[section.id] = reachable[section.requires] == true
 					elseif kind == "button" then
 						reachable[section.id] = reachable[section.buttonIn :: string] == true

@@ -323,6 +323,42 @@ local function loseRun()
 	broadcast()
 end
 
+--[[
+	A player paying a cash gate. Opens the section for everyone: the door is
+	one door, and whoever reaches it with the money first holds it open for the
+	rest — which is one more way a fast player carries a slow one.
+]]
+local function onGateTried(player: Player, sectionId: string)
+	if phase ~= "running" then
+		return
+	end
+
+	local world = WorldService.world
+	local section = if world then Worlds.section(world, sectionId) else nil
+	if not section or Worlds.unlockKind(section) ~= "cash" then
+		return
+	end
+	if WorldService.isSectionOpen(sectionId) then
+		return
+	end
+
+	-- A gate deeper in the chain cannot be bought early: the door is reachable
+	-- only through the section before it, and a teleporting exploiter should
+	-- not get further than a walking player.
+	if section.requires and not WorldService.isSectionOpen(section.requires) then
+		return
+	end
+
+	if not EconomyService.spend(player, section.cost) then
+		EconomyService.notify(player, "denied", `You need {Format.cash(section.cost)} to open this`, nil)
+		return
+	end
+
+	openSection(sectionId, false)
+	EconomyService.notifyAll("sectionUnlock", section.name, nil)
+	broadcast()
+end
+
 --- A player reaching the open grate finishes the run for everyone.
 function RunService.reachExit(player: Player)
 	if phase ~= "running" or not exitOpen then
@@ -354,6 +390,7 @@ function RunService.start()
 	-- Contribution drives the end-of-run split; it is counted from the cut
 	-- signal so no other service has to know a run is being scored.
 	WorldService.ExitReached:Connect(RunService.reachExit)
+	WorldService.GateTried:Connect(onGateTried)
 
 	-- Every player's cash multiplier carries the run's section bonus.
 	EconomyService.addModifierSource(function(_player: Player)
