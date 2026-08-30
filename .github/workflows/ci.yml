@@ -5,6 +5,11 @@ on:
     branches: ["**"]
   pull_request:
 
+# contents: write is only for the release step below; every other step just
+# reads the checkout.
+permissions:
+  contents: write
+
 jobs:
   check:
     name: Typecheck, test and build
@@ -61,5 +66,27 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: place
-          path: build/MowAllTheLawns.rbxl
+          path: |
+            build/MowAllTheLawns.rbxl
+            build/MowAllTheLawns.rbxlx
           if-no-files-found: error
+
+      # Every merge to main also lands the place on the rolling "latest"
+      # release, so there is one permanent link that always holds the newest
+      # build rather than an artifact buried in a run page:
+      #   https://github.com/mrnickrushing/mow/releases/tag/latest
+      - name: Publish place to the latest release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest place build
+          body: |
+            Built from `${{ github.sha }}`.
+
+            Download `MowAllTheLawns.rbxlx` (XML) or `MowAllTheLawns.rbxl`
+            (binary) and open it in Roblox Studio. Updated automatically on
+            every merge to main.
+          files: |
+            build/MowAllTheLawns.rbxlx
+            build/MowAllTheLawns.rbxl
