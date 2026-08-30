@@ -65,6 +65,21 @@ local catalogue: { [string]: Prop } = {
 	WaspNest = prop("rbxassetid://109192227690970", "rbxassetid://91421064853539", 2.784, 4.000, 2.774),
 	GoldenBlade = prop("rbxassetid://76860455179857", "rbxassetid://118765026020204", 0.993, 1.974, 1.000),
 
+	-- Built structure: the pieces the house, shed and gates are assembled from.
+	Siding = prop("rbxassetid://75854563308151", "rbxassetid://83732768569742", 2.668, 2.549, 1.000),
+	BrickWall = prop("rbxassetid://140006814129918", "rbxassetid://79095318666845", 4.153, 3.694, 1.500),
+	Column = prop("rbxassetid://91990804948432", "rbxassetid://118138575646702", 2.200, 5.470, 1.427),
+	Railing = prop("rbxassetid://121758695483526", "rbxassetid://72616628550520", 8.279, 3.514, 0.800),
+	Window = prop("rbxassetid://97444539728739", "rbxassetid://85708816813129", 3.008, 4.450, 0.800),
+	Door = prop("rbxassetid://105328951484791", "rbxassetid://71888888532368", 2.583, 4.331, 0.800),
+	GarageDoor = prop("rbxassetid://97701724652211", "rbxassetid://84418560807782", 2.729, 2.288, 1.000),
+	Counter = prop("rbxassetid://83666296495380", "rbxassetid://99555960161357", 8.654, 5.694, 5.000),
+	StepBlock = prop("rbxassetid://106316877928108", "rbxassetid://113878058483033", 4.390, 1.754, 3.000),
+	Gate = prop("rbxassetid://88429791455602", "rbxassetid://129724919454464", 7.352, 12.000, 1.830),
+	Grate = prop("rbxassetid://107784319905798", "rbxassetid://123179659382912", 5.218, 7.929, 2.000),
+	Sign = prop("rbxassetid://89328138606331", "rbxassetid://121079808488481", 5.186, 6.124, 1.000),
+	ShopBoard = prop("rbxassetid://127953130831132", "rbxassetid://93758011506584", 4.715, 5.528, 1.000),
+
 	-- The stock on the shed shelf.
 	Sack = prop("rbxassetid://138022973254032", "rbxassetid://92817985554289", 2.943, 4.000, 3.277),
 	LeafBlower = prop("rbxassetid://120198329733477", "rbxassetid://127839085444983", 2.114, 3.000, 4.231),

@@ -467,22 +467,39 @@ function Build.fence(
 	color: Color3,
 	spacing: number
 )
-	local function rail(from: Vector3, to: Vector3)
+	--[[
+		The boundary of a lot, in fence panels.
+
+		This used to be a thin rail plus one thin post every few studs — a
+		hundred and sixty-four little boxes standing in for a fence, and the
+		only thing left in the Gas Station that still looked like scaffolding.
+		Panels are the same model the picket boundary uses.
+	]]
+	local function run(from: Vector3, to: Vector3)
 		local delta = to - from
 		local length = delta.Magnitude
-		if length < 0.1 then
+		if length < 1 then
 			return
 		end
-		Build.part({
-			name = "Rail",
-			size = Vector3.new(0.35, 0.35, length),
-			cframe = CFrame.lookAt(from + delta * 0.5 + Vector3.new(0, height * 0.7, 0), to + Vector3.new(0, height * 0.7, 0)),
-			color = color,
-			material = Enum.Material.Wood,
-			canCollide = false,
-			castShadow = false,
-			parent = parent,
-		})
+		local direction = delta.Unit
+		local count = math.max(math.floor(length / spacing + 0.5), 1)
+		local span = length / count
+
+		for index = 0, count - 1 do
+			local at = from + direction * (span * (index + 0.5))
+			Build.mesh({
+				prop = "Fence",
+				name = "Picket",
+				size = Vector3.new(span + 0.2, height, 0.6),
+				collisionSize = Vector3.new(span, height, 0.6),
+				cframe = CFrame.lookAt(
+					at + Vector3.new(0, height * 0.5, 0),
+					at + direction + Vector3.new(0, height * 0.5, 0)
+				) * CFrame.Angles(0, math.rad(90), 0),
+				castShadow = false,
+				parent = parent,
+			})
+		end
 	end
 
 	local corners = {
@@ -492,25 +509,7 @@ function Build.fence(
 		Vector3.new(minX, 0, maxZ),
 	}
 	for index, corner in corners do
-		local nextCorner = corners[index % #corners + 1]
-		rail(corner, nextCorner)
-
-		local delta = nextCorner - corner
-		local length = delta.Magnitude
-		local posts = math.max(math.floor(length / spacing), 1)
-		for step = 0, posts - 1 do
-			local at = corner + delta * (step / posts)
-			Build.part({
-				name = "Post",
-				size = Vector3.new(0.5, height, 0.5),
-				cframe = CFrame.new(at + Vector3.new(0, height * 0.5, 0)),
-				color = color,
-				material = Enum.Material.Wood,
-				canCollide = false,
-				castShadow = false,
-				parent = parent,
-			})
-		end
+		run(corner, corners[index % #corners + 1])
 	end
 end
 

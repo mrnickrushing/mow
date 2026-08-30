@@ -349,12 +349,11 @@ function Structures.stairs(context: Context, from: Vector3, to: Vector3, width: 
 			+ direction * (stepRun * (index - 0.5))
 			+ Vector3.new(0, stepRise * index, 0)
 		local at = tread - Vector3.new(0, thickness * 0.5, 0)
-		Build.part({
+		Build.mesh({
+			prop = "StepBlock",
 			name = "Step",
 			size = Vector3.new(width, thickness, stepRun + 0.4),
 			cframe = CFrame.lookAt(at, at + direction),
-			color = Palette.color(Palette.ground.path),
-			material = Enum.Material.Concrete,
 			parent = parent,
 		})
 	end
