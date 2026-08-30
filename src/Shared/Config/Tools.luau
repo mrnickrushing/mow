@@ -258,7 +258,7 @@ local list: { Types.ToolDef } = {
 		clears = {},
 		maxHeight = 3,
 		fuelBurn = 0,
-		description = "Deployable. Feed it logs, get triple the money back.",
+		description = "Bolted to your trailer. Every log and stump you sell is worth triple.",
 	},
 	{
 		id = "commercial_deck",

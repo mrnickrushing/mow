@@ -375,6 +375,31 @@ function WorldService.completion(): number
 	return 1 - WorldService.remainingUnits / WorldService.totalUnits
 end
 
+--[[
+	Adds debris that does not live on a tile — trees and stumps — to the totals.
+
+	Completion means the property is genuinely clear, so a standing oak has to
+	count against it the same way uncut grass does.
+]]
+function WorldService.registerExtraUnits(zoneId: string, units: number)
+	WorldService.totalUnits += units
+	WorldService.remainingUnits += units
+	local zone = WorldService.zones[zoneId]
+	if zone then
+		zone.totalUnits += units
+		zone.remainingUnits += units
+	end
+end
+
+--- The zone whose rect contains a tile-space point, or "" for open ground.
+function WorldService.zoneIdAtTile(tx: number, tz: number): string
+	local grid = WorldService.grid
+	if not grid or not Grid.inBounds(grid, tx, tz) then
+		return ""
+	end
+	return WorldService.zoneIdAt(Grid.toIndex(grid, tx, tz))
+end
+
 --- Records that `units` were removed from `zoneId`, keeping totals in step.
 function WorldService.consumeUnits(zoneId: string, units: number)
 	WorldService.remainingUnits = math.max(WorldService.remainingUnits - units, 0)
