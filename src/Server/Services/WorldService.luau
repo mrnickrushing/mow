@@ -226,7 +226,8 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 
 	local slabs = Structures.subtractAll({ x = 0, z = 0, w = grid.width, d = grid.depth }, holes)
 	for index, slab in slabs do
-		Build.part({
+		Build.mesh({
+			prop = "Turf",
 			name = `Ground{index}`,
 			size = Vector3.new(slab.w * TILE, 4, slab.d * TILE),
 			cframe = CFrame.new(
@@ -235,7 +236,6 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 				(slab.z + slab.d * 0.5) * TILE
 			),
 			color = toColor(world.baseGround),
-			material = Enum.Material.Grass,
 			parent = parent,
 		})
 	end
@@ -250,24 +250,24 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 		{ centre = Vector2.new(width + apron * 0.5, depth * 0.5), size = Vector2.new(apron, depth) },
 	}
 	for _, strip in strips do
-		Build.part({
+		Build.mesh({
+			prop = "Turf",
 			name = "Surrounds",
 			size = Vector3.new(strip.size.X, 3, strip.size.Y),
 			cframe = CFrame.new(strip.centre.X, GameConfig.GROUND_Y - 2.2, strip.centre.Y),
 			color = Palette.color(Palette.ground.lawnDark),
-			material = Enum.Material.Grass,
 			castShadow = false,
 			parent = parent,
 		})
 	end
 
 	-- The road along the south edge, with the trailer parked at the curb.
-	Build.part({
+	Build.mesh({
+		prop = "ConcreteFloor",
 		name = "Road",
 		size = Vector3.new(width + 240, 0.6, 26),
 		cframe = CFrame.new(width * 0.5, GameConfig.GROUND_Y + 0.05, -16),
 		color = Palette.color(Palette.ground.road),
-		material = Enum.Material.Asphalt,
 		castShadow = false,
 		parent = parent,
 	})
@@ -293,22 +293,22 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	local wallHeight = ROOF_HEIGHT - 4
 
 	-- Brick foundation the siding sits on.
-	Build.part({
+	Build.mesh({
+		prop = "BrickWall",
 		name = "Foundation",
 		size = Vector3.new(width + 1.5, 4, depth + 1.5),
 		cframe = CFrame.new(centre + Vector3.new(0, 2, 0)),
 		color = Palette.color(Palette.house.brick),
-		material = Enum.Material.Brick,
 		parent = house,
 	})
 
 	-- Solid core, so the shell is never see-through at a corner.
-	Build.part({
+	Build.mesh({
+		prop = "Siding",
 		name = "Core",
 		size = Vector3.new(width - 1, wallHeight, depth - 1),
 		cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight * 0.5, 0)),
 		color = Palette.color(Palette.house.sidingShade),
-		material = Enum.Material.WoodPlanks,
 		parent = house,
 	})
 
@@ -324,20 +324,20 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	end
 
 	-- The teal band under the eaves, the single most identifying colour here.
-	Build.part({
+	Build.mesh({
+		prop = "Siding",
 		name = "Trim",
 		size = Vector3.new(width + 4, 2.2, depth + 4),
 		cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight + 1, 0)),
 		color = Palette.color(Palette.house.trim),
-		material = Enum.Material.SmoothPlastic,
 		parent = house,
 	})
-	Build.part({
+	Build.mesh({
+		prop = "Shingle",
 		name = "Roof",
 		size = Vector3.new(width + 5, 2.4, depth + 5),
 		cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight + 3, 0)),
 		color = Palette.color(Palette.house.roof),
-		material = Enum.Material.Slate,
 		parent = house,
 	})
 
@@ -367,20 +367,20 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	local porchZ = frontZ - porchDepth * 0.5
 	local porchX = centre.X - width * 0.18
 
-	Build.part({
+	Build.mesh({
+		prop = "BrickWall",
 		name = "PorchBrick",
 		size = Vector3.new(porchWidth, 3.6, porchDepth),
 		cframe = CFrame.new(porchX, 1.8, porchZ),
 		color = Palette.color(Palette.house.brick),
-		material = Enum.Material.Brick,
 		parent = porch,
 	})
-	Build.part({
+	Build.mesh({
+		prop = "Paving",
 		name = "PorchDeck",
 		size = Vector3.new(porchWidth, 0.8, porchDepth),
 		cframe = CFrame.new(porchX, 3.9, porchZ),
 		color = Palette.color(Palette.house.porch),
-		material = Enum.Material.WoodPlanks,
 		parent = porch,
 	})
 
@@ -396,20 +396,20 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 			parent = porch,
 		})
 	end
-	Build.part({
+	Build.mesh({
+		prop = "Shingle",
 		name = "PorchRoof",
 		size = Vector3.new(porchWidth + 3, 1.6, porchDepth + 2),
 		cframe = CFrame.new(porchX, 18, porchZ),
 		color = Palette.color(Palette.house.roof),
-		material = Enum.Material.Slate,
 		parent = porch,
 	})
-	Build.part({
+	Build.mesh({
+		prop = "Siding",
 		name = "PorchTrim",
 		size = Vector3.new(porchWidth + 3.4, 1, porchDepth + 2.4),
 		cframe = CFrame.new(porchX, 17, porchZ),
 		color = Palette.color(Palette.house.trim),
-		material = Enum.Material.SmoothPlastic,
 		parent = porch,
 	})
 
@@ -465,12 +465,12 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		cframe = CFrame.new(garageX, 10.5, frontZ - 0.5),
 		parent = garage,
 	})
-	Build.part({
+	Build.mesh({
+		prop = "Siding",
 		name = "GarageFrame",
 		size = Vector3.new(width * 0.34 + 2, 15, 0.5),
 		cframe = CFrame.new(garageX, 10, frontZ - 0.2),
 		color = Palette.color(Palette.house.trim),
-		material = Enum.Material.SmoothPlastic,
 		canCollide = false,
 		parent = garage,
 	})
@@ -497,12 +497,12 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 		has its walls, its roof and its open front already, so all that is left
 		to build is the floor you stand on and the counter you buy from.
 	]]
-	Build.part({
+	Build.mesh({
+		prop = "ConcreteFloor",
 		name = "Floor",
 		size = Vector3.new(width, 1, depth),
 		cframe = CFrame.new(centre + Vector3.new(0, 0.5, 0)),
 		color = Palette.color(Palette.ground.stoneDark),
-		material = Enum.Material.Concrete,
 		parent = shed,
 	})
 
@@ -546,46 +546,47 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 		cframe = CFrame.new(centre + Vector3.new(0, 3, depth * 0.5 - 4)),
 		parent = shed,
 	})
-	Build.part({
+	Build.mesh({
+		prop = "Counter",
 		name = "CounterTop",
 		size = Vector3.new(width - 3.4, 0.7, 5.6),
 		cframe = CFrame.new(centre + Vector3.new(0, 6.3, depth * 0.5 - 4)),
 		color = Palette.color(Palette.fence.picket),
-		material = Enum.Material.WoodPlanks,
 		parent = shed,
 	})
 	-- No drawer fronts or handles: the counter model has its own cabinetry, and
 	-- the old ones were drawn on top of it.
 
 	-- Pegboard on the side wall with tools hung on it.
-	Build.part({
+	Build.mesh({
+		prop = "Siding",
 		name = "Pegboard",
 		size = Vector3.new(0.5, 10, depth - 8),
 		cframe = CFrame.new(centre + Vector3.new(width * 0.5 - 1.2, 9, 0)),
 		color = Palette.color(Palette.rgb(206, 186, 146)),
-		material = Enum.Material.Pebble,
 		canCollide = false,
 		parent = shed,
 	})
 	for index = 0, 2 do
-		Build.part({
+		Build.mesh({
+			prop = "HungTools",
 			name = "HungTool",
-			size = Vector3.new(1.2, 1.6, 6),
-			cframe = CFrame.new(centre + Vector3.new(width * 0.5 - 2.2, 11 - index * 3.4, -4 + index * 4)),
-			color = Palette.color(if index == 1 then Palette.ui.accent else Palette.rgb(64, 66, 70)),
-			material = Enum.Material.Metal,
+			size = Vector3.new(2.2, 5, 1),
+			collisionSize = Vector3.new(1.2, 1.6, 6),
+			cframe = CFrame.new(centre + Vector3.new(width * 0.5 - 2.2, 11 - index * 3.4, -4 + index * 4))
+				* CFrame.Angles(0, math.rad(90), 0),
 			canCollide = false,
 			parent = shed,
 		})
 	end
 
 	-- Hanging lantern, the warm point of light in the room.
-	local lantern = Build.part({
+	local lantern = Build.mesh({
+		prop = "Lantern",
 		name = "Lantern",
 		size = Vector3.new(2.4, 3, 2.4),
 		cframe = CFrame.new(centre + Vector3.new(0, height - 4, -2)),
 		color = Palette.color(Palette.ui.tips),
-		material = Enum.Material.Neon,
 		canCollide = false,
 		parent = shed,
 	})
@@ -727,12 +728,12 @@ local function buildUpgradeStations(world: Types.WorldDef, parent: Folder)
 	for index, def in Upgrades.list do
 		local at = centre + Vector3.new(startX + (index - 1) * spacing, 0, -16)
 
-		Build.part({
+		Build.mesh({
+			prop = "Column",
 			name = "Post",
 			size = Vector3.new(0.8, 5, 0.8),
 			cframe = CFrame.new(at + Vector3.new(0, 2.5, 0)),
 			color = Palette.color(Palette.fence.rail),
-			material = Enum.Material.Wood,
 			transparency = 1,
 			parent = folder,
 		})
@@ -781,22 +782,22 @@ local function buildCashGates(world: Types.WorldDef, parent: Folder): { [string]
 
 		-- A blue door in a wooden arch. Opening simply removes the model, so
 		-- the door does not need hinges — only presence.
-		Build.part({
+		Build.mesh({
+		prop = "Gate",
 			name = "Arch",
 			size = Vector3.new(14, 2, 2),
 			cframe = CFrame.new(at + Vector3.new(0, 11, 0)),
 			color = Palette.color(Palette.fence.rail),
-			material = Enum.Material.Wood,
 			parent = gate,
 		})
 
 		for side = -1, 1, 2 do
-			Build.part({
+			Build.mesh({
+			prop = "Column",
 				name = "Post",
 				size = Vector3.new(2, 12, 2),
 				cframe = CFrame.new(at + Vector3.new(side * 6, 5, 0)),
 				color = Palette.color(Palette.fence.rail),
-				material = Enum.Material.Wood,
 				parent = gate,
 			})
 		end
@@ -1057,20 +1058,20 @@ local function buildSwitches(world: Types.WorldDef, parent: Folder)
 			local r = host.rect
 			local at = WorldService.tilePointFlat(r.x + 2, r.z + r.d - 3)
 
-			Build.part({
+			Build.mesh({
+			prop = "Column",
 				name = "Post",
 				size = Vector3.new(1.2, 7, 1.2),
 				cframe = CFrame.new(at + Vector3.new(0, 3.5, 0)),
 				color = Palette.color(Palette.house.trim),
-				material = Enum.Material.Wood,
 				parent = made,
 			})
-			local box = Build.part({
+			local box = Build.mesh({
+				prop = "ShopBoard",
 				name = section.id,
 				size = Vector3.new(4, 4, 2),
 				cframe = CFrame.new(at + Vector3.new(0, 8, 0)),
 				color = Palette.color(Palette.ui.cash),
-				material = Enum.Material.Metal,
 				parent = made,
 			})
 			box:SetAttribute("SectionId", section.id)
@@ -1142,12 +1143,12 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 				-- The roof slab is the floor the rooftop's debris rests on.
 				local r = section.rect
 				local centre = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z + r.d * 0.5)
-				Build.part({
+				Build.mesh({
+					prop = "Shingle",
 					name = "RoofDeck",
 					size = Vector3.new(r.w * TILE + 4, 2, r.d * TILE + 4),
 					cframe = CFrame.new(centre + Vector3.new(0, elevation - 1, 0)),
 					color = Palette.color(Palette.house.roof),
-					material = Enum.Material.Slate,
 					parent = parent,
 				})
 				-- A parapet, so a player on the roof does not simply walk off
@@ -1190,12 +1191,12 @@ local exitPart: BasePart? = nil
 local function buildExit(world: Types.WorldDef, parent: Folder)
 	local at = WorldService.tilePointFlat(world.exit.x, world.exit.z)
 
-	local frame = Build.part({
+	local frame = Build.mesh({
+		prop = "BrickWall",
 		name = "ExitFrame",
 		size = Vector3.new(14, 16, 2),
 		cframe = CFrame.new(at + Vector3.new(0, 8, 0)),
 		color = Palette.color(Palette.house.brickDark),
-		material = Enum.Material.Brick,
 		parent = parent,
 	})
 
@@ -1343,12 +1344,12 @@ function WorldService.load(worldId: string)
 	end
 
 	local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)
-	local spawnPart = Build.part({
+	local spawnPart = Build.mesh({
+		prop = "ConcreteFloor",
 		name = "SpawnPad",
 		size = Vector3.new(20, 0.4, 20),
 		cframe = CFrame.new(spawnAt + Vector3.new(0, 0.2, 0)),
 		color = Palette.color(Palette.ground.path),
-		material = Enum.Material.Concrete,
 		castShadow = false,
 		parent = parent,
 	})

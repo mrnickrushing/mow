@@ -287,12 +287,12 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 	local centre = context.flat(r.x + r.w * 0.5, r.z + r.d * 0.5) + Vector3.new(0, elevation, 0)
 	local width, depth = r.w * tile, r.d * tile
 
-	Build.part({
+	Build.mesh({
+		prop = "ConcreteFloor",
 		name = "Floor",
 		size = Vector3.new(width, 2, depth),
 		cframe = CFrame.new(centre - Vector3.new(0, 1, 0)),
 		color = Palette.color(Palette.ground.stoneDark),
-		material = Enum.Material.Concrete,
 		parent = folder,
 	})
 
@@ -314,12 +314,12 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 
 	-- An above-ground room gets a roof; a sunken one stays open so you can see in.
 	if not sunken then
-		Build.part({
+		Build.mesh({
+			prop = "Shingle",
 			name = "Ceiling",
 			size = Vector3.new(width + 2, 1.5, depth + 2),
 			cframe = CFrame.new(centre + Vector3.new(0, wallHeight, 0)),
 			color = Palette.color(Palette.house.roof),
-			material = Enum.Material.Slate,
 			parent = folder,
 		})
 	end
@@ -419,12 +419,12 @@ function Structures.pool(context: Context, zone: Types.ZoneDef)
 	local rim = 1.5
 	local floorY = -depthBelow - 0.5
 
-	Build.part({
+	Build.mesh({
+		prop = "ConcreteFloor",
 		name = "PoolFloor",
 		size = Vector3.new(width + rim * 2, 1, depth + rim * 2),
 		cframe = CFrame.new(centre + Vector3.new(0, floorY, 0)),
 		color = Palette.color(Palette.ground.path),
-		material = Enum.Material.Concrete,
 		parent = folder,
 	})
 
