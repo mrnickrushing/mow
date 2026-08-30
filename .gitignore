@@ -1,0 +1,26 @@
+# Build output
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+*.rbxl.lock
+*.rbxlx.lock
+
+# Toolchain
+/Packages/
+/ServerPackages/
+/DevPackages/
+/.rokit/
+
+# Editor
+/.vscode/
+/.idea/
+.DS_Store
+
+# Local scratch
+/tmp/
+/.tools/
+/build/
+/tests/.build/
+/sourcemap.json
+/.bin/

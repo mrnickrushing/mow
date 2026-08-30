@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  check:
+    name: Typecheck, test and build
+    runs-on: ubuntu-latest
+
+    env:
+      LUAU_VERSION: "0.700"
+      LSP_VERSION: "1.49.1"
+      ROJO_VERSION: "7.5.1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache toolchain
+        id: toolchain-cache
+        uses: actions/cache@v4
+        with:
+          path: .bin
+          key: toolchain-${{ env.LUAU_VERSION }}-${{ env.LSP_VERSION }}-${{ env.ROJO_VERSION }}
+
+      - name: Install toolchain
+        if: steps.toolchain-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p .bin && cd .bin
+
+          curl -sSfL -o luau.zip \
+            "https://github.com/luau-lang/luau/releases/latest/download/luau-ubuntu.zip"
+          unzip -o luau.zip luau
+
+          curl -sSfL -o lsp.zip \
+            "https://github.com/JohnnyMorganz/luau-lsp/releases/download/${LSP_VERSION}/luau-lsp-linux.zip"
+          unzip -o lsp.zip luau-lsp
+
+          curl -sSfL -o rojo.zip \
+            "https://github.com/rojo-rbx/rojo/releases/download/v${ROJO_VERSION}/rojo-${ROJO_VERSION}-linux-x86_64.zip"
+          unzip -o rojo.zip rojo
+
+          chmod +x luau luau-lsp rojo
+          rm -f ./*.zip
+
+      - name: Run checks
+        run: |
+          echo "${GITHUB_WORKSPACE}/.bin" >> "$GITHUB_PATH"
+          export PATH="${GITHUB_WORKSPACE}/.bin:$PATH"
+          ./scripts/check.sh
+
+      - name: Simulate the economy
+        run: |
+          export PATH="${GITHUB_WORKSPACE}/.bin:$PATH"
+          luau scripts/simulate.luau
+
+      - name: Upload place file
+        uses: actions/upload-artifact@v4
+        with:
+          name: place
+          path: build/MowAllTheLawns.rbxl
+          if-no-files-found: error
