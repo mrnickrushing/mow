@@ -13,6 +13,7 @@
 	property is not at 100% until both are gone.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
@@ -198,6 +199,7 @@ local function awardOrDrop(player: Player, debrisId: number, units: number, posi
 		})
 		pile:SetAttribute("DebrisId", debrisId)
 		pile:SetAttribute("Units", left)
+		CollectionService:AddTag(pile, "MowPile")
 
 		-- Dropped rather than destroyed: a player who did not notice their bag
 		-- was full should not silently lose a whole tree's worth of work.

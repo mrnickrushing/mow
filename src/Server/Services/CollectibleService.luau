@@ -12,6 +12,7 @@
 	most common complaint about it.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
@@ -31,6 +32,8 @@ local BLADE_TIPS = 3
 
 local container: Folder? = nil
 local rng = Random.new()
+--- Blade part -> the function that awards it, shared with AutoCollectService.
+local collectors: { [BasePart]: (Player) -> () } = {}
 
 local function spawnBlade(position: Vector3, zone: Types.ZoneDef, parent: Instance)
 	local part = Build.part({
@@ -57,8 +60,10 @@ local function spawnBlade(position: Vector3, zone: Types.ZoneDef, parent: Instan
 		{ CFrame = part.CFrame * CFrame.Angles(0, math.pi * 1.99, 0) }
 	):Play()
 
+	CollectionService:AddTag(part, "MowBlade")
+
 	local prompt = Build.prompt(part, "Take", "Golden Blade", 12)
-	prompt.Triggered:Connect(function(player: Player)
+	local function take(player: Player)
 		if not part.Parent then
 			return
 		end
@@ -78,10 +83,25 @@ local function spawnBlade(position: Vector3, zone: Types.ZoneDef, parent: Instan
 			`{player.DisplayName} found the Golden Blade in the {zone.name} — {Format.cash(paid)}`,
 			paid
 		)
-	end)
+	end
+
+	prompt.Triggered:Connect(take)
+	-- Exposed so the Auto-Collect pass can pick one up without a prompt.
+	part:SetAttribute("Collectable", true)
+	collectors[part] = take
+end
+
+--- Awards the blade to `player` as though they had used its prompt.
+function CollectibleService.collect(part: BasePart, player: Player)
+	local take = collectors[part]
+	if take then
+		collectors[part] = nil
+		take(player)
+	end
 end
 
 function CollectibleService.generate(property: Types.PropertyDef)
+	table.clear(collectors)
 	if container then
 		container:Destroy()
 	end
