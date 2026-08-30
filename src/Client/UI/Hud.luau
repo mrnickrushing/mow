@@ -25,6 +25,7 @@ local Format = require(Shared.Util.Format)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local MowController = require(script.Parent.Parent.Controllers.MowController)
+local Journal = require(script.Parent.Journal)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 local Theme = require(script.Parent.Theme)
 
@@ -171,6 +172,8 @@ local function buildRightColumn(gui: ScreenGui)
 	inner.AnchorPoint = Vector2.new(0.5, 0.5)
 
 	-- The journal, with a badge when something in it is waiting to be read.
+	-- Pressing it opens the book, which matters most on touch where Tab does
+	-- not exist.
 	local book = Instance.new("TextButton")
 	book.Name = "Journal"
 	book.Size = UDim2.fromOffset(62, 62)
@@ -186,6 +189,10 @@ local function buildRightColumn(gui: ScreenGui)
 	book.Parent = column
 	Theme.corner(book, 8)
 	Theme.stroke(book, 3, Theme.colors.outline, 0.05)
+
+	book.Activated:Connect(function()
+		Journal.toggle()
+	end)
 
 	journalBadge = circle(book, 22, Theme.colors.danger)
 	journalBadge.Name = "Badge"

@@ -21,6 +21,7 @@ local Tools = require(Shared.Config.Tools)
 local Upgrades = require(Shared.Config.Upgrades)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 local Hud = require(script.Parent.Parent.UI.Hud)
+local Journal = require(script.Parent.Parent.UI.Journal)
 
 local AffordController = {}
 
@@ -91,7 +92,12 @@ local function check()
 end
 
 function AffordController.start()
-	PlayerState.Changed:Connect(check)
+	PlayerState.Changed:Connect(function()
+		check()
+		-- The HUD's journal icon carries the same red dot as the book's own
+		-- Upgrades tab, and for the same reason.
+		Hud.setJournalBadge(Journal.somethingAffordable())
+	end)
 end
 
 return AffordController
