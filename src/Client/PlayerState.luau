@@ -13,7 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
 local Grid = require(Shared.Grid)
-local Properties = require(Shared.Config.Properties)
+local Worlds = require(Shared.Config.Worlds)
 local Remotes = require(Shared.Remotes)
 local Types = require(Shared.Types)
 
@@ -22,7 +22,7 @@ local PlayerState = {}
 export type State = {
 	cash: number,
 	tips: number,
-	lifetimeCash: number,
+	earned: number,
 	bagWeight: number,
 	bagCapacity: number,
 	bagValue: number,
@@ -31,10 +31,12 @@ export type State = {
 	equippedTool: string,
 	ownedTools: { [string]: boolean },
 	upgrades: { [string]: number },
-	unlockedZones: { [string]: boolean },
+
 	walkSpeed: number,
 	dumpRadius: number,
 	hasPortableTrailer: boolean,
+	rentalSecondsLeft: number,
+	rentalToolId: string,
 	--- Derived locally from `upgrades`.
 	cutRateMultiplier: number,
 }
@@ -42,7 +44,7 @@ export type State = {
 local state: State = {
 	cash = 0,
 	tips = 0,
-	lifetimeCash = 0,
+	earned = 0,
 	bagWeight = 0,
 	bagCapacity = 0,
 	bagValue = 0,
@@ -51,14 +53,16 @@ local state: State = {
 	equippedTool = "",
 	ownedTools = {},
 	upgrades = {},
-	unlockedZones = {},
+
 	walkSpeed = 16,
 	dumpRadius = 12,
 	hasPortableTrailer = false,
+	rentalSecondsLeft = 0,
+	rentalToolId = "",
 	cutRateMultiplier = 1,
 }
 
-local property: Types.PropertyDef? = nil
+local world: Types.WorldDef? = nil
 local grid: Grid.Grid? = nil
 local totalUnits = 0
 
@@ -68,33 +72,53 @@ PlayerState.Changed = changedSignal.Event
 local worldSignal = Instance.new("BindableEvent")
 PlayerState.WorldChanged = worldSignal.Event
 
+local sectionsSignal = Instance.new("BindableEvent")
+PlayerState.SectionsChanged = sectionsSignal.Event
+
 function PlayerState.get(): State
 	return state
 end
 
-function PlayerState.property(): Types.PropertyDef?
-	return property
+function PlayerState.world(): Types.WorldDef?
+	return world
 end
 
 function PlayerState.totalUnits(): number
 	return totalUnits
 end
 
---- The zone a tile belongs to, or "" for ground outside every zone.
---- Derived from the shared property config rather than replicated per tile.
-function PlayerState.zoneIdAt(index: number): string
+--- The section a tile belongs to, or "" for ground outside every section.
+--- Derived from the shared world config rather than replicated per tile.
+function PlayerState.sectionIdAt(index: number): string
 	local currentGrid = grid
-	local currentProperty = property
-	if not currentGrid or not currentProperty then
+	local currentWorld = world
+	if not currentGrid or not currentWorld then
 		return ""
 	end
 	local tx, tz = Grid.fromIndex(currentGrid, index)
-	local zone = Properties.zoneAt(currentProperty, tx, tz)
-	return if zone then zone.id else ""
+	local section = Worlds.sectionAt(currentWorld, tx, tz)
+	return if section then section.id else ""
 end
 
-function PlayerState.ownsZone(zoneId: string): boolean
-	return zoneId ~= "" and state.unlockedZones[zoneId] == true
+--[[
+	Sections whose gate is open this run.
+
+	Replicated with the run state rather than the player state, because gates
+	open for everyone at once — there is no per-player ownership any more.
+]]
+local openSections: { [string]: boolean } = {}
+
+function PlayerState.setOpenSections(sections: { [string]: boolean })
+	openSections = sections
+	sectionsSignal:Fire(openSections)
+end
+
+function PlayerState.openSections(): { [string]: boolean }
+	return openSections
+end
+
+function PlayerState.isSectionOpen(sectionId: string): boolean
+	return sectionId ~= "" and openSections[sectionId] == true
 end
 
 function PlayerState.bagFraction(): number
@@ -111,7 +135,7 @@ local function applyPayload(payload: any)
 
 	-- A partial push carries only the fast-moving numbers; everything else on
 	-- the state is left exactly as the last full push set it.
-	for _, key in { "cash", "tips", "lifetimeCash", "bagWeight", "bagCapacity", "bagValue", "fuel" } do
+	for _, key in { "cash", "tips", "earned", "bagWeight", "bagCapacity", "bagValue", "fuel", "rentalSecondsLeft" } do
 		if type(payload[key]) == "number" then
 			(state :: any)[key] = payload[key]
 		end
@@ -126,6 +150,9 @@ local function applyPayload(payload: any)
 		if type(payload.equippedTool) == "string" then
 			state.equippedTool = payload.equippedTool
 		end
+		if type(payload.rentalToolId) == "string" then
+			state.rentalToolId = payload.rentalToolId
+		end
 		if type(payload.ownedTools) == "table" then
 			state.ownedTools = payload.ownedTools
 		end
@@ -133,9 +160,7 @@ local function applyPayload(payload: any)
 			state.upgrades = payload.upgrades
 			state.cutRateMultiplier = Balance.cutRateMultiplier(payload.upgrades)
 		end
-		if type(payload.unlockedZones) == "table" then
-			state.unlockedZones = payload.unlockedZones
-		end
+
 		state.hasPortableTrailer = payload.hasPortableTrailer == true
 	end
 
@@ -149,15 +174,15 @@ function PlayerState.start()
 	playerState.OnClientEvent:Connect(applyPayload)
 
 	worldInfo.OnClientEvent:Connect(function(info: any)
-		if type(info) ~= "table" or type(info.propertyId) ~= "string" then
+		if type(info) ~= "table" or type(info.worldId) ~= "string" then
 			return
 		end
-		property = Properties.get(info.propertyId)
+		world = Worlds.get(info.worldId)
 		if type(info.width) == "number" and type(info.depth) == "number" then
 			grid = Grid.new(info.width, info.depth)
 		end
 		totalUnits = if type(info.totalUnits) == "number" then info.totalUnits else 0
-		worldSignal:Fire(property)
+		worldSignal:Fire(world)
 	end)
 end
 

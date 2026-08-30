@@ -24,6 +24,15 @@ export type FillEntry = {
 	heightMax: number,
 }
 
+--- How a section is opened.
+--- `start` is where the run begins; `completion` opens when the section it
+--- names is fully cleared; `button` opens by finding a switch hidden elsewhere;
+--- `cash` is the rare one you simply buy.
+export type ZoneUnlock = "start" | "completion" | "button" | "cash"
+
+--- Structures a zone generates around itself.
+export type ZoneKind = "open" | "room" | "pool" | "maze" | "roof"
+
 export type ZoneDef = {
 	id: string,
 	name: string,
@@ -34,31 +43,69 @@ export type ZoneDef = {
 	trees: number?,
 	stumps: number?,
 	hazards: { string }?,
+	--- Height of this zone's floor above GROUND_Y. Lets a rooftop sit over the
+	--- house and a basement sit under the lawn while the grid stays flat: zones
+	--- never overlap in X/Z, so one elevation per zone is enough.
+	elevation: number?,
+	unlock: ZoneUnlock?,
+	--- For `completion` unlocks, the zone that has to be finished first.
+	requires: string?,
+	--- For `button` unlocks, the zone the switch is hidden in.
+	buttonIn: string?,
+	kind: ZoneKind?,
+	--- Props scattered through the zone for debris to hide against.
+	clutter: number?,
+	--[[
+		Waves needed to finish this section.
+
+		`nil` means one per player: clear it, it fills back up, and it is only
+		done when everyone's worth of work has been done. A number pins it
+		regardless of how many are playing.
+	]]
+	waves: number?,
+	--- Off the critical path: the exit does not wait for it.
+	optional: boolean?,
 }
 
-export type PropertyDef = {
+--[[
+	A world is a chain of sections you clear in order.
+
+	Not a sandbox: you start at the first section with nothing, each one you
+	finish opens the gate to the next, and clearing the last opens the way out.
+	Beating a world is a real ending, and the clock makes it a race.
+]]
+export type WorldDef = {
 	id: string,
 	name: string,
 	tagline: string,
-	unlockLifetimeCash: number,
+	difficulty: string,
+	--- Worlds beaten before this one appears in the lobby.
+	requiresWorld: string?,
 	gridWidth: number,
 	gridDepth: number,
-	roundSeconds: number,
-	--- Multiplies every debris value earned on this property.
+	--- Seconds on the clock for the whole run.
+	runSeconds: number,
+	--- Multiplies every debris value earned here, so later worlds reach further
+	--- up the tool ladder within a single run.
 	payoutMultiplier: number,
 	baseGround: Color3Like,
-	zones: { ZoneDef },
+	--- Ordered. The first is where the run starts.
+	sections: { ZoneDef },
 	shed: { x: number, z: number },
 	trailer: { x: number, z: number },
 	spawn: { x: number, z: number },
+	--- Where the grate opens once the last section is clear.
+	exit: { x: number, z: number },
 	houseRect: Rect?,
+	style: ("house" | "lot")?,
 }
 
 --- Plain RGB triple so config modules never need the Roblox `Color3` global.
 export type Color3Like = { number }
 
 export type ToolCategory =
-	"Shears"
+	"Hand"
+	| "Shears"
 	| "Rake"
 	| "Mower"
 	| "Trimmer"

@@ -3,13 +3,19 @@
 	GrassRenderer — draws the tile buffer.
 
 	The client holds its own copy of the world's tile bytes and renders only a
-	window of it: individual parts inside DETAIL_RADIUS, a single flat plane per
-	chunk out to LOD_RADIUS, and nothing beyond that. Parts come from a pool and
-	are recycled rather than created and destroyed, because churning thousands of
-	Instances is what actually costs frames.
+	window of it: detail inside DETAIL_RADIUS, a single flat plane per chunk out
+	to LOD_RADIUS, nothing beyond. Parts come from a pool and are recycled,
+	because churning thousands of Instances is what actually costs frames.
 
-	Chunks are requested from the server as the camera moves into them, so a
-	player never sees stale grass without the server streaming the whole map.
+	Debris is not drawn the same way for every type. Grass is a block whose
+	height falls as it is mown, which is what makes an upgrade visible. Leaves
+	are scattered flat sprites — a drift of separate leaves rather than a slab —
+	because that is the entire visual signature of the genre, and one solid
+	coloured block reads nothing like it.
+
+	Scatter is derived from a hash of the tile index, so a given leaf sits in the
+	same spot at the same angle every frame instead of shimmering as the window
+	moves.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,6 +27,8 @@ local ChunkCodec = require(Shared.ChunkCodec)
 local DebrisConfig = require(Shared.Config.Debris)
 local GameConfig = require(Shared.Config.GameConfig)
 local Grid = require(Shared.Grid)
+local Palette = require(Shared.Config.Palette)
+local Worlds = require(Shared.Config.Worlds)
 local Remotes = require(Shared.Remotes)
 
 local GrassRenderer = {}
@@ -28,23 +36,31 @@ local GrassRenderer = {}
 local TILE = GameConfig.TILE_SIZE
 local HEIGHT_STUD = GameConfig.HEIGHT_STUD
 
+--- Leaves drawn per height level on a tile.
+local LEAVES_PER_LEVEL = 3
+--- Cap, so a deep drift never explodes the part budget.
+local MAX_LEAVES_PER_TILE = 8
+
 local grid: Grid.Grid? = nil
 local tiles: buffer? = nil
 local container: Folder? = nil
 local detailFolder: Folder? = nil
 local lodFolder: Folder? = nil
 
---- Tile index -> the part currently drawing it.
-local active: { [number]: Part } = {}
-local pool: { Part } = {}
---- Chunk index -> its LOD plane.
+--- Tile index -> the parts currently drawing it.
+local active: { [number]: { Part } } = {}
+--- Blocks and leaves are shaped differently, so they cannot share a pool:
+--- handing a leaf's mesh to a grass block would leave an ellipse on the lawn.
+local blockPool: { Part } = {}
+local leafPool: { Part } = {}
+--- Whether the parts currently drawing a tile are leaves.
+local activeIsLeaf: { [number]: boolean } = {}
 local lodParts: { [number]: Part } = {}
---- Chunks whose contents the client has received.
 local known: { [number]: boolean } = {}
---- Chunks already asked for, so a request is not repeated every refresh.
 local requested: { [number]: boolean } = {}
---- Zones the local player has unlocked; locked ground renders desaturated.
-local unlockedZones: { [string]: boolean } = {}
+local openSections: { [string]: boolean } = {}
+local tileSection: { string } = {}
+local tileElevation: { number } = {}
 
 local requestChunks: RemoteEvent
 local chunkDelta: RemoteEvent
@@ -54,63 +70,234 @@ local DETAIL_SQ = GameConfig.DETAIL_RADIUS * GameConfig.DETAIL_RADIUS
 local LOD_SQ = GameConfig.LOD_RADIUS * GameConfig.LOD_RADIUS
 
 --------------------------------------------------------------------
+-- Deterministic scatter
+--------------------------------------------------------------------
+
+--[[
+	A stable pseudo-random number in [0, 1) from a tile index and a salt.
+
+	Deterministic on purpose: leaves must sit still. Seeding from a real RNG
+	would re-scatter the whole drift every time the render window moved.
+]]
+local function hash01(index: number, salt: number): number
+	local n = index * 73856093 + salt * 19349663
+	n = bit32.bxor(n, bit32.rshift(n, 13))
+	n = (n * 1274126177) % 4294967296
+	return (n % 65536) / 65536
+end
+
+--------------------------------------------------------------------
 -- Part pool
 --------------------------------------------------------------------
 
-local function newPart(): Part
+local function newPart(leaf: boolean): Part
 	local part = Instance.new("Part")
 	part.Anchored = true
 	part.CanCollide = false
 	part.CanQuery = false
 	part.CanTouch = false
 	part.CastShadow = false
-	part.Material = Enum.Material.Grass
+	part.Material = Enum.Material.SmoothPlastic
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
-	part.Size = Vector3.new(TILE, HEIGHT_STUD, TILE)
+
+	if leaf then
+		-- A leaf is a silhouette, not a box. Built-in mesh types give a rounded
+		-- blade and a pointed one for free, with no uploaded asset: a floor of
+		-- rectangles at this density reads as one sheet of orange, which is the
+		-- opposite of the drift of separate leaves we are after.
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Name = "Blade"
+		mesh.Parent = part
+	end
+
 	return part
 end
 
-local function acquire(): Part
-	local part = table.remove(pool)
+local function poolFor(leaf: boolean): { Part }
+	return if leaf then leafPool else blockPool
+end
+
+local function acquire(leaf: boolean): Part
+	local part = table.remove(poolFor(leaf))
 	if part then
 		return part
 	end
-	return newPart()
+	return newPart(leaf)
 end
 
-local function release(index: number)
-	local part = active[index]
-	if not part then
-		return
-	end
-	active[index] = nil
+local function recycle(part: Part, leaf: boolean)
 	part.Parent = nil
-	if #pool < GameConfig.MAX_TILE_PARTS then
-		table.insert(pool, part)
+	local target = poolFor(leaf)
+	if #target < GameConfig.MAX_TILE_PARTS then
+		table.insert(target, part)
 	else
 		part:Destroy()
 	end
+end
+
+local function release(index: number)
+	local parts = active[index]
+	if not parts then
+		return
+	end
+	local leaf = activeIsLeaf[index] == true
+	active[index] = nil
+	activeIsLeaf[index] = nil
+	for _, part in parts do
+		recycle(part, leaf)
+	end
+end
+
+--- Resizes a tile's part list to exactly `count`, reusing what is already there.
+local function slots(index: number, count: number, leaf: boolean): { Part }
+	-- A tile that changed shape has to give its parts back to the right pool.
+	if active[index] and activeIsLeaf[index] ~= leaf then
+		release(index)
+	end
+
+	local parts = active[index]
+	if not parts then
+		parts = {}
+		active[index] = parts
+		activeIsLeaf[index] = leaf
+	end
+
+	while #parts > count do
+		local part = table.remove(parts)
+		if part then
+			recycle(part, leaf)
+		end
+	end
+	while #parts < count do
+		table.insert(parts, acquire(leaf))
+	end
+
+	return parts
+end
+
+--------------------------------------------------------------------
+-- Zones
+--------------------------------------------------------------------
+
+local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
+	table.clear(tileSection)
+	table.clear(tileElevation)
+	local world = Worlds.get(worldId)
+	if not world then
+		return
+	end
+	for _, section in world.sections do
+		local r = section.rect
+		local elevation = section.elevation or 0
+		for tz = r.z, math.min(r.z + r.d - 1, theGrid.depth - 1) do
+			for tx = r.x, math.min(r.x + r.w - 1, theGrid.width - 1) do
+				local index = Grid.toIndex(theGrid, tx, tz)
+				tileSection[index] = section.id
+				tileElevation[index] = elevation
+			end
+		end
+	end
+end
+
+local function isLocked(index: number): boolean
+	local sectionId = tileSection[index]
+	if not sectionId then
+		return false
+	end
+	return not openSections[sectionId]
 end
 
 --------------------------------------------------------------------
 -- Drawing
 --------------------------------------------------------------------
 
-local function colorFor(debrisId: number, locked: boolean): Color3
-	local def = DebrisConfig.get(debrisId)
-	local color = Color3.new(def.color[1], def.color[2], def.color[3])
-	if locked then
-		-- Locked ground reads as out of bounds without a physical barrier, which
-		-- a shared map cannot have when zones unlock per player.
-		local grey = (color.R + color.G + color.B) / 3
-		return color:Lerp(Color3.new(grey, grey, grey), 0.65)
-	end
-	return color
+local function desaturate(color: Color3): Color3
+	local grey = (color.R + color.G + color.B) / 3
+	return color:Lerp(Color3.new(grey, grey, grey), 0.6)
 end
 
---- Draws or updates one tile, or releases its part when the tile is clean.
-local function drawTile(theGrid: Grid.Grid, theTiles: buffer, index: number, zoneLocked: boolean)
+local function baseColor(debrisId: number, index: number): Color3
+	if debrisId == DebrisConfig.Leaves then
+		return Palette.color(Palette.leaves[(index % #Palette.leaves) + 1])
+	elseif debrisId == DebrisConfig.Grass then
+		return Palette.color(if index % 3 == 0 then Palette.grass.bladeDark else Palette.grass.blade)
+	elseif debrisId == DebrisConfig.Weeds then
+		return Palette.color(Palette.weeds)
+	elseif debrisId == DebrisConfig.Hedge then
+		return Palette.color(Palette.hedge)
+	elseif debrisId == DebrisConfig.Sticks then
+		return Palette.color(Palette.sticks)
+	end
+	local def = DebrisConfig.get(debrisId)
+	return Color3.new(def.color[1], def.color[2], def.color[3])
+end
+
+--[[
+	A drift of separate leaves lying flat on the ground.
+
+	Each leaf gets its own shape, angle, tilt, size and shade. The tilt matters
+	more than it sounds: leaves lying at slightly different pitches catch the low
+	sun differently and overlap unevenly, which is what turns a dense scatter
+	into a carpet of individual leaves rather than a painted floor.
+]]
+local function drawLeaves(index: number, wx: number, wz: number, floor: number, height: number, locked: boolean)
+	local count = math.min(height * LEAVES_PER_LEVEL, MAX_LEAVES_PER_TILE)
+	local parts = slots(index, count, true)
+
+	for slot, part in parts do
+		local offsetX = (hash01(index, slot * 5 + 1) - 0.5) * (TILE + 0.6)
+		local offsetZ = (hash01(index, slot * 5 + 2) - 0.5) * (TILE + 0.6)
+		local yaw = hash01(index, slot * 5 + 3) * math.pi * 2
+		local scale = 0.78 + hash01(index, slot * 5 + 4) * 0.5
+		local shapeRoll = hash01(index, slot * 5 + 5)
+		local layer = (slot - 1) // LEAVES_PER_LEVEL
+
+		-- A few degrees of pitch and roll, so they never lie perfectly flush.
+		local pitch = (hash01(index, slot * 11 + 1) - 0.5) * 0.34
+		local roll = (hash01(index, slot * 11 + 2) - 0.5) * 0.34
+
+		local mesh = part:FindFirstChild("Blade")
+		if mesh and mesh:IsA("SpecialMesh") then
+			-- Roughly a third are the pointed maple sort, the rest rounded.
+			mesh.MeshType = if shapeRoll < 0.34 then Enum.MeshType.Prism else Enum.MeshType.Sphere
+		end
+
+		local palette = Palette.leaves
+		local color = Palette.color(palette[((index * 7 + slot * 3) % #palette) + 1])
+		-- One in seven lands pale side up.
+		if hash01(index, slot * 13) > 0.86 then
+			color = Palette.color(Palette.leafPale)
+		end
+
+		part.Size = Vector3.new(3.0 * scale, 0.34, 2.1 * scale)
+		part.CFrame = CFrame.new(wx + offsetX, floor + 0.17 + layer * 0.15, wz + offsetZ)
+			* CFrame.Angles(pitch, yaw, roll)
+		part.Color = if locked then desaturate(color) else color
+		part.Material = Enum.Material.SmoothPlastic
+		part.Transparency = 0
+		part.Parent = detailFolder
+	end
+end
+
+--- Grass, weeds and hedges keep the block form, because their height falling is
+--- what makes a mower upgrade legible.
+local function drawBlock(index: number, wx: number, wz: number, floor: number, height: number, debrisId: number, locked: boolean)
+	local parts = slots(index, 1, false)
+	local part = parts[1]
+	local studs = height * HEIGHT_STUD
+	local color = baseColor(debrisId, index)
+
+	part.Size = Vector3.new(TILE, studs, TILE)
+	part.CFrame = CFrame.new(wx, floor + studs * 0.5, wz)
+	part.Color = if locked then desaturate(color) else color
+	part.Material = if debrisId == DebrisConfig.Sticks then Enum.Material.Wood else Enum.Material.Grass
+	part.Transparency = 0
+	part.Parent = detailFolder
+end
+
+local function drawTile(theGrid: Grid.Grid, theTiles: buffer, index: number, locked: boolean)
 	local byte = buffer.readu8(theTiles, index - 1)
 	local height = ChunkCodec.height(byte)
 
@@ -119,24 +306,16 @@ local function drawTile(theGrid: Grid.Grid, theTiles: buffer, index: number, zon
 		return
 	end
 
-	local existing = active[index]
-	local part: Part
-	if existing then
-		part = existing
-	else
-		part = acquire()
-		active[index] = part
-	end
-
 	local tx, tz = Grid.fromIndex(theGrid, index)
 	local wx, wz = Grid.tileToWorld(theGrid, tx, tz)
-	local studs = height * HEIGHT_STUD
+	local floor = GameConfig.GROUND_Y + (tileElevation[index] or 0)
+	local debrisId = ChunkCodec.debris(byte)
 
-	part.Size = Vector3.new(TILE, studs, TILE)
-	part.CFrame = CFrame.new(wx, GameConfig.GROUND_Y + studs * 0.5, wz)
-	part.Color = colorFor(ChunkCodec.debris(byte), zoneLocked)
-	part.Transparency = if ChunkCodec.isWet(byte) then 0.15 else 0
-	part.Parent = detailFolder
+	if debrisId == DebrisConfig.Leaves then
+		drawLeaves(index, wx, wz, floor, height, locked)
+	else
+		drawBlock(index, wx, wz, floor, height, debrisId, locked)
+	end
 end
 
 --- One flat plane standing in for a whole chunk at distance.
@@ -146,16 +325,22 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 
 	local remaining, samples = 0, 0
 	local debrisId = DebrisConfig.Grass
+	local floor = GameConfig.GROUND_Y
+	local sampleIndex = 1
+
 	for lz = 0, theGrid.chunkTiles - 1, 2 do
 		for lx = 0, theGrid.chunkTiles - 1, 2 do
 			local tx, tz = baseX + lx, baseZ + lz
 			if Grid.inBounds(theGrid, tx, tz) then
-				local byte = buffer.readu8(theTiles, Grid.toIndex(theGrid, tx, tz) - 1)
+				local index = Grid.toIndex(theGrid, tx, tz)
+				local byte = buffer.readu8(theTiles, index - 1)
 				local height = ChunkCodec.height(byte)
 				samples += 1
 				if height > 0 then
 					remaining += height
 					debrisId = ChunkCodec.debris(byte)
+					sampleIndex = index
+					floor = GameConfig.GROUND_Y + (tileElevation[index] or 0)
 				end
 			end
 		end
@@ -174,18 +359,24 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	if existing then
 		part = existing
 	else
-		part = newPart()
+		part = newPart(false)
 		part.Name = "Lod"
 		lodParts[chunkIndex] = part
 	end
 
 	local studs = theGrid.chunkTiles * TILE
 	local averageHeight = remaining / samples * HEIGHT_STUD
+
+	-- A leaf drift has no real height, so its stand-in stays a thin carpet.
+	local thickness = if debrisId == DebrisConfig.Leaves
+		then 0.3
+		else math.max(averageHeight, 0.2)
 	local x, z = Grid.chunkCentre(theGrid, cx, cz)
 
-	part.Size = Vector3.new(studs, math.max(averageHeight, 0.2), studs)
-	part.CFrame = CFrame.new(x, GameConfig.GROUND_Y + part.Size.Y * 0.5, z)
-	part.Color = colorFor(debrisId, false)
+	part.Size = Vector3.new(studs, thickness, studs)
+	part.CFrame = CFrame.new(x, floor + thickness * 0.5, z)
+	part.Color = baseColor(debrisId, sampleIndex)
+	part.Material = if debrisId == DebrisConfig.Leaves then Enum.Material.SmoothPlastic else Enum.Material.Grass
 	part.Transparency = 0
 	part.Parent = lodFolder
 end
@@ -209,7 +400,6 @@ local function refresh()
 	end
 	local focus = camera.CFrame.Position
 
-	-- Walk the chunks around the camera rather than the whole map.
 	local centreTx, centreTz = Grid.worldToTile(theGrid, focus.X, focus.Z)
 	local reachChunks = math.ceil(GameConfig.LOD_RADIUS / (theGrid.chunkTiles * TILE)) + 1
 	local ccx, ccz = centreTx // theGrid.chunkTiles, centreTz // theGrid.chunkTiles
@@ -231,8 +421,6 @@ local function refresh()
 						table.insert(pendingRequest, chunkIndex)
 					end
 
-					-- A chunk close enough for detail draws per tile; further out
-					-- it collapses to one plane, which is most of the saving.
 					local chunkReach = theGrid.chunkTiles * TILE * 0.75
 					if distanceSq <= DETAIL_SQ + chunkReach * chunkReach then
 						local lod = lodParts[chunkIndex]
@@ -250,7 +438,7 @@ local function refresh()
 									local tdx, tdz = tileX - focus.X, tileZ - focus.Z
 									if tdx * tdx + tdz * tdz <= DETAIL_SQ then
 										visibleDetail[index] = true
-										drawTile(theGrid, theTiles, index, false)
+										drawTile(theGrid, theTiles, index, isLocked(index))
 									end
 								end
 							end
@@ -263,7 +451,6 @@ local function refresh()
 		end
 	end
 
-	-- Retire any tile part that fell out of the detail window.
 	for index in active do
 		if not visibleDetail[index] then
 			release(index)
@@ -292,18 +479,26 @@ local function resetWorld(width: number, depth: number)
 
 	grid = Grid.new(width, depth)
 	tiles = buffer.create(width * depth)
+	table.clear(tileSection)
+	table.clear(tileElevation)
 end
 
---- The zones the local player owns, so locked ground can be tinted.
-function GrassRenderer.setUnlockedZones(zones: { [string]: boolean })
-	unlockedZones = zones
+function GrassRenderer.setOpenSections(sections: { [string]: boolean })
+	local theGrid = grid
+	local theTiles = tiles
+	openSections = sections
+
+	if theGrid and theTiles then
+		for index in active do
+			drawTile(theGrid, theTiles, index, isLocked(index))
+		end
+	end
 end
 
-function GrassRenderer.getUnlockedZones(): { [string]: boolean }
-	return unlockedZones
+function GrassRenderer.getOpenSections(): { [string]: boolean }
+	return openSections
 end
 
---- The client's mirror of the tile buffer, used for local cut prediction.
 function GrassRenderer.tiles(): buffer?
 	return tiles
 end
@@ -326,7 +521,7 @@ function GrassRenderer.predictCut(index: number, levels: number)
 		return
 	end
 	buffer.writeu8(theTiles, index - 1, ChunkCodec.withHeight(byte, math.max(height - levels, 0)))
-	drawTile(theGrid, theTiles, index, false)
+	drawTile(theGrid, theTiles, index, isLocked(index))
 end
 
 function GrassRenderer.start()
@@ -349,6 +544,10 @@ function GrassRenderer.start()
 	worldInfo.OnClientEvent:Connect(function(info: any)
 		if type(info) == "table" and type(info.width) == "number" and type(info.depth) == "number" then
 			resetWorld(info.width, info.depth)
+			local theGrid = grid
+			if theGrid and type(info.worldId) == "string" then
+				buildZoneMap(info.worldId, theGrid)
+			end
 		end
 	end)
 

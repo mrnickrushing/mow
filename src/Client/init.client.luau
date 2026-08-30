@@ -10,21 +10,33 @@ local PlayerState = require(script.PlayerState)
 
 local Controllers = script.Controllers
 local GrassRenderer = require(Controllers.GrassRenderer)
+local MissedSpotController = require(Controllers.MissedSpotController)
 local MowController = require(Controllers.MowController)
+local ShedController = require(Controllers.ShedController)
+local VehicleController = require(Controllers.VehicleController)
 local TrailerController = require(Controllers.TrailerController)
 
 local Hud = require(script.UI.Hud)
+local RoundBar = require(script.UI.RoundBar)
+local Hotbar = require(script.UI.Hotbar)
+local Journal = require(script.UI.Journal)
+local Store = require(script.UI.Store)
 
 PlayerState.start()
 GrassRenderer.start()
 MowController.start()
+MissedSpotController.start()
+ShedController.start()
+VehicleController.start()
 TrailerController.start()
+Journal.start()
+Hotbar.start()
+RoundBar.start()
+Store.start()
 Hud.start()
 
--- Locked zones render desaturated, so the renderer needs to know what the
--- player owns whenever that changes.
-PlayerState.Changed:Connect(function()
-	GrassRenderer.setUnlockedZones(PlayerState.get().unlockedZones)
+-- Sections behind a shut gate render desaturated, so the renderer follows the
+-- run's open set rather than anything on the player.
+PlayerState.SectionsChanged:Connect(function()
+	GrassRenderer.setOpenSections(PlayerState.openSections())
 end)
-
-GrassRenderer.setUnlockedZones(PlayerState.get().unlockedZones)

@@ -29,6 +29,9 @@ fi
 
 fail=0
 
+echo "== test mirror =="
+python3 scripts/build_tests.py || { echo "  TEST BUILD FAILED"; exit 1; }
+
 echo "== sourcemap =="
 if "$ROJO" sourcemap default.project.json -o sourcemap.json; then
 	echo "  sourcemap ok"
@@ -50,7 +53,6 @@ else
 fi
 
 echo "== tests =="
-python3 scripts/build_tests.py || { echo "  TEST BUILD FAILED"; exit 1; }
 if "$LUAU" tests/run.luau; then
 	echo "  tests ok"
 else

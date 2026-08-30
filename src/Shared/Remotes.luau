@@ -42,6 +42,8 @@ Remotes.PLACE_TRAILER = "PlaceTrailer"
 Remotes.VEHICLE = "Vehicle"
 --- Client -> server: interact with a tree, stump or chipper.
 Remotes.INTERACT = "Interact"
+--- Server -> client: the objective chain and its progress.
+Remotes.QUESTS = "Quests"
 
 local UNRELIABLE: { [string]: boolean } = {
 	[Remotes.MOW_INTENT] = true,
@@ -62,6 +64,7 @@ local EVENTS = {
 	Remotes.PLACE_TRAILER,
 	Remotes.VEHICLE,
 	Remotes.INTERACT,
+	Remotes.QUESTS,
 }
 
 local folder: Folder? = nil

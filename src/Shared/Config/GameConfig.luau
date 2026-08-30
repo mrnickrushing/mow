@@ -4,7 +4,7 @@
 
 	Grid geometry, network rates and render budgets live here. These are the
 	numbers you reach for when the game feels wrong at a system level; per-item
-	balance lives in Tools/Upgrades/Debris/Properties.
+	balance lives in Tools/Upgrades/Debris/Worlds.
 ]]
 
 local GameConfig = {
@@ -47,11 +47,11 @@ local GameConfig = {
 	-- Client rendering
 	--------------------------------------------------------------------
 	--- Tiles within this radius of the camera render as individual parts.
-	DETAIL_RADIUS = 88,
+	DETAIL_RADIUS = 56,
 	--- Chunks within this radius render as a single flat LOD plane.
 	LOD_RADIUS = 460,
 	--- Hard ceiling on pooled tile parts, protecting low-end devices.
-	MAX_TILE_PARTS = 2600,
+	MAX_TILE_PARTS = 6000,
 	--- How often the renderer rebuilds its visible set, in Hz.
 	RENDER_REFRESH_HZ = 8,
 
@@ -67,7 +67,7 @@ local GameConfig = {
 	--- Radius in studs within which the trailer accepts a dump.
 	BASE_DUMP_RADIUS = 12,
 	--- Fraction of the round payout pool a player earns per 1% contributed.
-	ROUND_COMPLETION_BONUS = 2500,
+	ROUND_COMPLETION_BONUS = 60,
 
 	--------------------------------------------------------------------
 	-- Round flow
@@ -88,7 +88,7 @@ local GameConfig = {
 	--- Tiles in a row, in one straight line, to bank a Clean Stripe bonus.
 	STRIPE_MIN_TILES = 12,
 	--- Cash per tile awarded for a completed stripe.
-	STRIPE_BONUS_PER_TILE = 0.6,
+	STRIPE_BONUS_PER_TILE = 0.04,
 	--- Tips awarded per completed stripe.
 	STRIPE_TIP_REWARD = 1,
 	--- Degrees of heading drift tolerated before a stripe breaks.

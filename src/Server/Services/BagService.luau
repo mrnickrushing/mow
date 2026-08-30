@@ -16,6 +16,7 @@ local Balance = require(Shared.Config.Balance)
 local DebrisConfig = require(Shared.Config.Debris)
 local Format = require(Shared.Util.Format)
 local DataService = require(script.Parent.DataService)
+local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
 local WorldService = require(script.Parent.WorldService)
 
@@ -30,6 +31,10 @@ export type Bag = {
 
 local bags: { [Player]: Bag } = {}
 
+--- Fires as (player, units, cash) whenever a bag is sold.
+local soldSignal = Instance.new("BindableEvent")
+BagService.Sold = soldSignal.Event
+
 local function bagFor(player: Player): Bag
 	local bag = bags[player]
 	if not bag then
@@ -42,11 +47,11 @@ end
 BagService.get = bagFor
 
 function BagService.capacity(player: Player): number
-	local profile = DataService.get(player)
-	if not profile then
+	local run = RunState.find(player)
+	if not run then
 		return 0
 	end
-	return Balance.bagCapacity(profile.upgrades, EconomyService.modifiers(player))
+	return Balance.bagCapacity(run.upgrades, EconomyService.modifiers(player))
 end
 
 function BagService.weight(player: Player): number
@@ -91,14 +96,32 @@ function BagService.add(player: Player, debrisId: number, units: number): number
 	return taken
 end
 
+--- Extra multiplier the wood chipper applies to wood.
+local CHIPPER_MULTIPLIER = 3
+
+--- True once the player owns the wood chipper bolted to their trailer.
+local function hasChipper(player: Player): boolean
+	local run = RunState.find(player)
+	return run ~= nil and run.ownedTools["wood_chipper"] == true
+end
+
 --- Total cash the current contents would fetch, before multipliers.
 function BagService.baseValue(player: Player): number
-	local property = WorldService.property
+	local property = WorldService.world
 	local multiplier = if property then property.payoutMultiplier else 1
+	local chipper = hasChipper(player)
 	local total = 0
+
 	for debrisId, units in bagFor(player).units do
-		total += DebrisConfig.get(debrisId).value * units * multiplier
+		local value = DebrisConfig.get(debrisId).value * units * multiplier
+		-- The chipper only pays on wood, which is what makes felling trees the
+		-- endgame's best use of bag space rather than just its heaviest.
+		if chipper and (debrisId == DebrisConfig.Log or debrisId == DebrisConfig.Chips) then
+			value *= CHIPPER_MULTIPLIER
+		end
+		total += value
 	end
+
 	return total
 end
 
@@ -125,6 +148,7 @@ function BagService.dump(player: Player): number
 	end)
 
 	EconomyService.notify(player, "sale", `Sold {Format.count(unitsSold)} for {Format.cash(paid)}`, paid)
+	soldSignal:Fire(player, unitsSold, paid)
 	return paid
 end
 

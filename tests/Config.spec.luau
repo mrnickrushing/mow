@@ -10,7 +10,7 @@
 
 local Debris = require("./.build/Shared/Config/Debris")
 local Monetization = require("./.build/Shared/Config/Monetization")
-local Properties = require("./.build/Shared/Config/Properties")
+local Worlds = require("./.build/Shared/Config/Worlds")
 local Tools = require("./.build/Shared/Config/Tools")
 local Types = require("./.build/Shared/Types")
 local Upgrades = require("./.build/Shared/Config/Upgrades")
@@ -72,11 +72,40 @@ return function()
 		end)
 
 		h.it("refuses tiles taller than the tool can bite", function()
-			local shears = Tools.expect("shears")
-			h.expectTrue(Tools.canCut(shears, Debris.Grass, shears.maxHeight))
-			h.expectFalse(Tools.canCut(shears, Debris.Grass, shears.maxHeight + 1), "overgrowth gate")
-			h.expectFalse(Tools.canCut(shears, Debris.Grass, 0), "a clean tile is not cuttable")
-			h.expectFalse(Tools.canCut(shears, Debris.Leaves, 1), "shears must not clear leaves")
+			local hands = Tools.expect("hands")
+			h.expectTrue(Tools.canCut(hands, Debris.Grass, hands.maxHeight))
+			h.expectFalse(Tools.canCut(hands, Debris.Grass, hands.maxHeight + 1), "overgrowth gate")
+			h.expectFalse(Tools.canCut(hands, Debris.Grass, 0), "a clean tile is not cuttable")
+
+			-- Hands handle leaves; a mower is what should refuse them.
+			h.expectTrue(Tools.canCut(hands, Debris.Leaves, 1), "hands must clear leaves")
+			h.expectFalse(Tools.canCut(Tools.expect("gas_mower"), Debris.Leaves, 1), "a mower must not")
+		end)
+
+		h.it("lets bare hands shift anything a tile can hold", function()
+			-- The rule that keeps a run from ever being unwinnable: if a section
+			-- is full of something the starter cannot touch and the tool for it
+			-- is out of reach, the run is dead. Hands are slow, never blocked.
+			local starter = Tools.expect(Tools.STARTER_ID)
+			local used: { [number]: boolean } = {}
+			for _, world in Worlds.list do
+				for _, section in world.sections do
+					for _, entry in section.fill do
+						used[entry.debris] = true
+					end
+				end
+			end
+
+			for debrisId in used do
+				h.expectTrue(
+					Debris.canClear(debrisId, starter.category),
+					`nothing but paid gear can clear {Debris.get(debrisId).name}`
+				)
+				h.expectTrue(
+					Tools.canCut(starter, debrisId, 3),
+					`the starter cannot reach full-height {Debris.get(debrisId).name}`
+				)
+			end
 		end)
 
 		h.it("marks exactly the rideable tools as vehicles", function()
@@ -144,110 +173,218 @@ return function()
 		end)
 	end)
 
-	h.describe("Config — properties", function()
-		h.it("keeps every zone inside the grid", function()
-			for _, property in Properties.list do
-				for _, zone in property.zones do
-					local r = zone.rect
-					h.expectTrue(r.x >= 0 and r.z >= 0, `{property.id}/{zone.id} starts outside the grid`)
+	h.describe("Config — worlds", function()
+		h.it("keeps every section inside the grid", function()
+			for _, world in Worlds.list do
+				for _, section in world.sections do
+					local r = section.rect
+					h.expectTrue(r.x >= 0 and r.z >= 0, `{world.id}/{section.id} starts outside the grid`)
 					h.expectTrue(
-						r.x + r.w <= property.gridWidth and r.z + r.d <= property.gridDepth,
-						`{property.id}/{zone.id} runs off the grid`
+						r.x + r.w <= world.gridWidth and r.z + r.d <= world.gridDepth,
+						`{world.id}/{section.id} runs off the grid`
 					)
-					h.expectTrue(r.w > 0 and r.d > 0, `{property.id}/{zone.id} is empty`)
+					h.expectTrue(r.w > 0 and r.d > 0, `{world.id}/{section.id} is empty`)
 				end
 			end
 		end)
 
-		h.it("never overlaps two zones", function()
-			for _, property in Properties.list do
-				local zones = property.zones
-				for i = 1, #zones do
-					for j = i + 1, #zones do
+		h.it("never overlaps two sections", function()
+			for _, world in Worlds.list do
+				local sections = world.sections
+				for i = 1, #sections do
+					for j = i + 1, #sections do
 						h.expectFalse(
-							rectsOverlap(zones[i].rect, zones[j].rect),
-							`{property.id}: {zones[i].id} overlaps {zones[j].id}`
+							rectsOverlap(sections[i].rect, sections[j].rect),
+							`{world.id}: {sections[i].id} overlaps {sections[j].id}`
 						)
 					end
 				end
 			end
 		end)
 
-		h.it("never puts a zone under the house", function()
-			for _, property in Properties.list do
-				local house = property.houseRect
+		h.it("only lets a section sit on the house footprint if it is a roof", function()
+			for _, world in Worlds.list do
+				local house = world.houseRect
 				if house then
-					for _, zone in property.zones do
-						h.expectFalse(
-							rectsOverlap(zone.rect, house),
-							`{property.id}: {zone.id} overlaps the house`
-						)
+					for _, section in world.sections do
+						if rectsOverlap(section.rect, house) then
+							h.expectTrue(
+								(section.elevation or 0) > 0,
+								`{world.id}: {section.id} overlaps the house at ground level`
+							)
+							h.expectEqual(section.kind, "roof", `{world.id}: {section.id} is on the house but not a roof`)
+						end
 					end
 				end
 			end
 		end)
 
-		h.it("keeps the shed, trailer and spawn on open ground", function()
-			for _, property in Properties.list do
-				for label, point in
-					{ shed = property.shed, trailer = property.trailer, spawn = property.spawn } :: { [string]: any }
-				do
+		h.it("keeps the shed, trailer, spawn and exit on open ground", function()
+			for _, world in Worlds.list do
+				local points: { [string]: any } = {
+					shed = world.shed,
+					trailer = world.trailer,
+					spawn = world.spawn,
+					exit = world.exit,
+				}
+				for label, point in points do
 					h.expectTrue(
-						point.x >= 0 and point.z >= 0 and point.x < property.gridWidth and point.z < property.gridDepth,
-						`{property.id}: {label} is off the grid`
+						point.x >= 0 and point.z >= 0 and point.x < world.gridWidth and point.z < world.gridDepth,
+						`{world.id}: {label} is off the grid`
 					)
-					for _, zone in property.zones do
+					for _, section in world.sections do
 						h.expectFalse(
-							pointInRect(point.x, point.z, zone.rect),
-							`{property.id}: {label} is buried inside {zone.id}`
+							pointInRect(point.x, point.z, section.rect),
+							`{world.id}: {label} is buried inside {section.id}`
 						)
 					end
-					local house = property.houseRect
+					local house = world.houseRect
 					if house then
 						h.expectFalse(
 							pointInRect(point.x, point.z, house),
-							`{property.id}: {label} is inside the house`
+							`{world.id}: {label} is inside the house`
 						)
 					end
 				end
 			end
 		end)
 
-		h.it("gives the first zone away free and charges for the rest", function()
-			for _, property in Properties.list do
-				h.expectEqual(property.zones[1].cost, 0, `{property.id}: the first zone must be free`)
-				local previous = 0
-				for index = 2, #property.zones do
-					local zone = property.zones[index]
-					h.expectTrue(zone.cost > previous, `{property.id}: {zone.id} is not dearer than the zone before`)
-					previous = zone.cost
+		h.it("gives every world exactly one starting section", function()
+			for _, world in Worlds.list do
+				local starts = 0
+				for _, section in world.sections do
+					if Worlds.unlockKind(section) == "start" then
+						starts += 1
+					end
+				end
+				h.expectEqual(starts, 1, `{world.id} should have exactly one start`)
+			end
+		end)
+
+		h.it("charges for nothing: sections are cleared, not bought", function()
+			for _, world in Worlds.list do
+				for _, section in world.sections do
+					h.expectEqual(section.cost, 0, `{world.id}/{section.id} still has a price on it`)
 				end
 			end
 		end)
 
-		h.it("climbs in unlock cost, payout and size across the rotation", function()
-			local previousUnlock, previousPayout, previousArea = -1, 0, 0
-			for _, property in Properties.list do
-				h.expectTrue(property.unlockLifetimeCash > previousUnlock, `{property.id} unlocks out of order`)
-				h.expectTrue(property.payoutMultiplier >= previousPayout, `{property.id} pays less than the last map`)
-				local area = property.gridWidth * property.gridDepth
-				h.expectTrue(area >= previousArea, `{property.id} is smaller than the last map`)
-				previousUnlock, previousPayout, previousArea = property.unlockLifetimeCash, property.payoutMultiplier, area
+		h.it("points every gate at a section that exists and comes earlier", function()
+			for _, world in Worlds.list do
+				local order: { [string]: number } = {}
+				for index, section in world.sections do
+					order[section.id] = index
+				end
+
+				for _, section in world.sections do
+					local kind = Worlds.unlockKind(section)
+					if kind == "completion" then
+						h.expectTrue(section.requires ~= nil, `{world.id}: {section.id} opens on nothing`)
+						local required = section.requires :: string
+						h.expectTrue(
+							Worlds.section(world, required) ~= nil,
+							`{world.id}: {section.id} requires unknown section {required}`
+						)
+						h.expectTrue(
+							order[required] < order[section.id],
+							`{world.id}: {section.id} depends on {required}, which comes later`
+						)
+					elseif kind == "button" then
+						h.expectTrue(section.buttonIn ~= nil, `{world.id}: {section.id} has no switch location`)
+						local host = section.buttonIn :: string
+						h.expectTrue(
+							Worlds.section(world, host) ~= nil,
+							`{world.id}: {section.id} hides its switch in unknown section {host}`
+						)
+						h.expectFalse(host == section.id, `{world.id}: {section.id} hides its own switch inside itself`)
+					end
+				end
 			end
 		end)
 
-		h.it("starts the rotation on a property that costs nothing to reach", function()
-			local starter = Properties.expect(Properties.STARTER_ID)
-			h.expectEqual(starter.unlockLifetimeCash, 0)
-			h.expectEqual(#Properties.unlockedFor(0), 1, "a new player should see exactly one map")
+		h.it("leaves every required section reachable from the start", function()
+			-- A gate chain that forks off an optional section would lock the run.
+			for _, world in Worlds.list do
+				local reachable: { [string]: boolean } = {}
+				reachable[Worlds.startSection(world).id] = true
+
+				for _, section in world.sections do
+					local kind = Worlds.unlockKind(section)
+					if kind == "completion" and section.requires then
+						reachable[section.id] = reachable[section.requires] == true
+					elseif kind == "button" then
+						reachable[section.id] = reachable[section.buttonIn :: string] == true
+					end
+				end
+
+				for _, section in Worlds.requiredSections(world) do
+					h.expectTrue(reachable[section.id] == true, `{world.id}: {section.id} can never be opened`)
+				end
+			end
+		end)
+
+		h.it("ends on a required section, not an optional one", function()
+			for _, world in Worlds.list do
+				local final = Worlds.finalSection(world)
+				h.expectFalse(final.optional == true, `{world.id} finishes on an optional section`)
+			end
+		end)
+
+		h.it("scales waves with the players present", function()
+			local world = Worlds.expect(Worlds.STARTER_ID)
+			local main = Worlds.startSection(world)
+			h.expectEqual(Worlds.wavesFor(main, 1), 1, "solo should be one wave")
+			h.expectEqual(Worlds.wavesFor(main, 3), 3, "three players, three waves")
+
+			local garage = Worlds.section(world, "garage")
+			h.expectTrue(garage ~= nil)
+			h.expectEqual(Worlds.wavesFor(garage :: any, 4), 1, "a pinned section ignores headcount")
+		end)
+
+		h.it("keeps the work per player the same however many are playing", function()
+			-- The point of waves. A section holds U units per wave and needs one
+			-- wave per player, so the run's total work is N*U shared between N
+			-- people: everyone does U regardless. A full server takes as long as
+			-- a solo run rather than finishing in a fraction of the time.
+			local world = Worlds.expect(Worlds.STARTER_ID)
+			local section = Worlds.startSection(world)
+
+			local solo = Worlds.wavesFor(section, 1) / 1
+			for players = 2, 8 do
+				local share = Worlds.wavesFor(section, players) / players
+				h.expectClose(share, solo, 1e-9, `work per player changed at {players} players`)
+			end
+		end)
+
+		h.it("climbs in payout and gates later worlds behind earlier ones", function()
+			local previousPayout = 0
+			for _, world in Worlds.list do
+				h.expectTrue(world.payoutMultiplier >= previousPayout, `{world.id} pays less than the world before`)
+				previousPayout = world.payoutMultiplier
+				if world.requiresWorld then
+					h.expectTrue(
+						Worlds.get(world.requiresWorld) ~= nil,
+						`{world.id} requires unknown world {world.requiresWorld}`
+					)
+				end
+			end
+		end)
+
+		h.it("shows only the first world to a new player", function()
+			local available = Worlds.availableTo({})
+			h.expectEqual(#available, 1, "a new player should see exactly one world")
+			h.expectEqual(available[1].id, Worlds.STARTER_ID)
+
+			local afterHouse = Worlds.availableTo({ house = true })
+			h.expectTrue(#afterHouse >= 2, "beating the house should open the next one")
 		end)
 
 		h.it("uses a density that leaves some bare ground", function()
-			for _, property in Properties.list do
-				for _, zone in property.zones do
+			for _, world in Worlds.list do
+				for _, section in world.sections do
 					h.expectTrue(
-						zone.density > 0 and zone.density <= 1,
-						`{property.id}/{zone.id} density {zone.density} is out of range`
+						section.density > 0 and section.density <= 1,
+						`{world.id}/{section.id} density {section.density} is out of range`
 					)
 				end
 			end
