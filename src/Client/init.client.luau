@@ -11,14 +11,18 @@ local PlayerState = require(script.PlayerState)
 local Controllers = script.Controllers
 local GrassRenderer = require(Controllers.GrassRenderer)
 local MowController = require(Controllers.MowController)
+local ShedController = require(Controllers.ShedController)
 local TrailerController = require(Controllers.TrailerController)
 
 local Hud = require(script.UI.Hud)
+local Shop = require(script.UI.Shop)
 
 PlayerState.start()
 GrassRenderer.start()
 MowController.start()
+ShedController.start()
 TrailerController.start()
+Shop.start()
 Hud.start()
 
 -- Locked zones render desaturated, so the renderer needs to know what the

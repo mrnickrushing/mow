@@ -21,6 +21,7 @@ local ChunkCodec = require(Shared.ChunkCodec)
 local DebrisConfig = require(Shared.Config.Debris)
 local GameConfig = require(Shared.Config.GameConfig)
 local Grid = require(Shared.Grid)
+local Properties = require(Shared.Config.Properties)
 local Remotes = require(Shared.Remotes)
 
 local GrassRenderer = {}
@@ -45,6 +46,9 @@ local known: { [number]: boolean } = {}
 local requested: { [number]: boolean } = {}
 --- Zones the local player has unlocked; locked ground renders desaturated.
 local unlockedZones: { [string]: boolean } = {}
+--- Zone id per tile, resolved once per world rather than per frame. Looking a
+--- tile's zone up through the rect list every refresh was the obvious cost here.
+local tileZone: { string } = {}
 
 local requestChunks: RemoteEvent
 local chunkDelta: RemoteEvent
@@ -96,6 +100,32 @@ end
 --------------------------------------------------------------------
 -- Drawing
 --------------------------------------------------------------------
+
+--- Builds the tile -> zone lookup from the shared property config.
+local function buildZoneMap(propertyId: string, theGrid: Grid.Grid)
+	table.clear(tileZone)
+	local property = Properties.get(propertyId)
+	if not property then
+		return
+	end
+	for _, zone in property.zones do
+		local r = zone.rect
+		for tz = r.z, math.min(r.z + r.d - 1, theGrid.depth - 1) do
+			for tx = r.x, math.min(r.x + r.w - 1, theGrid.width - 1) do
+				tileZone[Grid.toIndex(theGrid, tx, tz)] = zone.id
+			end
+		end
+	end
+end
+
+local function isLocked(index: number): boolean
+	local zoneId = tileZone[index]
+	if not zoneId then
+		return false
+	end
+	return not unlockedZones[zoneId]
+end
+
 
 local function colorFor(debrisId: number, locked: boolean): Color3
 	local def = DebrisConfig.get(debrisId)
@@ -250,7 +280,7 @@ local function refresh()
 									local tdx, tdz = tileX - focus.X, tileZ - focus.Z
 									if tdx * tdx + tdz * tdz <= DETAIL_SQ then
 										visibleDetail[index] = true
-										drawTile(theGrid, theTiles, index, false)
+										drawTile(theGrid, theTiles, index, isLocked(index))
 									end
 								end
 							end
@@ -292,11 +322,22 @@ local function resetWorld(width: number, depth: number)
 
 	grid = Grid.new(width, depth)
 	tiles = buffer.create(width * depth)
+	table.clear(tileZone)
 end
 
 --- The zones the local player owns, so locked ground can be tinted.
 function GrassRenderer.setUnlockedZones(zones: { [string]: boolean })
+	local theGrid = grid
+	local theTiles = tiles
 	unlockedZones = zones
+
+	-- Repaint what is already drawn so a zone unlock brightens instantly rather
+	-- than waiting for the player to walk away and back.
+	if theGrid and theTiles then
+		for index in active do
+			drawTile(theGrid, theTiles, index, isLocked(index))
+		end
+	end
 end
 
 function GrassRenderer.getUnlockedZones(): { [string]: boolean }
@@ -349,6 +390,10 @@ function GrassRenderer.start()
 	worldInfo.OnClientEvent:Connect(function(info: any)
 		if type(info) == "table" and type(info.width) == "number" and type(info.depth) == "number" then
 			resetWorld(info.width, info.depth)
+			local theGrid = grid
+			if theGrid and type(info.propertyId) == "string" then
+				buildZoneMap(info.propertyId, theGrid)
+			end
 		end
 	end)
 

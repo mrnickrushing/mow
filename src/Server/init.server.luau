@@ -23,6 +23,7 @@ local EconomyService = require(Services.EconomyService)
 local BagService = require(Services.BagService)
 local TileService = require(Services.TileService)
 local PlayerService = require(Services.PlayerService)
+local ShopService = require(Services.ShopService)
 
 -- Order matters: data before anything that reads a profile, world before
 -- anything that reads the grid, replication before anything that marks tiles.
@@ -32,6 +33,7 @@ ReplicationService.start()
 BagService.start()
 TileService.start()
 PlayerService.start()
+ShopService.start()
 
 WorldService.load(Properties.STARTER_ID)
 ReplicationService.broadcastWorldInfo()

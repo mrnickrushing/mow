@@ -17,7 +17,8 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local ChunkCodec = require(Shared.ChunkCodec)
+local Balance = require(Shared.Config.Balance)
+local Cutting = require(Shared.Cutting)
 local GameConfig = require(Shared.Config.GameConfig)
 local Grid = require(Shared.Grid)
 local Remotes = require(Shared.Remotes)
@@ -59,24 +60,29 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 		return
 	end
 
-	local indices =
-		Grid.rasterizeSwath(grid, root.Position.X, root.Position.Z, look.X, look.Z, tool.deck, tool.reach, predictScratch)
-	local levels = math.floor(tool.power * passes)
-	if levels <= 0 then
+	local levelsAvailable = tool.power * passes
+	if levelsAvailable < 1 then
 		return
 	end
 
-	local unlocked = GrassRenderer.getUnlockedZones()
+	local state = PlayerState.get()
+	local space = math.max(state.bagCapacity - state.bagWeight, 0)
+	local yieldMultiplier = Balance.yieldMultiplier(state.upgrades)
+
+	local indices =
+		Grid.rasterizeSwath(grid, root.Position.X, root.Position.Z, look.X, look.Z, tool.deck, tool.reach, predictScratch)
+
 	for _, index in indices do
 		local byte = buffer.readu8(tiles, index - 1)
-		local height = ChunkCodec.height(byte)
-		if height > 0 and Tools.canCut(tool, ChunkCodec.debris(byte), height) then
-			-- Only predict inside zones the player owns; predicting a locked zone
-			-- would flash grass away and then restore it, which reads as a bug.
-			local zoneId = PlayerState.zoneIdAt(index)
-			if zoneId ~= "" and unlocked[zoneId] then
-				GrassRenderer.predictCut(index, levels)
-			end
+		local owns = PlayerState.ownsZone(PlayerState.zoneIdAt(index))
+
+		-- Same module the server runs, so a prediction can only be wrong about
+		-- timing, never about the rules. Predicting a locked zone or a full bag
+		-- would flash grass away and restore it, which reads as a bug.
+		local outcome = Cutting.evaluate(byte, tool, levelsAvailable, yieldMultiplier, owns, space)
+		if outcome.status == "cut" then
+			GrassRenderer.predictCut(index, outcome.levels)
+			space -= outcome.weight
 		end
 	end
 end
