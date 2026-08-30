@@ -85,6 +85,14 @@ local catalogue: { [string]: Prop } = {
 	Weeds = prop("rbxassetid://97566895867036", "rbxassetid://100631337116622", 3.995, 3.809, 4.000),
 	Twigs = prop("rbxassetid://131001130360981", "rbxassetid://135819322286106", 2.061, 2.000, 2.112),
 
+	-- Ground and roofing, the surfaces underfoot and overhead.
+	Paving = prop("rbxassetid://118911737218481", "rbxassetid://75203797606065", 2.483, 0.500, 2.503),
+	Turf = prop("rbxassetid://117425736001931", "rbxassetid://118240994936541", 6.966, 1.000, 6.963),
+	Shingle = prop("rbxassetid://136161442160867", "rbxassetid://104453830463425", 1.029, 1.000, 0.661),
+	ConcreteFloor = prop("rbxassetid://122093568483513", "rbxassetid://132210085782663", 1.438, 1.000, 0.512),
+	HungTools = prop("rbxassetid://137801002725741", "rbxassetid://114893461231752", 1.613, 1.513, 0.600),
+	Lantern = prop("rbxassetid://117371342269426", "rbxassetid://103361847724409", 1.991, 3.000, 1.769),
+
 	-- The stock on the shed shelf.
 	Sack = prop("rbxassetid://138022973254032", "rbxassetid://92817985554289", 2.943, 4.000, 3.277),
 	LeafBlower = prop("rbxassetid://120198329733477", "rbxassetid://127839085444983", 2.114, 3.000, 4.231),

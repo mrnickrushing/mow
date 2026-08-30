@@ -281,12 +281,12 @@ function Build.picketFence(
 
 	for _, ratio in { 0.32, 0.72 } do
 		local mid = from + direction * (length * 0.5) + Vector3.new(0, height * ratio, 0)
-		Build.part({
+		Build.mesh({
+		prop = "Railing",
 			name = "Rail",
 			size = Vector3.new(0.55, 0.7, length),
 			cframe = CFrame.lookAt(mid, mid + direction),
 			color = Palette.color(Palette.fence.rail),
-			material = Enum.Material.Wood,
 			canCollide = false,
 			castShadow = false,
 			parent = folder,
@@ -386,18 +386,19 @@ function Build.chainLinkWall(parent: Instance, from: Vector3, to: Vector3, brick
 	local direction = delta.Unit
 	local mid = from + direction * (length * 0.5)
 
-	Build.part({
+	Build.mesh({
+		prop = "BrickWall",
 		name = "Retaining",
 		size = Vector3.new(2.2, brickHeight, length),
 		cframe = CFrame.lookAt(mid + Vector3.new(0, brickHeight * 0.5, 0), mid + direction + Vector3.new(0, brickHeight * 0.5, 0)),
 		color = Palette.color(Palette.house.brick),
-		material = Enum.Material.Brick,
 		parent = folder,
 	})
 
 	-- The mesh itself: a translucent dark panel plus posts, which reads as
 	-- chain-link at play distance without thousands of wire parts.
-	Build.part({
+	Build.mesh({
+		prop = "Bush",
 		name = "Mesh",
 		size = Vector3.new(0.4, meshHeight, length),
 		cframe = CFrame.lookAt(
@@ -405,7 +406,6 @@ function Build.chainLinkWall(parent: Instance, from: Vector3, to: Vector3, brick
 			mid + direction + Vector3.new(0, brickHeight + meshHeight * 0.5, 0)
 		),
 		color = Palette.color(Palette.rgb(58, 84, 58)),
-		material = Enum.Material.DiamondPlate,
 		transparency = 0.45,
 		canCollide = false,
 		castShadow = false,
@@ -415,12 +415,12 @@ function Build.chainLinkWall(parent: Instance, from: Vector3, to: Vector3, brick
 	local posts = math.max(math.floor(length / 14), 1)
 	for index = 0, posts do
 		local at = from + direction * (length * index / posts)
-		Build.part({
+		Build.mesh({
+		prop = "Column",
 			name = "Post",
 			size = Vector3.new(0.9, meshHeight + 1, 0.9),
 			cframe = CFrame.new(at + Vector3.new(0, brickHeight + (meshHeight + 1) * 0.5, 0)),
 			color = Palette.color(Palette.rgb(72, 96, 72)),
-			material = Enum.Material.Metal,
 			canCollide = false,
 			castShadow = false,
 			parent = folder,
@@ -440,16 +440,20 @@ function Build.flagstone(parent: Instance, centre: Vector3, size: Vector2, tile:
 			local jitterX = (rng:NextNumber() - 0.5) * tile * 0.16
 			local jitterZ = (rng:NextNumber() - 0.5) * tile * 0.16
 			local shade = if rng:NextNumber() < 0.4 then Palette.ground.stoneDark else Palette.ground.stone
-			Build.part({
+			-- A flagstone, not a square of grey. Two hundred and thirty of
+			-- these make every path in the game, so being a real stone
+			-- matters more here than almost anywhere else.
+			Build.mesh({
+				prop = "Paving",
 				name = "Slab",
-				size = Vector3.new(tile * 0.92, 0.5, tile * 0.92),
+				size = Vector3.new(tile * 0.98, 0.5, tile * 0.98),
+				collisionSize = Vector3.new(tile * 0.92, 0.5, tile * 0.92),
 				cframe = CFrame.new(
 					centre.X - size.X * 0.5 + tile * (col + 0.5) + jitterX,
 					centre.Y,
 					centre.Z - size.Y * 0.5 + tile * (row + 0.5) + jitterZ
 				) * CFrame.Angles(0, rng:NextNumber() * 0.12, 0),
 				color = Palette.color(shade),
-				material = Enum.Material.Slate,
 				canCollide = false,
 				castShadow = false,
 				parent = folder,
