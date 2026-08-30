@@ -1,0 +1,8 @@
+std = "roblox"
+
+[rules]
+global_usage = "allow"
+multiple_statements = "warn"
+shadowing = "warn"
+unused_variable = "warn"
+incorrect_standard_library_use = "warn"
