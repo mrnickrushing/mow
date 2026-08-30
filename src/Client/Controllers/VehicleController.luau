@@ -80,6 +80,20 @@ local function drive()
 
 	-- Steer is +1 to the right, and a right turn is clockwise seen from above.
 	seat.AssemblyAngularVelocity = Vector3.new(0, -seat.SteerFloat * seat.TurnSpeed, 0)
+
+	--[[
+		Keep it level.
+
+		Zeroing the angular velocity stops a mower spinning but does nothing
+		about one that has already been knocked over, and a mower on its back
+		reads its throttle perfectly while going nowhere. A lawn machine on a
+		lawn has no business being at an angle, so past a few degrees of tilt
+		its heading is kept and the rest is put back upright.
+	]]
+	local up = seat.CFrame.UpVector
+	if up:Dot(Vector3.yAxis) < 0.985 then
+		seat.CFrame = CFrame.lookAt(seat.CFrame.Position, seat.CFrame.Position + flat.Unit)
+	end
 end
 
 function VehicleController.start()

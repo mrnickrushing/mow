@@ -264,7 +264,12 @@ function Build.picketFence(
 				at + Vector3.new(0, height * 0.5, 0),
 				at + direction + Vector3.new(0, height * 0.5, 0)
 			) * CFrame.Angles(0, math.rad(90), 0),
-			canCollide = false,
+			-- Solid, so the fence is the edge of the property rather than a
+			-- picture of one. It was built from non-colliding pickets, which
+			-- let a player walk straight through the boundary, across the
+			-- apron and off the end of the world. Panels are cheap enough to
+			-- collide now that there is one every five studs instead of one
+			-- every one and a half.
 			castShadow = false,
 			parent = folder,
 		})

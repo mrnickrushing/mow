@@ -39,6 +39,12 @@ type WorldRow = {
 
 local worlds: { WorldRow } = {}
 
+--- How the last run ended, so the level select can say the right thing about
+--- it. The lobby snapshot no longer carries the outcome — by then the phase is
+--- "lobby" — so it is remembered as the run ends.
+local lastOutcome: string? = nil
+local lastWorldName: string? = nil
+
 local DIFFICULTY_COLOR: { [string]: Color3 } = {
 	Easy = Color3.fromRGB(126, 226, 108),
 	Medium = Color3.fromRGB(255, 196, 84),
@@ -211,10 +217,22 @@ function LevelSelect.start()
 			worlds = snapshot.worlds
 		end
 
+		if snapshot.phase == "won" or snapshot.phase == "lost" then
+			lastOutcome = snapshot.phase
+			lastWorldName = snapshot.worldName
+		end
+
 		local lobby = snapshot.phase == "lobby"
 		if lobby then
-			local finished = if snapshot.worldName then `You cleared {snapshot.worldName}.` else ""
-			subtitle.Text = `{finished} Where next?`
+			local name = lastWorldName
+			local opener = ""
+			if name and lastOutcome == "won" then
+				opener = `You cleared {name}.`
+			elseif name and lastOutcome == "lost" then
+				-- Losing used to be congratulated on the clearing it had not done.
+				opener = `The clock beat you on {name}.`
+			end
+			subtitle.Text = if opener == "" then "Where next?" else `{opener} Where next?`
 		end
 		LevelSelect.setOpen(lobby)
 		if lobby and isOpen then
