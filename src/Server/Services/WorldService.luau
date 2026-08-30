@@ -1409,23 +1409,6 @@ function WorldService.completion(): number
 	return 1 - WorldService.remainingUnits / WorldService.totalUnits
 end
 
---[[
-	Adds debris that does not live on a tile — trees and stumps — to the totals.
-
-	Completion means the world is genuinely clear, so a standing oak has to
-	count against it the same way uncut grass does.
-]]
-function WorldService.registerExtraUnits(sectionId: string, units: number)
-	WorldService.totalUnits += units
-	WorldService.remainingUnits += units
-	ReplicationService.setTotalUnits(WorldService.totalUnits)
-	local section = WorldService.sections[sectionId]
-	if section then
-		section.totalUnits += units
-		section.remainingUnits += units
-	end
-end
-
 --- The section whose rect contains a tile-space point, or "" for open ground.
 function WorldService.sectionIdAtTile(tx: number, tz: number): string
 	local grid = WorldService.grid
