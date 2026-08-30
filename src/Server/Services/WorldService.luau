@@ -167,12 +167,22 @@ local function seedTiles(world: Types.WorldDef, grid: Grid.Grid, tiles: buffer)
 			centre = WorldService.tilePointToWorld(r.x + r.w * 0.5, r.z + r.d * 0.5),
 		}
 
+		-- The water is part of the section but not part of the lawn: debris
+		-- sown here would float on the surface and have to be mown off it.
+		local water = if (section.kind or "open") == "pool" then Structures.poolRect(section) else nil
+
 		for tz = r.z, math.min(r.z + r.d - 1, grid.depth - 1) do
 			for tx = r.x, math.min(r.x + r.w - 1, grid.width - 1) do
 				local index = Grid.toIndex(grid, tx, tz)
 				tileSection[index] = section.id
 
-				if rng:NextNumber() <= section.density then
+				local onWater = water ~= nil
+					and tx >= water.x
+					and tx < water.x + water.w
+					and tz >= water.z
+					and tz < water.z + water.d
+
+				if not onWater and rng:NextNumber() <= section.density then
 					local entry = pickFill(section)
 					if entry then
 						local height = rng:NextInteger(entry.heightMin, entry.heightMax)
@@ -204,6 +214,13 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 	for _, section in world.sections do
 		if (section.elevation or 0) < 0 then
 			table.insert(holes, section.rect)
+		end
+		-- A pool needs the same treatment as a cellar. Without it the lawn
+		-- slab ran straight over the top of the water: the basin and its
+		-- surface sat entirely below y=0, so the pool was invisible, and the
+		-- only clue it existed at all was the deck around a piece of grass.
+		if (section.kind or "open") == "pool" then
+			table.insert(holes, Structures.poolRect(section))
 		end
 	end
 
@@ -642,17 +659,18 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 		no two can collide from any direction you can stand in.
 	]]
 	local displays = {
-		{ label = "Upgrade Bag", rainbow = false, color = Palette.rgb(96, 206, 140), offset = -10, lift = 2.8 },
-		{ label = "Infinite Bag", rainbow = true, color = Palette.ui.tips, offset = 0, lift = 5.2 },
-		{ label = "Leaf Blower", rainbow = false, color = Palette.rgb(120, 168, 220), offset = 10, lift = 2.8 },
+		{ label = "Upgrade Bag", prop = "Sack", rainbow = false, color = Palette.rgb(96, 206, 140), offset = -10, lift = 2.8 },
+		{ label = "Infinite Bag", prop = "Sack", rainbow = true, color = Palette.ui.tips, offset = 0, lift = 5.2 },
+		{ label = "Leaf Blower", prop = "LeafBlower", rainbow = false, color = Palette.rgb(120, 168, 220), offset = 10, lift = 2.8 },
 	}
 	for _, display in displays do
-		local item = Build.part({
+		-- The stock is the thing it sells, not a coloured cube standing for it.
+		local item = Build.mesh({
+			prop = display.prop,
 			name = display.label,
-			size = Vector3.new(4, 4, 4),
+			size = Vector3.new(4.5, 4.5, 4.5),
+			collisionSize = Vector3.new(4, 4, 4),
 			cframe = CFrame.new(centre + Vector3.new(display.offset, 9.5, depth * 0.5 - 4)),
-			color = Palette.color(display.color),
-			material = Enum.Material.SmoothPlastic,
 			canCollide = false,
 			parent = shed,
 		})
@@ -1491,12 +1509,21 @@ function WorldService.refillSection(sectionId: string)
 	local dirty: { [number]: boolean } = {}
 
 	local r = section.rect
+	-- The wave refills the lawn, not the swimming pool.
+	local water = if (section.kind or "open") == "pool" then Structures.poolRect(section) else nil
+
 	for tz = r.z, math.min(r.z + r.d - 1, grid.depth - 1) do
 		for tx = r.x, math.min(r.x + r.w - 1, grid.width - 1) do
 			local index = Grid.toIndex(grid, tx, tz)
 			local byte = 0
 
-			if rng:NextNumber() <= section.density then
+			local onWater = water ~= nil
+				and tx >= water.x
+				and tx < water.x + water.w
+				and tz >= water.z
+				and tz < water.z + water.d
+
+			if not onWater and rng:NextNumber() <= section.density then
 				local entry = pickFill(section)
 				if entry then
 					local height = math.clamp(
