@@ -13,6 +13,7 @@ local Monetization = require("./.build/Shared/Config/Monetization")
 local Worlds = require("./.build/Shared/Config/Worlds")
 local Tools = require("./.build/Shared/Config/Tools")
 local Types = require("./.build/Shared/Types")
+local DefaultData = require("./.build/Server/Lib/DefaultData")
 local Props = require("./.build/Shared/Config/Props")
 local Upgrades = require("./.build/Shared/Config/Upgrades")
 local h = require("./harness")
@@ -469,6 +470,138 @@ return function()
 						`{world.id}/{section.id} density {section.density} is out of range`
 					)
 				end
+			end
+		end)
+	end)
+
+	h.describe("Saves — receipts", function()
+		--[[
+			Robux is real money, so the ledger that stops a purchase being paid
+			out twice is worth holding down with tests rather than trusting to
+			the next person not to drop a field.
+		]]
+		h.it("gives a fresh profile somewhere to record receipts", function()
+			local fresh = DefaultData.template()
+			h.expectTrue(type(fresh.receipts) == "table", "a new profile cannot remember receipts")
+			h.expectTrue(#fresh.receipts == 0, "a new profile starts owing nothing")
+		end)
+
+		h.it("gives an old save one too, rather than leaving it nil", function()
+			-- A save from before receipts existed. Without a table here, the
+			-- first purchase after an update indexes nil and the grant throws,
+			-- which Roblox answers by retrying the same receipt forever.
+			local old = { version = 1, worldsBeaten = {}, stats = {} }
+			local migrated = DefaultData.migrate(old)
+			h.expectTrue(type(migrated.receipts) == "table", "a migrated profile cannot remember receipts")
+		end)
+
+		h.it("replaces a receipts field of the wrong type", function()
+			local corrupt = DefaultData.migrate({ version = 1, receipts = "not a table" })
+			h.expectTrue(type(corrupt.receipts) == "table", "a corrupt receipts field survived migration")
+		end)
+
+		h.it("remembers enough receipts to outlast Roblox's retries", function()
+			-- Roblox stops retrying a receipt within a day. The cap only exists
+			-- so a profile cannot grow without bound, and has to sit well above
+			-- any plausible run of purchases in that window.
+			h.expectTrue(
+				DefaultData.RECEIPT_MEMORY >= 20,
+				`remembering only {DefaultData.RECEIPT_MEMORY} receipts risks forgetting one still being retried`
+			)
+		end)
+	end)
+
+	h.describe("Config — the ladder", function()
+		--- Units a tile of this section holds on average, across its fill.
+		local function unitsPerTile(section: Types.ZoneDef): number
+			local weight, units = 0, 0
+			for _, entry in section.fill do
+				local meanHeight = (entry.heightMin + entry.heightMax) / 2
+				units += meanHeight * Debris.get(entry.debris).unitsPerLevel * entry.weight
+				weight += entry.weight
+			end
+			return if weight > 0 then units / weight else 0
+		end
+
+		--- What a world demands before its exit will open. Optional sections do
+		--- not count: nobody has to clear them to finish.
+		local function requiredUnits(world: Types.WorldDef): number
+			local total = 0
+			for _, section in world.sections do
+				if not section.optional then
+					total += section.rect.w * section.rect.d * section.density * unitsPerTile(section)
+				end
+			end
+			return total
+		end
+
+		--- The worlds in the order they unlock, following `requiresWorld`.
+		local function chain(): { Types.WorldDef }
+			local byRequirement: { [string]: Types.WorldDef } = {}
+			local first: Types.WorldDef? = nil
+			for _, world in Worlds.list do
+				if world.requiresWorld then
+					byRequirement[world.requiresWorld] = world
+				else
+					h.expectTrue(first == nil, "two worlds unlock with nothing before them")
+					first = world
+				end
+			end
+			h.expectTrue(first ~= nil, "no world unlocks first, so the ladder has no bottom")
+
+			local order: { Types.WorldDef } = {}
+			local at = first
+			while at do
+				table.insert(order, at)
+				at = byRequirement[at.id]
+			end
+			return order
+		end
+
+		h.it("unlocks in one unbroken chain that reaches every world", function()
+			local order = chain()
+			local count = 0
+			for _ in Worlds.list do
+				count += 1
+			end
+			h.expectTrue(
+				#order == count,
+				`the unlock chain reaches {#order} of {count} worlds, so one is unreachable`
+			)
+		end)
+
+		h.it("asks for more work at every rung", function()
+			local order = chain()
+			for index = 2, #order do
+				local before, after = order[index - 1], order[index]
+				h.expectTrue(
+					requiredUnits(after) > requiredUnits(before),
+					`{after.id} demands less work than {before.id}, which comes before it`
+				)
+			end
+		end)
+
+		h.it("gives less of the clock per unit of work at every rung", function()
+			--[[
+				The invariant that actually says "harder".
+
+				More ground alone does not make a world harder, because a later
+				world also pays better and the gear that buys clears faster. The
+				Mansion held twice the work of The House and a perfect run still
+				finished it three and a half minutes sooner — the middle rung was
+				the easiest one. What has to fall along the chain is the time you
+				are given per unit of work in front of you.
+			]]
+			local order = chain()
+			for index = 2, #order do
+				local before, after = order[index - 1], order[index]
+				local was = before.runSeconds / requiredUnits(before)
+				local now = after.runSeconds / requiredUnits(after)
+				h.expectTrue(
+					now < was,
+					`{after.id} gives {string.format("%.4f", now)} seconds per unit against `
+						.. `{before.id}'s {string.format("%.4f", was)}, so it is not the harder world`
+				)
 			end
 		end)
 	end)
