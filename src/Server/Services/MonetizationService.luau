@@ -23,6 +23,7 @@ local Tools = require(Shared.Config.Tools)
 local BagService = require(script.Parent.BagService)
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
+local DefaultData = require(script.Parent.Parent.Lib.DefaultData)
 local EconomyService = require(script.Parent.EconomyService)
 local FuelService = require(script.Parent.FuelService)
 local PlayerService = require(script.Parent.PlayerService)
@@ -216,6 +217,24 @@ function MonetizationService.start()
 		end
 	end)
 
+	--[[
+		Turning Robux into goods, exactly once.
+
+		Roblox retries `ProcessReceipt` until it is told the purchase was
+		granted. That is the right behaviour — it is how a purchase survives a
+		server dying mid-grant — but it means the same receipt arrives more than
+		once, and granting on each arrival hands out a second lot of goods for
+		one payment.
+
+		So every receipt id a player has been paid for is remembered on their
+		profile, checked before granting and recorded after. A repeat is
+		answered `PurchaseGranted` without granting anything: from Roblox's side
+		the purchase is settled, which is true, and it stops asking.
+
+		A profile that has not loaded is refused rather than granted. It cannot
+		be credited safely and it cannot remember the receipt either, so the
+		only safe answer is to let Roblox ask again.
+	]]
 	MarketplaceService.ProcessReceipt = function(receipt)
 		local player = Players:GetPlayerByUserId(receipt.PlayerId)
 		if not player then
@@ -228,11 +247,40 @@ function MonetizationService.start()
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
 
-		local ok, granted = pcall(grantProduct, player, def.key)
-		if ok and granted then
-			return Enum.ProductPurchaseDecision.PurchaseGranted
+		local profile = DataService.get(player)
+		if not profile then
+			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
-		return Enum.ProductPurchaseDecision.NotProcessedYet
+
+		local receiptId = tostring(receipt.PurchaseId)
+		for _, seen in profile.receipts do
+			if seen == receiptId then
+				-- Already paid for. Settled, so Roblox can stop asking.
+				return Enum.ProductPurchaseDecision.PurchaseGranted
+			end
+		end
+
+		local ok, granted = pcall(grantProduct, player, def.key)
+		if not (ok and granted) then
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
+
+		--[[
+			Recorded after the grant, not before.
+
+			If the server dies between the two, the receipt is unrecorded and
+			Roblox asks again, which pays the player twice for one purchase.
+			Recording first would instead risk swallowing a purchase that never
+			landed, and a player who paid and got nothing is the worse failure
+			of the two by a distance.
+		]]
+		table.insert(profile.receipts, receiptId)
+		while #profile.receipts > DefaultData.RECEIPT_MEMORY do
+			table.remove(profile.receipts, 1)
+		end
+		DataService.save(player)
+
+		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
 
 	-- Passes reach the rest of the game through the multiplier stack, so nothing

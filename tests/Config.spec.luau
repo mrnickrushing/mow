@@ -13,6 +13,7 @@ local Monetization = require("./.build/Shared/Config/Monetization")
 local Worlds = require("./.build/Shared/Config/Worlds")
 local Tools = require("./.build/Shared/Config/Tools")
 local Types = require("./.build/Shared/Types")
+local DefaultData = require("./.build/Server/Lib/DefaultData")
 local Props = require("./.build/Shared/Config/Props")
 local Upgrades = require("./.build/Shared/Config/Upgrades")
 local h = require("./harness")
@@ -470,6 +471,43 @@ return function()
 					)
 				end
 			end
+		end)
+	end)
+
+	h.describe("Saves — receipts", function()
+		--[[
+			Robux is real money, so the ledger that stops a purchase being paid
+			out twice is worth holding down with tests rather than trusting to
+			the next person not to drop a field.
+		]]
+		h.it("gives a fresh profile somewhere to record receipts", function()
+			local fresh = DefaultData.template()
+			h.expectTrue(type(fresh.receipts) == "table", "a new profile cannot remember receipts")
+			h.expectTrue(#fresh.receipts == 0, "a new profile starts owing nothing")
+		end)
+
+		h.it("gives an old save one too, rather than leaving it nil", function()
+			-- A save from before receipts existed. Without a table here, the
+			-- first purchase after an update indexes nil and the grant throws,
+			-- which Roblox answers by retrying the same receipt forever.
+			local old = { version = 1, worldsBeaten = {}, stats = {} }
+			local migrated = DefaultData.migrate(old)
+			h.expectTrue(type(migrated.receipts) == "table", "a migrated profile cannot remember receipts")
+		end)
+
+		h.it("replaces a receipts field of the wrong type", function()
+			local corrupt = DefaultData.migrate({ version = 1, receipts = "not a table" })
+			h.expectTrue(type(corrupt.receipts) == "table", "a corrupt receipts field survived migration")
+		end)
+
+		h.it("remembers enough receipts to outlast Roblox's retries", function()
+			-- Roblox stops retrying a receipt within a day. The cap only exists
+			-- so a profile cannot grow without bound, and has to sit well above
+			-- any plausible run of purchases in that window.
+			h.expectTrue(
+				DefaultData.RECEIPT_MEMORY >= 20,
+				`remembering only {DefaultData.RECEIPT_MEMORY} receipts risks forgetting one still being retried`
+			)
 		end)
 	end)
 

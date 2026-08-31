@@ -28,6 +28,27 @@ local ReplicationService = {}
 --- Shortest gap between two answers to the same client asking for the world.
 local WORLD_INFO_ASK_INTERVAL = 0.5
 
+--[[
+	How much chunk data one player may pull, and how fast it refills.
+
+	Chunk requests come from the client as it moves, and one call may ask for up
+	to five hundred and twelve of them. Nothing bounded how often it could ask,
+	so a client — malicious or merely broken — could sit in a loop demanding the
+	whole grid and make the server serialise it over and over, for everybody.
+
+	An allowance rather than a fixed interval, because the honest shape of this
+	traffic is one large burst and then a trickle: arriving in a world needs
+	every chunk in sight at once, and after that only what comes into view. A
+	burst big enough to cover that first load, refilling fast enough to keep up
+	with walking, still cuts a runaway loop down to a slow drip.
+]]
+local CHUNK_BUDGET_BURST = 3200
+local CHUNK_BUDGET_PER_SECOND = 600
+
+--- Chunk allowance left, and when it was last topped up, per player.
+local chunkBudget: { [Player]: number } = {}
+local chunkBudgetAt: { [Player]: number } = {}
+
 --- What a client is told about the loaded world when it joins or a run starts.
 export type WorldInfo = {
 	worldId: string,
@@ -211,16 +232,32 @@ function ReplicationService.start()
 			return
 		end
 
+		-- Refill first, so a player who has been quiet gets their allowance back
+		-- before it is spent.
+		local now = os.clock()
+		local since = now - (chunkBudgetAt[player] or now)
+		chunkBudgetAt[player] = now
+		local budget = math.min(
+			(chunkBudget[player] or CHUNK_BUDGET_BURST) + since * CHUNK_BUDGET_PER_SECOND,
+			CHUNK_BUDGET_BURST
+		)
+		if budget < 1 then
+			chunkBudget[player] = budget
+			return
+		end
+
 		local wanted = {}
 		local chunkCount = Grid.chunkCount(theGrid)
 		for _, value in payload :: { any } do
 			if type(value) == "number" and value >= 1 and value <= chunkCount and value % 1 == 0 then
 				table.insert(wanted, value)
-				if #wanted >= 512 then
+				if #wanted >= 512 or #wanted >= budget then
 					break
 				end
 			end
 		end
+
+		chunkBudget[player] = budget - #wanted
 		ReplicationService.sendChunks(player, wanted)
 	end)
 
@@ -252,6 +289,8 @@ function ReplicationService.start()
 
 	Players.PlayerRemoving:Connect(function(player)
 		lastAsked[player] = nil
+		chunkBudget[player] = nil
+		chunkBudgetAt[player] = nil
 	end)
 
 	local accumulator = 0
