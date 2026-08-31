@@ -46,8 +46,18 @@ local GameConfig = {
 	--------------------------------------------------------------------
 	-- Client rendering
 	--------------------------------------------------------------------
-	--- Tiles within this radius of the camera render as individual parts.
-	DETAIL_RADIUS = 56,
+	--[[
+		Tiles within this radius of the camera render as individual parts.
+
+		Beyond it a whole chunk becomes one flat slab, so this is where the
+		lawn stops being leaves and starts being a colour — and at fifty-six
+		studs that seam landed close enough to the player to read as a hard
+		line drawn across the grass. Pushed out far enough that the change
+		happens in the middle distance, where the haze and the falling detail
+		hide it, and still inside the part budget: a seventy-two stud radius is
+		about a thousand tiles, four parts each at worst.
+	]]
+	DETAIL_RADIUS = 72,
 	--- Chunks within this radius render as a single flat LOD plane.
 	LOD_RADIUS = 460,
 	--- Hard ceiling on pooled tile parts, protecting low-end devices.

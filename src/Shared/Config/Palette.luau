@@ -63,6 +63,18 @@ Palette.leaves = {
 --- Underside of a leaf, used on the ones that land face down.
 Palette.leafPale = rgb(252, 214, 142)
 
+--[[
+	What a drift of leaves reads as from across a property.
+
+	Far enough away to be a surface rather than separate leaves, a leafy lawn
+	is not the colour of a leaf. It is ground with litter on it: roughly half
+	the lawn's green, half the average of the nine shades above. Painting the
+	distance in a leaf colour instead put a band of flat, fully saturated gold
+	across the middle of every property — a solid sheet, with straight chunk
+	edges, that looked nothing like the drift you walk into when you reach it.
+]]
+Palette.leafDrift = rgb(173, 172, 66)
+
 Palette.grass = {
 	blade = rgb(142, 194, 76),
 	bladeDark = rgb(108, 162, 56),

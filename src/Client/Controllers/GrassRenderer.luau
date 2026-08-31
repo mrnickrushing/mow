@@ -611,10 +611,9 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		their own colour because a drift genuinely is the thing you can see from
 		across a property.
 	]]
-	local color = baseColor(
-		if debrisId == DebrisConfig.Leaves then DebrisConfig.Leaves else DebrisConfig.Grass,
-		1
-	)
+	local color = if debrisId == DebrisConfig.Leaves
+		then Palette.color(Palette.leafDrift)
+		else baseColor(DebrisConfig.Grass, 1)
 
 	part.Size = Vector3.new(studs, thickness, studs)
 	part.CFrame = CFrame.new(x, floor + thickness * 0.5, z)
