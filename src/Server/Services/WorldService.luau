@@ -322,7 +322,9 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 		local alongX = side == "north" or side == "south"
 		local length = if alongX then width else depth
 		local steps = math.max(math.floor((length + 160) / SPACING), 2)
-		local rows = if side == "south" then { 42, 74 } else { 20, 50 }
+		-- Annotated, because an `if` between two array literals infers as a
+		-- union that the generic `for` will not accept as iterable.
+		local rows: { number } = if side == "south" then { 42, 74 } else { 20, 50 }
 		for _, out in rows do
 			for step = 0, steps do
 				local at = -80 + (length + 160) * (step / steps) + beltRng:NextNumber(-9, 9)

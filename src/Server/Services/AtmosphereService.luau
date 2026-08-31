@@ -98,8 +98,17 @@ function AtmosphereService.start()
 	local grade: ColorCorrectionEffect = child("ColorCorrectionEffect", "MowGrade", Lighting)
 	grade.Brightness = 0.0
 	grade.Contrast = 0.07
-	grade.Saturation = 0.09
-	grade.TintColor = Palette.color(Palette.rgb(255, 240, 224))
+	--[[
+		Enough saturation to keep the lawn a lawn.
+
+		Cut to almost nothing when the grade was backed off, which was right
+		for the leaves and wrong for the grass: with the light no longer doing
+		the saturating, the greens went flat. This sits between the two — the
+		palette reads as itself, and nothing is pinned at the top of its
+		channel.
+	]]
+	grade.Saturation = 0.18
+	grade.TintColor = Palette.color(Palette.rgb(250, 248, 246))
 	grade.Enabled = true
 
 	local bloom: BloomEffect = child("BloomEffect", "MowBloom", Lighting)

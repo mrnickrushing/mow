@@ -455,8 +455,18 @@ function Build.gableRoof(
 				its eaves.
 			]]
 			local spin = if alongX then 0 else math.pi * 0.5
+			--[[
+				Each half turns to put its tall edge against the ridge.
+
+				Measured rather than reasoned about: a wedge's full-height face
+				is on its +Z side and it falls away toward -Z, which is the
+				opposite of what this assumed. With the halves the wrong way up
+				the triangle was full height at the eave and nothing at the
+				ridge, so instead of closing the end of the roof each one stood
+				proud of it as a sail.
+			]]
 			wedge.CFrame = CFrame.new(centre + outward + sideways + Vector3.new(0, eaveY + rise * 0.5, 0))
-				* CFrame.Angles(0, spin + (if half > 0 then 0 else math.pi), 0)
+				* CFrame.Angles(0, spin + (if half > 0 then math.pi else 0), 0)
 			wedge.Parent = folder
 		end
 	end

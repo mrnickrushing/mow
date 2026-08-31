@@ -58,9 +58,41 @@ local leafPool: { Part } = {}
 local activeIsLeaf: { [number]: boolean } = {}
 local lodParts: { [number]: Part } = {}
 local known: { [number]: boolean } = {}
-local requested: { [number]: boolean } = {}
+--[[
+	When each chunk was last asked for.
+
+	This was a plain "have we asked?" flag, set the first time a chunk came
+	into range and never cleared, so a request that went out and never came
+	back left a hole in the world for the rest of the run — the client would
+	not ask twice. On The Mansion that was not a rare packet either: better
+	than a third of the property arrived as bare ground you could walk across
+	and never clear, because the tiles were on the server and the client had
+	simply given up asking. Asking again after a few seconds costs one number
+	per missing chunk and closes the hole.
+]]
+local requestedAt: { [number]: number } = {}
+
+--- How long to wait for a chunk before asking for it again.
+local REQUEST_RETRY_SECONDS = 3
+
+--- Chunks asked for in one pass, so a world that has just loaded does not send
+--- its entire grid in a single packet.
+local REQUEST_BATCH = 256
 local openSections: { [string]: boolean } = {}
 local tileSection: { string } = {}
+
+--[[
+	The colours the distance is painted in, for the world now loaded.
+
+	A chunk seen from far off is one flat slab, and what it should look like is
+	the ground of this particular lot: green on the two lawns, dark stone on the
+	Gas Station. Taking it from the grass palette instead laid a green rectangle
+	over the stone yard, which is the same mistake as painting a leafy chunk
+	gold, one world along. Both are worked out once per load from the world's
+	own `baseGround`.
+]]
+local groundColor = Palette.color(Palette.ground.lawn)
+local driftColor = Palette.color(Palette.ground.lawn)
 local tileElevation: { number } = {}
 
 local requestChunks: RemoteEvent
@@ -239,6 +271,13 @@ local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
 	if not world then
 		return
 	end
+	local ground = world.baseGround
+	groundColor = Color3.new(ground[1], ground[2], ground[3])
+	-- A fifth of the way toward the leaves and no further: the carpet is smooth
+	-- where the lot around it is full of clumps, so its shape already gives it
+	-- away and its colour has to stay quiet.
+	driftColor = groundColor:Lerp(Palette.color(Palette.leafAverage), 0.2)
+
 	for _, section in world.sections do
 		local r = section.rect
 		local elevation = section.elevation or 0
@@ -611,9 +650,7 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		their own colour because a drift genuinely is the thing you can see from
 		across a property.
 	]]
-	local color = if debrisId == DebrisConfig.Leaves
-		then Palette.color(Palette.leafDrift)
-		else baseColor(DebrisConfig.Grass, 1)
+	local color = if debrisId == DebrisConfig.Leaves then driftColor else groundColor
 
 	part.Size = Vector3.new(studs, thickness, studs)
 	part.CFrame = CFrame.new(x, floor + thickness * 0.5, z)
@@ -641,6 +678,7 @@ local function refresh()
 		return
 	end
 	local focus = camera.CFrame.Position
+	local now = os.clock()
 
 	local centreTx, centreTz = Grid.worldToTile(theGrid, focus.X, focus.Z)
 	local reachChunks = math.ceil(GameConfig.LOD_RADIUS / (theGrid.chunkTiles * TILE)) + 1
@@ -658,9 +696,12 @@ local function refresh()
 				local distanceSq = dx * dx + dz * dz
 
 				if distanceSq <= LOD_SQ then
-					if not known[chunkIndex] and not requested[chunkIndex] then
-						requested[chunkIndex] = true
-						table.insert(pendingRequest, chunkIndex)
+					if not known[chunkIndex] and #pendingRequest < REQUEST_BATCH then
+						local askedAt = requestedAt[chunkIndex]
+						if not askedAt or now - askedAt > REQUEST_RETRY_SECONDS then
+							requestedAt[chunkIndex] = now
+							table.insert(pendingRequest, chunkIndex)
+						end
 					end
 
 					local chunkReach = theGrid.chunkTiles * TILE * 0.75
@@ -717,7 +758,7 @@ local function resetWorld(width: number, depth: number)
 	end
 	table.clear(lodParts)
 	table.clear(known)
-	table.clear(requested)
+	table.clear(requestedAt)
 
 	grid = Grid.new(width, depth)
 	tiles = buffer.create(width * depth)
