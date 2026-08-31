@@ -128,12 +128,66 @@ local catalogue: { [string]: Prop } = {
 	GrinderTool = prop("rbxassetid://130280705075193", "rbxassetid://74077511096748", 1.527, 1.200, 1.445),
 	ChipperTool = prop("rbxassetid://84533763020814", "rbxassetid://110674468060386", 0.779, 1.400, 0.782),
 
+	--[[
+		The icons, which are models like everything else.
+
+		The whole interface was emoji: a glove for bare hands, a broom for the
+		rake, a tractor for the mower, a coin for your money, a padlock on
+		anything you had not unlocked. An emoji is a font glyph, so it is drawn
+		by whatever the player's device happens to ship — the same screen is a
+		different picture on a phone, a console and a PC, and none of them are
+		the game's own art. These are, and they are shown in viewport frames, so
+		the icon for a tool is the tool.
+	]]
+	Coin = prop("rbxassetid://76322956476502", "rbxassetid://105081756236173", 0.908, 0.886, 0.300),
+	Journal = prop("rbxassetid://87614061994120", "rbxassetid://79358286968081", 0.636, 0.887, 0.500),
+	Padlock = prop("rbxassetid://130942971715023", "rbxassetid://132672323950414", 1.025, 1.671, 0.600),
+	Shears = prop("rbxassetid://71636174258723", "rbxassetid://127073519402737", 1.200, 1.873, 0.171),
+	MapPin = prop("rbxassetid://133341600847886", "rbxassetid://94199733035450", 1.365, 2.000, 1.350),
+	Toolbox = prop("rbxassetid://112706816871275", "rbxassetid://127876097432280", 1.995, 1.600, 1.169),
+	UpArrow = prop("rbxassetid://128060605098219", "rbxassetid://111066637200078", 1.178, 1.403, 0.500),
+	Scroll = prop("rbxassetid://118113022200836", "rbxassetid://134224931906361", 1.510, 1.388, 1.000),
+	QuestionSign = prop("rbxassetid://90537364692984", "rbxassetid://134330319773516", 1.800, 2.076, 0.388),
+	Tick = prop("rbxassetid://125217432482528", "rbxassetid://102708394051568", 0.189, 0.390, 0.400),
+	Cross = prop("rbxassetid://99413284614654", "rbxassetid://71908766239251", 1.574, 1.575, 0.400),
+
 	-- The stock on the shed shelf.
 	Sack = prop("rbxassetid://138022973254032", "rbxassetid://92817985554289", 2.943, 4.000, 3.277),
 	LeafBlower = prop("rbxassetid://120198329733477", "rbxassetid://127839085444983", 2.114, 3.000, 4.231),
 }
 
 Props.catalogue = catalogue
+
+--[[
+	The model that stands for a kind of tool, wherever one has to be shown.
+
+	The hotbar, the badge on the HUD and every upgrade tile in the book all
+	need a picture of a tool, and all three used to keep their own list of
+	emoji — which is how the hotbar came to show a household broom for the rake
+	while the HUD showed a leaf. One list, and it names models.
+]]
+local TOOL_ICON: { [string]: string } = {
+	Hand = "Gloves",
+	Shears = "Shears",
+	Rake = "RakeTool",
+	Mower = "RidingMower",
+	Trimmer = "TrimmerTool",
+	Blower = "LeafBlower",
+	HedgeTrimmer = "HedgeTool",
+	Saw = "SawTool",
+	Chainsaw = "SawTool",
+	Grinder = "GrinderTool",
+	Chipper = "ChipperTool",
+}
+
+--- Shown for a tool category nothing has been drawn for yet, so adding one
+--- cannot leave a blank slot in the bar.
+Props.FALLBACK_TOOL_ICON = "Toolbox"
+
+--- The catalogue name of the model for a tool category.
+function Props.forToolCategory(category: string): string
+	return TOOL_ICON[category] or Props.FALLBACK_TOOL_ICON
+end
 
 --- The prop by name, or nil when nothing in the catalogue answers to it.
 function Props.get(name: string): Prop?
