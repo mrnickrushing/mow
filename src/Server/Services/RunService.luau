@@ -291,6 +291,30 @@ local function beginRun(id: string)
 
 	openSection(Worlds.startSection(world).id, false)
 
+	--[[
+		Put everybody on the property they are about to play.
+
+		A `SpawnLocation` only places anyone when a character is *loaded*, and
+		moving between worlds does not load one — so players stayed exactly
+		where the last property left them. Pick The Gas Station from the level
+		select after finishing The Mansion and you would arrive standing in the
+		middle of nothing, two hundred studs off the new lot, with the property
+		you chose somewhere over the horizon.
+
+		Moved rather than reloaded: `LoadCharacter` would place them correctly
+		too, but it throws away the character to do it, and there is no reason
+		for choosing a property to cost you your avatar for a second.
+	]]
+	local spawnAt = WorldService.spawnPoint()
+	if spawnAt then
+		for _, player in Players:GetPlayers() do
+			local character = player.Character
+			if character and character.PrimaryPart then
+				character:PivotTo(spawnAt)
+			end
+		end
+	end
+
 	-- Everyone starts from nothing. That is the whole shape of a run.
 	RunState.resetAll()
 	BagService.clearAll()
