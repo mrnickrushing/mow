@@ -6,6 +6,8 @@
 	Worlds, so there is no hand-built map to keep in sync with the config.
 ]]
 
+local RunService = game:GetService("RunService")
+
 local Palette = require(game:GetService("ReplicatedStorage").Shared.Config.Palette)
 local Audio = require(game:GetService("ReplicatedStorage").Shared.Config.Audio)
 local Props = require(game:GetService("ReplicatedStorage").Shared.Config.Props)
@@ -65,6 +67,48 @@ export type MeshOptions = {
 	Falls back to a plain coloured part when a prop name is unknown, so a typo
 	costs a nice model rather than a missing object in the middle of the lawn.
 ]]
+--[[
+	How far a model may be scaled up before its texture stops being a texture.
+
+	A `SpecialMesh` texture does not repeat when the mesh is scaled, it
+	stretches, so a model of a surface drawn at four times its own size is a
+	model of that surface with everything on it four times too big. Past this
+	it stops reading as the thing it is a picture of: a shingle panel became a
+	chequerboard, lap siding became a barcode, a garage door became a salmon
+	rectangle with three lines on it, and a seven stud turf panel over a whole
+	property became bands forty studs wide.
+
+	Every one of those shipped, and none of them was noticed from the source,
+	because a call asking for a hundred-and-eighty stud wall looks perfectly
+	reasonable next to a prop table you are not reading at the same time. So it
+	says so, out loud, while the world is being built.
+]]
+local MAX_STRETCH = 4.5
+
+--[[
+	Says so when a prop is being asked to cover more than it can.
+
+	Studio only. This is a note to whoever is building the world, not something
+	a player's server should spend its output on, and by the time a place is
+	published every one of these has either been fixed or deliberately kept.
+]]
+local function warnIfStretched(options: MeshOptions, scale: Vector3)
+	if not RunService:IsStudio() then
+		return
+	end
+	local worst = math.max(scale.X, scale.Y, scale.Z)
+	if worst <= MAX_STRETCH then
+		return
+	end
+	warn(string.format(
+		"[Build] %s (%s) is drawn at %.0fx its own size — its texture will stretch, not tile. "
+			.. "A surface this size wants a plain part with a material.",
+		options.name or options.prop,
+		options.prop,
+		worst
+	))
+end
+
 function Build.mesh(options: MeshOptions): Part
 	local def = Props.get(options.prop)
 	--[[
@@ -105,11 +149,13 @@ function Build.mesh(options: MeshOptions): Part
 	if def.texture and not options.untextured then
 		mesh.TextureId = def.texture
 	end
-	mesh.Scale = Vector3.new(
+	local scale = Vector3.new(
 		options.size.X / def.native.X,
 		options.size.Y / def.native.Y,
 		options.size.Z / def.native.Z
 	)
+	mesh.Scale = scale
+	warnIfStretched(options, scale)
 
 	--[[
 		Stand the model on the same ground as the box under it.

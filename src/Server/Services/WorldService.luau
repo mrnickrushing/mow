@@ -497,12 +497,12 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		A house seen from across a lawn is mostly its silhouette, and a flat
 		slab of roof has none. One stack breaks it.
 	]]
-	Build.mesh({
-		prop = "BrickWall",
+	Build.part({
 		name = "Chimney",
 		size = Vector3.new(7, 12, 7),
 		cframe = CFrame.new(centre + Vector3.new(halfWidth * 0.56, 4 + wallHeight + 7, halfDepth * 0.24)),
 		color = Palette.color(Palette.house.brick),
+		material = Enum.Material.Brick,
 		parent = house,
 	})
 
@@ -617,23 +617,36 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		courses at roughly the proportion the model was made at, the joints
 		land where a garage door's joints land.
 	]]
-	local garageWidth = width * 0.34
+	--[[
+		Two bays, at the size a garage door is.
+
+		It used to be a third of the frontage, which on a house a hundred and
+		seventy-six studs wide is a sixty stud door — not a garage, a hangar,
+		and the thing that gave away that nothing on this building was drawn to
+		a human scale. A car is about ten studs, so a bay is fourteen.
+	]]
+	local bayWidth = 14
+	local bays = 2
 	local garageHeight = 13
 	local courses = math.max(math.floor(garageHeight / 2.6), 1)
 	local courseHeight = garageHeight / courses
-	for course = 0, courses - 1 do
-		Build.mesh({
-			prop = "GarageDoor",
-			name = "GarageDoor",
-			size = Vector3.new(garageWidth, courseHeight * 0.97, 1.2),
-			collisionSize = Vector3.new(garageWidth, courseHeight, 0.8),
-			cframe = CFrame.new(
-				garageX,
-				10.5 - garageHeight * 0.5 + courseHeight * (course + 0.5),
-				frontZ - 0.5
-			),
-			parent = garage,
-		})
+	local garageWidth = bayWidth * bays + 1.5
+	for bay = 0, bays - 1 do
+		local bayX = garageX + (bay - (bays - 1) * 0.5) * (bayWidth + 1.5)
+		for course = 0, courses - 1 do
+			Build.mesh({
+				prop = "GarageDoor",
+				name = "GarageDoor",
+				size = Vector3.new(bayWidth, courseHeight * 0.97, 1.2),
+				collisionSize = Vector3.new(bayWidth, courseHeight, 0.8),
+				cframe = CFrame.new(
+					bayX,
+					10.5 - garageHeight * 0.5 + courseHeight * (course + 0.5),
+					frontZ - 0.5
+				),
+				parent = garage,
+			})
+		end
 	end
 	Build.part({
 		name = "GarageFrame",
