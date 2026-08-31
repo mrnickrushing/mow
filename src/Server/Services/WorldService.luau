@@ -1926,8 +1926,9 @@ function WorldService.load(worldId: string)
 		local driveCentre = WorldService.tilePointFlat(13, 19)
 		Build.flagstone(parent, driveCentre + Vector3.new(0, 0.25, 0), Vector2.new(68, 84), 6, rng)
 	else
-		Build.fence(parent, 0, 0, width, depth, 6, Palette.color(Palette.fence.rail), 14)
-		if world.style == "lot" then
+		local lot = world.style == "lot"
+		Build.fence(parent, 0, 0, width, depth, 6, Palette.color(Palette.fence.rail), 14, lot)
+		if lot then
 			buildGasStation(world, parent)
 		end
 	end
