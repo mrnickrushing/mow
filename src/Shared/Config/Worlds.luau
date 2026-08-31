@@ -55,7 +55,10 @@ local house: Types.WorldDef = {
 	style = "house",
 	houseRect = { x = 26, z = 34, w = 44, d = 20 },
 	shed = { x = 82, z = 54 },
-	trailer = { x = 48, z = 4 },
+	-- Parked to one side of the spawn rather than square in front of it: at
+	-- two tiles ahead and the same x, the trailer filled the entire first view
+	-- of the property. It is still the first thing you walk past.
+	trailer = { x = 41, z = 4 },
 	spawn = { x = 48, z = 2 },
 	exit = { x = 84, z = 91 },
 
@@ -195,7 +198,7 @@ local mansion: Types.WorldDef = {
 	style = "house",
 	houseRect = { x = 42, z = 50, w = 66, d = 30 },
 	shed = { x = 124, z = 82 },
-	trailer = { x = 74, z = 5 },
+	trailer = { x = 67, z = 5 },
 	spawn = { x = 74, z = 2 },
 	exit = { x = 124, z = 130 },
 
@@ -278,7 +281,7 @@ local gasStation: Types.WorldDef = {
 	baseGround = Palette.ground.stone,
 	style = "lot",
 	shed = { x = 124, z = 20 },
-	trailer = { x = 72, z = 5 },
+	trailer = { x = 65, z = 5 },
 	spawn = { x = 72, z = 2 },
 	exit = { x = 124, z = 130 },
 

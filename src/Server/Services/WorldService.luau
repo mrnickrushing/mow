@@ -1354,10 +1354,31 @@ function WorldService.load(worldId: string)
 		parent = parent,
 	})
 
+	--[[
+		Facing the work.
+
+		A `SpawnLocation` points whichever way its CFrame does, and this one was
+		built from the pad's, which is unrotated — so every player arrived
+		looking down the road with the entire property behind them: the lawn,
+		the trailer, the house, all of it out of shot until they thought to turn
+		around. It now looks at the middle of the section the run starts in,
+		levelled so nobody spawns staring at the grass or the sky.
+	]]
+	local startSection = Worlds.startSection(world)
+	local lookAt = WorldService.tilePointFlat(
+		startSection.rect.x + startSection.rect.w * 0.5,
+		startSection.rect.z + startSection.rect.d * 0.5
+	)
+	local spawnPos = spawnPart.Position + Vector3.new(0, 0.4, 0)
+	local level = Vector3.new(lookAt.X, spawnPos.Y, lookAt.Z)
+
 	local spawnLocation = Instance.new("SpawnLocation")
 	spawnLocation.Name = "MowSpawn"
 	spawnLocation.Size = Vector3.new(18, 0.2, 18)
-	spawnLocation.CFrame = spawnPart.CFrame + Vector3.new(0, 0.4, 0)
+	-- Guarded, because `lookAt` on two points in the same place is undefined.
+	spawnLocation.CFrame = if (level - spawnPos).Magnitude > 0.5
+		then CFrame.lookAt(spawnPos, level)
+		else spawnPart.CFrame + Vector3.new(0, 0.4, 0)
 	spawnLocation.Anchored = true
 	spawnLocation.CanCollide = false
 	spawnLocation.Transparency = 1
