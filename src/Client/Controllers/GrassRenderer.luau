@@ -615,7 +615,21 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 
 	local existing = lodParts[chunkIndex]
 
-	if samples == 0 or remaining == 0 then
+	--[[
+		Grass at distance is the ground it grows on, so nothing is drawn for it.
+
+		The carpet is the lot's own ground colour now, laid a stud or two above
+		the actual ground, which is the same colour and the same material. That
+		should be invisible and is not: a raised slab catches the light a shade
+		differently and puts a shadow along its edge, so the far half of every
+		property kept a faint grid of thirty-two stud rectangles on it — the
+		last of the chequerboard, in its quietest form.
+
+		A drift still gets one, because a lawn covered in leaves genuinely does
+		look different from across a property and that is worth being able to
+		see. Bare grass does not, so it is left to the ground to draw.
+	]]
+	if samples == 0 or remaining == 0 or debrisId ~= DebrisConfig.Leaves then
 		if existing then
 			existing.Parent = nil
 		end

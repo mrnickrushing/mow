@@ -240,6 +240,17 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 		It is fine noise at any scale, it has no pattern to magnify, and it
 		leaves the clumps the renderer scatters on top to do the describing.
 	]]
+	--[[
+		Not every lot is a lawn.
+
+		The Gas Station is a stone forecourt — its own `baseGround` is paving
+		tan — and it was being surfaced with Roblox's grass material like the
+		other two, which put fine blade-shaped noise over the whole yard. The
+		apron around it stays grass whichever world it is, because the land
+		beyond the property line is fields in all three.
+	]]
+	local groundMaterial = if world.style == "lot" then Enum.Material.Concrete else Enum.Material.Grass
+
 	local slabs = Structures.subtractAll({ x = 0, z = 0, w = grid.width, d = grid.depth }, holes)
 	for index, slab in slabs do
 		Build.part({
@@ -251,7 +262,7 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 				(slab.z + slab.d * 0.5) * TILE
 			),
 			color = toColor(world.baseGround),
-			material = Enum.Material.Grass,
+			material = groundMaterial,
 			parent = parent,
 		})
 	end
