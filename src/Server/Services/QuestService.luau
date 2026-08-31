@@ -166,10 +166,32 @@ function QuestService.start()
 	end)
 
 	-- Opening the journal is itself an objective, so the client tells us.
+	--[[
+		The only quest a client reports itself.
+
+		Everything else here is advanced by the server watching what actually
+		happened — a tile cut, a bag sold. Opening the journal has no server-side
+		trace, so the client says so, and a client saying so can say it a
+		thousand times a second. It cannot grant the quest twice (a finished
+		quest stops advancing), but it can make the server do the work of
+		checking, for nothing, as fast as it likes.
+
+		Half a second between reports. A player opening their journal that often
+		is not opening their journal.
+	]]
+	local lastOpened: { [Player]: number } = {}
+	local OPENED_INTERVAL = 0.5
+
 	questRemote.OnServerEvent:Connect(function(player: Player, action: any)
-		if action == "opened" then
-			QuestService.advance(player, "journal", 1)
+		if action ~= "opened" then
+			return
 		end
+		local now = os.clock()
+		if now - (lastOpened[player] or -math.huge) < OPENED_INTERVAL then
+			return
+		end
+		lastOpened[player] = now
+		QuestService.advance(player, "journal", 1)
 	end)
 
 	TileService.Cut:Connect(function(player: Player, _index: number, _debrisId: number, levels: number)
@@ -180,7 +202,9 @@ function QuestService.start()
 		QuestService.advance(player, "sell", units)
 	end)
 
-	Players.PlayerRemoving:Connect(function() end)
+	Players.PlayerRemoving:Connect(function(player: Player)
+		lastOpened[player] = nil
+	end)
 end
 
 return QuestService

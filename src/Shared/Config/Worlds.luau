@@ -190,7 +190,21 @@ local mansion: Types.WorldDef = {
 	requiresWorld = "house",
 	gridWidth = 144,
 	gridDepth = 144,
-	runSeconds = 5400,
+	--[[
+		A tighter clock than The House, and The Gas Station's is tighter still
+		against what it asks for.
+
+		Every property used to give ninety minutes. That made the ladder read
+		backwards: this world holds more than twice the work of The House, but
+		it also pays better, and the gear that buys bought clearing speed faster
+		than the extra ground cost — so a perfect run finished The Mansion in
+		37:40 against The House's 41:14. The middle rung was the easiest one.
+
+		Paying less was the wrong lever; the payout is already the minimum that
+		reaches the gear this world needs. Time is the honest one, and it is the
+		thing a player can feel: more ground, less of the afternoon to do it in.
+	]]
+	runSeconds = 4050,
 	-- Enough to reach the gear this world needs, and no more. Paying several
 	-- times the first world turned it into the easiest one.
 	payoutMultiplier = 1.6,
@@ -276,7 +290,7 @@ local gasStation: Types.WorldDef = {
 	requiresWorld = "mansion",
 	gridWidth = 144,
 	gridDepth = 144,
-	runSeconds = 5400,
+	runSeconds = 4650,
 	payoutMultiplier = 2.1,
 	baseGround = Palette.ground.stone,
 	style = "lot",

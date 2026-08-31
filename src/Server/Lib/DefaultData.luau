@@ -10,8 +10,8 @@
 
 local DefaultData = {}
 
---- Bumped: run state moved out of the profile.
-DefaultData.VERSION = 2
+--- Bumped: receipts are remembered, so a retried purchase cannot pay twice.
+DefaultData.VERSION = 3
 
 export type Stats = {
 	tilesCut: number,
@@ -42,6 +42,20 @@ export type Profile = {
 	--- Tools bought outright with Robux. Handed back at the start of every run,
 	--- which is the only thing besides records that outlives one.
 	permanentTools: { [string]: boolean },
+	--[[
+		Robux receipts already granted, newest last.
+
+		Roblox retries `ProcessReceipt` until it is told the purchase was
+		granted, and a server that dies in the moment between granting and
+		answering will be asked again by the next one. Without a record of what
+		has already been paid out, that second ask grants the product a second
+		time — free goods, on a real transaction. Keeping the ids is what makes
+		granting idempotent.
+
+		Trimmed to the most recent `RECEIPT_MEMORY`: Roblox stops retrying long
+		before that, and a profile that grows forever eventually stops saving.
+	]]
+	receipts: { string },
 	questProgress: { [string]: number },
 	questsDone: { [string]: boolean },
 	dailyStreak: number,
@@ -51,6 +65,10 @@ export type Profile = {
 	musicEnabled: boolean,
 	sfxEnabled: boolean,
 }
+
+--- How many past receipts a profile remembers. Roblox gives up retrying a
+--- receipt within a day; this is far more than enough to outlast that.
+DefaultData.RECEIPT_MEMORY = 50
 
 function DefaultData.template(): Profile
 	return {
@@ -67,6 +85,7 @@ function DefaultData.template(): Profile
 		},
 		tokens = 0,
 		permanentTools = {},
+		receipts = {},
 		questProgress = {},
 		questsDone = {},
 		dailyStreak = 0,
@@ -100,6 +119,10 @@ function DefaultData.migrate(data: any): Profile
 
 	if type(data.permanentTools) ~= "table" then
 		data.permanentTools = {}
+	end
+
+	if type(data.receipts) ~= "table" then
+		data.receipts = {}
 	end
 
 	for key, value in fresh.stats do
