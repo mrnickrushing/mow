@@ -346,19 +346,90 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 
 	local frontZ = centre.Z - depth * 0.5
 
-	-- Windows down the front, with teal surrounds.
-	for _, ratio in { -0.32, 0.3 } do
-		local at = Vector3.new(centre.X + width * ratio, 12, frontZ - 0.7)
-		Build.mesh({
-			prop = "Window",
-			name = "Window",
-			size = Vector3.new(9, 9, 0.9),
-			collisionSize = Vector3.new(9, 9, 0.6),
-			cframe = CFrame.new(at),
-			canCollide = false,
-			parent = house,
-		})
+	--[[
+		Windows, on every side and enough of them to read as a house.
+
+		There used to be two, both on the front, at fixed fractions of the
+		width. The House's frontage is a hundred and eighty studs across, so two
+		nine-stud windows on it is not a house with windows — it is a very long
+		fence with two holes, and from the lawn that is exactly what it looked
+		like. The other three walls had none at all, so from anywhere but the
+		front the building was a blank slab.
+
+		They are spaced along each wall now rather than placed at hand, at a
+		pitch that divides the wall evenly, in two storeys where the wall is
+		tall enough for a second. The margin keeps them off the corners, where
+		a window would otherwise run past the end of its own wall.
+	]]
+	local WINDOW_PITCH = 17
+	local WINDOW_WIDTH, WINDOW_HEIGHT = 7.5, 7
+	--- Window centre heights. A second storey only where the wall is tall.
+	local storeys: { number } = if wallHeight >= 24 then { 11, 22 } else { 11 }
+	--- Kept clear of the corners, so a window never runs past its own wall.
+	local MARGIN = 12
+
+	--[[
+		Places a row of windows along one wall.
+
+		`origin` is the middle of the wall face, `along` the direction the wall
+		runs, and `yaw` the way the window should face. `clear` is the half-width
+		of a stretch in the middle of the wall to leave alone, for the front,
+		where the porch roof would hide anything behind it.
+	]]
+	local function windowsAlong(origin: Vector3, along: Vector3, span: number, yaw: number, clear: number)
+		local usable = span - MARGIN
+		if usable <= 0 then
+			return
+		end
+		local count = math.max(math.floor(usable / WINDOW_PITCH), 1)
+		local step = usable / count
+
+		for index = 0, count do
+			local offset = -usable * 0.5 + step * index
+			for storey, height in storeys do
+				-- The porch only hides the ground floor.
+				local hidden = storey == 1 and clear > 0 and math.abs(offset - (-width * 0.18)) < clear
+				if not hidden then
+					local at = origin + along * offset
+					Build.mesh({
+						prop = "Window",
+						name = "Window",
+						size = Vector3.new(WINDOW_WIDTH, WINDOW_HEIGHT, 0.9),
+						collisionSize = Vector3.new(WINDOW_WIDTH, WINDOW_HEIGHT, 0.6),
+						cframe = CFrame.new(Vector3.new(at.X, height, at.Z)) * CFrame.Angles(0, yaw, 0),
+						canCollide = false,
+						parent = house,
+					})
+				end
+			end
+		end
 	end
+
+	local halfWidth, halfDepth = width * 0.5, depth * 0.5
+	local porchClear = width * 0.42 * 0.5 + 6
+	local sideways = Vector3.new(1, 0, 0)
+	local frontways = Vector3.new(0, 0, 1)
+
+	-- Front, back, then the two ends.
+	windowsAlong(centre - frontways * (halfDepth + 0.7), sideways, width, 0, porchClear)
+	windowsAlong(centre + frontways * (halfDepth + 0.7), sideways, width, math.pi, 0)
+	windowsAlong(centre - sideways * (halfWidth + 0.7), frontways, depth, math.rad(-90), 0)
+	windowsAlong(centre + sideways * (halfWidth + 0.7), frontways, depth, math.rad(90), 0)
+
+	--[[
+		A chimney, for the roofline.
+
+		A house seen from across a lawn is mostly its silhouette, and a flat
+		slab of roof has none. One stack breaks it.
+	]]
+	Build.mesh({
+		prop = "BrickWall",
+		name = "Chimney",
+		size = Vector3.new(7, 12, 7),
+		cframe = CFrame.new(centre + Vector3.new(halfWidth * 0.56, 4 + wallHeight + 7, halfDepth * 0.24)),
+		color = Palette.color(Palette.house.brick),
+		parent = house,
+	})
 
 	--------------------------------------------------------------------
 	-- Porch
