@@ -20,6 +20,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
 
 local Cutting = require(Shared.Cutting)
+local SoundController = require(script.Parent.SoundController)
 
 local GameConfig = require(Shared.Config.GameConfig)
 local Palette = require(Shared.Config.Palette)
@@ -40,6 +41,12 @@ local mowing = false
 local accumulator = 0
 --- Fractional passes carried between ticks, mirroring the server's own carry.
 local predictCarry = 0
+--- When the cut cue may next fire, on `os.clock`. A swath can clear a dozen
+--- tiles in one pass and each of them is a cut; without this the rustle plays a
+--- dozen times on the same frame and turns into a burst of static.
+local nextCutSound = 0
+--- Shortest gap between two cut cues, in seconds.
+local CUT_SOUND_GAP = 0.11
 local predictScratch: { number } = {}
 --- Clippings bagged since the last popup, and when that popup went up.
 local pendingUnits = 0
@@ -194,6 +201,19 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 
 	if bagged > 0 then
 		announce(tool, bagged)
+
+		--[[
+			One rustle per handful, not per tile.
+
+			The two samples alternate at random so a long pass over a deep lawn
+			does not repeat a single waveform, and `SoundController` pitches
+			each one differently again on top of that.
+		]]
+		local now = os.clock()
+		if now >= nextCutSound then
+			nextCutSound = now + CUT_SOUND_GAP
+			SoundController.play(if math.random() < 0.5 then "Cut" else "CutAlt")
+		end
 	end
 end
 
@@ -206,14 +226,22 @@ local function setMowing(value: boolean)
 		accumulator = 0
 		predictCarry = 0
 	end
+
+	-- Engine noise belongs to the machine, so it runs only while a mower is
+	-- actually cutting — not for a rake, and not while one idles in the shed.
+	local tool = MowController.equippedTool()
+	SoundController.setLoop("MowerLoop", value and tool ~= nil and tool.category == "Mower")
+
 	MowController.MowingChanged:Fire(mowing)
 end
 
 --- The tool in hand, or nil when nothing is equipped.
-local function equipped(): Types.ToolDef?
+function MowController.equippedTool(): Types.ToolDef?
 	local state = PlayerState.get()
 	return if state.equippedTool ~= "" then Tools.get(state.equippedTool) else nil
 end
+
+local equipped = MowController.equippedTool
 
 --[[
 	The word under the tool button.

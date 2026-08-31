@@ -29,6 +29,7 @@ local Journal = require(script.Parent.Journal)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 local Theme = require(script.Parent.Theme)
 local Props = require(Shared.Config.Props)
+local SoundController = require(script.Parent.Parent.Controllers.SoundController)
 
 local Hud = {}
 
@@ -753,6 +754,23 @@ function Hud.start()
 		end
 		if kind == "sale" and type(amount) == "number" then
 			Hud.gain(amount)
+		end
+
+		--[[
+			What each kind sounds like.
+
+			These are the player's own moments — their sale, their section —
+			so they play flat rather than from a point in the world. Deliberately
+			not every kind: a stall ("you need a saw for this") happens the
+			instant you press a prompt you cannot use, and giving that a noise
+			only punishes someone for trying something.
+		]]
+		if kind == "sale" then
+			SoundController.play("Sell")
+		elseif kind == "sectionClear" then
+			SoundController.play("Win")
+		elseif kind == "sectionUnlock" or kind == "quest" then
+			SoundController.play("Click")
 		end
 
 		if kind == "sectionClear" then
