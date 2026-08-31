@@ -35,17 +35,19 @@ REQUIRE = re.compile(r"require\(\s*script((?:\.[A-Za-z_][A-Za-z0-9_]*)+)\s*\)")
 NEEDS_STUB = re.compile(r"\b(Vector3|Color3)\s*\.")
 
 PRELUDE = """--!nolint
--- Added by scripts/build_tests.py. See NEEDS_STUB there.
-local Vector3 = {
-\tnew = function(x: number?, y: number?, z: number?)
+-- Added by scripts/build_tests.py. See NEEDS_STUB there. Typed `any` so that
+-- `luau analyze`, which follows requires into this mirror, does not then see a
+-- plain table where a module annotates a real `Vector3` or `Color3`.
+local Vector3: any = {
+\tnew = function(x, y, z)
 \t\treturn { X = x or 0, Y = y or 0, Z = z or 0 }
 \tend,
 }
-local Color3 = {
-\tnew = function(r: number?, g: number?, b: number?)
+local Color3: any = {
+\tnew = function(r, g, b)
 \t\treturn { R = r or 0, G = g or 0, B = b or 0 }
 \tend,
-\tfromRGB = function(r: number?, g: number?, b: number?)
+\tfromRGB = function(r, g, b)
 \t\treturn { R = (r or 0) / 255, G = (g or 0) / 255, B = (b or 0) / 255 }
 \tend,
 }

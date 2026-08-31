@@ -17,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local ChunkCodec = require(Shared.ChunkCodec)
 local Format = require(Shared.Util.Format)
 local Grid = require(Shared.Grid)
+local Sprites = require(Shared.Config.Sprites)
 local Types = require(Shared.Types)
 local BagService = require(script.Parent.BagService)
 local Build = require(script.Parent.Parent.Lib.Build)
@@ -85,6 +86,12 @@ local function makeSprinkler(tx: number, tz: number, parent: Instance)
 
 	local spray = Instance.new("ParticleEmitter")
 	spray.Enabled = false
+	-- Drawn for this game rather than Roblox's default particle, which is the
+	-- same soft blob every other place on the platform sprays. See `Sprites`.
+	local droplet = Sprites.get("WaterDroplet")
+	if droplet then
+		spray.Texture = droplet.id
+	end
 	spray.Rate = 90
 	spray.Lifetime = NumberRange.new(0.8, 1.4)
 	spray.Speed = NumberRange.new(18, 26)
@@ -94,15 +101,25 @@ local function makeSprinkler(tx: number, tz: number, parent: Instance)
 	spray.Transparency = NumberSequence.new(0.35)
 	spray.Parent = head
 
+	-- Held on the head and switched with the water, so it fades with distance
+	-- and a lawn full of sprinklers does not drown the property.
+	local hiss = Build.sound(head, "Sprinkler", false)
+
 	task.spawn(function()
 		-- Stagger, so a world full of sprinklers does not fire in unison.
 		task.wait(rng:NextNumber(0, SPRINKLER_PERIOD))
 		while running and head.Parent do
 			spray.Enabled = true
+			if hiss then
+				hiss:Play()
+			end
 			wetArea(tx, tz, SPRINKLER_RADIUS, true)
 			task.wait(12)
 
 			spray.Enabled = false
+			if hiss then
+				hiss:Stop()
+			end
 			-- The ground stays wet for a while after the water stops, which is
 			-- what actually forces a detour rather than a twelve-second pause.
 			task.wait(16)

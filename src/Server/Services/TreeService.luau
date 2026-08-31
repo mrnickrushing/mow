@@ -307,6 +307,15 @@ local function fellTree(player: Player, tree: Tree)
 		end
 	end)
 
+	--[[
+		The tree is destroyed a second after it lands, and a sound dies with the
+		instance it hangs on, so the noise of it coming down gets its own anchor
+		that outlives the tree.
+	]]
+	if container then
+		Build.soundAt(base, "Timber", container)
+	end
+
 	local logUnits = LOGS_PER_TREE * DebrisConfig.get(DebrisConfig.Log).unitsPerLevel
 	awardOrDrop(player, DebrisConfig.Log, logUnits, base)
 
@@ -336,6 +345,10 @@ function onChop(player: Player, model: Model)
 	local damage = if tool.category == "Chainsaw" then 3 else 1
 	tree.health -= damage
 
+	-- On the trunk, so everyone nearby hears it from the tree rather than from
+	-- wherever they happen to be standing.
+	Build.sound(tree.trunk, "Chop", true)
+
 	if tree.health <= 0 then
 		fellTree(player, tree)
 	else
@@ -359,6 +372,7 @@ function onGrind(player: Player, part: BasePart)
 	end
 
 	stump.health -= 2
+	Build.sound(part, "Grind", true)
 	if stump.health > 0 then
 		return
 	end

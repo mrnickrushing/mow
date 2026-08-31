@@ -7,6 +7,7 @@
 ]]
 
 local Palette = require(game:GetService("ReplicatedStorage").Shared.Config.Palette)
+local Audio = require(game:GetService("ReplicatedStorage").Shared.Config.Audio)
 local Props = require(game:GetService("ReplicatedStorage").Shared.Config.Props)
 
 local Build = {}
@@ -519,6 +520,88 @@ function Build.fence(
 	for index, corner in corners do
 		run(corner, corners[index % #corners + 1])
 	end
+end
+
+--[[
+	A noise that belongs to a place.
+
+	Parented to a part, a `Sound` is heard from where that part is and fades as
+	you walk away, which is the whole difference between this and the cues the
+	client plays flat in your own ears. A tree coming down should carry across
+	the lawn and a sprinkler should not be audible from the road.
+
+	Returns the sound so the caller can start, stop or re-pitch it — a sprinkler
+	holds on to its loop and turns it on and off with the water.
+]]
+function Build.sound(parent: BasePart, cueName: string, autoPlay: boolean?): Sound?
+	local def = Audio.get(cueName)
+	if not def then
+		return nil
+	end
+
+	--[[
+		One sound per cue per part, replayed rather than replaced.
+
+		A tree takes twelve chops to fell and a stump three grinds, and each of
+		those used to hang another `Sound` on the same part — a dozen instances
+		on one trunk, all identical, none of them ever collected until the tree
+		itself was destroyed. Playing an already-playing sound restarts it from
+		the top, which is exactly what a second chop should sound like.
+	]]
+	local existing = parent:FindFirstChild(cueName)
+	if existing and existing:IsA("Sound") then
+		if autoPlay then
+			existing:Play()
+		end
+		return existing
+	end
+
+	local sound = Instance.new("Sound")
+	sound.Name = cueName
+	sound.SoundId = def.id
+	sound.Volume = def.volume
+	sound.Looped = def.looped == true
+	sound.PlaybackSpeed = def.speed or 1
+	-- Rolls off over the cue's own range, so a chop and a falling tree can
+	-- carry different distances without every caller repeating the numbers.
+	sound.RollOffMode = Enum.RollOffMode.InverseTapered
+	sound.RollOffMaxDistance = def.range or 80
+	sound.RollOffMinDistance = 8
+	sound.Parent = parent
+
+	if autoPlay then
+		sound:Play()
+	end
+	return sound
+end
+
+--[[
+	Plays a one-shot at a point and cleans up after itself.
+
+	A felled tree is destroyed a moment after it lands, and a sound goes with
+	the instance it hangs on — so the noise of it landing needs somewhere to
+	live that outlasts the thing that made it.
+]]
+function Build.soundAt(position: Vector3, cueName: string, parent: Instance)
+	local def = Audio.get(cueName)
+	if not def then
+		return
+	end
+
+	local anchor = Instance.new("Part")
+	anchor.Name = `Sound_{cueName}`
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.one
+	anchor.CFrame = CFrame.new(position)
+	anchor.Parent = parent
+
+	local sound = Build.sound(anchor, cueName, true)
+	local life = if sound then sound.TimeLength + 0.5 else 3
+	game:GetService("Debris"):AddItem(anchor, math.max(life, 3))
 end
 
 return Build
