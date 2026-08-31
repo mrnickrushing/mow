@@ -56,11 +56,23 @@ export type MeshOptions = {
 ]]
 function Build.mesh(options: MeshOptions): Part
 	local def = Props.get(options.prop)
+	--[[
+		The colour the caller asked for, if any.
+
+		Kept separately from the part's own colour because of what happens
+		below: a textured mesh pays no attention to the colour of the part it
+		hangs on, so for most of this world `color = ...` was doing nothing at
+		all. Thirty-five of the sixty-three places that build a mesh name a
+		palette colour, and every one of them was silently ignored — which is
+		why the orangery's ceiling was a teal and pink fan rather than the roof
+		colour it asks for.
+	]]
+	local tint = options.color or (def and def.color)
 	local part = Build.part({
 		name = options.name or options.prop,
 		size = options.collisionSize or options.size,
 		cframe = options.cframe,
-		color = options.color or (def and def.color) or Color3.fromRGB(255, 255, 255),
+		color = tint or Color3.fromRGB(255, 255, 255),
 		material = Enum.Material.SmoothPlastic,
 		-- A part carrying a file mesh renders as that mesh rather than as a
 		-- box, and transparency applies to the mesh too, so it stays opaque.
@@ -87,6 +99,24 @@ function Build.mesh(options: MeshOptions): Part
 		options.size.Y / def.native.Y,
 		options.size.Z / def.native.Z
 	)
+
+	--[[
+		The tint goes on the mesh, and only when there is a texture to tint.
+
+		`VertexColor` multiplies the texture rather than replacing it, so it is
+		normalised to its brightest channel first: a mid-tone palette colour
+		multiplied straight through would come out as mud, which is not what
+		"paint this roof the roof colour" means. Normalised, it carries the hue
+		and leaves the texture's own light and shade alone.
+
+		An untextured mesh is left to the part's colour, which it does honour —
+		tinting there as well would apply the same colour twice.
+	]]
+	if tint and mesh.TextureId ~= "" then
+		local brightest = math.max(tint.R, tint.G, tint.B, 0.001)
+		mesh.VertexColor = Vector3.new(tint.R, tint.G, tint.B) / brightest
+	end
+
 	mesh.Parent = part
 
 	return part
