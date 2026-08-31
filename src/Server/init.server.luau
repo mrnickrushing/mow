@@ -17,6 +17,7 @@ Remotes.init()
 
 local Services = script.Services
 local AtmosphereService = require(Services.AtmosphereService)
+local WorldService = require(Services.WorldService)
 local DataService = require(Services.DataService)
 local RunState = require(Services.RunState)
 local ReplicationService = require(Services.ReplicationService)
@@ -43,6 +44,12 @@ local SweepService = require(Services.SweepService)
 -- anything that marks tiles, and every listener connected before RunService
 -- generates the first world at the bottom of this file.
 AtmosphereService.start()
+
+-- The haze is sized to the lot, and a run moves between lots of very different
+-- sizes, so it is re-applied every time one loads.
+WorldService.Loaded:Connect(function(world)
+	AtmosphereService.applyWorld(world)
+end)
 DataService.start()
 RunState.start()
 EconomyService.start()
