@@ -69,6 +69,13 @@ local catalogue: { [string]: Prop } = {
 	Shed = prop("rbxassetid://136505549556407", "rbxassetid://130296685263073", 15.868, 18.000, 15.692),
 	Trailer = prop("rbxassetid://72699501903410", "rbxassetid://119991357734404", 7.030, 5.706, 12.000),
 
+	-- The gas station's own furniture.
+	GasPump = prop("rbxassetid://77359286982223", "rbxassetid://129997331021782", 2.000, 3.827, 1.000),
+	--- A white winged horse, which stands on a red disc to make the station's
+	--- emblem. Generated as a badge and arrived as the horse alone, which is
+	--- better: the disc is two cylinders, and the horse can stand proud of it.
+	PonyEmblem = prop("rbxassetid://105093577196676", "rbxassetid://100374841746838", 0.468, 0.539, 0.700),
+
 	-- Things that move or matter.
 	RidingMower = prop("rbxassetid://89706697093178", "rbxassetid://120136128501167", 5.476, 6.000, 9.364),
 	Dog = prop("rbxassetid://74175582988973", "rbxassetid://77296052752514", 1.527, 4.000, 3.141),

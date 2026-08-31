@@ -161,6 +161,21 @@ Palette.props = {
 	pool = rgb(78, 168, 214),
 }
 
+--[[
+	The gas station's livery: cream body, a red fascia band, storefront glass.
+
+	Red and cream rather than the house palette, because a filling station is
+	commercial architecture — it should read as a different kind of building
+	from across the lot, and the fascia stripe is the thing that says so.
+]]
+Palette.station = {
+	body = rgb(242, 238, 228),
+	fascia = rgb(206, 56, 44),
+	trim = rgb(248, 246, 240),
+	glass = rgb(148, 202, 218),
+	dark = rgb(56, 58, 60),
+}
+
 Palette.tree = {
 	trunk = rgb(116, 80, 52),
 	canopy = {
