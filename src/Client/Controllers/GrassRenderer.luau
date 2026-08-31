@@ -135,6 +135,37 @@ local function newPart(leaf: boolean): Part
 	return part
 end
 
+--[[
+	The stand-in for a whole chunk seen from far off.
+
+	It carries no model at all, unlike the near tiles, and that is the point.
+	It used to be a lawn panel — a three stud square of turf — scaled to a
+	thirty-two stud chunk, which is nine times its own size, so its weave came
+	out as bands several studs wide. Every chunk stretched the same panel the
+	same way, so the bands lined up across chunk boundaries and the whole
+	middle distance of every property was striped like a ploughed field. It was
+	the same mistake as the ground under it, one layer up.
+
+	A plain slab in the lawn's own colour and material has nothing to magnify,
+	and meets the ground it sits on without a seam.
+
+	Kept out of the pools the near tiles share, because those parts carry a
+	`SpecialMesh` and one with no id set renders as nothing at all — which is
+	how the far half of a property once came to be a hole.
+]]
+local function newLodPart(): Part
+	local part = Instance.new("Part")
+	part.Name = "Lod"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	return part
+end
+
 local function poolFor(leaf: boolean): { Part }
 	return if leaf then leafPool else blockPool
 end
@@ -395,19 +426,25 @@ local CLUMP_FOR: { [number]: Props.Prop } = {
 --- Roughly how wide one clump of each kind is, in studs. Everything but the
 --- hedge is narrower than a tile so the scatter can overlap across tile edges.
 local CLUMP_WIDTH: { [number]: number } = {
-	[DebrisConfig.Grass] = 2.5,
-	[DebrisConfig.Weeds] = 2.2,
+	[DebrisConfig.Grass] = 1.8,
+	[DebrisConfig.Weeds] = 1.9,
 	[DebrisConfig.Hedge] = TILE,
-	[DebrisConfig.Sticks] = 1.9,
+	[DebrisConfig.Sticks] = 1.7,
 }
 
---- A hedge is a solid mass and stays one piece; everything else thins out as
---- it is cleared, one clump per level of height left on the tile.
+--[[
+	A hedge is a solid mass and stays one piece; everything else thins out as
+	it is cleared.
+
+	One more clump than there are levels of height, because a tile worked down
+	to its last level should still have something on it rather than a single
+	tuft marooned in the middle of four studs of bare lawn.
+]]
 local function clumpsOn(debrisId: number, height: number): number
 	if debrisId == DebrisConfig.Hedge then
 		return 1
 	end
-	return math.clamp(height, 1, 3)
+	return math.clamp(height + 1, 2, 4)
 end
 
 local function drawBlock(index: number, wx: number, wz: number, floor: number, height: number, debrisId: number, locked: boolean)
@@ -450,7 +487,18 @@ local function drawBlock(index: number, wx: number, wz: number, floor: number, h
 			-- distant carpets use, and would otherwise keep that texture and
 			-- whatever tint it was last drawn with.
 			clump.TextureId = def.texture or ""
-			clump.VertexColor = Vector3.one
+			--[[
+				Bring the clump to the palette's green.
+
+				A textured mesh ignores the colour of the part under it, so
+				every tuft was showing whatever green its own texture happened
+				to be painted — a colder, bluer one than the lawn it stands on,
+				which made the grass read as a different plant from the ground.
+				The tint is normalised to its brightest channel so it carries
+				the hue without darkening the blades to mud.
+			]]
+			local brightest = math.max(color.R, color.G, color.B, 0.001)
+			clump.VertexColor = Vector3.new(color.R, color.G, color.B) / brightest
 			clump.Scale = Vector3.new(wide / def.native.X, tall / def.native.Y, wide / def.native.Z)
 			clump.Offset = Vector3.zero
 		end
@@ -539,8 +587,7 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	if existing then
 		part = existing
 	else
-		part = newPart(false)
-		part.Name = "Lod"
+		part = newLodPart()
 		lodParts[chunkIndex] = part
 	end
 
@@ -552,26 +599,6 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		then 0.3
 		else math.max(averageHeight, 0.2)
 	local x, z = Grid.chunkCentre(theGrid, cx, cz)
-
-	--[[
-		The stand-in for a whole chunk seen from far off.
-
-		Two things about this used to draw a chequerboard across the far half of
-		every property. It shares the pool with the near tiles, and those now
-		carry a clump model — a mesh with no id set renders as nothing at all,
-		so every distant chunk was a hole. And the colour was drawn from one
-		arbitrary tile inside the chunk, so neighbouring chunks landed on the
-		light green and the dark green at random: a thirty-two stud grid of
-		alternating squares, which is the exact look the clumps were meant to
-		get rid of.
-
-		So the carpet is the same model and the same shade in every chunk, and
-		the kind of debris only tints it. A lawn panel rather than a leaf pile
-		even for leaves: a pile is a mound with clear ground around it, and one
-		mound per chunk reads as a grid of orange blobs. A panel fills its
-		square, so the chunks meet without a seam.
-	]]
-	local carpet = Props.catalogue.LawnPanel
 
 	--[[
 		Far enough away, a lawn is two things: lawn, and leaves on it.
@@ -594,34 +621,6 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	part.Color = color
 	part.Material = if debrisId == DebrisConfig.Leaves then Enum.Material.SmoothPlastic else Enum.Material.Grass
 	part.Transparency = 0
-
-	local clump = part:FindFirstChild("Clump")
-	if clump and clump:IsA("SpecialMesh") and carpet then
-		if clump.MeshId ~= carpet.mesh then
-			clump.MeshId = carpet.mesh
-		end
-		clump.Scale = Vector3.new(
-			studs / carpet.native.X,
-			math.max(thickness, 0.2) / carpet.native.Y,
-			studs / carpet.native.Z
-		)
-		--[[
-			Set every time rather than only alongside the mesh id, because these
-			parts come back from the same pool as the near tiles and would
-			otherwise keep whatever texture and tint they were last drawn with.
-
-			The turf panel that used to do this job had a light-and-dark weave
-			in its texture, which is right under your feet and wrong stretched
-			across a thirty-two stud chunk: a coarse chequerboard over the far
-			half of the lawn, every chunk repeating the same squares. This
-			panel has no weave to magnify, so it keeps its texture, and the
-			debris colour tints it — a textured mesh ignores the part colour.
-		]]
-		clump.TextureId = carpet.texture or ""
-		local brightest = math.max(color.R, color.G, color.B, 0.001)
-		clump.VertexColor = Vector3.new(color.R, color.G, color.B) / brightest
-	end
-
 	part.Parent = lodFolder
 end
 

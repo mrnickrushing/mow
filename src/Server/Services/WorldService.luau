@@ -637,6 +637,11 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 			Build.mesh({
 				prop = "GarageDoor",
 				name = "GarageDoor",
+				-- Painted, not printed: the model's own texture is a strong
+				-- salmon, and a tint multiplies rather than replaces, so the
+				-- cream a suburban garage door is could not be asked for.
+				untextured = true,
+				color = Palette.color(Palette.house.garage),
 				size = Vector3.new(bayWidth, courseHeight * 0.97, 1.2),
 				collisionSize = Vector3.new(bayWidth, courseHeight, 0.8),
 				cframe = CFrame.new(

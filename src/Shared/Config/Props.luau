@@ -46,8 +46,19 @@ local catalogue: { [string]: Prop } = {
 	Rock = prop("rbxassetid://132924624861328", "rbxassetid://89076492492334", 1.447, 4.000, 1.451),
 
 	-- Planting.
-	Bush = prop("rbxassetid://72280757885260", "rbxassetid://140562129266244", 3.736, 8.000, 3.700),
-	Hedge = prop("rbxassetid://72280757885260", "rbxassetid://140562129266244", 3.736, 8.000, 3.700),
+	--[[
+		A bush, which the bush was not.
+
+		The old one was a cylinder with a leaf texture wrapped round it — eight
+		studs tall, flat topped, and identical however it was turned. A hedge
+		is a row of these, so every hedge in the game was a run of matching
+		green cylinders that read as a chequerboard from any distance, and the
+		tennis court's chain-link was one of them squashed to two fifths of a
+		stud thick. This one is a dome of clustered foliage, which is what a
+		clipped shrub actually looks like.
+	]]
+	Bush = prop("rbxassetid://107891693819793", "rbxassetid://78295314342685", 3.327, 3.200, 3.303),
+	Hedge = prop("rbxassetid://107891693819793", "rbxassetid://78295314342685", 3.327, 3.200, 3.303),
 	Tree = prop("rbxassetid://131361580865388", "rbxassetid://92687150630349", 15.156, 22.768, 16.000),
 	Stump = prop("rbxassetid://132967367565646", "rbxassetid://88604401051093", 1.683, 2.500, 1.560),
 	Log = prop("rbxassetid://135854002039541", "rbxassetid://136724661905485", 2.500, 0.985, 1.650),
@@ -97,7 +108,17 @@ local catalogue: { [string]: Prop } = {
 	ShopBoard = prop("rbxassetid://127953130831132", "rbxassetid://93758011506584", 4.715, 5.528, 1.000),
 
 	-- What the lawn itself is made of, scattered a few clumps to a tile.
-	GrassTuft = prop("rbxassetid://74167825959027", "rbxassetid://115670301597551", 3.986, 2.882, 4.000),
+	--[[
+		Grass, with nothing underneath it.
+
+		The old clump had a square patch of ground modelled into it, four studs
+		across — exactly one tile. The renderer drew one per tile, so the lawn
+		came out as a grid of slightly lighter squares you could count from the
+		porch, and scattering the clumps only turned the grid into a square
+		dragged along behind every tuft. This one is blades and nothing else,
+		so what shows between them is the lawn.
+	]]
+	GrassTuft = prop("rbxassetid://138521272241538", "rbxassetid://102784417042984", 2.000, 1.399, 1.933),
 	Weeds = prop("rbxassetid://97566895867036", "rbxassetid://100631337116622", 3.995, 3.809, 4.000),
 	Twigs = prop("rbxassetid://131001130360981", "rbxassetid://135819322286106", 2.061, 2.000, 2.112),
 
@@ -120,16 +141,6 @@ local catalogue: { [string]: Prop } = {
 
 	-- Ground and roofing, the surfaces underfoot and overhead.
 	Paving = prop("rbxassetid://118911737218481", "rbxassetid://75203797606065", 2.483, 0.500, 2.503),
-	--[[
-		The lawn seen from far enough away to be a surface rather than blades.
-
-		Square, because a chunk is: the turf patch that used to do this job was
-		eight-sided, so a grid of them left the ground showing through in a
-		diamond between every four. This one is only ever drawn one to a chunk
-		at chunk size, which is close enough to its own that its texture is
-		still a texture.
-	]]
-	LawnPanel = prop("rbxassetid://98477135996708", "rbxassetid://107042565034939", 3.418, 0.500, 3.439),
 	HungTools = prop("rbxassetid://137801002725741", "rbxassetid://114893461231752", 1.613, 1.513, 0.600),
 	Lantern = prop("rbxassetid://117371342269426", "rbxassetid://103361847724409", 1.991, 3.000, 1.769),
 
