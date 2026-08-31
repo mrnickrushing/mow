@@ -10,6 +10,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Palette = require(ReplicatedStorage:WaitForChild("Shared").Config.Palette)
+local Props = require(ReplicatedStorage:WaitForChild("Shared").Config.Props)
 
 local Theme = {}
 
@@ -168,6 +169,215 @@ function Theme.bar(parent: Instance, size: UDim2, position: UDim2, color: Color3
 	outline.Parent = track
 
 	return track, fill
+end
+
+--[[
+	Keeps a fixed-size panel on screen on a small viewport.
+
+	The journal is drawn at 940x560 with its tab strip hanging off the left
+	edge, so anything narrower than about 1160 pushed the tabs and the close
+	button off screen entirely — which on a phone, or a windowed client, is
+	most of them. Rather than reflow the layout, the whole panel is scaled to
+	fit, which keeps the book a book at every size.
+
+	`width` and `height` are the room the panel needs including anything that
+	hangs outside it. `reservedY` is screen height the panel does not get — the
+	gap above a column pinned below the top edge, plus any margin to leave under
+	it — so a column that starts part way down the screen is measured against
+	what is actually left rather than the whole of it.
+]]
+function Theme.fitToViewport(panel: GuiObject, width: number, height: number, reservedY: number?): UIScale
+	local scale = Instance.new("UIScale")
+	scale.Parent = panel
+
+	-- The screen the panel actually gets is the ScreenGui's own area, which is
+	-- the viewport less the top inset. Measuring against the raw viewport
+	-- overstates the room available by that inset and leaves the panel's top
+	-- edge off screen.
+	local screen = panel:FindFirstAncestorWhichIsA("ScreenGui")
+
+	local function fit()
+		local area: Vector2
+		if screen and screen.AbsoluteSize.Y > 0 then
+			area = screen.AbsoluteSize
+		else
+			local camera = workspace.CurrentCamera
+			area = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+		end
+		if area.X <= 0 or area.Y <= 0 then
+			return
+		end
+		local usableY = math.max(area.Y - (reservedY or 0), 1)
+		scale.Scale = math.clamp(math.min(area.X / width, usableY / height), 0.35, 1)
+	end
+
+	fit()
+	if screen then
+		screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+	end
+	local camera = workspace.CurrentCamera
+	if camera then
+		camera:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+	end
+	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+		local current = workspace.CurrentCamera
+		if current then
+			current:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+		end
+		fit()
+	end)
+
+	return scale
+end
+
+--------------------------------------------------------------------
+-- The cursor
+--------------------------------------------------------------------
+
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local panelsOpen = 0
+local cursorHold: RBXScriptConnection? = nil
+
+--[[
+	Frees the mouse while a full-screen panel is open.
+
+	The camera is pinned to first person — zoom locked at 0.5 studs — and Roblox
+	locks the cursor to the middle of the screen whenever it is. Every control
+	in the journal and the store therefore sat somewhere the cursor could never
+	reach: its tabs, its close button, and the Buy buttons that are the only way
+	in the whole game to buy a tool. A `Modal` button asks the engine for the
+	cursor back, and holding `MouseBehavior` open each frame alongside it covers
+	the camera module reasserting the lock — belt and braces, because a menu you
+	cannot click is the same as no menu.
+
+	Reference counted, so the journal and the store can be open in any order
+	without one closing stealing the other's cursor.
+]]
+function Theme.holdCursor(open: boolean)
+	panelsOpen = math.max(panelsOpen + (if open then 1 else -1), 0)
+
+	if panelsOpen > 0 then
+		if not cursorHold then
+			cursorHold = RunService.RenderStepped:Connect(function()
+				if UserInputService.MouseBehavior ~= Enum.MouseBehavior.Default then
+					UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+				end
+			end)
+		end
+	elseif cursorHold then
+		cursorHold:Disconnect()
+		cursorHold = nil
+		-- Handing it back to the camera, which re-locks it for first person.
+		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+	end
+end
+
+--------------------------------------------------------------------
+-- Icons
+--------------------------------------------------------------------
+
+--[[
+	An icon, which is a model on a little stage rather than a letter.
+
+	Every icon in this game used to be an emoji — a glove, a broom, a tractor, a
+	coin, a padlock. An emoji is a character in a font, so the picture is
+	whichever one the player's device ships with: the same hotbar is three
+	different sets of drawings on a phone, a console and a PC, and not one of
+	them is this game's own art. Worse, the glove standing for bare hands and
+	the broom standing for a rake were never the tool you were actually holding.
+
+	So an icon is a `ViewportFrame` holding the model itself, lit and framed.
+	The one in the hotbar is the same mesh that appears in your hands.
+
+	The camera distance comes from the model's own size, so a padlock and a
+	riding mower both end up filling their slot rather than one of them being a
+	speck. `Theme.setIcon` swaps the model without rebuilding the frame, which
+	is what the hotbar does every time you buy something.
+]]
+export type IconOptions = {
+	name: string?,
+	prop: string,
+	size: UDim2,
+	position: UDim2,
+	anchor: Vector2?,
+	parent: Instance,
+	zIndex: number?,
+}
+
+--- How far back the camera sits, as a multiple of the model's largest side.
+local ICON_PULL_BACK = 1.15
+--- Three-quarter view: enough turn to read a shape as a solid, not a plan.
+local ICON_ANGLE = Vector3.new(0.42, 0.34, 1).Unit
+
+--- Points an icon's camera at whatever model it is now showing.
+local function frameIcon(viewport: ViewportFrame, native: Vector3)
+	local camera = viewport.CurrentCamera
+	if not camera then
+		return
+	end
+	local reach = math.max(native.X, native.Y, native.Z, 0.05)
+	-- Half the subject over the tangent of half the field of view is the
+	-- distance at which it exactly fills the frame; the rest is margin.
+	local distance = (reach * 0.5) / math.tan(math.rad(camera.FieldOfView * 0.5))
+	camera.CFrame = CFrame.lookAt(ICON_ANGLE * (distance / ICON_PULL_BACK * 1.9), Vector3.zero)
+end
+
+--- Shows `propName` in an icon frame built by `Theme.icon`. Silent on an
+--- unknown name, so a new tool category cannot blank the hotbar.
+function Theme.setIcon(viewport: ViewportFrame, propName: string)
+	local def = Props.get(propName)
+	local part = viewport:FindFirstChild("Model") :: BasePart?
+	local mesh = if part then part:FindFirstChildWhichIsA("SpecialMesh") else nil
+	if not def or not part or not mesh then
+		return
+	end
+	if mesh.MeshId ~= def.mesh then
+		mesh.MeshId = def.mesh
+		mesh.TextureId = def.texture or ""
+	end
+	part.Color = def.color or Color3.new(1, 1, 1)
+	frameIcon(viewport, def.native)
+end
+
+function Theme.icon(options: IconOptions): ViewportFrame
+	local viewport = Instance.new("ViewportFrame")
+	viewport.Name = options.name or "Icon"
+	viewport.Size = options.size
+	viewport.Position = options.position
+	viewport.AnchorPoint = options.anchor or Vector2.new(0, 0)
+	viewport.BackgroundTransparency = 1
+	viewport.BorderSizePixel = 0
+	if options.zIndex then
+		viewport.ZIndex = options.zIndex
+	end
+
+	-- Lit from the front rather than by the world, so an icon reads the same in
+	-- a basement at night as on the lawn at noon.
+	viewport.Ambient = Color3.fromRGB(190, 190, 190)
+	viewport.LightColor = Color3.fromRGB(255, 250, 240)
+	viewport.LightDirection = Vector3.new(-0.3, -0.8, -0.6)
+
+	local part = Instance.new("Part")
+	part.Name = "Model"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CFrame = CFrame.new()
+	part.Parent = viewport
+
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.FileMesh
+	mesh.Parent = part
+
+	local camera = Instance.new("Camera")
+	camera.FieldOfView = 30
+	camera.Parent = viewport
+	viewport.CurrentCamera = camera
+
+	viewport.Parent = options.parent
+	Theme.setIcon(viewport, options.prop)
+	return viewport
 end
 
 return Theme

@@ -25,6 +25,7 @@ local ToolUpgrades = require(Shared.Config.ToolUpgrades)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 local Store = require(script.Parent.Store)
 local Theme = require(script.Parent.Theme)
+local Props = require(Shared.Config.Props)
 
 local Journal = {}
 
@@ -49,10 +50,10 @@ local COVER = Color3.fromRGB(58, 118, 186)
 local LOCKED = Color3.fromRGB(158, 154, 148)
 
 local TABS = {
-	{ id = "objectives", label = "Journal", icon = "📜", color = Color3.fromRGB(226, 198, 150) },
-	{ id = "upgrades", label = "Upgrades", icon = "⬆️", color = Color3.fromRGB(178, 214, 168) },
-	{ id = "collection", label = "Collection", icon = "🍂", color = Color3.fromRGB(232, 196, 156) },
-	{ id = "tips", label = "Tips", icon = "❓", color = Color3.fromRGB(200, 200, 216) },
+	{ id = "objectives", label = "Journal", icon = "Scroll", color = Color3.fromRGB(226, 198, 150) },
+	{ id = "upgrades", label = "Upgrades", icon = "UpArrow", color = Color3.fromRGB(178, 214, 168) },
+	{ id = "collection", label = "Collection", icon = "LeafMaple", color = Color3.fromRGB(232, 196, 156) },
+	{ id = "tips", label = "Tips", icon = "QuestionSign", color = Color3.fromRGB(200, 200, 216) },
 }
 
 --------------------------------------------------------------------
@@ -135,16 +136,15 @@ local function renderObjectives()
 		boxStroke.Parent = box
 
 		if entry.done then
-			local tick = Instance.new("TextLabel")
-			tick.Text = "✓"
-			tick.Size = UDim2.fromScale(1, 1)
-			tick.BackgroundTransparency = 1
-			tick.Font = Theme.font
-			tick.TextColor3 = Color3.fromRGB(28, 62, 24)
-			tick.TextSize = 20
-			tick.Parent = box
+			Theme.icon({
+				name = "Tick",
+				prop = "Tick",
+				size = UDim2.fromScale(0.9, 0.9),
+				position = UDim2.fromScale(0.5, 0.5),
+				anchor = Vector2.new(0.5, 0.5),
+				parent = box,
+			})
 		end
-
 		local title = Instance.new("TextLabel")
 		title.Text = entry.text
 		title.Size = UDim2.new(1, -40, 0, 26)
@@ -225,11 +225,27 @@ local function renderPlayers()
 
 		local stats = Instance.new("TextLabel")
 		local isSelf = subject == player
+		-- The coin and the leaf are models sat beside the numbers, so the row
+		-- reads the same on every device. See `Theme.icon`.
 		stats.Text = if isSelf
-			then `🪙 {Format.cash(PlayerState.get().cash)}   🍂 {Format.count(PlayerState.get().bagWeight)}`
-			else "🪙 —   🍂 —"
+			then `    {Format.cash(PlayerState.get().cash)}       {Format.count(PlayerState.get().bagWeight)}`
+			else "    —       —"
 		stats.Size = UDim2.new(1, -64, 0, 24)
 		stats.Position = UDim2.fromOffset(60, 30)
+		Theme.icon({
+			name = "CoinMark",
+			prop = "Coin",
+			size = UDim2.fromOffset(18, 18),
+			position = UDim2.fromOffset(60, 33),
+			parent = row,
+		})
+		Theme.icon({
+			name = "BagMark",
+			prop = "LeafMaple",
+			size = UDim2.fromOffset(18, 18),
+			position = UDim2.fromOffset(148, 33),
+			parent = row,
+		})
 		stats.BackgroundTransparency = 1
 		stats.Font = Theme.fontRegular
 		stats.TextColor3 = LOCKED
@@ -266,12 +282,14 @@ local function pips(parent: Instance, level: number, maxLevel: number)
 	layout.Parent = row
 
 	for index = 1, maxLevel do
-		local pip = Instance.new("TextLabel")
-		pip.Text = "🍁"
-		pip.Size = UDim2.fromOffset(15, 15)
-		pip.BackgroundTransparency = 1
-		pip.TextSize = 12
-		pip.TextTransparency = if index <= level then 0 else 0.75
+		local pip = Theme.icon({
+			name = "Pip",
+			prop = "LeafOak",
+			size = UDim2.fromOffset(15, 15),
+			position = UDim2.fromScale(0, 0),
+			parent = row,
+		})
+		pip.ImageTransparency = if index <= level then 0 else 0.75
 		pip.LayoutOrder = index
 		pip.Parent = row
 	end
@@ -322,12 +340,14 @@ local function slotCard(parent: Instance, order: number, slot: any, owned: boole
 	tileStroke.Transparency = if selectedKey == slot.key and owned then 0 else 0.65
 	tileStroke.Parent = tile
 
-	local icon = Instance.new("TextLabel")
-	icon.Text = if owned then slot.icon else "🔒"
-	icon.Size = UDim2.fromScale(1, 1)
-	icon.BackgroundTransparency = 1
-	icon.TextSize = 34
-	icon.Parent = tile
+	Theme.icon({
+		name = "Icon",
+		prop = if owned then Props.forToolCategory(slot.category) else "Padlock",
+		size = UDim2.fromScale(0.82, 0.82),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		parent = tile,
+	})
 
 	local cost = ToolUpgrades.costAt(slot, level)
 	local price = Instance.new("TextLabel")
@@ -565,7 +585,16 @@ local function renderCollection()
 			row.Parent = scroll
 
 			local name = Instance.new("TextLabel")
-			name.Text = if owned then section.name else `🔒 {section.name}`
+			name.Text = if owned then section.name else `    {section.name}`
+			if not owned then
+				Theme.icon({
+					name = "Lock",
+					prop = "Padlock",
+					size = UDim2.fromOffset(22, 22),
+					position = UDim2.fromOffset(0, 11),
+					parent = row,
+				})
+			end
 			name.Size = UDim2.new(1, -100, 1, 0)
 			name.BackgroundTransparency = 1
 			name.Font = Theme.font
@@ -574,9 +603,19 @@ local function renderCollection()
 			name.TextXAlignment = Enum.TextXAlignment.Left
 			name.Parent = row
 
+			if owned then
+				Theme.icon({
+					name = "Done",
+					prop = "Tick",
+					size = UDim2.fromOffset(24, 24),
+					position = UDim2.new(1, -30, 0, 10),
+					parent = row,
+				})
+			end
+
 			local how = Instance.new("TextLabel")
 			how.Text = if owned
-				then "✓"
+				then ""
 				elseif kind == "completion" then "clear first"
 				elseif kind == "button" then "find switch"
 				else Format.cash(section.cost)
@@ -685,7 +724,7 @@ local function render()
 		renderTips()
 	end
 
-	moneyLabel.Text = `your money :  {Format.cash(PlayerState.get().cash)}  🪙`
+	moneyLabel.Text = `your money :  {Format.cash(PlayerState.get().cash)}    `
 end
 
 --- Re-renders the open spread in place. Cards call this after a selection.
@@ -739,7 +778,10 @@ local function buildTab(parent: Instance, order: number, tab: { id: string, labe
 	button.Position = UDim2.fromOffset(0, (order - 1) * 56)
 	button.BackgroundColor3 = tab.color
 	button.BorderSizePixel = 0
-	button.Text = `{tab.icon}  {tab.label}`
+	-- The label alone. `tab.icon` names a model, and a model goes in a viewport
+	-- beside the words rather than into them — printed into the text it read as
+	-- "Scroll Journal", which is the catalogue talking to the player.
+	button.Text = tab.label
 	button.Font = Theme.font
 	button.TextColor3 = Color3.fromRGB(120, 104, 84)
 	button.TextSize = 20
@@ -748,8 +790,24 @@ local function buildTab(parent: Instance, order: number, tab: { id: string, labe
 	button.Parent = parent
 
 	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, 12)
+	padding.PaddingLeft = UDim.new(0, 46)
 	padding.Parent = button
+
+	--[[
+		The tab's model sits beside its word.
+
+		It hangs off the tab column rather than off the button, because the
+		padding that indents the label indents everything inside the button
+		with it — put in there, the icon lands underneath its own text.
+	]]
+	Theme.icon({
+		name = `TabIcon{tab.id}`,
+		prop = tab.icon,
+		size = UDim2.fromOffset(32, 32),
+		position = UDim2.fromOffset(10, (order - 1) * 56 + 6),
+		parent = parent,
+		zIndex = 4,
+	})
 
 	-- Square off the right edge so the tab reads as tucked into the spine.
 	Theme.corner(button, 8)
@@ -799,9 +857,9 @@ local function build()
 	book.Parent = gui
 	Theme.corner(book, 14)
 
-	local sizeLimit = Instance.new("UISizeConstraint")
-	sizeLimit.MaxSize = Vector2.new(940, 560)
-	sizeLimit.Parent = book
+	-- The tab strip hangs 164 pixels off the book's left edge, so the room the
+	-- journal really needs is wider than the book itself.
+	Theme.fitToViewport(book, 940 + 220, 560 + 60)
 
 	local spread = Instance.new("Frame")
 	spread.Name = "Pages"
@@ -898,13 +956,24 @@ local function build()
 	quick.Size = UDim2.fromOffset(120, 56)
 	quick.Position = UDim2.fromOffset(24, 208)
 	quick.BackgroundTransparency = 1
-	quick.Text = "💨\n⬡ 180"
+	-- The blower it sells sits above the price, as the model rather than a
+	-- puff-of-air emoji. The Robux mark stays a character: it is Roblox's, not
+	-- ours to redraw.
+	quick.Text = "\n\n⬡ 180"
 	quick.Font = Theme.font
 	quick.TextColor3 = Theme.colors.cash
 	quick.TextSize = 20
 	quick.ZIndex = 0
 	quick.Parent = rail
 	Theme.outline(quick, 2.5)
+	Theme.icon({
+		name = "QuickIcon",
+		prop = "LeafBlower",
+		size = UDim2.fromOffset(40, 30),
+		position = UDim2.new(0.5, 0, 0, 2),
+		anchor = Vector2.new(0.5, 0),
+		parent = quick,
+	})
 
 	quick.Activated:Connect(function()
 		Store.toggle()
@@ -913,14 +982,35 @@ local function build()
 	local close = Instance.new("TextButton")
 	close.Name = "Close"
 	close.Size = UDim2.fromOffset(56, 56)
-	close.Position = UDim2.new(1, 6, 0, -18)
+	-- Tucked inside the cover rather than overhanging its top-right corner:
+	-- overhung, it was the first thing to leave the screen on a short viewport,
+	-- which left the journal with no visible way to shut it.
+	close.Position = UDim2.new(1, -14, 0, 14)
 	close.AnchorPoint = Vector2.new(1, 0)
-	close.Text = "✕"
-	close.Font = Theme.font
-	close.TextSize = 32
+	close.Text = ""
+	Theme.icon({
+		name = "CloseIcon",
+		prop = "Cross",
+		size = UDim2.fromScale(0.6, 0.6),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		parent = close,
+	})
 	close.BackgroundColor3 = Color3.fromRGB(214, 72, 60)
 	close.TextColor3 = Color3.fromRGB(255, 246, 240)
 	close.BorderSizePixel = 0
+	--[[
+		Modal is what gives the journal a usable mouse.
+
+		The camera is locked to first person, which pins the cursor to the
+		centre of the screen — so every control in here, the tabs, the tool Buy
+		buttons and this button itself, sat somewhere the cursor could never
+		reach. Tools are only ever bought from this panel, so on a desktop the
+		whole sixteen-tool ladder was unreachable and the run ended at bare
+		hands. A visible modal button releases the mouse for as long as the
+		panel is open, and re-locks it the moment the panel closes.
+	]]
+	close.Modal = true
 	close.Parent = book
 	Theme.corner(close, 10)
 	Theme.outline(close, 3)
@@ -939,6 +1029,7 @@ function Journal.setOpen(open: boolean)
 	end
 	isOpen = open
 	gui.Enabled = open
+	Theme.holdCursor(open)
 
 	if open then
 		render()

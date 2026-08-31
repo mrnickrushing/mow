@@ -77,15 +77,13 @@ local function build()
 		textSize = 20,
 	})
 
-	local pin = Instance.new("TextLabel")
-	pin.Name = "Pin"
-	pin.Text = "📍"
-	pin.Size = UDim2.fromOffset(28, 28)
-	pin.Position = UDim2.fromOffset(0, 26)
-	pin.BackgroundTransparency = 1
-	pin.TextSize = 24
-	pin.Font = Theme.font
-	pin.Parent = corner
+	Theme.icon({
+		name = "Pin",
+		prop = "MapPin",
+		size = UDim2.fromOffset(28, 28),
+		position = UDim2.fromOffset(0, 26),
+		parent = corner,
+	})
 
 	sectionLabel = Theme.text({
 		name = "Section",
@@ -144,11 +142,13 @@ local function build()
 		textSize = 36,
 	})
 
+	-- Tucked left of the status column rather than directly under it: the
+	-- column grows downward and the two met on a short viewport.
 	fpsLabel = Theme.text({
 		name = "Fps",
 		text = "",
 		size = UDim2.fromOffset(120, 20),
-		position = UDim2.new(1, -26, 1, -62),
+		position = UDim2.new(1, -160, 1, -62),
 		anchor = Vector2.new(1, 1),
 		parent = gui,
 		align = Enum.TextXAlignment.Right,

@@ -26,6 +26,34 @@ OUT = ROOT / "tests" / ".build"
 
 REQUIRE = re.compile(r"require\(\s*script((?:\.[A-Za-z_][A-Za-z0-9_]*)+)\s*\)")
 
+# Datatypes the config tables build at load time. The standalone `luau` CLI has
+# none of Roblox's globals, so the mesh catalogue — which stores a `Vector3` of
+# every model's native size — could not be required from a test at all, leaving
+# it the one config file nothing could check. The mirror is test-only and is
+# never loaded by Roblox, so a local stand-in at the top of the file is safe:
+# inside Studio the real global wins because this prelude is not there.
+NEEDS_STUB = re.compile(r"\b(Vector3|Color3)\s*\.")
+
+PRELUDE = """--!nolint
+-- Added by scripts/build_tests.py. See NEEDS_STUB there. Typed `any` so that
+-- `luau analyze`, which follows requires into this mirror, does not then see a
+-- plain table where a module annotates a real `Vector3` or `Color3`.
+local Vector3: any = {
+\tnew = function(x, y, z)
+\t\treturn { X = x or 0, Y = y or 0, Z = z or 0 }
+\tend,
+}
+local Color3: any = {
+\tnew = function(r, g, b)
+\t\treturn { R = r or 0, G = g or 0, B = b or 0 }
+\tend,
+\tfromRGB = function(r, g, b)
+\t\treturn { R = (r or 0) / 255, G = (g or 0) / 255, B = (b or 0) / 255 }
+\tend,
+}
+
+"""
+
 
 def rewrite(match: re.Match) -> str:
     parts = match.group(1).lstrip(".").split(".")
@@ -54,7 +82,10 @@ def main() -> int:
     for path in sorted(SRC.rglob("*.luau")):
         target = OUT / path.relative_to(SRC)
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(REQUIRE.sub(rewrite, path.read_text()))
+        source = REQUIRE.sub(rewrite, path.read_text())
+        if NEEDS_STUB.search(source):
+            source = PRELUDE + source
+        target.write_text(source)
         count += 1
 
     print(f"  mirrored {count} modules into tests/.build")

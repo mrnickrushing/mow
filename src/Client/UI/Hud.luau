@@ -28,6 +28,8 @@ local MowController = require(script.Parent.Parent.Controllers.MowController)
 local Journal = require(script.Parent.Journal)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 local Theme = require(script.Parent.Theme)
+local Props = require(Shared.Config.Props)
+local SoundController = require(script.Parent.Parent.Controllers.SoundController)
 
 local Hud = {}
 
@@ -39,7 +41,7 @@ local bagCountLabel: TextLabel
 local bagCapacityLabel: TextLabel
 local rateLabel: TextLabel
 local toolButton: TextButton
-local toolIcon: TextLabel
+local toolIcon: ViewportFrame
 local toolStateLabel: TextLabel
 local journalBadge: Frame
 local gainHolder: Frame
@@ -67,20 +69,6 @@ local NOTICE_COLORS: { [string]: Color3 } = {
 	afford = Theme.colors.cash,
 	sectionClear = Theme.colors.cash,
 	sectionUnlock = Theme.colors.cash,
-}
-
-local ICONS: { [string]: string } = {
-	Hand = "🧤",
-	Shears = "✂️",
-	Rake = "🍂",
-	Mower = "🚜",
-	Trimmer = "🌾",
-	Blower = "💨",
-	HedgeTrimmer = "🌿",
-	Saw = "🪚",
-	Chainsaw = "🪓",
-	Grinder = "⚙️",
-	Chipper = "🪵",
 }
 
 --------------------------------------------------------------------
@@ -136,6 +124,17 @@ local function buildRightColumn(gui: ScreenGui)
 	column.BackgroundTransparency = 1
 	column.Parent = gui
 
+	--[[
+		The column is laid out in fixed pixels running down from 78 below the
+		top edge, so on a short viewport its lower half — the fuel gauge, the
+		tool button that doubles as the touch action control, and the word under
+		it — ran off the bottom of the screen and sat on top of the round timer.
+		Scaling it to the room actually left below its start keeps the whole
+		column on screen, and leaves it untouched at its designed size on any
+		display tall enough for it.
+	]]
+	Theme.fitToViewport(column, 240, 420, 90)
+
 	multiplierLabel = Theme.text({
 		name = "Multiplier",
 		text = "",
@@ -182,13 +181,19 @@ local function buildRightColumn(gui: ScreenGui)
 	book.BackgroundColor3 = Theme.colors.progress
 	book.BorderSizePixel = 0
 	book.Rotation = -6
-	book.Text = "📔"
-	book.TextSize = 34
-	book.Font = Theme.font
+	book.Text = ""
 	book.AutoButtonColor = true
 	book.Parent = column
 	Theme.corner(book, 8)
 	Theme.stroke(book, 3, Theme.colors.outline, 0.05)
+	Theme.icon({
+		name = "BookIcon",
+		prop = "Journal",
+		size = UDim2.fromScale(0.78, 0.78),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		parent = book,
+	})
 
 	book.Activated:Connect(function()
 		Journal.toggle()
@@ -246,14 +251,13 @@ local function buildRightColumn(gui: ScreenGui)
 	round.Parent = toolButton
 	Theme.stroke(toolButton, 3, Theme.colors.outline, 0.05)
 
-	toolIcon = Theme.text({
+	toolIcon = Theme.icon({
 		name = "Icon",
-		text = "",
-		size = UDim2.fromScale(1, 1),
-		position = UDim2.fromScale(0, 0),
+		prop = Props.FALLBACK_TOOL_ICON,
+		size = UDim2.fromScale(0.82, 0.82),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
 		parent = toolButton,
-		align = Enum.TextXAlignment.Center,
-		textSize = 40,
 	})
 
 	toolStateLabel = Theme.text({
@@ -612,17 +616,16 @@ function Hud.card(message: string, banner: string, accent: string?)
 	medal.AnchorPoint = Vector2.new(0.5, 0)
 	Theme.stroke(medal, 3, Theme.colors.outline, 0.1)
 
-	local star = Theme.text({
+	-- The medal wore a typographic star. It is the golden blade the world hides
+	-- one of, which is the thing the medal is actually for.
+	Theme.icon({
 		name = "Star",
-		text = "★",
-		size = UDim2.fromScale(1, 1),
-		position = UDim2.fromScale(0, 0),
+		prop = "GoldenBlade",
+		size = UDim2.fromScale(0.72, 0.72),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
 		parent = medal,
-		align = Enum.TextXAlignment.Center,
-		color = Color3.fromRGB(232, 148, 36),
-		textSize = 34,
 	})
-	star.TextYAlignment = Enum.TextYAlignment.Center
 
 	task.delay(3.4, function()
 		if not frame.Parent then
@@ -668,7 +671,7 @@ local function refresh()
 	rateLabel.Text = `{Format.cashSuffix(perClipping)} / clipping`
 
 	local tool = Tools.get(state.equippedTool)
-	toolIcon.Text = if tool then ICONS[tool.category] or "🧰" else ""
+	Theme.setIcon(toolIcon, if tool then Props.forToolCategory(tool.category) else Props.FALLBACK_TOOL_ICON)
 	toolStateLabel.Text = MowController.actionLabel()
 	toolStateLabel.TextColor3 = if MowController.isMowing() then Theme.colors.cash else Theme.colors.subtext
 	toolButton.Visible = tool ~= nil
@@ -753,13 +756,32 @@ function Hud.start()
 			Hud.gain(amount)
 		end
 
+		--[[
+			What each kind sounds like.
+
+			These are the player's own moments — their sale, their section —
+			so they play flat rather than from a point in the world. Deliberately
+			not every kind: a stall ("you need a saw for this") happens the
+			instant you press a prompt you cannot use, and giving that a noise
+			only punishes someone for trying something.
+		]]
+		if kind == "sale" then
+			SoundController.play("Sell")
+		elseif kind == "sectionClear" then
+			SoundController.play("Win")
+		elseif kind == "sectionUnlock" or kind == "quest" then
+			SoundController.play("Click")
+		end
+
 		if kind == "sectionClear" then
 			Hud.card(message, "COMPLETED!")
 		elseif kind == "sectionUnlock" then
 			-- The message is just the section's name; the card carries the rest.
 			Hud.card(`A new area is open!`, "Unlocked :", message)
 		elseif kind == "quest" then
-			Hud.toast(kind, `✅ {message}`)
+			-- The toast is already coloured for the kind; it does not need a
+			-- glyph in front of the words as well.
+			Hud.toast(kind, message)
 		else
 			Hud.toast(kind, message)
 		end

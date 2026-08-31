@@ -47,6 +47,8 @@ export type StatePayload = {
 	hasPortableTrailer: boolean,
 	rentalSecondsLeft: number,
 	rentalToolId: string,
+	--- Worlds this player has finished, which is what the level select locks on.
+	worldsBeaten: { [string]: boolean },
 }
 
 function PlayerService.buildState(player: Player): StatePayload?
@@ -56,8 +58,10 @@ function PlayerService.buildState(player: Player): StatePayload?
 	end
 
 	local mods = EconomyService.modifiers(player)
+	local profile = DataService.get(player)
 
 	return {
+		worldsBeaten = if profile then profile.worldsBeaten else {},
 		cash = run.cash,
 		tips = run.tips,
 		earned = run.earned,

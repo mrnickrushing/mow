@@ -125,6 +125,7 @@ local function build()
 		parent = gui,
 		transparency = 0.02,
 	})
+	Theme.fitToViewport(window, 600 + 40, 440 + 40)
 
 	Theme.text({
 		name = "Title",
@@ -136,17 +137,25 @@ local function build()
 	})
 
 	local close = Instance.new("TextButton")
+	-- Releases the first-person mouse lock while the store is open, so its rows
+	-- can actually be clicked. See the note in Journal.
+	close.Modal = true
 	close.Size = UDim2.fromOffset(36, 36)
 	close.Position = UDim2.new(1, -16, 0, 14)
 	close.AnchorPoint = Vector2.new(1, 0)
-	close.Text = "✕"
-	close.Font = Theme.font
-	close.TextSize = 20
+	close.Text = ""
 	close.BackgroundColor3 = Theme.colors.panelLight
-	close.TextColor3 = Theme.colors.subtext
 	close.BorderSizePixel = 0
 	close.Parent = window
 	Theme.corner(close, 8)
+	Theme.icon({
+		name = "CloseIcon",
+		prop = "Cross",
+		size = UDim2.fromScale(0.62, 0.62),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		parent = close,
+	})
 	close.Activated:Connect(function()
 		Store.setOpen(false)
 	end)
@@ -182,8 +191,12 @@ local function build()
 end
 
 function Store.setOpen(open: boolean)
+	if open == isOpen then
+		return
+	end
 	isOpen = open
 	gui.Enabled = open
+	Theme.holdCursor(open)
 	if open then
 		render()
 	end

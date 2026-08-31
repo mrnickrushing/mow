@@ -62,36 +62,23 @@ local function buildVehicle(tool: Types.ToolDef, at: CFrame, parent: Instance): 
 	local deckWidth = tool.deck * 4
 	local color = COLORS[tool.id] or Color3.fromRGB(180, 180, 180)
 
-	local body = Build.part({
+	--[[
+		One mower mesh, on a collision box the size of the machine.
+
+		The mower used to be a coloured slab, a thinner slab for the deck and
+		two flat rectangles for wheels. The model carries all of that, and its
+		width still follows the tool's deck so the expensive decks visibly are
+		wider — which is the stat the whole ladder is sold on.
+	]]
+	local body = Build.mesh({
+		prop = "RidingMower",
 		name = "Body",
-		size = Vector3.new(deckWidth * 0.55, 2.4, 8),
+		size = Vector3.new(math.max(deckWidth, 6), 6, 10),
+		collisionSize = Vector3.new(math.max(deckWidth * 0.6, 4), 2.6, 8),
 		cframe = at * CFrame.new(0, 2.2, 0),
 		color = color,
-		material = Enum.Material.Metal,
 		parent = model,
 	})
-
-	Build.part({
-		name = "Deck",
-		size = Vector3.new(deckWidth, 1.2, 5),
-		cframe = at * CFrame.new(0, 0.9, 2.4),
-		color = color:Lerp(Color3.new(0, 0, 0), 0.35),
-		material = Enum.Material.DiamondPlate,
-		canCollide = false,
-		parent = model,
-	})
-
-	for _, offset in { Vector3.new(-deckWidth * 0.3, 1.2, -2.6), Vector3.new(deckWidth * 0.3, 1.2, -2.6) } do
-		Build.part({
-			name = "Wheel",
-			size = Vector3.new(1.6, 3.2, 3.2),
-			cframe = at * CFrame.new(offset),
-			color = Color3.fromRGB(32, 32, 34),
-			material = Enum.Material.Rubber,
-			canCollide = false,
-			parent = model,
-		})
-	end
 
 	local seat = Instance.new("VehicleSeat")
 	seat.Name = "Seat"
@@ -103,6 +90,8 @@ local function buildVehicle(tool: Types.ToolDef, at: CFrame, parent: Instance): 
 	seat.TurnSpeed = stats.turnSpeed
 	seat.Torque = 24
 	seat.Color = color:Lerp(Color3.new(0, 0, 0), 0.5)
+	-- The mesh draws its own seat, so this one is only somewhere to sit.
+	seat.Transparency = 1
 	seat.Parent = model
 
 	-- Everything hangs off the seat, which is the part the player drives.
@@ -116,7 +105,10 @@ local function buildVehicle(tool: Types.ToolDef, at: CFrame, parent: Instance): 
 		end
 	end
 
-	body.Massless = true
+	-- The body keeps its mass on purpose. It is the wide, low box; the seat is
+	-- a small one perched above it. Making the body weightless left the whole
+	-- machine balanced on the seat like an inverted pendulum, and the first
+	-- push of throttle rolled it onto its back.
 	model.PrimaryPart = seat
 	model.Parent = parent
 	return model, seat

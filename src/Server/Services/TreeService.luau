@@ -70,12 +70,12 @@ local onGrind: (Player, BasePart) -> ()
 --------------------------------------------------------------------
 
 local function makeStump(position: Vector3, sectionId: string, parent: Instance): BasePart
-	local part = Build.part({
+	local part = Build.mesh({
+		prop = "Stump",
 		name = "Stump",
-		size = Vector3.new(4.5, 2.2, 4.5),
+		size = Vector3.new(5, 2.4, 4.6),
+		collisionSize = Vector3.new(4.5, 2.2, 4.5),
 		cframe = CFrame.new(position + Vector3.new(0, 1.1, 0)),
-		color = Palette.color(Palette.tree.trunk),
-		material = Enum.Material.Wood,
 		parent = parent,
 	})
 
@@ -87,33 +87,49 @@ local function makeStump(position: Vector3, sectionId: string, parent: Instance)
 	end)
 
 	stumps[part] = { part = part, health = STUMP_HEALTH, sectionId = sectionId }
-	WorldService.registerExtraUnits(sectionId, CHIPS_PER_STUMP * DebrisConfig.get(DebrisConfig.Chips).unitsPerLevel)
 	return part
 end
 
+--[[
+	Plants one tree, with the prompt that fells it.
+
+	A tree does not count towards clearing the section it stands in, and this is
+	deliberate rather than an oversight. It used to: four units of timber were
+	added to the section's demand when the tree was planted and taken off again
+	when it was felled. Felling needs a saw, the cheapest of which is $3,200,
+	and every scrap of debris in the whole of The House is worth $2,013 — so the
+	three trees in its backyard added twelve units that could not be removed at
+	any price, to a section the world cannot be finished without. Worse, felling
+	one left a stump, and the stump added three more units of its own that only
+	a $140,000 grinder could take away, so buying the saw made the section
+	harder rather than finishing it. The first world of the game was unwinnable.
+
+	Everything that lies on a tile can be cleared with bare hands, so a section
+	is always finishable by the work the run is actually balanced around. Trees
+	and stumps sit on top of that: they pay, they count for quests, and they are
+	there for anyone who wants them.
+]]
 local function makeTree(position: Vector3, sectionId: string, parent: Instance)
 	local model = Instance.new("Model")
 	model.Name = "Tree"
 
-	local height = rng:NextNumber(20, 30)
-	local trunk = Build.part({
-		name = "Trunk",
-		size = Vector3.new(3.4, height, 3.4),
-		cframe = CFrame.new(position + Vector3.new(0, height * 0.5, 0)),
-		color = Palette.color(Palette.tree.trunk),
-		material = Enum.Material.Wood,
-		parent = model,
-	})
+	local height = rng:NextNumber(22, 30)
 
-	local canopyRadius = rng:NextNumber(11, 16)
-	Build.part({
-		name = "Canopy",
-		size = Vector3.new(canopyRadius, canopyRadius * 0.8, canopyRadius),
-		cframe = CFrame.new(position + Vector3.new(0, height + canopyRadius * 0.25, 0)),
-		-- Autumn canopy, picked from the same golds the leaves use.
-		color = Palette.color(Palette.tree.canopy[rng:NextInteger(1, #Palette.tree.canopy)]),
-		material = Enum.Material.Grass,
-		canCollide = false,
+	--[[
+		One mesh for the whole tree, on a slim collision column.
+
+		The tree used to be a brown box with a green box balanced on it. The
+		model carries its own trunk and canopy, so the part underneath only has
+		to be something to walk into and hang the Chop prompt on — a column the
+		width of the trunk, rather than a block the width of the leaves.
+	]]
+	local trunk = Build.mesh({
+		prop = "Tree",
+		name = "Trunk",
+		-- Proportions of the source mesh, so a taller tree is not a fatter one.
+		size = Vector3.new(height * 0.666, height, height * 0.703),
+		collisionSize = Vector3.new(3.4, height, 3.4),
+		cframe = CFrame.new(position + Vector3.new(0, height * 0.5, 0)),
 		parent = model,
 	})
 
@@ -133,7 +149,6 @@ local function makeTree(position: Vector3, sectionId: string, parent: Instance)
 		sectionId = sectionId,
 		felled = false,
 	}
-	WorldService.registerExtraUnits(sectionId, LOGS_PER_TREE * DebrisConfig.get(DebrisConfig.Log).unitsPerLevel)
 end
 
 --- Scatters `count` points inside a section, keeping clear of the house.
@@ -185,18 +200,27 @@ local function equippedTool(player: Player): Types.ToolDef?
 end
 
 --- Awards debris to the bag, leaving anything that will not fit on the ground.
-local function awardOrDrop(player: Player, debrisId: number, units: number, position: Vector3, sectionId: string): number
+--[[
+	Hands over a tree's worth of wood, dropping whatever will not fit in the bag.
+
+	This used to also count the wood off the section's total, because the wood
+	had been counted onto it when the tree was planted. Neither happens now: a
+	tree and its stump are worth cash and count for the quests that ask for
+	them, but they are not part of what "clear" means. See `makeTree`.
+]]
+local function awardOrDrop(player: Player, debrisId: number, units: number, position: Vector3): number
 	local taken = BagService.add(player, debrisId, units)
 	local left = units - taken
 
 	if left > 0 then
 		local def = DebrisConfig.get(debrisId)
-		local pile = Build.part({
+		-- Timber looks like timber; everything else drops as a heap of leaves.
+		local pile = Build.mesh({
+			prop = if debrisId == DebrisConfig.Log then "Log" else "LeafPile",
 			name = "Pile",
-			size = Vector3.new(5, 2, 3),
+			size = Vector3.new(5, 2.4, 4),
+			collisionSize = Vector3.new(5, 2, 3),
 			cframe = CFrame.new(position + Vector3.new(0, 1, 0)),
-			color = Color3.new(def.color[1], def.color[2], def.color[3]),
-			material = Enum.Material.Wood,
 			canCollide = false,
 			parent = container,
 		})
@@ -223,12 +247,6 @@ local function awardOrDrop(player: Player, debrisId: number, units: number, posi
 				pile:SetAttribute("Units", remaining - got)
 			end
 		end)
-	end
-
-	if sectionId ~= "" then
-		-- Completion counts the wood as cleared once it leaves the tree, whether
-		-- it went into a bag or onto the ground.
-		WorldService.consumeUnits(sectionId, units)
 	end
 
 	return taken
@@ -289,8 +307,17 @@ local function fellTree(player: Player, tree: Tree)
 		end
 	end)
 
+	--[[
+		The tree is destroyed a second after it lands, and a sound dies with the
+		instance it hangs on, so the noise of it coming down gets its own anchor
+		that outlives the tree.
+	]]
+	if container then
+		Build.soundAt(base, "Timber", container)
+	end
+
 	local logUnits = LOGS_PER_TREE * DebrisConfig.get(DebrisConfig.Log).unitsPerLevel
-	awardOrDrop(player, DebrisConfig.Log, logUnits, base, tree.sectionId)
+	awardOrDrop(player, DebrisConfig.Log, logUnits, base)
 
 	if container then
 		makeStump(base, tree.sectionId, container)
@@ -318,6 +345,10 @@ function onChop(player: Player, model: Model)
 	local damage = if tool.category == "Chainsaw" then 3 else 1
 	tree.health -= damage
 
+	-- On the trunk, so everyone nearby hears it from the tree rather than from
+	-- wherever they happen to be standing.
+	Build.sound(tree.trunk, "Chop", true)
+
 	if tree.health <= 0 then
 		fellTree(player, tree)
 	else
@@ -341,13 +372,14 @@ function onGrind(player: Player, part: BasePart)
 	end
 
 	stump.health -= 2
+	Build.sound(part, "Grind", true)
 	if stump.health > 0 then
 		return
 	end
 
 	stumps[part] = nil
 	local chips = CHIPS_PER_STUMP * DebrisConfig.get(DebrisConfig.Chips).unitsPerLevel
-	awardOrDrop(player, DebrisConfig.Chips, chips, part.Position, stump.sectionId)
+	awardOrDrop(player, DebrisConfig.Chips, chips, part.Position)
 	part:Destroy()
 end
 

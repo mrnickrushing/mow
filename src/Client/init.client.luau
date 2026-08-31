@@ -10,6 +10,7 @@ local PlayerState = require(script.PlayerState)
 
 local Controllers = script.Controllers
 local GrassRenderer = require(Controllers.GrassRenderer)
+local SoundController = require(Controllers.SoundController)
 local GustController = require(Controllers.GustController)
 local MissedSpotController = require(Controllers.MissedSpotController)
 local MowController = require(Controllers.MowController)
@@ -25,8 +26,11 @@ local RoundBar = require(script.UI.RoundBar)
 local Hotbar = require(script.UI.Hotbar)
 local Journal = require(script.UI.Journal)
 local Store = require(script.UI.Store)
+local LevelSelect = require(script.UI.LevelSelect)
 
 PlayerState.start()
+-- Before anything that might play a cue on its first frame.
+SoundController.start()
 GrassRenderer.start()
 GustController.start()
 MowController.start()
@@ -40,6 +44,7 @@ Journal.start()
 Hotbar.start()
 RoundBar.start()
 Store.start()
+LevelSelect.start()
 Hud.start()
 AffordController.start()
 

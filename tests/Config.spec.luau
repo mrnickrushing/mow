@@ -13,6 +13,7 @@ local Monetization = require("./.build/Shared/Config/Monetization")
 local Worlds = require("./.build/Shared/Config/Worlds")
 local Tools = require("./.build/Shared/Config/Tools")
 local Types = require("./.build/Shared/Types")
+local Props = require("./.build/Shared/Config/Props")
 local Upgrades = require("./.build/Shared/Config/Upgrades")
 local h = require("./harness")
 
@@ -134,6 +135,43 @@ return function()
 			end
 		end)
 
+		h.it("puts nothing in a required section that a broke player cannot clear", function()
+			--[[
+				The affordability floor for the whole game.
+
+				A section is finished only when its demand reaches zero, so
+				every kind of debris a required section can contain has to be
+				removable with what a player who has just arrived owns — which
+				is a pair of hands and no money. This is the invariant the
+				trees broke: they added timber to a required section's demand
+				that needed a $3,200 saw, in a world whose every last clipping
+				is worth $2,013, and grinding the stump that felling left
+				needed $140,000 more. Nothing on a tile may ever be gated like
+				that again.
+			]]
+			local free: { [number]: boolean } = {}
+			for _, tool in Tools.list do
+				if tool.cost == 0 and tool.currency == "Cash" then
+					for _, id in tool.clears do
+						free[id] = true
+					end
+				end
+			end
+			h.expectTrue(next(free) ~= nil, "no tool costs nothing, so nobody can start")
+
+			for _, world in Worlds.list do
+				for _, section in Worlds.requiredSections(world) do
+					for _, entry in section.fill do
+						h.expectTrue(
+							free[entry.debris] == true,
+							`{world.id}/{section.id} needs {Debris.get(entry.debris).name}, `
+								.. "which no free tool can clear"
+						)
+					end
+				end
+			end
+		end)
+
 		h.it("pays more per bag unit the harder it is to reach", function()
 			local grass = Debris.get(Debris.Grass)
 			local log = Debris.get(Debris.Log)
@@ -146,6 +184,42 @@ return function()
 			h.expectTrue(Debris.MAX_ID <= 7, `MAX_ID {Debris.MAX_ID} will not fit in three bits`)
 			for id = 0, Debris.MAX_ID do
 				h.expectTrue(Debris.defs[id] ~= nil, `debris id {id} has no definition`)
+			end
+		end)
+	end)
+
+	h.describe("Config — icons", function()
+		h.it("has a real model for every kind of tool", function()
+			--[[
+				The interface used to be drawn in emoji, which cannot be wrong
+				in this way: a glyph either renders or shows a box, and either
+				way something appears. An icon is a mesh id now, and a name
+				that misses the catalogue by one letter renders nothing at all
+				— an empty slot in the hotbar with no error anywhere.
+			]]
+			for _, tool in Tools.list do
+				local name = Props.forToolCategory(tool.category)
+				h.expectTrue(
+					Props.get(name) ~= nil,
+					`{tool.id} is a {tool.category}, which asks for a model called `
+						.. `"{name}" that the catalogue does not have`
+				)
+			end
+			h.expectTrue(
+				Props.get(Props.FALLBACK_TOOL_ICON) ~= nil,
+				"the fallback icon itself is missing from the catalogue"
+			)
+		end)
+
+		h.it("gives every model a native size with no zero side", function()
+			-- An icon is framed by dividing by its own size, and every mesh is
+			-- scaled the same way when the world is built.
+			for name, def in Props.catalogue do
+				h.expectTrue(def.mesh ~= "", `{name} has no mesh id`)
+				h.expectTrue(
+					def.native.X > 0 and def.native.Y > 0 and def.native.Z > 0,
+					`{name} has a zero side in its native size, which would divide by zero`
+				)
 			end
 		end)
 	end)

@@ -21,6 +21,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Tools = require(Shared.Config.Tools)
+local Props = require(Shared.Config.Props)
 local Types = require(Shared.Types)
 local MowController = require(script.Parent.MowController)
 local PlayerState = require(script.Parent.Parent.PlayerState)
@@ -51,103 +52,72 @@ end
 -- Shapes
 --------------------------------------------------------------------
 
-type Piece = {
-	shape: "block" | "cylinder" | "sphere",
+--[[
+	The model held in front of the camera, per tool category.
+
+	This used to be a handful of blocks and cylinders bolted together — a rake
+	was a tube with two boxes on the end of it, a pair of hands was three boxes.
+	It is the one thing on screen every single frame in first person, so it was
+	also the most visible collection of rectangles in the game. Each category
+	now holds the tool it is actually holding, at the size and angle it reads
+	best from behind.
+]]
+type Held = {
+	prop: string,
 	size: Vector3,
 	at: CFrame,
-	color: Color3,
-	material: Enum.Material?,
 }
 
-local function piece(
-	shape: "block" | "cylinder" | "sphere",
-	size: Vector3,
-	at: CFrame,
-	color: Color3,
-	material: Enum.Material?
-): Piece
-	return { shape = shape, size = size, at = at, color = color, material = material }
-end
-
---- A tube running forward from the camera. Roblox cylinders stand on their end,
---- so the rotation is what turns one into a barrel rather than a bollard.
-local function tube(length: number, radius: number, z: number, color: Color3): Piece
-	return piece(
-		"cylinder",
-		Vector3.new(radius * 2, length, radius * 2),
-		CFrame.new(0, 0, z) * CFrame.Angles(math.rad(90), 0, 0),
-		color
-	)
-end
-
-local BARREL_DARK = rgb(58, 40, 30)
-local BARREL_GREY = rgb(150, 150, 152)
-local HOUSING = rgb(232, 168, 44)
-local GLOVE = rgb(150, 168, 132)
-local SKIN = rgb(226, 178, 140)
-local METAL = rgb(176, 178, 182)
-local WOOD = rgb(146, 104, 62)
-
---[[
-	The silhouette for a tool category.
-
-	Deliberately coarse. At the bottom corner of a phone screen a blower needs to
-	read as "long tube" and a rake as "pole with a head on it" — detail beyond
-	that is invisible and costs parts on every frame.
-]]
-local function shapesFor(tool: Types.ToolDef): { Piece }
+local function held(tool: Types.ToolDef): Held
 	local category = tool.category
 
-	if category == "Blower" then
-		return {
-			-- Two tones down the barrel: the near half dark, the far half grey,
-			-- which is what gives the tube any sense of length at all.
-			tube(2.0, 0.17, -1.05, BARREL_GREY),
-			tube(2.2, 0.19, 0.85, BARREL_DARK),
-			piece("block", Vector3.new(0.5, 0.44, 0.7), CFrame.new(0, -0.05, 1.9), HOUSING),
-			piece("cylinder", Vector3.new(0.46, 0.5, 0.46), CFrame.new(0, -0.3, 1.6), BARREL_DARK),
-		}
-	elseif category == "Hand" then
-		return {
-			piece("block", Vector3.new(0.52, 0.24, 0.66), CFrame.new(0, 0, 0.15), GLOVE),
-			piece("block", Vector3.new(0.5, 0.2, 0.3), CFrame.new(0, 0.02, -0.32), SKIN),
-			piece("block", Vector3.new(0.2, 0.22, 0.34), CFrame.new(-0.3, -0.02, 0.1), GLOVE),
-		}
+	if category == "Hand" then
+		return { prop = "Gloves", size = Vector3.new(1.1, 0.5, 0.9), at = CFrame.new(0, -0.06, 0.1) }
 	elseif category == "Rake" then
 		return {
-			tube(2.6, 0.08, 0.2, WOOD),
-			piece("block", Vector3.new(0.9, 0.1, 0.16), CFrame.new(0, -0.08, -1.05), METAL),
-			piece("block", Vector3.new(0.85, 0.32, 0.06), CFrame.new(0, -0.28, -1.05), METAL),
+			prop = "RakeTool",
+			size = Vector3.new(1.0, 0.5, 3.0),
+			at = CFrame.new(0, -0.1, -0.5) * CFrame.Angles(math.rad(-8), 0, 0),
 		}
-	elseif category == "Trimmer" or category == "Saw" or category == "Chainsaw" then
+	elseif category == "Blower" then
 		return {
-			tube(2.4, 0.09, 0.1, BARREL_DARK),
-			piece("block", Vector3.new(0.4, 0.34, 0.62), CFrame.new(0, 0, 1.2), HOUSING),
-			piece("block", Vector3.new(0.34, 0.1, 0.7), CFrame.new(0, -0.06, -1.1), METAL),
+			prop = "LeafBlower",
+			size = Vector3.new(1.0, 0.9, 2.2),
+			at = CFrame.new(0.1, -0.12, -0.35),
+		}
+	elseif category == "Trimmer" then
+		return {
+			prop = "TrimmerTool",
+			size = Vector3.new(0.9, 1.0, 3.0),
+			at = CFrame.new(0, -0.12, -0.5) * CFrame.Angles(math.rad(-6), 0, 0),
+		}
+	elseif category == "Saw" or category == "Chainsaw" then
+		return {
+			prop = "SawTool",
+			size = Vector3.new(0.9, 1.0, 2.6),
+			at = CFrame.new(0.05, -0.1, -0.45),
 		}
 	elseif category == "HedgeTrimmer" then
 		return {
-			piece("block", Vector3.new(0.42, 0.36, 0.8), CFrame.new(0, 0, 0.9), HOUSING),
-			piece("block", Vector3.new(0.16, 0.1, 1.9), CFrame.new(0, -0.04, -0.5), METAL),
+			prop = "HedgeTool",
+			size = Vector3.new(0.8, 0.9, 2.8),
+			at = CFrame.new(0, -0.1, -0.5),
 		}
+	elseif category == "Grinder" then
+		return { prop = "GrinderTool", size = Vector3.new(1.6, 1.2, 2.2), at = CFrame.new(0, -0.35, -0.6) }
+	elseif category == "Chipper" then
+		return { prop = "ChipperTool", size = Vector3.new(1.6, 1.4, 2.2), at = CFrame.new(0, -0.35, -0.6) }
 	end
 
-	-- Mowers and everything on wheels: a handlebar, since the machine itself is
-	-- under the camera rather than in front of it.
-	return {
-		tube(1.9, 0.07, 0.55, METAL),
-		piece("block", Vector3.new(1.5, 0.12, 0.12), CFrame.new(0, 0.55, -0.35), BARREL_DARK),
-		piece("block", Vector3.new(0.34, 0.3, 0.4), CFrame.new(0, 0.1, 1.35), HOUSING),
-	}
+	-- Mowers and everything on wheels: the handlebar, since the machine itself
+	-- is under the camera rather than in front of it.
+	return { prop = "Handlebar", size = Vector3.new(2.0, 1.0, 1.6), at = CFrame.new(0, -0.5, -0.3) }
 end
 
---------------------------------------------------------------------
--- Build
---------------------------------------------------------------------
-
+--- The folder the held model lives in, hung off the camera.
 local function ensureContainer(): Folder
 	local existing = container
-	if existing then
+	if existing and existing.Parent == camera then
 		return existing
 	end
 	local folder = Instance.new("Folder")
@@ -175,27 +145,36 @@ local function build(toolId: string)
 	end
 
 	local folder = ensureContainer()
-	for _, spec in shapesFor(tool) do
-		local part = Instance.new("Part")
-		part.Anchored = true
-		part.CanCollide = false
-		part.CanQuery = false
-		part.CanTouch = false
-		part.CastShadow = false
-		part.Size = spec.size
-		part.Color = spec.color
-		part.Material = spec.material or Enum.Material.SmoothPlastic
+	local spec = held(tool)
+	local def = Props.get(spec.prop)
 
-		if spec.shape == "cylinder" then
-			local mesh = Instance.new("CylinderMesh")
-			mesh.Parent = part
-		elseif spec.shape == "sphere" then
-			part.Shape = Enum.PartType.Ball
+	local part = Instance.new("Part")
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Size = spec.size
+	part.Color = Color3.fromRGB(255, 255, 255)
+	part.Material = Enum.Material.SmoothPlastic
+
+	if def then
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.FileMesh
+		mesh.MeshId = def.mesh
+		if def.texture then
+			mesh.TextureId = def.texture
 		end
-
-		part.Parent = folder
-		table.insert(parts, { part = part, offset = spec.at })
+		mesh.Scale = Vector3.new(
+			spec.size.X / def.native.X,
+			spec.size.Y / def.native.Y,
+			spec.size.Z / def.native.Z
+		)
+		mesh.Parent = part
 	end
+
+	part.Parent = folder
+	table.insert(parts, { part = part, offset = spec.at })
 end
 
 --------------------------------------------------------------------

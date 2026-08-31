@@ -93,6 +93,8 @@ local GameConfig = {
 	--------------------------------------------------------------------
 	--- Wet grass (sprinklers) multiplies cut rate by this.
 	WET_CUT_PENALTY = 0.5,
+	--- Walk speed multiplier while a wasp sting is wearing off.
+	STING_WALK_PENALTY = 0.45,
 	--- Tools at or below this tier stall outright in wet grass.
 	WET_STALL_MAX_TIER = 3,
 	--- Tiles in a row, in one straight line, to bank a Clean Stripe bonus.

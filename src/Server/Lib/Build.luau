@@ -7,6 +7,8 @@
 ]]
 
 local Palette = require(game:GetService("ReplicatedStorage").Shared.Config.Palette)
+local Audio = require(game:GetService("ReplicatedStorage").Shared.Config.Audio)
+local Props = require(game:GetService("ReplicatedStorage").Shared.Config.Props)
 
 local Build = {}
 
@@ -22,6 +24,73 @@ export type PartOptions = {
 	castShadow: boolean?,
 	parent: Instance?,
 }
+
+export type MeshOptions = {
+	--- A key in the Props catalogue.
+	prop: string,
+	name: string?,
+	--- How big the prop should end up in the world.
+	size: Vector3,
+	cframe: CFrame,
+	--- Collision box, when the prop should be solid to something smaller or
+	--- larger than it looks. Defaults to `size`.
+	collisionSize: Vector3?,
+	color: Color3?,
+	transparency: number?,
+	canCollide: boolean?,
+	castShadow: boolean?,
+	parent: Instance?,
+}
+
+--[[
+	A prop from the catalogue, rendered at the size you ask for.
+
+	The part underneath stays a plain box because that is what the physics and
+	the proximity prompts want; the mesh hanging on it is what anybody actually
+	sees. `SpecialMesh` ignores the part's size and renders at its own, so the
+	scale is worked out here from the mesh's native size — ask for a four-stud
+	bin and you get a four-stud bin whatever the artist exported.
+
+	Falls back to a plain coloured part when a prop name is unknown, so a typo
+	costs a nice model rather than a missing object in the middle of the lawn.
+]]
+function Build.mesh(options: MeshOptions): Part
+	local def = Props.get(options.prop)
+	local part = Build.part({
+		name = options.name or options.prop,
+		size = options.collisionSize or options.size,
+		cframe = options.cframe,
+		color = options.color or (def and def.color) or Color3.fromRGB(255, 255, 255),
+		material = Enum.Material.SmoothPlastic,
+		-- A part carrying a file mesh renders as that mesh rather than as a
+		-- box, and transparency applies to the mesh too, so it stays opaque.
+		transparency = options.transparency or 0,
+		canCollide = options.canCollide,
+		castShadow = options.castShadow,
+		parent = options.parent,
+	})
+
+	if not def then
+		return part
+	end
+
+	-- The box is only there for collision; the mesh carries the look, so it is
+	-- drawn opaque even though the part beneath it is invisible.
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.FileMesh
+	mesh.MeshId = def.mesh
+	if def.texture then
+		mesh.TextureId = def.texture
+	end
+	mesh.Scale = Vector3.new(
+		options.size.X / def.native.X,
+		options.size.Y / def.native.Y,
+		options.size.Z / def.native.Z
+	)
+	mesh.Parent = part
+
+	return part
+end
 
 function Build.part(options: PartOptions): Part
 	local part = Instance.new("Part")
@@ -136,7 +205,12 @@ function Build.sidingWall(
 	for index = 0, boards - 1 do
 		local y = centre.Y - size.Y * 0.5 + boardHeight * (index + 0.5)
 		local shade = if index % 2 == 0 then Palette.house.siding else Palette.house.sidingShade
-		Build.part({
+		-- The lap course is a siding model rather than a painted slab. It is
+		-- stretched along the wall rather than tiled, which costs one part
+		-- instead of sixty and keeps the lap lines horizontal, because that is
+		-- the direction they run in.
+		Build.mesh({
+			prop = "Siding",
 			name = "Board",
 			size = Vector3.new(
 				math.abs(along.X) * width + math.abs(facing.X) * thickness,
@@ -145,7 +219,6 @@ function Build.sidingWall(
 			),
 			cframe = CFrame.new(Vector3.new(centre.X, y, centre.Z)),
 			color = Palette.color(shade),
-			material = Enum.Material.WoodPlanks,
 			parent = folder,
 		})
 	end
@@ -173,35 +246,35 @@ function Build.picketFence(
 		return folder
 	end
 
+	--[[
+		Fence panels, not a palisade of little boxes.
+
+		This used to be one box per picket plus a wedge cap on each, which is a
+		great many rectangles to say "fence" and still read as a row of blocks.
+		One panel model per section says it in a single mesh.
+	]]
 	local direction = delta.Unit
-	local spacing = 1.6
-	local count = math.max(math.floor(length / spacing), 1)
+	local panelWidth = 5
+	local count = math.max(math.floor(length / panelWidth + 0.5), 1)
+	local span = length / count
 
 	for index = 0, count - 1 do
-		local at = from + direction * (length * (index + 0.5) / count)
-		local shade = if index % 3 == 0 then Palette.fence.picketShade else Palette.fence.picket
-		Build.part({
+		local at = from + direction * (span * (index + 0.5))
+		Build.mesh({
+			prop = "Fence",
 			name = "Picket",
-			size = Vector3.new(1.25, height, 0.5),
-			cframe = CFrame.lookAt(at + Vector3.new(0, height * 0.5, 0), at + direction + Vector3.new(0, height * 0.5, 0))
-				* CFrame.Angles(0, math.rad(90), 0),
-			color = Palette.color(shade),
-			material = Enum.Material.WoodPlanks,
-			canCollide = false,
-			castShadow = false,
-			parent = folder,
-		})
-		-- The pointed cap that stops a fence reading as a row of posts.
-		Build.part({
-			name = "Cap",
-			size = Vector3.new(1.25, 0.9, 0.5),
+			size = Vector3.new(span + 0.2, height, 0.6),
+			collisionSize = Vector3.new(span, height, 0.6),
 			cframe = CFrame.lookAt(
-				at + Vector3.new(0, height + 0.2, 0),
-				at + direction + Vector3.new(0, height + 0.2, 0)
-			) * CFrame.Angles(0, math.rad(90), 0) * CFrame.Angles(0, 0, math.rad(45)),
-			color = Palette.color(Palette.fence.picket),
-			material = Enum.Material.WoodPlanks,
-			canCollide = false,
+				at + Vector3.new(0, height * 0.5, 0),
+				at + direction + Vector3.new(0, height * 0.5, 0)
+			) * CFrame.Angles(0, math.rad(90), 0),
+			-- Solid, so the fence is the edge of the property rather than a
+			-- picture of one. It was built from non-colliding pickets, which
+			-- let a player walk straight through the boundary, across the
+			-- apron and off the end of the world. Panels are cheap enough to
+			-- collide now that there is one every five studs instead of one
+			-- every one and a half.
 			castShadow = false,
 			parent = folder,
 		})
@@ -209,35 +282,35 @@ function Build.picketFence(
 
 	for _, ratio in { 0.32, 0.72 } do
 		local mid = from + direction * (length * 0.5) + Vector3.new(0, height * ratio, 0)
-		Build.part({
+		Build.mesh({
+		prop = "Railing",
 			name = "Rail",
 			size = Vector3.new(0.55, 0.7, length),
 			cframe = CFrame.lookAt(mid, mid + direction),
 			color = Palette.color(Palette.fence.rail),
-			material = Enum.Material.Wood,
 			canCollide = false,
 			castShadow = false,
 			parent = folder,
 		})
 	end
 
+	--[[
+		No lattice.
+
+		The crosshatch above the pickets was a hundred and ninety-two little
+		boxes turned forty-two degrees, which is a great deal of geometry to
+		spend on a decoration that now sits on top of a fence model that already
+		looks like a fence. The argument stays so the callers do not have to
+		change, and taller runs simply build a taller panel.
+	]]
 	if lattice then
-		-- A diamond crosshatch panel above the pickets, as on the reference's
-		-- side gates.
-		local panels = math.max(math.floor(length / 4), 1)
-		for index = 0, panels - 1 do
-			local at = from + direction * (length * (index + 0.5) / panels) + Vector3.new(0, height + 2.6, 0)
-			for _, angle in { 42, -42 } do
-				Build.part({
-					name = "Lattice",
-					size = Vector3.new(0.4, 6.5, 0.4),
-					cframe = CFrame.lookAt(at, at + direction) * CFrame.Angles(0, 0, math.rad(angle)),
-					color = Palette.color(Palette.fence.lattice),
-					material = Enum.Material.WoodPlanks,
-					canCollide = false,
-					castShadow = false,
-					parent = folder,
-				})
+		for _, panel in folder:GetChildren() do
+			if panel:IsA("BasePart") then
+				local mesh = panel:FindFirstChildOfClass("SpecialMesh")
+				if mesh then
+					mesh.Scale = Vector3.new(mesh.Scale.X, mesh.Scale.Y * 1.35, mesh.Scale.Z)
+					panel.Size = Vector3.new(panel.Size.X, panel.Size.Y * 1.35, panel.Size.Z)
+				end
 			end
 		end
 	end
@@ -287,15 +360,15 @@ function Build.hedge(parent: Instance, from: Vector3, to: Vector3, height: numbe
 		local at = from + direction * (length * (index + 0.5) / blocks)
 		-- Slight per-block variation, so the hedge does not read as one extrusion.
 		local wobble = ((index % 3) - 1) * 0.6
-		Build.part({
+		Build.mesh({
+			prop = "Hedge",
 			name = "Hedge",
-			size = Vector3.new(length / blocks + 0.6, height + wobble, depth),
+			size = Vector3.new(length / blocks + 1.2, height + wobble, depth + 1),
+			collisionSize = Vector3.new(length / blocks + 0.6, height + wobble, depth),
 			cframe = CFrame.lookAt(
 				at + Vector3.new(0, (height + wobble) * 0.5, 0),
 				at + direction + Vector3.new(0, (height + wobble) * 0.5, 0)
 			) * CFrame.Angles(0, math.rad(90), 0),
-			color = Palette.color(if index % 2 == 0 then Palette.hedge else Palette.rgb(48, 112, 46)),
-			material = Enum.Material.Grass,
 			parent = folder,
 		})
 	end
@@ -314,18 +387,19 @@ function Build.chainLinkWall(parent: Instance, from: Vector3, to: Vector3, brick
 	local direction = delta.Unit
 	local mid = from + direction * (length * 0.5)
 
-	Build.part({
+	Build.mesh({
+		prop = "BrickWall",
 		name = "Retaining",
 		size = Vector3.new(2.2, brickHeight, length),
 		cframe = CFrame.lookAt(mid + Vector3.new(0, brickHeight * 0.5, 0), mid + direction + Vector3.new(0, brickHeight * 0.5, 0)),
 		color = Palette.color(Palette.house.brick),
-		material = Enum.Material.Brick,
 		parent = folder,
 	})
 
 	-- The mesh itself: a translucent dark panel plus posts, which reads as
 	-- chain-link at play distance without thousands of wire parts.
-	Build.part({
+	Build.mesh({
+		prop = "Bush",
 		name = "Mesh",
 		size = Vector3.new(0.4, meshHeight, length),
 		cframe = CFrame.lookAt(
@@ -333,7 +407,6 @@ function Build.chainLinkWall(parent: Instance, from: Vector3, to: Vector3, brick
 			mid + direction + Vector3.new(0, brickHeight + meshHeight * 0.5, 0)
 		),
 		color = Palette.color(Palette.rgb(58, 84, 58)),
-		material = Enum.Material.DiamondPlate,
 		transparency = 0.45,
 		canCollide = false,
 		castShadow = false,
@@ -343,12 +416,12 @@ function Build.chainLinkWall(parent: Instance, from: Vector3, to: Vector3, brick
 	local posts = math.max(math.floor(length / 14), 1)
 	for index = 0, posts do
 		local at = from + direction * (length * index / posts)
-		Build.part({
+		Build.mesh({
+		prop = "Column",
 			name = "Post",
 			size = Vector3.new(0.9, meshHeight + 1, 0.9),
 			cframe = CFrame.new(at + Vector3.new(0, brickHeight + (meshHeight + 1) * 0.5, 0)),
 			color = Palette.color(Palette.rgb(72, 96, 72)),
-			material = Enum.Material.Metal,
 			canCollide = false,
 			castShadow = false,
 			parent = folder,
@@ -368,16 +441,20 @@ function Build.flagstone(parent: Instance, centre: Vector3, size: Vector2, tile:
 			local jitterX = (rng:NextNumber() - 0.5) * tile * 0.16
 			local jitterZ = (rng:NextNumber() - 0.5) * tile * 0.16
 			local shade = if rng:NextNumber() < 0.4 then Palette.ground.stoneDark else Palette.ground.stone
-			Build.part({
+			-- A flagstone, not a square of grey. Two hundred and thirty of
+			-- these make every path in the game, so being a real stone
+			-- matters more here than almost anywhere else.
+			Build.mesh({
+				prop = "Paving",
 				name = "Slab",
-				size = Vector3.new(tile * 0.92, 0.5, tile * 0.92),
+				size = Vector3.new(tile * 0.98, 0.5, tile * 0.98),
+				collisionSize = Vector3.new(tile * 0.92, 0.5, tile * 0.92),
 				cframe = CFrame.new(
 					centre.X - size.X * 0.5 + tile * (col + 0.5) + jitterX,
 					centre.Y,
 					centre.Z - size.Y * 0.5 + tile * (row + 0.5) + jitterZ
 				) * CFrame.Angles(0, rng:NextNumber() * 0.12, 0),
 				color = Palette.color(shade),
-				material = Enum.Material.Slate,
 				canCollide = false,
 				castShadow = false,
 				parent = folder,
@@ -399,22 +476,39 @@ function Build.fence(
 	color: Color3,
 	spacing: number
 )
-	local function rail(from: Vector3, to: Vector3)
+	--[[
+		The boundary of a lot, in fence panels.
+
+		This used to be a thin rail plus one thin post every few studs — a
+		hundred and sixty-four little boxes standing in for a fence, and the
+		only thing left in the Gas Station that still looked like scaffolding.
+		Panels are the same model the picket boundary uses.
+	]]
+	local function run(from: Vector3, to: Vector3)
 		local delta = to - from
 		local length = delta.Magnitude
-		if length < 0.1 then
+		if length < 1 then
 			return
 		end
-		Build.part({
-			name = "Rail",
-			size = Vector3.new(0.35, 0.35, length),
-			cframe = CFrame.lookAt(from + delta * 0.5 + Vector3.new(0, height * 0.7, 0), to + Vector3.new(0, height * 0.7, 0)),
-			color = color,
-			material = Enum.Material.Wood,
-			canCollide = false,
-			castShadow = false,
-			parent = parent,
-		})
+		local direction = delta.Unit
+		local count = math.max(math.floor(length / spacing + 0.5), 1)
+		local span = length / count
+
+		for index = 0, count - 1 do
+			local at = from + direction * (span * (index + 0.5))
+			Build.mesh({
+				prop = "Fence",
+				name = "Picket",
+				size = Vector3.new(span + 0.2, height, 0.6),
+				collisionSize = Vector3.new(span, height, 0.6),
+				cframe = CFrame.lookAt(
+					at + Vector3.new(0, height * 0.5, 0),
+					at + direction + Vector3.new(0, height * 0.5, 0)
+				) * CFrame.Angles(0, math.rad(90), 0),
+				castShadow = false,
+				parent = parent,
+			})
+		end
 	end
 
 	local corners = {
@@ -424,26 +518,90 @@ function Build.fence(
 		Vector3.new(minX, 0, maxZ),
 	}
 	for index, corner in corners do
-		local nextCorner = corners[index % #corners + 1]
-		rail(corner, nextCorner)
-
-		local delta = nextCorner - corner
-		local length = delta.Magnitude
-		local posts = math.max(math.floor(length / spacing), 1)
-		for step = 0, posts - 1 do
-			local at = corner + delta * (step / posts)
-			Build.part({
-				name = "Post",
-				size = Vector3.new(0.5, height, 0.5),
-				cframe = CFrame.new(at + Vector3.new(0, height * 0.5, 0)),
-				color = color,
-				material = Enum.Material.Wood,
-				canCollide = false,
-				castShadow = false,
-				parent = parent,
-			})
-		end
+		run(corner, corners[index % #corners + 1])
 	end
+end
+
+--[[
+	A noise that belongs to a place.
+
+	Parented to a part, a `Sound` is heard from where that part is and fades as
+	you walk away, which is the whole difference between this and the cues the
+	client plays flat in your own ears. A tree coming down should carry across
+	the lawn and a sprinkler should not be audible from the road.
+
+	Returns the sound so the caller can start, stop or re-pitch it — a sprinkler
+	holds on to its loop and turns it on and off with the water.
+]]
+function Build.sound(parent: BasePart, cueName: string, autoPlay: boolean?): Sound?
+	local def = Audio.get(cueName)
+	if not def then
+		return nil
+	end
+
+	--[[
+		One sound per cue per part, replayed rather than replaced.
+
+		A tree takes twelve chops to fell and a stump three grinds, and each of
+		those used to hang another `Sound` on the same part — a dozen instances
+		on one trunk, all identical, none of them ever collected until the tree
+		itself was destroyed. Playing an already-playing sound restarts it from
+		the top, which is exactly what a second chop should sound like.
+	]]
+	local existing = parent:FindFirstChild(cueName)
+	if existing and existing:IsA("Sound") then
+		if autoPlay then
+			existing:Play()
+		end
+		return existing
+	end
+
+	local sound = Instance.new("Sound")
+	sound.Name = cueName
+	sound.SoundId = def.id
+	sound.Volume = def.volume
+	sound.Looped = def.looped == true
+	sound.PlaybackSpeed = def.speed or 1
+	-- Rolls off over the cue's own range, so a chop and a falling tree can
+	-- carry different distances without every caller repeating the numbers.
+	sound.RollOffMode = Enum.RollOffMode.InverseTapered
+	sound.RollOffMaxDistance = def.range or 80
+	sound.RollOffMinDistance = 8
+	sound.Parent = parent
+
+	if autoPlay then
+		sound:Play()
+	end
+	return sound
+end
+
+--[[
+	Plays a one-shot at a point and cleans up after itself.
+
+	A felled tree is destroyed a moment after it lands, and a sound goes with
+	the instance it hangs on — so the noise of it landing needs somewhere to
+	live that outlasts the thing that made it.
+]]
+function Build.soundAt(position: Vector3, cueName: string, parent: Instance)
+	local def = Audio.get(cueName)
+	if not def then
+		return
+	end
+
+	local anchor = Instance.new("Part")
+	anchor.Name = `Sound_{cueName}`
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.one
+	anchor.CFrame = CFrame.new(position)
+	anchor.Parent = parent
+
+	local sound = Build.sound(anchor, cueName, true)
+	local life = if sound then sound.TimeLength + 0.5 else 3
+	game:GetService("Debris"):AddItem(anchor, math.max(life, 3))
 end
 
 return Build

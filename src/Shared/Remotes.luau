@@ -44,6 +44,8 @@ Remotes.VEHICLE = "Vehicle"
 Remotes.INTERACT = "Interact"
 --- Server -> client: the objective chain and its progress.
 Remotes.QUESTS = "Quests"
+--- Client -> server: pick the world to play next, from the level select.
+Remotes.SELECT_WORLD = "SelectWorld"
 
 local UNRELIABLE: { [string]: boolean } = {
 	[Remotes.MOW_INTENT] = true,
@@ -65,6 +67,7 @@ local EVENTS = {
 	Remotes.VEHICLE,
 	Remotes.INTERACT,
 	Remotes.QUESTS,
+	Remotes.SELECT_WORLD,
 }
 
 local folder: Folder? = nil
