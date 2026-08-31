@@ -46,6 +46,9 @@ WorldService.world = nil :: Types.WorldDef?
 WorldService.tileSection = nil :: { string }?
 WorldService.sections = {} :: { [string]: SectionState }
 WorldService.totalUnits = 0
+--- Where a player should be standing in the world now loaded. See
+--- `WorldService.spawnPoint`.
+WorldService.spawnAt = nil :: CFrame?
 WorldService.remainingUnits = 0
 
 local loadedSignal = Instance.new("BindableEvent")
@@ -1385,7 +1388,17 @@ function WorldService.load(worldId: string)
 	spawnLocation.Neutral = true
 	spawnLocation.Parent = parent
 
+	-- Kept for whoever has to put players on this property. A SpawnLocation
+	-- only places anybody when a character is *loaded*, and moving between
+	-- worlds does not load one. See `RunService`.
+	WorldService.spawnAt = spawnLocation.CFrame + Vector3.new(0, 4, 0)
+
 	loadedSignal:Fire(world)
+end
+
+--- Where to stand on the property now loaded, if one is.
+function WorldService.spawnPoint(): CFrame?
+	return WorldService.spawnAt
 end
 
 function WorldService.isLoaded(): boolean
