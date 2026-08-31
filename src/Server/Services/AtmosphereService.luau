@@ -15,8 +15,26 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local Palette = require(ReplicatedStorage:WaitForChild("Shared").Config.Palette)
+local Types = require(ReplicatedStorage:WaitForChild("Shared").Types)
 
 local AtmosphereService = {}
+
+--[[
+	The haze is tuned for a lot this many tiles across.
+
+	Every number below it was chosen by eye on The House, which is ninety-six
+	tiles square, and on that lot it is right: the far fence sits in amber and
+	the edge of the world is hidden, which is the whole job of it.
+
+	The Mansion is a hundred and forty-four tiles across — half again as far in
+	every direction — and the same haze put its far half behind a wall of
+	orange. Six acres you cannot see across do not read as six acres; they read
+	as a small garden in bad weather.
+
+	So the haze thins in proportion to the lot rather than being a constant. The
+	House is unchanged by definition, being the size this was tuned at.
+]]
+local TUNED_FOR_TILES = 96
 
 local function child<T>(className: string, name: string, parent: Instance): T
 	local existing = parent:FindFirstChild(name)
@@ -46,17 +64,16 @@ function AtmosphereService.start()
 	-- capability RobloxScript" and aborts the whole server boot). It is set to
 	-- ShadowMap once, in default.project.json, where Studio can apply it.
 	Lighting.FogColor = Palette.color(Palette.sky.fog)
-	Lighting.FogStart = 180
-	Lighting.FogEnd = 1400
 
 	-- The haze is what turns the horizon amber and hides the edge of the lot.
 	local atmosphere: Atmosphere = child("Atmosphere", "MowAtmosphere", Lighting)
-	atmosphere.Density = 0.38
 	atmosphere.Offset = 0.28
 	atmosphere.Color = Palette.color(Palette.sky.fog)
 	atmosphere.Decay = Palette.color(Palette.rgb(196, 116, 58))
 	atmosphere.Glare = 0.45
-	atmosphere.Haze = 2.4
+
+	-- Depth is per-world; until one loads, the lot this was tuned on.
+	AtmosphereService.applyWorld(nil)
 
 	-- No Sky object on purpose. One with blank skybox textures renders black,
 	-- and Roblox's own procedural sky at this hour, seen through the atmosphere
@@ -92,6 +109,30 @@ function AtmosphereService.start()
 	clouds.Density = 0.5
 	clouds.Color = Palette.color(Palette.sky.cloud)
 	clouds.Enabled = true
+end
+
+--[[
+	Sets how far you can see, for the world now loaded.
+
+	Called again on every load, because a run can move between properties of
+	very different sizes and the haze has to move with them. `nil` restores the
+	tuning lot's own settings, which is what a server sitting in the lobby with
+	nothing loaded should look like.
+]]
+function AtmosphereService.applyWorld(world: Types.WorldDef?)
+	local tiles = if world then math.max(world.gridWidth, world.gridDepth) else TUNED_FOR_TILES
+	-- Never thicker than the tuning, only thinner: a world smaller than The
+	-- House should not end up in a fog bank.
+	local reach = math.max(tiles / TUNED_FOR_TILES, 1)
+
+	Lighting.FogStart = 180 * reach
+	Lighting.FogEnd = 1400 * reach
+
+	local atmosphere = Lighting:FindFirstChild("MowAtmosphere")
+	if atmosphere and atmosphere:IsA("Atmosphere") then
+		atmosphere.Density = 0.38 / reach
+		atmosphere.Haze = 2.4 / reach
+	end
 end
 
 return AtmosphereService
