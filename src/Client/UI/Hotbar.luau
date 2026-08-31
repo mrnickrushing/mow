@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Palette = require(Shared.Config.Palette)
+local Props = require(Shared.Config.Props)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local PlayerState = require(script.Parent.Parent.PlayerState)
@@ -29,20 +30,6 @@ local layout: { string } = {}
 
 --- Slots shown. More than this and the bar starts covering the lawn.
 local MAX_SLOTS = 6
-
-local ICONS: { [string]: string } = {
-	Hand = "🧤",
-	Shears = "✂️",
-	Rake = "🧹",
-	Mower = "🚜",
-	Trimmer = "🌿",
-	Blower = "💨",
-	HedgeTrimmer = "🪴",
-	Saw = "🪚",
-	Chainsaw = "🪓",
-	Grinder = "⚙️",
-	Chipper = "🪵",
-}
 
 local function buildSlot(order: number): TextButton
 	local button = Instance.new("TextButton")
@@ -75,14 +62,14 @@ local function buildSlot(order: number): TextButton
 	number.Parent = button
 	Theme.outline(number, 2)
 
-	local icon = Instance.new("TextLabel")
-	icon.Name = "Icon"
-	icon.Text = ""
-	icon.Size = UDim2.fromScale(1, 1)
-	icon.BackgroundTransparency = 1
-	icon.Font = Theme.font
-	icon.TextSize = 30
-	icon.Parent = button
+	Theme.icon({
+		name = "Icon",
+		prop = Props.FALLBACK_TOOL_ICON,
+		size = UDim2.fromScale(0.86, 0.86),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		parent = button,
+	})
 
 	-- The selected slot fills in behind the icon and takes a white border. A
 	-- lift alone is easy to lose against a lawn covered in bright leaves on a
@@ -126,14 +113,14 @@ local function refresh()
 
 	for order, button in slotFrames do
 		local toolId = layout[order]
-		local icon = button:FindFirstChild("Icon") :: TextLabel?
+		local icon = button:FindFirstChild("Icon") :: ViewportFrame?
 		local stroke = button:FindFirstChild("Edge") :: UIStroke?
 		local selected = button:FindFirstChild("Selected") :: Frame?
 
 		button.Visible = toolId ~= nil
 		if toolId and icon and stroke and selected then
 			local tool = Tools.get(toolId)
-			icon.Text = if tool then ICONS[tool.category] or "🧰" else "🧰"
+			Theme.setIcon(icon, if tool then Props.forToolCategory(tool.category) else Props.FALLBACK_TOOL_ICON)
 
 			local equipped = state.equippedTool == toolId
 			stroke.Color = if equipped then Theme.colors.text else Theme.colors.outline

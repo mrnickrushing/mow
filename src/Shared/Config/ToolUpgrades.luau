@@ -32,7 +32,12 @@ export type Slot = {
 	slot: SlotKind,
 	name: string,
 	description: string,
-	icon: string,
+	--- The tool category this slot belongs to, which is what the book turns
+	--- into the model on its tile. Not the model name itself: this is shared
+	--- config, and the catalogue it would have to read is full of `Vector3`s
+	--- that do not exist outside Roblox, which puts it out of reach of the
+	--- tests that check this table.
+	category: string,
 	baseCost: number,
 	costGrowth: number,
 	maxLevel: number,
@@ -67,18 +72,22 @@ local COST_FLOOR: { [SlotKind]: number } = {
 
 --- Per-category names, in power/rate/yield order. The shape never changes;
 --- the words are the tool's own.
-local NAMES: { [string]: { { string } } } = {
-	Hand = { { "Hold", "🧤" }, { "Dexterity", "🫰" }, { "Grasp", "🍂" } },
-	Shears = { { "Edge", "✂️" }, { "Snip", "⚡" }, { "Bundle", "🌾" } },
-	Rake = { { "Tines", "🔱" }, { "Sweep", "💨" }, { "Gather", "🍁" } },
-	Mower = { { "Blades", "🔪" }, { "Throttle", "🎚️" }, { "Catcher", "🧺" } },
-	Trimmer = { { "Line", "🧵" }, { "Revs", "⚡" }, { "Guard", "🛡️" } },
-	Blower = { { "Nozzle", "📯" }, { "Turbo", "🌀" }, { "Cyclone", "🌪️" } },
-	HedgeTrimmer = { { "Teeth", "🦈" }, { "Motor", "⚙️" }, { "Mulcher", "🌿" } },
-	Saw = { { "Bar", "📏" }, { "Stroke", "⚡" }, { "Splitter", "🪵" } },
-	Chainsaw = { { "Chain", "⛓️" }, { "Engine", "🔥" }, { "Timber", "🌲" } },
-	Grinder = { { "Wheel", "🛞" }, { "Torque", "⚙️" }, { "Shavings", "✨" } },
-	Chipper = { { "Drum", "🥁" }, { "Feed", "📥" }, { "Hopper", "📦" } },
+--- Per-category names, in power/rate/yield order. The shape never changes;
+--- the words are the tool's own. Each carried an emoji beside it until the
+--- interface stopped being drawn in emoji; the picture is the tool's model
+--- now, which `Props.forToolCategory` knows, so a name is all that is left.
+local NAMES: { [string]: { string } } = {
+	Hand = { "Hold", "Dexterity", "Grasp" },
+	Shears = { "Edge", "Snip", "Bundle" },
+	Rake = { "Tines", "Sweep", "Gather" },
+	Mower = { "Blades", "Throttle", "Catcher" },
+	Trimmer = { "Line", "Revs", "Guard" },
+	Blower = { "Nozzle", "Turbo", "Cyclone" },
+	HedgeTrimmer = { "Teeth", "Motor", "Mulcher" },
+	Saw = { "Bar", "Stroke", "Splitter" },
+	Chainsaw = { "Chain", "Engine", "Timber" },
+	Grinder = { "Wheel", "Torque", "Shavings" },
+	Chipper = { "Drum", "Feed", "Hopper" },
 }
 
 local BLURBS: { [SlotKind]: string } = {
@@ -95,13 +104,12 @@ local trees: { [string]: { Slot } } = {}
 
 local function makeSlot(tool: Types.ToolDef, index: number, kind: SlotKind): Slot
 	local names = NAMES[tool.category] or NAMES.Hand
-	local entry = names[index]
 	return {
 		key = `{tool.id}/{kind}`,
 		slot = kind,
-		name = entry[1],
+		name = names[index],
 		description = BLURBS[kind],
-		icon = entry[2],
+		category = tool.category,
 		baseCost = math.max(tool.cost * COST_FRACTION[kind], COST_FLOOR[kind]),
 		costGrowth = ToolUpgrades.COST_GROWTH,
 		maxLevel = ToolUpgrades.MAX_LEVEL,

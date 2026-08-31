@@ -143,14 +143,19 @@ local function build()
 	close.Size = UDim2.fromOffset(36, 36)
 	close.Position = UDim2.new(1, -16, 0, 14)
 	close.AnchorPoint = Vector2.new(1, 0)
-	close.Text = "✕"
-	close.Font = Theme.font
-	close.TextSize = 20
+	close.Text = ""
 	close.BackgroundColor3 = Theme.colors.panelLight
-	close.TextColor3 = Theme.colors.subtext
 	close.BorderSizePixel = 0
 	close.Parent = window
 	Theme.corner(close, 8)
+	Theme.icon({
+		name = "CloseIcon",
+		prop = "Cross",
+		size = UDim2.fromScale(0.62, 0.62),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		parent = close,
+	})
 	close.Activated:Connect(function()
 		Store.setOpen(false)
 	end)
