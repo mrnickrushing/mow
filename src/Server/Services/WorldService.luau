@@ -516,20 +516,22 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	local porchZ = frontZ - porchDepth * 0.5
 	local porchX = centre.X - width * 0.18
 
-	Build.mesh({
-		prop = "BrickWall",
+	Build.part({
 		name = "PorchBrick",
 		size = Vector3.new(porchWidth, 3.6, porchDepth),
 		cframe = CFrame.new(porchX, 1.8, porchZ),
 		color = Palette.color(Palette.house.brick),
+		material = Enum.Material.Brick,
 		parent = porch,
 	})
-	Build.mesh({
-		prop = "Paving",
+	-- Boards, because a porch deck is boards. The paving model stretched to
+	-- the width of a porch was one enormous slab.
+	Build.part({
 		name = "PorchDeck",
 		size = Vector3.new(porchWidth, 0.8, porchDepth),
 		cframe = CFrame.new(porchX, 3.9, porchZ),
 		color = Palette.color(Palette.house.porch),
+		material = Enum.Material.WoodPlanks,
 		parent = porch,
 	})
 
@@ -545,20 +547,20 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 			parent = porch,
 		})
 	end
-	Build.mesh({
-		prop = "Shingle",
+	Build.part({
 		name = "PorchRoof",
 		size = Vector3.new(porchWidth + 3, 1.6, porchDepth + 2),
 		cframe = CFrame.new(porchX, 18, porchZ),
 		color = Palette.color(Palette.house.roof),
+		material = Enum.Material.Slate,
 		parent = porch,
 	})
-	Build.mesh({
-		prop = "Siding",
+	Build.part({
 		name = "PorchTrim",
 		size = Vector3.new(porchWidth + 3.4, 1, porchDepth + 2.4),
 		cframe = CFrame.new(porchX, 17, porchZ),
 		color = Palette.color(Palette.house.trim),
+		material = Enum.Material.SmoothPlastic,
 		parent = porch,
 	})
 
@@ -606,20 +608,39 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 
 	local garageX = centre.X + width * 0.28
 	local garage = Build.folder("GarageFront", house)
-	Build.mesh({
-		prop = "GarageDoor",
-		name = "GarageDoor",
-		size = Vector3.new(width * 0.34, 13, 1.2),
-		collisionSize = Vector3.new(width * 0.34, 13, 0.8),
-		cframe = CFrame.new(garageX, 10.5, frontZ - 0.5),
-		parent = garage,
-	})
-	Build.mesh({
-		prop = "Siding",
+	--[[
+		A sectional door is sections, so it is built as sections.
+
+		One door model stretched across a sixty stud opening gave a flat
+		salmon rectangle with three lines ruled across it — the model's own
+		panel joints, pulled twenty times wider than they were drawn. Laid in
+		courses at roughly the proportion the model was made at, the joints
+		land where a garage door's joints land.
+	]]
+	local garageWidth = width * 0.34
+	local garageHeight = 13
+	local courses = math.max(math.floor(garageHeight / 2.6), 1)
+	local courseHeight = garageHeight / courses
+	for course = 0, courses - 1 do
+		Build.mesh({
+			prop = "GarageDoor",
+			name = "GarageDoor",
+			size = Vector3.new(garageWidth, courseHeight * 0.97, 1.2),
+			collisionSize = Vector3.new(garageWidth, courseHeight, 0.8),
+			cframe = CFrame.new(
+				garageX,
+				10.5 - garageHeight * 0.5 + courseHeight * (course + 0.5),
+				frontZ - 0.5
+			),
+			parent = garage,
+		})
+	end
+	Build.part({
 		name = "GarageFrame",
-		size = Vector3.new(width * 0.34 + 2, 15, 0.5),
+		size = Vector3.new(garageWidth + 2, 15, 0.5),
 		cframe = CFrame.new(garageX, 10, frontZ - 0.2),
 		color = Palette.color(Palette.house.trim),
+		material = Enum.Material.SmoothPlastic,
 		canCollide = false,
 		parent = garage,
 	})
@@ -646,12 +667,12 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 		has its walls, its roof and its open front already, so all that is left
 		to build is the floor you stand on and the counter you buy from.
 	]]
-	Build.mesh({
-		prop = "ConcreteFloor",
+	Build.part({
 		name = "Floor",
 		size = Vector3.new(width, 1, depth),
 		cframe = CFrame.new(centre + Vector3.new(0, 0.5, 0)),
 		color = Palette.color(Palette.ground.stoneDark),
+		material = Enum.Material.Concrete,
 		parent = shed,
 	})
 
@@ -707,12 +728,12 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 	-- the old ones were drawn on top of it.
 
 	-- Pegboard on the side wall with tools hung on it.
-	Build.mesh({
-		prop = "Siding",
+	Build.part({
 		name = "Pegboard",
 		size = Vector3.new(0.5, 10, depth - 8),
 		cframe = CFrame.new(centre + Vector3.new(width * 0.5 - 1.2, 9, 0)),
 		color = Palette.color(Palette.rgb(206, 186, 146)),
+		material = Enum.Material.WoodPlanks,
 		canCollide = false,
 		parent = shed,
 	})
@@ -1292,12 +1313,12 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 				-- The roof slab is the floor the rooftop's debris rests on.
 				local r = section.rect
 				local centre = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z + r.d * 0.5)
-				Build.mesh({
-					prop = "Shingle",
+				Build.part({
 					name = "RoofDeck",
 					size = Vector3.new(r.w * TILE + 4, 2, r.d * TILE + 4),
 					cframe = CFrame.new(centre + Vector3.new(0, elevation - 1, 0)),
 					color = Palette.color(Palette.house.roof),
+					material = Enum.Material.Slate,
 					parent = parent,
 				})
 				-- A parapet, so a player on the roof does not simply walk off
@@ -1493,12 +1514,12 @@ function WorldService.load(worldId: string)
 	end
 
 	local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)
-	local spawnPart = Build.mesh({
-		prop = "ConcreteFloor",
+	local spawnPart = Build.part({
 		name = "SpawnPad",
 		size = Vector3.new(20, 0.4, 20),
 		cframe = CFrame.new(spawnAt + Vector3.new(0, 0.2, 0)),
 		color = Palette.color(Palette.ground.path),
+		material = Enum.Material.Concrete,
 		castShadow = false,
 		parent = parent,
 	})

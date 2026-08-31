@@ -476,12 +476,15 @@ function Build.picketFence(
 
 	for _, ratio in { 0.32, 0.72 } do
 		local mid = from + direction * (length * 0.5) + Vector3.new(0, height * ratio, 0)
-		Build.mesh({
-		prop = "Railing",
+		-- A rail is a bar. The railing model squashed to half a stud wide and
+		-- drawn out the length of a run is not a railing, it is its texture
+		-- smeared along a stick.
+		Build.part({
 			name = "Rail",
 			size = Vector3.new(0.55, 0.7, length),
 			cframe = CFrame.lookAt(mid, mid + direction),
 			color = Palette.color(Palette.fence.rail),
+			material = Enum.Material.WoodPlanks,
 			canCollide = false,
 			castShadow = false,
 			parent = folder,
@@ -599,19 +602,26 @@ function Build.chainLinkWall(parent: Instance, from: Vector3, to: Vector3, brick
 	local direction = delta.Unit
 	local mid = from + direction * (length * 0.5)
 
-	Build.mesh({
-		prop = "BrickWall",
+	Build.part({
 		name = "Retaining",
 		size = Vector3.new(2.2, brickHeight, length),
 		cframe = CFrame.lookAt(mid + Vector3.new(0, brickHeight * 0.5, 0), mid + direction + Vector3.new(0, brickHeight * 0.5, 0)),
 		color = Palette.color(Palette.house.brick),
+		material = Enum.Material.Brick,
 		parent = folder,
 	})
 
-	-- The mesh itself: a translucent dark panel plus posts, which reads as
-	-- chain-link at play distance without thousands of wire parts.
-	Build.mesh({
-		prop = "Bush",
+	--[[
+		The mesh itself: a translucent dark panel plus posts, which reads as
+		chain-link at play distance without thousands of wire parts.
+
+		The panel used to be the bush model — a cylinder of leaves — squashed
+		to two fifths of a stud thick and pulled the length of the run, so the
+		top of every retaining wall in the game had a strip of flattened
+		shrubbery along it. A plain panel in metal is both what was intended
+		and what it now is.
+	]]
+	Build.part({
 		name = "Mesh",
 		size = Vector3.new(0.4, meshHeight, length),
 		cframe = CFrame.lookAt(
@@ -619,6 +629,7 @@ function Build.chainLinkWall(parent: Instance, from: Vector3, to: Vector3, brick
 			mid + direction + Vector3.new(0, brickHeight + meshHeight * 0.5, 0)
 		),
 		color = Palette.color(Palette.rgb(58, 84, 58)),
+		material = Enum.Material.Metal,
 		transparency = 0.45,
 		canCollide = false,
 		castShadow = false,

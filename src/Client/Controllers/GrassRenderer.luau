@@ -566,10 +566,10 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		get rid of.
 
 		So the carpet is the same model and the same shade in every chunk, and
-		the kind of debris only tints it. Turf rather than a leaf pile even for
-		leaves: a pile is a mound with clear ground around it, and one mound per
-		chunk reads as a grid of orange blobs. A turf panel fills its square, so
-		the chunks meet without a seam.
+		the kind of debris only tints it. A lawn panel rather than a leaf pile
+		even for leaves: a pile is a mound with clear ground around it, and one
+		mound per chunk reads as a grid of orange blobs. A panel fills its
+		square, so the chunks meet without a seam.
 	]]
 	local carpet = Props.catalogue.LawnPanel
 
