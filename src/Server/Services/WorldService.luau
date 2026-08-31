@@ -227,10 +227,33 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 		end
 	end
 
+	--[[
+		The lawn under everything, as a plain surface rather than a model.
+
+		This was a turf panel — a seven stud square whose texture is a weave of
+		light and dark blades — stretched across the whole lot. A texture does
+		not repeat when a mesh is scaled, it stretches, so that seven stud weave
+		came out as light and dark bands forty studs wide running the length of
+		the property: from the porch the front lawn read as a ploughed field.
+
+		Roblox's own grass material is the right tool for a surface this size.
+		It is fine noise at any scale, it has no pattern to magnify, and it
+		leaves the clumps the renderer scatters on top to do the describing.
+	]]
+	--[[
+		Not every lot is a lawn.
+
+		The Gas Station is a stone forecourt — its own `baseGround` is paving
+		tan — and it was being surfaced with Roblox's grass material like the
+		other two, which put fine blade-shaped noise over the whole yard. The
+		apron around it stays grass whichever world it is, because the land
+		beyond the property line is fields in all three.
+	]]
+	local groundMaterial = if world.style == "lot" then Enum.Material.Concrete else Enum.Material.Grass
+
 	local slabs = Structures.subtractAll({ x = 0, z = 0, w = grid.width, d = grid.depth }, holes)
 	for index, slab in slabs do
-		Build.mesh({
-			prop = "Turf",
+		Build.part({
 			name = `Ground{index}`,
 			size = Vector3.new(slab.w * TILE, 4, slab.d * TILE),
 			cframe = CFrame.new(
@@ -239,6 +262,7 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 				(slab.z + slab.d * 0.5) * TILE
 			),
 			color = toColor(world.baseGround),
+			material = groundMaterial,
 			parent = parent,
 		})
 	end
@@ -253,24 +277,92 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 		{ centre = Vector2.new(width + apron * 0.5, depth * 0.5), size = Vector2.new(apron, depth) },
 	}
 	for _, strip in strips do
-		Build.mesh({
-			prop = "Turf",
+		Build.part({
 			name = "Surrounds",
 			size = Vector3.new(strip.size.X, 3, strip.size.Y),
 			cframe = CFrame.new(strip.centre.X, GameConfig.GROUND_Y - 2.2, strip.centre.Y),
 			color = Palette.color(Palette.ground.lawnDark),
+			material = Enum.Material.Grass,
 			castShadow = false,
 			parent = parent,
 		})
 	end
 
+	--[[
+		A belt of trees around the outside of the lot.
+
+		Every property was an open field with a visible edge: the lawn simply
+		stopped and the haze took over, and from the spawn you could see the
+		end of the world over the top of the house. These stand on the apron,
+		outside the grid entirely, so they are scenery and nothing else — no
+		prompt, nothing to chop, nothing counted toward clearing. What they do
+		is close the horizon, which is most of why a cartoon suburb reads as a
+		place rather than as a plane with a building on it.
+
+		Kept clear of the road along the south edge and of the spawn, so the
+		first thing anybody sees is still the property.
+	]]
+	local belt = Build.folder("TreeBelt", parent)
+	local beltRng = Random.new(grid.width * 7919 + grid.depth)
+	local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)
+
+	local function plant(x: number, z: number)
+		if (Vector2.new(x, z) - Vector2.new(spawnAt.X, spawnAt.Z)).Magnitude < 80 then
+			return
+		end
+		local height = beltRng:NextNumber(24, 38)
+		Build.mesh({
+			prop = "Tree",
+			name = "Scenery",
+			-- The source mesh's own proportions, so a taller tree is not a
+			-- fatter one.
+			size = Vector3.new(height * 0.666, height, height * 0.703),
+			collisionSize = Vector3.new(3.4, height, 3.4),
+			cframe = CFrame.new(x, GameConfig.GROUND_Y + height * 0.5 - 1, z)
+				* CFrame.Angles(0, beltRng:NextNumber(0, math.pi * 2), 0),
+			-- Background: their shadows would fall on the apron, not the lawn,
+			-- and there are a lot of them.
+			castShadow = false,
+			parent = belt,
+		})
+	end
+
+	-- Two staggered rows a side. The south rows start beyond the road.
+	local SPACING = 34
+	for _, side in { "north", "south", "west", "east" } do
+		local alongX = side == "north" or side == "south"
+		local length = if alongX then width else depth
+		local steps = math.max(math.floor((length + 160) / SPACING), 2)
+		-- Annotated, because an `if` between two array literals infers as a
+		-- union that the generic `for` will not accept as iterable.
+		local rows: { number } = if side == "south" then { 42, 74 } else { 20, 50 }
+		for _, out in rows do
+			for step = 0, steps do
+				local at = -80 + (length + 160) * (step / steps) + beltRng:NextNumber(-9, 9)
+				local away = out + beltRng:NextNumber(-7, 7)
+				if side == "north" then
+					plant(at, depth + away)
+				elseif side == "south" then
+					plant(at, -away)
+				elseif side == "west" then
+					plant(-away, at)
+				else
+					plant(width + away, at)
+				end
+			end
+		end
+	end
+
 	-- The road along the south edge, with the trailer parked at the curb.
-	Build.mesh({
-		prop = "ConcreteFloor",
+	-- Plain asphalt for the same reason the lawn is plain grass: a concrete
+	-- panel's texture stretched over six hundred studs is not concrete, it is
+	-- a smear.
+	Build.part({
 		name = "Road",
 		size = Vector3.new(width + 240, 0.6, 26),
 		cframe = CFrame.new(width * 0.5, GameConfig.GROUND_Y + 0.05, -16),
 		color = Palette.color(Palette.ground.road),
+		material = Enum.Material.Asphalt,
 		castShadow = false,
 		parent = parent,
 	})
@@ -284,6 +376,26 @@ end
 	and the teal trim are what make it read as that kind of suburban house at a
 	glance.
 ]]
+--[[
+	Whether somebody stands on this house's roof.
+
+	A world can put a section on top of its own house — The House's Rooftop is
+	one of its zones — and a roof you clear has to be flat and walkable. Every
+	other house gets a pitched one.
+]]
+local function walkableRoof(world: Types.WorldDef, rect: Types.Rect): boolean
+	for _, section in world.sections do
+		if (section.kind or "open") ~= "roof" then
+			continue
+		end
+		local r = section.rect
+		if r.x < rect.x + rect.w and rect.x < r.x + r.w and r.z < rect.z + rect.d and rect.z < r.z + r.d then
+			return true
+		end
+	end
+	return false
+end
+
 local function buildHouse(world: Types.WorldDef, parent: Folder)
 	local rect = world.houseRect
 	if not rect then
@@ -295,23 +407,32 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	local width, depth = rect.w * TILE, rect.d * TILE
 	local wallHeight = ROOF_HEIGHT - 4
 
-	-- Brick foundation the siding sits on.
-	Build.mesh({
-		prop = "BrickWall",
+	--[[
+		Brick foundation the siding sits on.
+
+		A plain part rather than the brick model, for the reason the lawn is a
+		plain surface: the model's courses are four studs wide, and stretched
+		along a hundred and eighty stud frontage each brick became a
+		hundred-and-eighty stud smear. Roblox's brick material tiles rather
+		than stretches, so it is bricks at any length of wall.
+	]]
+	Build.part({
 		name = "Foundation",
 		size = Vector3.new(width + 1.5, 4, depth + 1.5),
 		cframe = CFrame.new(centre + Vector3.new(0, 2, 0)),
 		color = Palette.color(Palette.house.brick),
+		material = Enum.Material.Brick,
 		parent = house,
 	})
 
-	-- Solid core, so the shell is never see-through at a corner.
-	Build.mesh({
-		prop = "Siding",
+	-- Solid core, so the shell is never see-through at a corner. Never seen
+	-- directly — the lap courses stand outside it — so it is a plain mass.
+	Build.part({
 		name = "Core",
 		size = Vector3.new(width - 1, wallHeight, depth - 1),
 		cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight * 0.5, 0)),
 		color = Palette.color(Palette.house.sidingShade),
+		material = Enum.Material.SmoothPlastic,
 		parent = house,
 	})
 
@@ -327,22 +448,55 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	end
 
 	-- The teal band under the eaves, the single most identifying colour here.
-	Build.mesh({
-		prop = "Siding",
+	Build.part({
 		name = "Trim",
 		size = Vector3.new(width + 4, 2.2, depth + 4),
 		cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight + 1, 0)),
 		color = Palette.color(Palette.house.trim),
+		material = Enum.Material.SmoothPlastic,
 		parent = house,
 	})
-	Build.mesh({
-		prop = "Shingle",
-		name = "Roof",
-		size = Vector3.new(width + 5, 2.4, depth + 5),
-		cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight + 3, 0)),
-		color = Palette.color(Palette.house.roof),
-		parent = house,
-	})
+
+	--[[
+		The roof, which is either a deck or a roofline depending on the world.
+
+		The House puts a section on top of its house — the Rooftop is somewhere
+		you go and something you clear — so that one has to stay flat and
+		walkable, and gets a capped slab. Nothing stands on the Mansion or the
+		Gas Station's roof, so those get the pitch, which is what makes a
+		building read as a house from the far side of a lawn instead of as a
+		long shed.
+
+		Either way it is no longer the shingle model stretched across the whole
+		roof. That model is a panel of shingles about a stud across, so scaled
+		to sixty by a hundred and eighty studs it came out as a coarse green
+		chequerboard you could see from the road.
+	]]
+	if walkableRoof(world, rect) then
+		Build.part({
+			name = "Roof",
+			size = Vector3.new(width + 5, 2.4, depth + 5),
+			cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight + 3, 0)),
+			color = Palette.color(Palette.house.roof),
+			material = Enum.Material.Slate,
+			parent = house,
+		})
+	else
+		Build.gableRoof(
+			house,
+			centre,
+			width + 4,
+			depth + 4,
+			4 + wallHeight + 2.2,
+			math.clamp(math.min(width, depth) * 0.34, 8, 22),
+			3.5,
+			Palette.color(Palette.house.roof),
+			Palette.color(Palette.house.trim),
+			-- The gable is wall, not trim: it is the triangle of the house
+			-- itself showing between the two slopes, so it takes the siding.
+			Palette.color(Palette.house.siding)
+		)
+	end
 
 	local frontZ = centre.Z - depth * 0.5
 
@@ -422,12 +576,12 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		A house seen from across a lawn is mostly its silhouette, and a flat
 		slab of roof has none. One stack breaks it.
 	]]
-	Build.mesh({
-		prop = "BrickWall",
+	Build.part({
 		name = "Chimney",
 		size = Vector3.new(7, 12, 7),
 		cframe = CFrame.new(centre + Vector3.new(halfWidth * 0.56, 4 + wallHeight + 7, halfDepth * 0.24)),
 		color = Palette.color(Palette.house.brick),
+		material = Enum.Material.Brick,
 		parent = house,
 	})
 
@@ -441,20 +595,22 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	local porchZ = frontZ - porchDepth * 0.5
 	local porchX = centre.X - width * 0.18
 
-	Build.mesh({
-		prop = "BrickWall",
+	Build.part({
 		name = "PorchBrick",
 		size = Vector3.new(porchWidth, 3.6, porchDepth),
 		cframe = CFrame.new(porchX, 1.8, porchZ),
 		color = Palette.color(Palette.house.brick),
+		material = Enum.Material.Brick,
 		parent = porch,
 	})
-	Build.mesh({
-		prop = "Paving",
+	-- Boards, because a porch deck is boards. The paving model stretched to
+	-- the width of a porch was one enormous slab.
+	Build.part({
 		name = "PorchDeck",
 		size = Vector3.new(porchWidth, 0.8, porchDepth),
 		cframe = CFrame.new(porchX, 3.9, porchZ),
 		color = Palette.color(Palette.house.porch),
+		material = Enum.Material.WoodPlanks,
 		parent = porch,
 	})
 
@@ -470,20 +626,20 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 			parent = porch,
 		})
 	end
-	Build.mesh({
-		prop = "Shingle",
+	Build.part({
 		name = "PorchRoof",
 		size = Vector3.new(porchWidth + 3, 1.6, porchDepth + 2),
 		cframe = CFrame.new(porchX, 18, porchZ),
 		color = Palette.color(Palette.house.roof),
+		material = Enum.Material.Slate,
 		parent = porch,
 	})
-	Build.mesh({
-		prop = "Siding",
+	Build.part({
 		name = "PorchTrim",
 		size = Vector3.new(porchWidth + 3.4, 1, porchDepth + 2.4),
 		cframe = CFrame.new(porchX, 17, porchZ),
 		color = Palette.color(Palette.house.trim),
+		material = Enum.Material.SmoothPlastic,
 		parent = porch,
 	})
 
@@ -531,20 +687,57 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 
 	local garageX = centre.X + width * 0.28
 	local garage = Build.folder("GarageFront", house)
-	Build.mesh({
-		prop = "GarageDoor",
-		name = "GarageDoor",
-		size = Vector3.new(width * 0.34, 13, 1.2),
-		collisionSize = Vector3.new(width * 0.34, 13, 0.8),
-		cframe = CFrame.new(garageX, 10.5, frontZ - 0.5),
-		parent = garage,
-	})
-	Build.mesh({
-		prop = "Siding",
+	--[[
+		A sectional door is sections, so it is built as sections.
+
+		One door model stretched across a sixty stud opening gave a flat
+		salmon rectangle with three lines ruled across it — the model's own
+		panel joints, pulled twenty times wider than they were drawn. Laid in
+		courses at roughly the proportion the model was made at, the joints
+		land where a garage door's joints land.
+	]]
+	--[[
+		Two bays, at the size a garage door is.
+
+		It used to be a third of the frontage, which on a house a hundred and
+		seventy-six studs wide is a sixty stud door — not a garage, a hangar,
+		and the thing that gave away that nothing on this building was drawn to
+		a human scale. A car is about ten studs, so a bay is fourteen.
+	]]
+	local bayWidth = 14
+	local bays = 2
+	local garageHeight = 13
+	local courses = math.max(math.floor(garageHeight / 2.6), 1)
+	local courseHeight = garageHeight / courses
+	local garageWidth = bayWidth * bays + 1.5
+	for bay = 0, bays - 1 do
+		local bayX = garageX + (bay - (bays - 1) * 0.5) * (bayWidth + 1.5)
+		for course = 0, courses - 1 do
+			Build.mesh({
+				prop = "GarageDoor",
+				name = "GarageDoor",
+				-- Painted, not printed: the model's own texture is a strong
+				-- salmon, and a tint multiplies rather than replaces, so the
+				-- cream a suburban garage door is could not be asked for.
+				untextured = true,
+				color = Palette.color(Palette.house.garage),
+				size = Vector3.new(bayWidth, courseHeight * 0.97, 1.2),
+				collisionSize = Vector3.new(bayWidth, courseHeight, 0.8),
+				cframe = CFrame.new(
+					bayX,
+					10.5 - garageHeight * 0.5 + courseHeight * (course + 0.5),
+					frontZ - 0.5
+				),
+				parent = garage,
+			})
+		end
+	end
+	Build.part({
 		name = "GarageFrame",
-		size = Vector3.new(width * 0.34 + 2, 15, 0.5),
+		size = Vector3.new(garageWidth + 2, 15, 0.5),
 		cframe = CFrame.new(garageX, 10, frontZ - 0.2),
 		color = Palette.color(Palette.house.trim),
+		material = Enum.Material.SmoothPlastic,
 		canCollide = false,
 		parent = garage,
 	})
@@ -571,12 +764,12 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 		has its walls, its roof and its open front already, so all that is left
 		to build is the floor you stand on and the counter you buy from.
 	]]
-	Build.mesh({
-		prop = "ConcreteFloor",
+	Build.part({
 		name = "Floor",
 		size = Vector3.new(width, 1, depth),
 		cframe = CFrame.new(centre + Vector3.new(0, 0.5, 0)),
 		color = Palette.color(Palette.ground.stoneDark),
+		material = Enum.Material.Concrete,
 		parent = shed,
 	})
 
@@ -632,12 +825,12 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 	-- the old ones were drawn on top of it.
 
 	-- Pegboard on the side wall with tools hung on it.
-	Build.mesh({
-		prop = "Siding",
+	Build.part({
 		name = "Pegboard",
 		size = Vector3.new(0.5, 10, depth - 8),
 		cframe = CFrame.new(centre + Vector3.new(width * 0.5 - 1.2, 9, 0)),
 		color = Palette.color(Palette.rgb(206, 186, 146)),
+		material = Enum.Material.WoodPlanks,
 		canCollide = false,
 		parent = shed,
 	})
@@ -1217,12 +1410,12 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 				-- The roof slab is the floor the rooftop's debris rests on.
 				local r = section.rect
 				local centre = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z + r.d * 0.5)
-				Build.mesh({
-					prop = "Shingle",
+				Build.part({
 					name = "RoofDeck",
 					size = Vector3.new(r.w * TILE + 4, 2, r.d * TILE + 4),
 					cframe = CFrame.new(centre + Vector3.new(0, elevation - 1, 0)),
 					color = Palette.color(Palette.house.roof),
+					material = Enum.Material.Slate,
 					parent = parent,
 				})
 				-- A parapet, so a player on the roof does not simply walk off
@@ -1418,12 +1611,12 @@ function WorldService.load(worldId: string)
 	end
 
 	local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)
-	local spawnPart = Build.mesh({
-		prop = "ConcreteFloor",
+	local spawnPart = Build.part({
 		name = "SpawnPad",
 		size = Vector3.new(20, 0.4, 20),
 		cframe = CFrame.new(spawnAt + Vector3.new(0, 0.2, 0)),
 		color = Palette.color(Palette.ground.path),
+		material = Enum.Material.Concrete,
 		castShadow = false,
 		parent = parent,
 	})

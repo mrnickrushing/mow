@@ -46,8 +46,19 @@ local catalogue: { [string]: Prop } = {
 	Rock = prop("rbxassetid://132924624861328", "rbxassetid://89076492492334", 1.447, 4.000, 1.451),
 
 	-- Planting.
-	Bush = prop("rbxassetid://72280757885260", "rbxassetid://140562129266244", 3.736, 8.000, 3.700),
-	Hedge = prop("rbxassetid://72280757885260", "rbxassetid://140562129266244", 3.736, 8.000, 3.700),
+	--[[
+		A bush, which the bush was not.
+
+		The old one was a cylinder with a leaf texture wrapped round it — eight
+		studs tall, flat topped, and identical however it was turned. A hedge
+		is a row of these, so every hedge in the game was a run of matching
+		green cylinders that read as a chequerboard from any distance, and the
+		tennis court's chain-link was one of them squashed to two fifths of a
+		stud thick. This one is a dome of clustered foliage, which is what a
+		clipped shrub actually looks like.
+	]]
+	Bush = prop("rbxassetid://107891693819793", "rbxassetid://78295314342685", 3.327, 3.200, 3.303),
+	Hedge = prop("rbxassetid://107891693819793", "rbxassetid://78295314342685", 3.327, 3.200, 3.303),
 	Tree = prop("rbxassetid://131361580865388", "rbxassetid://92687150630349", 15.156, 22.768, 16.000),
 	Stump = prop("rbxassetid://132967367565646", "rbxassetid://88604401051093", 1.683, 2.500, 1.560),
 	Log = prop("rbxassetid://135854002039541", "rbxassetid://136724661905485", 2.500, 0.985, 1.650),
@@ -65,8 +76,24 @@ local catalogue: { [string]: Prop } = {
 	WaspNest = prop("rbxassetid://109192227690970", "rbxassetid://91421064853539", 2.784, 4.000, 2.774),
 	GoldenBlade = prop("rbxassetid://76860455179857", "rbxassetid://118765026020204", 0.993, 1.974, 1.000),
 
-	-- Built structure: the pieces the house, shed and gates are assembled from.
-	Siding = prop("rbxassetid://75854563308151", "rbxassetid://83732768569742", 2.668, 2.549, 1.000),
+	--[[
+		Built structure: the pieces the house, shed and gates are assembled
+		from.
+
+		There were four more here — lap siding, a brick course, a concrete
+		panel and a roof shingle — and every one of them was a picture of a
+		surface rather than a thing. A picture of a surface is the one kind of
+		model that cannot be used at world scale: a mesh texture stretches when
+		the mesh is scaled, it does not repeat, so a shingle panel a stud
+		across pulled over a sixty by a hundred and eighty stud roof came out
+		as a chequerboard you could see from the road, and the lap siding over
+		a hundred and eighty stud frontage came out as five flat bands.
+
+		Every surface that size is a plain part with a Roblox material now,
+		which does tile. The models are gone rather than left unused, because
+		an asset that only works below about four times its own size is a trap
+		for whoever reaches for it next.
+	]]
 	BrickWall = prop("rbxassetid://140006814129918", "rbxassetid://79095318666845", 4.153, 3.694, 1.500),
 	Column = prop("rbxassetid://91990804948432", "rbxassetid://118138575646702", 2.200, 5.470, 1.427),
 	Railing = prop("rbxassetid://121758695483526", "rbxassetid://72616628550520", 8.279, 3.514, 0.800),
@@ -80,8 +107,18 @@ local catalogue: { [string]: Prop } = {
 	Sign = prop("rbxassetid://89328138606331", "rbxassetid://121079808488481", 5.186, 6.124, 1.000),
 	ShopBoard = prop("rbxassetid://127953130831132", "rbxassetid://93758011506584", 4.715, 5.528, 1.000),
 
-	-- What the lawn itself is made of, one clump per tile.
-	GrassTuft = prop("rbxassetid://74167825959027", "rbxassetid://115670301597551", 3.986, 2.882, 4.000),
+	-- What the lawn itself is made of, scattered a few clumps to a tile.
+	--[[
+		Grass, with nothing underneath it.
+
+		The old clump had a square patch of ground modelled into it, four studs
+		across — exactly one tile. The renderer drew one per tile, so the lawn
+		came out as a grid of slightly lighter squares you could count from the
+		porch, and scattering the clumps only turned the grid into a square
+		dragged along behind every tuft. This one is blades and nothing else,
+		so what shows between them is the lawn.
+	]]
+	GrassTuft = prop("rbxassetid://138521272241538", "rbxassetid://102784417042984", 2.000, 1.399, 1.933),
 	Weeds = prop("rbxassetid://97566895867036", "rbxassetid://100631337116622", 3.995, 3.809, 4.000),
 	Twigs = prop("rbxassetid://131001130360981", "rbxassetid://135819322286106", 2.061, 2.000, 2.112),
 
@@ -104,17 +141,6 @@ local catalogue: { [string]: Prop } = {
 
 	-- Ground and roofing, the surfaces underfoot and overhead.
 	Paving = prop("rbxassetid://118911737218481", "rbxassetid://75203797606065", 2.483, 0.500, 2.503),
-	Turf = prop("rbxassetid://117425736001931", "rbxassetid://118240994936541", 6.966, 1.000, 6.963),
-	--[[
-		The lawn seen from far enough away to be a surface rather than blades.
-
-		Turf was doing this job and it is the wrong shape for it: an eight-sided
-		patch, so a grid of them left the ground showing through in a diamond
-		between every four. This one is square, which is what a chunk is.
-	]]
-	LawnPanel = prop("rbxassetid://98477135996708", "rbxassetid://107042565034939", 3.418, 0.500, 3.439),
-	Shingle = prop("rbxassetid://136161442160867", "rbxassetid://104453830463425", 1.029, 1.000, 0.661),
-	ConcreteFloor = prop("rbxassetid://122093568483513", "rbxassetid://132210085782663", 1.438, 1.000, 0.512),
 	HungTools = prop("rbxassetid://137801002725741", "rbxassetid://114893461231752", 1.613, 1.513, 0.600),
 	Lantern = prop("rbxassetid://117371342269426", "rbxassetid://103361847724409", 1.991, 3.000, 1.769),
 

@@ -287,12 +287,20 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 	local centre = context.flat(r.x + r.w * 0.5, r.z + r.d * 0.5) + Vector3.new(0, elevation, 0)
 	local width, depth = r.w * tile, r.d * tile
 
-	Build.mesh({
-		prop = "ConcreteFloor",
+	--[[
+		A floor is a surface, so it gets a material rather than a model.
+
+		The concrete panel model is about a stud and a half across. Scaled to an
+		eighty by fifty-six stud cellar it stopped being concrete and became one
+		enormous smeared slab, because a mesh texture stretches rather than
+		repeating. Roblox's concrete tiles at any size.
+	]]
+	Build.part({
 		name = "Floor",
 		size = Vector3.new(width, 2, depth),
 		cframe = CFrame.new(centre - Vector3.new(0, 1, 0)),
 		color = Palette.color(Palette.ground.stoneDark),
+		material = Enum.Material.Concrete,
 		parent = folder,
 	})
 
@@ -314,12 +322,14 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 
 	-- An above-ground room gets a roof; a sunken one stays open so you can see in.
 	if not sunken then
-		Build.mesh({
-			prop = "Shingle",
+		-- Slate rather than the shingle model, which at this size was a coarse
+		-- green chequerboard rather than a roof.
+		Build.part({
 			name = "Ceiling",
 			size = Vector3.new(width + 2, 1.5, depth + 2),
 			cframe = CFrame.new(centre + Vector3.new(0, wallHeight, 0)),
 			color = Palette.color(Palette.house.roof),
+			material = Enum.Material.Slate,
 			parent = folder,
 		})
 	end
@@ -419,12 +429,12 @@ function Structures.pool(context: Context, zone: Types.ZoneDef)
 	local rim = 1.5
 	local floorY = -depthBelow - 0.5
 
-	Build.mesh({
-		prop = "ConcreteFloor",
+	Build.part({
 		name = "PoolFloor",
 		size = Vector3.new(width + rim * 2, 1, depth + rim * 2),
 		cframe = CFrame.new(centre + Vector3.new(0, floorY, 0)),
 		color = Palette.color(Palette.ground.path),
+		material = Enum.Material.Concrete,
 		parent = folder,
 	})
 

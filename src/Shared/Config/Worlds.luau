@@ -74,6 +74,7 @@ local house: Types.WorldDef = {
 			-- gate opening is the hook. The deep stuff starts behind it.
 			fill = { grass(1, 2), mix(Debris.Leaves, 1, 1, 2) },
 			kind = "open",
+			trees = 3,
 			clutter = 8,
 		},
 		{
@@ -158,6 +159,7 @@ local house: Types.WorldDef = {
 			density = 0.95,
 			fill = { grass(3, 3), mix(Debris.Weeds, 1.4, 2, 3), mix(Debris.Leaves, 0.7, 2, 3) },
 			kind = "open",
+			trees = 2,
 			hazards = { "dog" },
 			clutter = 9,
 		},
@@ -226,6 +228,7 @@ local mansion: Types.WorldDef = {
 			density = 0.95,
 			fill = { grass(2, 3), mix(Debris.Leaves, 1, 2, 3) },
 			kind = "open",
+			trees = 5,
 			clutter = 14,
 		},
 		{
@@ -238,6 +241,7 @@ local mansion: Types.WorldDef = {
 			density = 0.94,
 			fill = { grass(2, 3), mix(Debris.Hedge, 1, 3, 3), mix(Debris.Leaves, 1, 2, 3) },
 			kind = "open",
+			trees = 4,
 			clutter = 14,
 		},
 		{
@@ -309,6 +313,7 @@ local gasStation: Types.WorldDef = {
 			density = 0.95,
 			fill = { grass(2, 3), mix(Debris.Weeds, 1.2, 2, 3), mix(Debris.Leaves, 1, 2, 3) },
 			kind = "open",
+			trees = 4,
 			clutter = 16,
 		},
 		{
@@ -347,6 +352,7 @@ local gasStation: Types.WorldDef = {
 			density = 0.97,
 			fill = { grass(2, 3), mix(Debris.Sticks, 1.2, 3, 3), mix(Debris.Leaves, 1, 3, 3) },
 			kind = "open",
+			trees = 3,
 			hazards = { "dog" },
 			clutter = 20,
 		},
