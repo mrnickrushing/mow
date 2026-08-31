@@ -277,6 +277,69 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 		})
 	end
 
+	--[[
+		A belt of trees around the outside of the lot.
+
+		Every property was an open field with a visible edge: the lawn simply
+		stopped and the haze took over, and from the spawn you could see the
+		end of the world over the top of the house. These stand on the apron,
+		outside the grid entirely, so they are scenery and nothing else — no
+		prompt, nothing to chop, nothing counted toward clearing. What they do
+		is close the horizon, which is most of why a cartoon suburb reads as a
+		place rather than as a plane with a building on it.
+
+		Kept clear of the road along the south edge and of the spawn, so the
+		first thing anybody sees is still the property.
+	]]
+	local belt = Build.folder("TreeBelt", parent)
+	local beltRng = Random.new(grid.width * 7919 + grid.depth)
+	local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)
+
+	local function plant(x: number, z: number)
+		if (Vector2.new(x, z) - Vector2.new(spawnAt.X, spawnAt.Z)).Magnitude < 80 then
+			return
+		end
+		local height = beltRng:NextNumber(24, 38)
+		Build.mesh({
+			prop = "Tree",
+			name = "Scenery",
+			-- The source mesh's own proportions, so a taller tree is not a
+			-- fatter one.
+			size = Vector3.new(height * 0.666, height, height * 0.703),
+			collisionSize = Vector3.new(3.4, height, 3.4),
+			cframe = CFrame.new(x, GameConfig.GROUND_Y + height * 0.5 - 1, z)
+				* CFrame.Angles(0, beltRng:NextNumber(0, math.pi * 2), 0),
+			-- Background: their shadows would fall on the apron, not the lawn,
+			-- and there are a lot of them.
+			castShadow = false,
+			parent = belt,
+		})
+	end
+
+	-- Two staggered rows a side. The south rows start beyond the road.
+	local SPACING = 34
+	for _, side in { "north", "south", "west", "east" } do
+		local alongX = side == "north" or side == "south"
+		local length = if alongX then width else depth
+		local steps = math.max(math.floor((length + 160) / SPACING), 2)
+		local rows = if side == "south" then { 42, 74 } else { 20, 50 }
+		for _, out in rows do
+			for step = 0, steps do
+				local at = -80 + (length + 160) * (step / steps) + beltRng:NextNumber(-9, 9)
+				local away = out + beltRng:NextNumber(-7, 7)
+				if side == "north" then
+					plant(at, depth + away)
+				elseif side == "south" then
+					plant(at, -away)
+				elseif side == "west" then
+					plant(-away, at)
+				else
+					plant(width + away, at)
+				end
+			end
+		end
+	end
+
 	-- The road along the south edge, with the trailer parked at the curb.
 	-- Plain asphalt for the same reason the lawn is plain grass: a concrete
 	-- panel's texture stretched over six hundred studs is not concrete, it is
@@ -415,7 +478,10 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 			math.clamp(math.min(width, depth) * 0.34, 8, 22),
 			3.5,
 			Palette.color(Palette.house.roof),
-			Palette.color(Palette.house.trim)
+			Palette.color(Palette.house.trim),
+			-- The gable is wall, not trim: it is the triangle of the house
+			-- itself showing between the two slopes, so it takes the siding.
+			Palette.color(Palette.house.siding)
 		)
 	end
 

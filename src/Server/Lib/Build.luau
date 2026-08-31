@@ -379,7 +379,8 @@ function Build.gableRoof(
 	rise: number,
 	overhang: number,
 	color: Color3,
-	trimColor: Color3
+	trimColor: Color3,
+	wallColor: Color3
 ): Folder
 	local folder = Build.folder("Roof", parent)
 
@@ -432,7 +433,7 @@ function Build.gableRoof(
 			wedge.Name = "Gable"
 			wedge.Anchored = true
 			wedge.CanCollide = true
-			wedge.Color = trimColor
+			wedge.Color = wallColor
 			wedge.Material = Enum.Material.SmoothPlastic
 			wedge.TopSurface = Enum.SurfaceType.Smooth
 			wedge.BottomSurface = Enum.SurfaceType.Smooth
@@ -443,7 +444,17 @@ function Build.gableRoof(
 			local sideways = if alongX
 				then Vector3.new(0, 0, half * gableHalf * 0.5)
 				else Vector3.new(half * gableHalf * 0.5, 0, 0)
-			local spin = if alongX then math.pi * 0.5 else 0
+			--[[
+				A wedge spans its own Z and slopes down along it, so it only
+				needs turning when the gable it fills spans world X instead.
+
+				This had the test the wrong way round, which turned each gable
+				a quarter of the way round its own centre: instead of closing
+				the triangle at the end of the roof they stood across it, and
+				every house had two teal fins sticking out into the air above
+				its eaves.
+			]]
+			local spin = if alongX then 0 else math.pi * 0.5
 			wedge.CFrame = CFrame.new(centre + outward + sideways + Vector3.new(0, eaveY + rise * 0.5, 0))
 				* CFrame.Angles(0, spin + (if half > 0 then 0 else math.pi), 0)
 			wedge.Parent = folder
