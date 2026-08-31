@@ -51,8 +51,8 @@ function AtmosphereService.start()
 	-- Late afternoon, sun low enough to throw long shadows across the lawn.
 	Lighting.ClockTime = 16.9
 	Lighting.GeographicLatitude = 24
-	Lighting.Brightness = 2.6
-	Lighting.ExposureCompensation = 0.18
+	Lighting.Brightness = 2.2
+	Lighting.ExposureCompensation = 0.05
 	Lighting.Ambient = Palette.color(Palette.sky.ambient)
 	Lighting.OutdoorAmbient = Palette.color(Palette.sky.outdoorAmbient)
 	Lighting.ColorShift_Top = Palette.color(Palette.sky.tint)
@@ -83,19 +83,29 @@ function AtmosphereService.start()
 		staleSky:Destroy()
 	end
 
-	-- Pushes everything towards the saturated storybook look rather than the
-	-- washed-out default, which is most of the difference at a glance.
+	--[[
+		A nudge towards the storybook look, not a shove.
+
+		This was saturation at plus a quarter and contrast at plus a sixth, on
+		top of a palette that is already vivid and an exposure lifted by a
+		fifth. Everything on screen came out at the top of its channel: the
+		lawn was fluorescent, the paths were neon, and the leaves were a single
+		flat red with no shading left in them to tell one from the next. A
+		picture with nothing between the brightest thing in it and the second
+		brightest has no depth, and that reads as cheap however good the models
+		are. Backed off far enough to leave the palette room to be seen.
+	]]
 	local grade: ColorCorrectionEffect = child("ColorCorrectionEffect", "MowGrade", Lighting)
-	grade.Brightness = 0.02
-	grade.Contrast = 0.16
-	grade.Saturation = 0.28
+	grade.Brightness = 0.0
+	grade.Contrast = 0.07
+	grade.Saturation = 0.09
 	grade.TintColor = Palette.color(Palette.rgb(255, 240, 224))
 	grade.Enabled = true
 
 	local bloom: BloomEffect = child("BloomEffect", "MowBloom", Lighting)
-	bloom.Intensity = 0.55
-	bloom.Size = 22
-	bloom.Threshold = 1.4
+	bloom.Intensity = 0.3
+	bloom.Size = 20
+	bloom.Threshold = 1.7
 	bloom.Enabled = true
 
 	local sun: SunRaysEffect = child("SunRaysEffect", "MowSunRays", Lighting)

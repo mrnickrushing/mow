@@ -227,10 +227,22 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 		end
 	end
 
+	--[[
+		The lawn under everything, as a plain surface rather than a model.
+
+		This was a turf panel — a seven stud square whose texture is a weave of
+		light and dark blades — stretched across the whole lot. A texture does
+		not repeat when a mesh is scaled, it stretches, so that seven stud weave
+		came out as light and dark bands forty studs wide running the length of
+		the property: from the porch the front lawn read as a ploughed field.
+
+		Roblox's own grass material is the right tool for a surface this size.
+		It is fine noise at any scale, it has no pattern to magnify, and it
+		leaves the clumps the renderer scatters on top to do the describing.
+	]]
 	local slabs = Structures.subtractAll({ x = 0, z = 0, w = grid.width, d = grid.depth }, holes)
 	for index, slab in slabs do
-		Build.mesh({
-			prop = "Turf",
+		Build.part({
 			name = `Ground{index}`,
 			size = Vector3.new(slab.w * TILE, 4, slab.d * TILE),
 			cframe = CFrame.new(
@@ -239,6 +251,7 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 				(slab.z + slab.d * 0.5) * TILE
 			),
 			color = toColor(world.baseGround),
+			material = Enum.Material.Grass,
 			parent = parent,
 		})
 	end
@@ -253,24 +266,27 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 		{ centre = Vector2.new(width + apron * 0.5, depth * 0.5), size = Vector2.new(apron, depth) },
 	}
 	for _, strip in strips do
-		Build.mesh({
-			prop = "Turf",
+		Build.part({
 			name = "Surrounds",
 			size = Vector3.new(strip.size.X, 3, strip.size.Y),
 			cframe = CFrame.new(strip.centre.X, GameConfig.GROUND_Y - 2.2, strip.centre.Y),
 			color = Palette.color(Palette.ground.lawnDark),
+			material = Enum.Material.Grass,
 			castShadow = false,
 			parent = parent,
 		})
 	end
 
 	-- The road along the south edge, with the trailer parked at the curb.
-	Build.mesh({
-		prop = "ConcreteFloor",
+	-- Plain asphalt for the same reason the lawn is plain grass: a concrete
+	-- panel's texture stretched over six hundred studs is not concrete, it is
+	-- a smear.
+	Build.part({
 		name = "Road",
 		size = Vector3.new(width + 240, 0.6, 26),
 		cframe = CFrame.new(width * 0.5, GameConfig.GROUND_Y + 0.05, -16),
 		color = Palette.color(Palette.ground.road),
+		material = Enum.Material.Asphalt,
 		castShadow = false,
 		parent = parent,
 	})
@@ -284,6 +300,26 @@ end
 	and the teal trim are what make it read as that kind of suburban house at a
 	glance.
 ]]
+--[[
+	Whether somebody stands on this house's roof.
+
+	A world can put a section on top of its own house — The House's Rooftop is
+	one of its zones — and a roof you clear has to be flat and walkable. Every
+	other house gets a pitched one.
+]]
+local function walkableRoof(world: Types.WorldDef, rect: Types.Rect): boolean
+	for _, section in world.sections do
+		if (section.kind or "open") ~= "roof" then
+			continue
+		end
+		local r = section.rect
+		if r.x < rect.x + rect.w and rect.x < r.x + r.w and r.z < rect.z + rect.d and rect.z < r.z + r.d then
+			return true
+		end
+	end
+	return false
+end
+
 local function buildHouse(world: Types.WorldDef, parent: Folder)
 	local rect = world.houseRect
 	if not rect then
@@ -295,23 +331,32 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	local width, depth = rect.w * TILE, rect.d * TILE
 	local wallHeight = ROOF_HEIGHT - 4
 
-	-- Brick foundation the siding sits on.
-	Build.mesh({
-		prop = "BrickWall",
+	--[[
+		Brick foundation the siding sits on.
+
+		A plain part rather than the brick model, for the reason the lawn is a
+		plain surface: the model's courses are four studs wide, and stretched
+		along a hundred and eighty stud frontage each brick became a
+		hundred-and-eighty stud smear. Roblox's brick material tiles rather
+		than stretches, so it is bricks at any length of wall.
+	]]
+	Build.part({
 		name = "Foundation",
 		size = Vector3.new(width + 1.5, 4, depth + 1.5),
 		cframe = CFrame.new(centre + Vector3.new(0, 2, 0)),
 		color = Palette.color(Palette.house.brick),
+		material = Enum.Material.Brick,
 		parent = house,
 	})
 
-	-- Solid core, so the shell is never see-through at a corner.
-	Build.mesh({
-		prop = "Siding",
+	-- Solid core, so the shell is never see-through at a corner. Never seen
+	-- directly — the lap courses stand outside it — so it is a plain mass.
+	Build.part({
 		name = "Core",
 		size = Vector3.new(width - 1, wallHeight, depth - 1),
 		cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight * 0.5, 0)),
 		color = Palette.color(Palette.house.sidingShade),
+		material = Enum.Material.SmoothPlastic,
 		parent = house,
 	})
 
@@ -327,22 +372,52 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	end
 
 	-- The teal band under the eaves, the single most identifying colour here.
-	Build.mesh({
-		prop = "Siding",
+	Build.part({
 		name = "Trim",
 		size = Vector3.new(width + 4, 2.2, depth + 4),
 		cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight + 1, 0)),
 		color = Palette.color(Palette.house.trim),
+		material = Enum.Material.SmoothPlastic,
 		parent = house,
 	})
-	Build.mesh({
-		prop = "Shingle",
-		name = "Roof",
-		size = Vector3.new(width + 5, 2.4, depth + 5),
-		cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight + 3, 0)),
-		color = Palette.color(Palette.house.roof),
-		parent = house,
-	})
+
+	--[[
+		The roof, which is either a deck or a roofline depending on the world.
+
+		The House puts a section on top of its house — the Rooftop is somewhere
+		you go and something you clear — so that one has to stay flat and
+		walkable, and gets a capped slab. Nothing stands on the Mansion or the
+		Gas Station's roof, so those get the pitch, which is what makes a
+		building read as a house from the far side of a lawn instead of as a
+		long shed.
+
+		Either way it is no longer the shingle model stretched across the whole
+		roof. That model is a panel of shingles about a stud across, so scaled
+		to sixty by a hundred and eighty studs it came out as a coarse green
+		chequerboard you could see from the road.
+	]]
+	if walkableRoof(world, rect) then
+		Build.part({
+			name = "Roof",
+			size = Vector3.new(width + 5, 2.4, depth + 5),
+			cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight + 3, 0)),
+			color = Palette.color(Palette.house.roof),
+			material = Enum.Material.Slate,
+			parent = house,
+		})
+	else
+		Build.gableRoof(
+			house,
+			centre,
+			width + 4,
+			depth + 4,
+			4 + wallHeight + 2.2,
+			math.clamp(math.min(width, depth) * 0.34, 8, 22),
+			3.5,
+			Palette.color(Palette.house.roof),
+			Palette.color(Palette.house.trim)
+		)
+	end
 
 	local frontZ = centre.Z - depth * 0.5
 
