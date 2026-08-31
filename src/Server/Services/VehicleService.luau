@@ -13,6 +13,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
@@ -28,6 +29,9 @@ local VehicleService = {}
 
 export type Ride = {
 	model: Model,
+	--- The constraints that actually move the machine. See `drive`.
+	push: LinearVelocity,
+	turn: AngularVelocity,
 	seat: VehicleSeat,
 	toolId: string,
 }
@@ -54,7 +58,11 @@ local function ensureContainer(): Folder?
 end
 
 --- Builds a mower sized to its deck, so a wider deck visibly is wider.
-local function buildVehicle(tool: Types.ToolDef, at: CFrame, parent: Instance): (Model, VehicleSeat)
+local function buildVehicle(
+	tool: Types.ToolDef,
+	at: CFrame,
+	parent: Instance
+): (Model, VehicleSeat, LinearVelocity, AngularVelocity)
 	local stats = assert(tool.vehicle, "not a vehicle")
 	local model = Instance.new("Model")
 	model.Name = tool.id
@@ -105,13 +113,50 @@ local function buildVehicle(tool: Types.ToolDef, at: CFrame, parent: Instance): 
 		end
 	end
 
+	--[[
+		What actually moves the mower.
+
+		Setting `AssemblyLinearVelocity` every frame does not: measured on a
+		seated mower it moved it nought studs in two and a half seconds, because
+		the seated character is part of the same assembly and the solver puts
+		back what you write. A velocity *constraint* is the supported way to
+		push an assembly around and it moves the same mower fifty-four studs in
+		the same time.
+
+		The vertical component is refreshed from the assembly each frame rather
+		than held at zero, so the machine still falls off things.
+	]]
+	local mount = Instance.new("Attachment")
+	mount.Name = "Drive"
+	mount.Parent = seat
+
+	local push = Instance.new("LinearVelocity")
+	push.Name = "Push"
+	push.Attachment0 = mount
+	push.RelativeTo = Enum.ActuatorRelativeTo.World
+	push.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+	push.MaxForce = 1e6
+	push.VectorVelocity = Vector3.zero
+	-- Off until there is throttle; see `drive`.
+	push.Enabled = false
+	push.Parent = seat
+
+	local turn = Instance.new("AngularVelocity")
+	turn.Name = "Turn"
+	turn.Attachment0 = mount
+	turn.RelativeTo = Enum.ActuatorRelativeTo.World
+	turn.MaxTorque = 1e6
+	turn.AngularVelocity = Vector3.zero
+	turn.Enabled = false
+	turn.Parent = seat
+
 	-- The body keeps its mass on purpose. It is the wide, low box; the seat is
 	-- a small one perched above it. Making the body weightless left the whole
 	-- machine balanced on the seat like an inverted pendulum, and the first
 	-- push of throttle rolled it onto its back.
 	model.PrimaryPart = seat
 	model.Parent = parent
-	return model, seat
+	return model, seat, push, turn
 end
 
 --------------------------------------------------------------------
@@ -182,8 +227,8 @@ local function onMount(player: Player)
 	VehicleService.dismount(player)
 
 	local at = CFrame.new(root.Position - Vector3.new(0, 1.5, 0)) * CFrame.Angles(0, math.atan2(-root.CFrame.LookVector.X, -root.CFrame.LookVector.Z), 0)
-	local model, seat = buildVehicle(tool, at, parent)
-	rides[player] = { model = model, seat = seat, toolId = tool.id }
+	local model, seat, push, turn = buildVehicle(tool, at, parent)
+	rides[player] = { model = model, seat = seat, toolId = tool.id, push = push, turn = turn }
 
 	seat:Sit(humanoid)
 
@@ -208,9 +253,72 @@ local function onVehicleRemote(player: Player, action: any)
 	end
 end
 
+--[[
+	Drives the mowers, because a `VehicleSeat` on its own will not.
+
+	A VehicleSeat turns throttle and steer into motion through the *motors* of
+	the wheels attached to it. These mowers have no wheels: the model is one
+	mesh welded to the seat, which is what keeps them cheap and stops them
+	folding up on a kerb. So the seat's `MaxSpeed`, `TurnSpeed` and `Torque`
+	were set, read by nothing, and the machine sat still — full throttle for
+	three seconds moved the riding mower one stud, which is drift, not driving.
+	The most expensive upgrade in the game did not work.
+
+	So the assembly is driven by hand. Velocity is set rather than accumulated,
+	which is what makes an arcade mower feel like one: it goes when you hold the
+	stick and stops when you let go, with no skidding and nothing to fight on a
+	slope. The vertical component is left alone so gravity still applies and a
+	mower driven off the pool deck still falls into it.
+]]
+local function drive()
+	for player, ride in rides do
+		local seat = ride.seat
+		if not seat.Parent or seat.Occupant == nil then
+			continue
+		end
+
+		local tool = Tools.get(ride.toolId)
+		local stats = tool and tool.vehicle
+		if not stats then
+			continue
+		end
+
+		--[[
+			The constraints are switched off unless there is throttle.
+
+			This matters more than it looks. A velocity constraint holds the
+			velocity you give it, so one left enabled at zero does not merely
+			fail to drive the mower — it pins it, and a parked machine could not
+			then be shoved, knocked or nudged by anything. Off when idle, the
+			assembly behaves exactly as it did before any of this existed, which
+			is the behaviour to fall back to if the throttle never arrives.
+		]]
+		local throttle = seat.Throttle
+		local driving = math.abs(throttle) > 0.05
+		ride.push.Enabled = driving
+		ride.turn.Enabled = driving
+		if not driving then
+			continue
+		end
+
+		local heading = seat.CFrame.LookVector
+		local wanted = heading * (throttle * stats.speed)
+		-- Kept from the assembly rather than zeroed, so gravity still reads
+		-- through and a mower driven off the pool deck falls into it.
+		local falling = seat.AssemblyLinearVelocity.Y
+		ride.push.VectorVelocity = Vector3.new(wanted.X, falling, wanted.Z)
+
+		-- Turning only bites while the machine is being driven, so a parked
+		-- mower cannot be spun on the spot like a fairground ride.
+		ride.turn.AngularVelocity = Vector3.new(0, -seat.Steer * stats.turnSpeed, 0)
+	end
+end
+
 function VehicleService.start()
 	local remote = Remotes.event(Remotes.VEHICLE)
 	remote.OnServerEvent:Connect(onVehicleRemote)
+
+	RunService.Heartbeat:Connect(drive)
 
 	Players.PlayerRemoving:Connect(VehicleService.dismount)
 

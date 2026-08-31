@@ -101,6 +101,25 @@ function Build.mesh(options: MeshOptions): Part
 	)
 
 	--[[
+		Stand the model on the same ground as the box under it.
+
+		A `SpecialMesh` is centred on its part, so when the collision box is
+		shorter than the model it draws — which is the whole point of passing a
+		`collisionSize` — the model sinks by half the difference. The riding
+		mower was the loud case: a box two and a half studs tall carrying a
+		six-stud mower, so a third of it was underground and it read as a red
+		puddle rather than a machine you sit on.
+
+		Lifting the mesh by half the difference puts the two bases on the same
+		plane. Where the heights already agree, which is most callers, this is
+		zero and nothing moves.
+	]]
+	local collision = options.collisionSize
+	if collision then
+		mesh.Offset = Vector3.new(0, (options.size.Y - collision.Y) * 0.5, 0)
+	end
+
+	--[[
 		The tint goes on the mesh, and only when there is a texture to tint.
 
 		`VertexColor` multiplies the texture rather than replacing it, so it is
