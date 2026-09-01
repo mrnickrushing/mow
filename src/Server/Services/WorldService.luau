@@ -680,6 +680,10 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		Build.mesh({
 			prop = "StepBlock",
 			name = "Step",
+			-- Painted stone rather than the model's own pale blue, because
+			-- these steps are the last three feet of the flagstone path.
+			untextured = true,
+			color = Palette.color(Palette.ground.path),
 			size = Vector3.new(GAP + 2, 1.3, 3),
 			collisionSize = Vector3.new(GAP + 2, 1.3, 3),
 			cframe = CFrame.new(porchX, 3.3 - step * 1.2, porchZ - porchDepth * 0.5 - 1.6 - step * 2.6),
