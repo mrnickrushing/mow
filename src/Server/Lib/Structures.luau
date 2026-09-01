@@ -150,10 +150,32 @@ function Structures.clutter(context: Context, zone: Types.ZoneDef, count: number
 	local folder = Build.folder(`Clutter_{zone.id}`, context.parent)
 	local r = zone.rect
 
+	--[[
+		A pool section's clutter stays on the deck.
+
+		The scatter used to pick any tile in the rect, and the middle of a pool
+		section's rect is water — so crates and chairs sat on the surface of
+		the pool like it was ice. The same rectangle the ground builder cuts
+		the basin with is the one the scatter now avoids.
+	]]
+	local water: Types.Rect? = if zone.kind == "pool" then Structures.poolRect(zone) else nil
+
 	for _ = 1, count do
 		local spec = set[context.rng:NextInteger(1, #set)]
-		local tx = context.rng:NextInteger(r.x, r.x + r.w - 1)
-		local tz = context.rng:NextInteger(r.z, r.z + r.d - 1)
+		local tx, tz
+		for _ = 1, 20 do
+			tx = context.rng:NextInteger(r.x, r.x + r.w - 1)
+			tz = context.rng:NextInteger(r.z, r.z + r.d - 1)
+			if
+				not water
+				or tx < water.x
+				or tx >= water.x + water.w
+				or tz < water.z
+				or tz >= water.z + water.d
+			then
+				break
+			end
+		end
 		local at = context.flat(tx, tz) + Vector3.new(0, elevation, 0)
 
 		Build.mesh({

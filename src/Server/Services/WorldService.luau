@@ -1271,6 +1271,28 @@ local function buildTrailer(world: Types.WorldDef, parent: Folder): BasePart
 end
 
 --[[
+	Where a section's front door stands: a point on the edge named by
+	`gateSide` (south by default), and the CFrame that faces it outward, away
+	from the section, so a gate built in it reads from the approach.
+]]
+local function gateBasis(section: Types.ZoneDef): CFrame
+	local r = section.rect
+	local side = section.gateSide or "south"
+	if side == "north" then
+		local at = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z + r.d)
+		return CFrame.new(at) * CFrame.Angles(0, math.pi, 0)
+	elseif side == "east" then
+		local at = WorldService.tilePointFlat(r.x + r.w, r.z + r.d * 0.5)
+		return CFrame.new(at) * CFrame.Angles(0, math.rad(90), 0)
+	elseif side == "west" then
+		local at = WorldService.tilePointFlat(r.x, r.z + r.d * 0.5)
+		return CFrame.new(at) * CFrame.Angles(0, math.rad(-90), 0)
+	end
+	local at = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z)
+	return CFrame.new(at)
+end
+
+--[[
 	One sign per paid section.
 
 	Zones unlock per player, so there is no physical barrier — a shared collision
@@ -1287,16 +1309,15 @@ local function buildSectionSigns(world: Types.WorldDef, parent: Folder): { [stri
 		-- Signs also stand on the ground plane rather than the section's own floor,
 		-- so a basement's sign is at the top of its stairs and not sealed inside.
 		if section.cost > 0 and Worlds.unlockKind(section) == "cash" then
-			local r = section.rect
-			-- Stand the sign at the edge of the section nearest the road.
-			local at = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z)
+			local basis = gateBasis(section)
 
 			local post = Build.mesh({
 				prop = "Sign",
 				name = section.id,
 				size = Vector3.new(7, 12, 1.4),
 				collisionSize = Vector3.new(1, 12, 1),
-				cframe = CFrame.new(at + Vector3.new(0, 6, -2)),
+				-- Beside the gate rather than on top of it, on the approach side.
+				cframe = basis * CFrame.new(8, 6, -2),
 				canCollide = false,
 				parent = folder,
 			})
@@ -1383,8 +1404,7 @@ local function buildCashGates(world: Types.WorldDef, parent: Folder): { [string]
 			continue
 		end
 
-		local r = section.rect
-		local at = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z)
+		local basis = gateBasis(section)
 
 		local gate = Instance.new("Model")
 		gate.Name = section.id
@@ -1397,7 +1417,7 @@ local function buildCashGates(world: Types.WorldDef, parent: Folder): { [string]
 		prop = "Gate",
 			name = "Arch",
 			size = Vector3.new(14, 2, 2),
-			cframe = CFrame.new(at + Vector3.new(0, 11, 0)),
+			cframe = basis * CFrame.new(0, 11, 0),
 			color = Palette.color(Palette.fence.rail),
 			parent = gate,
 		})
@@ -1407,7 +1427,7 @@ local function buildCashGates(world: Types.WorldDef, parent: Folder): { [string]
 			prop = "Column",
 				name = "Post",
 				size = Vector3.new(2, 12, 2),
-				cframe = CFrame.new(at + Vector3.new(side * 6, 5, 0)),
+				cframe = basis * CFrame.new(side * 6, 5, 0),
 				color = Palette.color(Palette.fence.rail),
 				parent = gate,
 			})
@@ -1418,7 +1438,7 @@ local function buildCashGates(world: Types.WorldDef, parent: Folder): { [string]
 			name = "Door",
 			size = Vector3.new(12, 11, 1.8),
 			collisionSize = Vector3.new(10, 10, 1),
-			cframe = CFrame.new(at + Vector3.new(0, 5, 0)),
+			cframe = basis * CFrame.new(0, 5, 0),
 			parent = gate,
 		})
 
