@@ -26,7 +26,21 @@ local function mix(debris: number, weight: number, heightMin: number, heightMax:
 	return { debris = debris, weight = weight, heightMin = heightMin, heightMax = heightMax }
 end
 
-local ROOF_ELEVATION = 24
+--[[
+	The height the Rooftop's floor sits at.
+
+	This was 24, matching ROOF_HEIGHT, on the assumption that the top of the
+	house is at the height the house is called. It is not: a walkable roof is
+	a capped slab built at four plus the wall height plus three, and it is
+	2.4 thick, so its top face is at 28.2 — four studs above where the
+	Rooftop was putting its floor. The whole section was built inside the
+	house's own roof, which is why seven hundred and fifty-seven tiles of
+	leaves sat on a roof you could stand on and see nothing on.
+
+	Twenty-nine puts the deck's top face just proud of the cap, so the debris
+	rests on the surface the player is actually standing on.
+]]
+local ROOF_ELEVATION = 29
 local BASEMENT_ELEVATION = -18
 
 --------------------------------------------------------------------
