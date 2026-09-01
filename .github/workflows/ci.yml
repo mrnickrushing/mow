@@ -76,22 +76,33 @@ jobs:
             build/MowAllTheLawns.rbxlx
           if-no-files-found: error
 
-      # Every merge to main also lands the place on the rolling "latest"
-      # release, so there is one permanent link that always holds the newest
-      # build rather than an artifact buried in a run page:
+      # Every merge lands the place on the rolling "latest" release, so there
+      # is one permanent link that always holds the newest build rather than
+      # an artifact buried in a run page:
       #   https://github.com/mrnickrushing/mow/releases/tag/latest
+      #
+      # It fires for the default working branch as well as main, because that
+      # is where nearly every merge actually lands — gating on main alone
+      # meant most merges built the place and then hid it. The release's own
+      # headline date is the day the rolling release was first created and
+      # never moves, which made a fresh build look stale, so the name carries
+      # the build's date instead.
+      - name: Name the build
+        if: github.ref == 'refs/heads/main' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        run: echo "BUILD_STAMP=$(date -u '+%Y-%m-%d %H:%M UTC')" >> "$GITHUB_ENV"
+
       - name: Publish place to the latest release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: latest
-          name: Latest place build
+          name: "Latest place build — ${{ env.BUILD_STAMP }}"
           body: |
-            Built from `${{ github.sha }}`.
+            Built from `${{ github.sha }}` at ${{ env.BUILD_STAMP }}.
 
             Download `MowAllTheLawns.rbxlx` (XML) or `MowAllTheLawns.rbxl`
             (binary) and open it in Roblox Studio. Updated automatically on
-            every merge to main.
+            every merge.
           files: |
             build/MowAllTheLawns.rbxlx
             build/MowAllTheLawns.rbxl

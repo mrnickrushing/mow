@@ -523,7 +523,28 @@ function RunService.start()
 		end
 	end)
 
-	beginRun(Worlds.STARTER_ID)
+	--[[
+		The server opens on the level select, not mid-run.
+
+		It used to call `beginRun` here, so the first player did not arrive at
+		a game — they arrived in the middle of one, on a property they never
+		picked, with the clock already moving. The menu every run *ends* on is
+		the right thing to *start* on too. The starter world is still built
+		underneath it, because the lobby is a place you physically stand in:
+		with no world loaded there is no spawn, and a player who joined before
+		one existed would drop into the void.
+
+		The idle backstop below still starts the starter world by itself if
+		nobody picks for long enough, so an unattended public server never
+		sits on a menu forever.
+	]]
+	ReplicationService.reset()
+	WorldService.load(Worlds.STARTER_ID)
+	ReplicationService.broadcastWorldInfo()
+	WorldService.closeAllSections()
+	phase = "lobby"
+	endsAt = os.clock() + LOBBY_SECONDS
+	broadcast()
 
 	task.spawn(function()
 		while true do

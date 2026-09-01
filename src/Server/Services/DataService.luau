@@ -37,11 +37,26 @@ local function onPlayerAdded(player: Player)
 	-- A brand new player legitimately has no saved data; only a hard datastore
 	-- failure returns nil after a successful lock, and load() already warned.
 	if raw == nil and not store.memoryOnly and store.store ~= nil and store.active[player.UserId] == nil then
-		loading[player] = nil
-		if player.Parent then
-			player:Kick(KICK_MESSAGE)
+		--[[
+			In Studio, a datastore failure is a scratch session, not a kick.
+
+			A kick protects a live player's save from being overwritten by a
+			blank. In Studio it protected nothing and cost everything: the
+			published place has real datastores with tiny budgets, rapid play
+			tests exhaust them, and every failure threw the developer out of
+			their own game before they could touch it. The scratch profile is
+			safe because save and release both refuse to write without holding
+			the session lock, which a failed load never took.
+		]]
+		if RunService:IsStudio() then
+			warn("[Mow] datastore unavailable in Studio — playing on a scratch profile; nothing will save")
+		else
+			loading[player] = nil
+			if player.Parent then
+				player:Kick(KICK_MESSAGE)
+			end
+			return
 		end
-		return
 	end
 
 	local profile = DefaultData.migrate(raw)

@@ -96,8 +96,15 @@ local function warnIfStretched(options: MeshOptions, scale: Vector3)
 	if not RunService:IsStudio() then
 		return
 	end
+	-- An untextured mesh has nothing to stretch, and a model scaled up evenly
+	-- is just a bigger model — the smear this hunts for is a small texture
+	-- pulled much further along one axis than another.
+	if options.untextured then
+		return
+	end
 	local worst = math.max(scale.X, scale.Y, scale.Z)
-	if worst <= MAX_STRETCH then
+	local least = math.min(scale.X, scale.Y, scale.Z)
+	if worst <= MAX_STRETCH or worst / math.max(least, 0.001) < 2 then
 		return
 	end
 	warn(string.format(

@@ -120,7 +120,18 @@ function Store.load(self: Store, userId: number): any?
 	end
 
 	for tries = 1, LOCK_ATTEMPTS do
-		local stolen = tries == LOCK_ATTEMPTS
+		--[[
+			Studio takes the lock at once instead of queueing behind it.
+
+			The lock exists so two real servers cannot both hold one player's
+			save, which cannot happen in a Studio session — but every stopped
+			play test leaves its lock behind, so the next test spent up to
+			twelve seconds standing in a world it could not touch, waiting out
+			its own predecessor, and got kicked outright if the throttled
+			datastore then failed the final attempt. That is what "the controls
+			are broken" looks like from inside the game.
+		]]
+		local stolen = tries == LOCK_ATTEMPTS or RunService:IsStudio()
 		local ok, loaded = attempt(`load {userId}`, function()
 			return store:UpdateAsync(keyFor(userId), function(raw: any)
 				local entry: Entry = if type(raw) == "table" then raw else { data = nil }

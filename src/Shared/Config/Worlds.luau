@@ -130,6 +130,9 @@ local house: Types.WorldDef = {
 			unlock = "cash",
 			requires = "front_yard",
 			rect = { x = 2, z = 62, w = 20, d = 32 },
+			-- The south edge is the garage's back wall; the way in is from the
+			-- backyard, so that is where the door stands.
+			gateSide = "east",
 			density = 0.88,
 			fill = { mix(Debris.Leaves, 2, 2, 3), grass(1, 3), mix(Debris.Sticks, 0.5, 1, 2) },
 			kind = "pool",

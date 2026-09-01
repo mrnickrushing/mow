@@ -52,6 +52,17 @@ export type ZoneDef = {
 	requires: string?,
 	--- For `button` unlocks, the zone the switch is hidden in.
 	buttonIn: string?,
+	--[[
+		Which edge of the rect the cash gate and price sign stand on:
+		"south" (the default, nearest the road), "north", "east" or "west".
+
+		A gate is a front door, so it has to face the ground players actually
+		approach from. The Pool Deck's south edge is the back wall of the
+		garage — its gate stood in a six-stud alley behind another building —
+		and no rule about "the edge nearest the road" survives contact with a
+		lot that has buildings on it, so the sections that need it say so.
+	]]
+	gateSide: string?,
 	kind: ZoneKind?,
 	--- Props scattered through the zone for debris to hide against.
 	clutter: number?,
