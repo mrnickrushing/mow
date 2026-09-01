@@ -11,7 +11,10 @@ local GameConfig = {
 	--------------------------------------------------------------------
 	-- Identity
 	--------------------------------------------------------------------
-	GAME_NAME = "Mow all the lawns!",
+	-- The name it is published under. The loading screen spells this out for
+	-- itself (ReplicatedFirst cannot wait on this module), so a rename touches
+	-- both.
+	GAME_NAME = "Mow Money, Mow Problems!",
 
 	--------------------------------------------------------------------
 	-- Grid geometry

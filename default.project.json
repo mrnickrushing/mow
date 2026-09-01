@@ -2,21 +2,22 @@
   "name": "MowAllTheLawns",
   "tree": {
     "$className": "DataModel",
-
+    "ReplicatedFirst": {
+      "$className": "ReplicatedFirst",
+      "$path": "src/ReplicatedFirst"
+    },
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "Shared": {
         "$path": "src/Shared"
       }
     },
-
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "Server": {
         "$path": "src/Server"
       }
     },
-
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
@@ -26,7 +27,6 @@
         }
       }
     },
-
     "Workspace": {
       "$className": "Workspace",
       "$properties": {
@@ -34,32 +34,41 @@
         "StreamingEnabled": false
       }
     },
-
     "Lighting": {
       "$className": "Lighting",
       "$properties": {
-        "Ambient": [0.494, 0.376, 0.259],
-        "OutdoorAmbient": [0.769, 0.580, 0.376],
+        "Ambient": [
+          0.494,
+          0.376,
+          0.259
+        ],
+        "OutdoorAmbient": [
+          0.769,
+          0.58,
+          0.376
+        ],
         "Brightness": 2.6,
         "ClockTime": 16.9,
         "GeographicLatitude": 24,
         "EnvironmentDiffuseScale": 0.6,
         "EnvironmentSpecularScale": 0.3,
-        "FogColor": [0.988, 0.729, 0.376],
+        "FogColor": [
+          0.988,
+          0.729,
+          0.376
+        ],
         "FogStart": 180,
         "FogEnd": 1400,
         "GlobalShadows": true,
         "Technology": "ShadowMap"
       }
     },
-
     "SoundService": {
       "$className": "SoundService",
       "$properties": {
         "RespectFilteringEnabled": true
       }
     },
-
     "Players": {
       "$className": "Players",
       "$properties": {
