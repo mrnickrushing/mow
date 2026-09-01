@@ -43,7 +43,9 @@ local catalogue: { [string]: Prop } = {
 	Planter = prop("rbxassetid://132421447542728", "rbxassetid://78012514749472", 2.619, 4.000, 2.644),
 	Chair = prop("rbxassetid://106467236413072", "rbxassetid://133666995767237", 3.446, 4.500, 3.576),
 	Barrel = prop("rbxassetid://83356930625729", "rbxassetid://104527617496431", 4.000, 4.236, 3.980),
-	Rock = prop("rbxassetid://132924624861328", "rbxassetid://89076492492334", 1.447, 4.000, 1.451),
+	--- A boulder, which the old one was not: it was a thin white spire that
+	--- read as a shard of porcelain wherever it lay on a lawn.
+	Rock = prop("rbxassetid://99025658170706", "rbxassetid://114763842724654", 3.000, 2.123, 2.989),
 
 	-- Planting.
 	--[[
@@ -67,14 +69,31 @@ local catalogue: { [string]: Prop } = {
 	-- Structures.
 	Fence = prop("rbxassetid://109120828950770", "rbxassetid://99346791051845", 5.272, 3.059, 0.600),
 	Shed = prop("rbxassetid://136505549556407", "rbxassetid://130296685263073", 15.868, 18.000, 15.692),
-	Trailer = prop("rbxassetid://72699501903410", "rbxassetid://119991357734404", 7.030, 5.706, 12.000),
+	--[[
+		The trailer you dump your bag into, which is the most-visited object in
+		the game and was a green wooden hand-cart — a tub on cart wheels, drawn
+		twenty-four studs wide with its long axis turned sideways, so it stood
+		taller than the gas pumps and read as furniture from a cartoon quarry.
+		This one is the thing a landscaping crew actually tows: a flatbed on
+		tandem rubber wheels with side rails and an a-frame hitch.
+	]]
+	Trailer = prop("rbxassetid://135220375508208", "rbxassetid://97134128130312", 6.834, 4.200, 10.387),
+
+	-- The gas station's own furniture.
+	GasPump = prop("rbxassetid://77359286982223", "rbxassetid://129997331021782", 2.000, 3.827, 1.000),
+	--- A white winged horse, which stands on a red disc to make the station's
+	--- emblem. Generated as a badge and arrived as the horse alone, which is
+	--- better: the disc is two cylinders, and the horse can stand proud of it.
+	PonyEmblem = prop("rbxassetid://105093577196676", "rbxassetid://100374841746838", 0.468, 0.539, 0.700),
 
 	-- Things that move or matter.
 	RidingMower = prop("rbxassetid://89706697093178", "rbxassetid://120136128501167", 5.476, 6.000, 9.364),
 	Dog = prop("rbxassetid://74175582988973", "rbxassetid://77296052752514", 1.527, 4.000, 3.141),
 	Sprinkler = prop("rbxassetid://133265868962502", "rbxassetid://140459804380273", 1.568, 2.000, 1.575),
-	WaspNest = prop("rbxassetid://109192227690970", "rbxassetid://91421064853539", 2.784, 4.000, 2.774),
-	GoldenBlade = prop("rbxassetid://76860455179857", "rbxassetid://118765026020204", 0.993, 1.974, 1.000),
+	WaspNest = prop("rbxassetid://108560452041175", "rbxassetid://120759380593144", 2.800, 3.422, 2.777),
+	--- The collectible. Asked for as a golden blade of grass and generated as a
+	--- little gold trophy, which reads better as a thing worth picking up.
+	GoldenBlade = prop("rbxassetid://87886745552401", "rbxassetid://128380504159648", 0.734, 0.885, 0.500),
 
 	--[[
 		Built structure: the pieces the house, shed and gates are assembled
@@ -94,7 +113,6 @@ local catalogue: { [string]: Prop } = {
 		an asset that only works below about four times its own size is a trap
 		for whoever reaches for it next.
 	]]
-	BrickWall = prop("rbxassetid://140006814129918", "rbxassetid://79095318666845", 4.153, 3.694, 1.500),
 	Column = prop("rbxassetid://91990804948432", "rbxassetid://118138575646702", 2.200, 5.470, 1.427),
 	Railing = prop("rbxassetid://121758695483526", "rbxassetid://72616628550520", 8.279, 3.514, 0.800),
 	Window = prop("rbxassetid://97444539728739", "rbxassetid://85708816813129", 3.008, 4.450, 0.800),
@@ -103,7 +121,7 @@ local catalogue: { [string]: Prop } = {
 	Counter = prop("rbxassetid://83666296495380", "rbxassetid://99555960161357", 8.654, 5.694, 5.000),
 	StepBlock = prop("rbxassetid://106316877928108", "rbxassetid://113878058483033", 4.390, 1.754, 3.000),
 	Gate = prop("rbxassetid://88429791455602", "rbxassetid://129724919454464", 7.352, 12.000, 1.830),
-	Grate = prop("rbxassetid://107784319905798", "rbxassetid://123179659382912", 5.218, 7.929, 2.000),
+	Grate = prop("rbxassetid://75977898694111", "rbxassetid://90115323804317", 3.871, 6.826, 1.200),
 	Sign = prop("rbxassetid://89328138606331", "rbxassetid://121079808488481", 5.186, 6.124, 1.000),
 	ShopBoard = prop("rbxassetid://127953130831132", "rbxassetid://93758011506584", 4.715, 5.528, 1.000),
 
@@ -137,7 +155,7 @@ local catalogue: { [string]: Prop } = {
 		a flag, so a leaf swapped in later lands the right way up on its own.
 	]]
 	LeafMaple = prop("rbxassetid://71916107034086", "rbxassetid://74826574473670", 0.277, 0.300, 0.018),
-	LeafOak = prop("rbxassetid://73631604724135", "rbxassetid://84336160333767", 0.189, 0.064, 0.300),
+	LeafOak = prop("rbxassetid://88151020271752", "rbxassetid://76051146906914", 0.286, 0.100, 0.435),
 
 	-- Ground and roofing, the surfaces underfoot and overhead.
 	Paving = prop("rbxassetid://118911737218481", "rbxassetid://75203797606065", 2.483, 0.500, 2.503),
@@ -148,8 +166,9 @@ local catalogue: { [string]: Prop } = {
 	Gloves = prop("rbxassetid://102351792013112", "rbxassetid://121367423728441", 0.557, 0.500, 0.213),
 	RakeTool = prop("rbxassetid://136422927727853", "rbxassetid://88404546052055", 0.612, 0.400, 1.276),
 	Handlebar = prop("rbxassetid://82490801193149", "rbxassetid://85871570751435", 0.625, 1.000, 1.138),
-	TrimmerTool = prop("rbxassetid://71503917518651", "rbxassetid://104755838161955", 0.355, 0.800, 0.643),
-	SawTool = prop("rbxassetid://109634814327719", "rbxassetid://117884093500395", 0.781, 0.900, 1.471),
+	TrimmerTool = prop("rbxassetid://73024807916821", "rbxassetid://130412979021949", 0.948, 4.000, 1.041),
+	--- A handsaw. The old mesh was, for reasons lost to the generator, an acorn.
+	SawTool = prop("rbxassetid://120072502774368", "rbxassetid://110901940352963", 0.257, 1.100, 2.123),
 	HedgeTool = prop("rbxassetid://100172995462295", "rbxassetid://97933613185397", 0.143, 0.800, 0.892),
 	GrinderTool = prop("rbxassetid://130280705075193", "rbxassetid://74077511096748", 1.527, 1.200, 1.445),
 	ChipperTool = prop("rbxassetid://84533763020814", "rbxassetid://110674468060386", 0.779, 1.400, 0.782),
@@ -174,7 +193,7 @@ local catalogue: { [string]: Prop } = {
 	UpArrow = prop("rbxassetid://128060605098219", "rbxassetid://111066637200078", 1.178, 1.403, 0.500),
 	Scroll = prop("rbxassetid://118113022200836", "rbxassetid://134224931906361", 1.510, 1.388, 1.000),
 	QuestionSign = prop("rbxassetid://90537364692984", "rbxassetid://134330319773516", 1.800, 2.076, 0.388),
-	Tick = prop("rbxassetid://125217432482528", "rbxassetid://102708394051568", 0.189, 0.390, 0.400),
+	Tick = prop("rbxassetid://79879909336133", "rbxassetid://120486020368339", 1.223, 1.261, 0.500),
 	Cross = prop("rbxassetid://99413284614654", "rbxassetid://71908766239251", 1.574, 1.575, 0.400),
 
 	-- The stock on the shed shelf.

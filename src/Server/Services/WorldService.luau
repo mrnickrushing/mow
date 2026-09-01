@@ -743,6 +743,325 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	})
 end
 
+--------------------------------------------------------------------
+-- The gas station
+--------------------------------------------------------------------
+
+--- A flat disc facing whichever way `cf` looks. A part's cylinder lies along
+--- its own X, so it is stood up by a quarter turn.
+local function disc(name: string, diameter: number, thickness: number, cf: CFrame, color: Color3, parent: Instance): Part
+	local part = Instance.new("Part")
+	part.Shape = Enum.PartType.Cylinder
+	part.Name = name
+	part.Size = Vector3.new(thickness, diameter, diameter)
+	part.CFrame = cf * CFrame.Angles(0, math.rad(90), 0)
+	part.Anchored = true
+	part.CanCollide = false
+	part.CastShadow = false
+	part.Color = color
+	part.Material = Enum.Material.SmoothPlastic
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent
+	return part
+end
+
+--- The station's badge: a white horse standing proud of a red disc on a white
+--- rim, facing whichever way `cf` looks.
+local function stationEmblem(cf: CFrame, diameter: number, parent: Instance)
+	local emblem = Build.folder("Emblem", parent)
+	disc("Rim", diameter, 0.5, cf, Palette.color(Palette.station.trim), emblem)
+	disc("Face", diameter * 0.86, 0.62, cf, Palette.color(Palette.station.fascia), emblem)
+	local horse = diameter * 0.52
+	Build.mesh({
+		prop = "PonyEmblem",
+		name = "Horse",
+		size = Vector3.new(horse * 0.87, horse, 0.5),
+		cframe = cf * CFrame.new(0, 0, -0.5),
+		canCollide = false,
+		castShadow = false,
+		parent = emblem,
+	})
+end
+
+--[[
+	The gas station, which The Gas Station did not have.
+
+	The world is named for a filling station and there was none: no canopy, no
+	pumps, no shop — a stone lot with a wash bay off to one side, whose whole
+	identity was carried by the level select's copy. It stands along the
+	entrance strip between the road and the forecourt, on ground no section
+	owns, so the mowable area is untouched: pumps under their canopy west of
+	the spawn, the shop to the east, and everyone arrives at the kerb between
+	them with the overgrown forecourt spreading out behind — which is what
+	"closed for the season, nobody told the trees" should look like.
+]]
+local function buildGasStation(world: Types.WorldDef, parent: Folder)
+	local station = Build.folder("Station", parent)
+	local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)
+	local body = Palette.color(Palette.station.body)
+	local fascia = Palette.color(Palette.station.fascia)
+	local trim = Palette.color(Palette.station.trim)
+	local dark = Palette.color(Palette.station.dark)
+
+	----------------------------------------------------------------
+	-- The canopy and its pump islands, west of the spawn.
+	----------------------------------------------------------------
+	local canopy = Build.folder("Canopy", station)
+	local canopyCentre = Vector3.new(spawnAt.X - 90, 0, 22)
+	local canopyW, canopyD, canopyH = 76, 30, 13
+
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			Build.mesh({
+				prop = "Column",
+				name = "CanopyColumn",
+				size = Vector3.new(2.4, canopyH, 2.4),
+				cframe = CFrame.new(
+					canopyCentre + Vector3.new(sx * (canopyW * 0.5 - 7), canopyH * 0.5, sz * (canopyD * 0.5 - 5))
+				),
+				color = trim,
+				parent = canopy,
+			})
+		end
+	end
+
+	Build.part({
+		name = "CanopyDeck",
+		size = Vector3.new(canopyW, 1.6, canopyD),
+		cframe = CFrame.new(canopyCentre + Vector3.new(0, canopyH + 0.8, 0)),
+		color = trim,
+		material = Enum.Material.SmoothPlastic,
+		parent = canopy,
+	})
+	-- The red band around the canopy's edge, which is the stripe that says
+	-- "filling station" from the far side of the lot.
+	for _, sz in { -1, 1 } do
+		Build.part({
+			name = "CanopyFascia",
+			size = Vector3.new(canopyW + 1.2, 2.6, 1.0),
+			cframe = CFrame.new(canopyCentre + Vector3.new(0, canopyH + 1.1, sz * (canopyD * 0.5 + 0.1))),
+			color = fascia,
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			parent = canopy,
+		})
+	end
+	for _, sx in { -1, 1 } do
+		Build.part({
+			name = "CanopyFascia",
+			size = Vector3.new(1.0, 2.6, canopyD + 1.2),
+			cframe = CFrame.new(canopyCentre + Vector3.new(sx * (canopyW * 0.5 + 0.1), canopyH + 1.1, 0)),
+			color = fascia,
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			parent = canopy,
+		})
+	end
+	stationEmblem(
+		CFrame.new(canopyCentre + Vector3.new(0, canopyH + 1.1, -(canopyD * 0.5 + 0.75))),
+		4.6,
+		canopy
+	)
+
+	-- Two pump islands: a raised kerb with a pump at each end, turned to face
+	-- the lanes either side.
+	for _, side in { -1, 1 } do
+		local islandCentre = canopyCentre + Vector3.new(side * 16, 0, 0)
+		Build.part({
+			name = "PumpIsland",
+			size = Vector3.new(14, 1, 5),
+			cframe = CFrame.new(islandCentre + Vector3.new(0, 0.5, 0)),
+			color = Palette.color(Palette.ground.path),
+			material = Enum.Material.Concrete,
+			parent = canopy,
+		})
+		for _, px in { -1, 1 } do
+			Build.mesh({
+				prop = "GasPump",
+				name = "GasPump",
+				size = Vector3.new(2.3, 4.4, 1.3),
+				cframe = CFrame.new(islandCentre + Vector3.new(px * 4, 1 + 2.2, 0))
+					* CFrame.Angles(0, if px > 0 then 0 else math.pi, 0),
+				parent = canopy,
+			})
+		end
+	end
+
+	----------------------------------------------------------------
+	-- The shop, east of the spawn, storefront to the road.
+	----------------------------------------------------------------
+	local shop = Build.folder("Shop", station)
+	local shopCentre = Vector3.new(spawnAt.X + 67, 0, 24)
+	local shopW, shopD, wallH = 72, 26, 11
+	local frontZ = shopCentre.Z - shopD * 0.5
+
+	Build.part({
+		name = "ShopFloor",
+		size = Vector3.new(shopW, 1, shopD),
+		cframe = CFrame.new(shopCentre + Vector3.new(0, 0.5, 0)),
+		color = Palette.color(Palette.ground.stoneDark),
+		material = Enum.Material.Concrete,
+		parent = shop,
+	})
+	Build.part({
+		name = "ShopBack",
+		size = Vector3.new(shopW, wallH, 1),
+		cframe = CFrame.new(shopCentre + Vector3.new(0, 1 + wallH * 0.5, shopD * 0.5)),
+		color = body,
+		material = Enum.Material.SmoothPlastic,
+		parent = shop,
+	})
+	for _, sx in { -1, 1 } do
+		Build.part({
+			name = "ShopSide",
+			size = Vector3.new(1, wallH, shopD),
+			cframe = CFrame.new(shopCentre + Vector3.new(sx * (shopW * 0.5 - 0.5), 1 + wallH * 0.5, 0)),
+			color = body,
+			material = Enum.Material.SmoothPlastic,
+			parent = shop,
+		})
+	end
+
+	--[[
+		The storefront: pier, knee wall and glass, a door bay in the middle,
+		and a continuous header over the lot of it. Glass rather than the
+		house's windows because a shop front is one sheet of it, and the knee
+		wall is what stops the glass reading as a hole.
+	]]
+	local pierW, glassW, doorBayW = 9, 21, 12
+	for _, sx in { -1, 1 } do
+		Build.part({
+			name = "ShopPier",
+			size = Vector3.new(pierW, wallH, 1),
+			cframe = CFrame.new(shopCentre.X + sx * (shopW - pierW) * 0.5, 1 + wallH * 0.5, frontZ),
+			color = body,
+			material = Enum.Material.SmoothPlastic,
+			parent = shop,
+		})
+		local glassX = shopCentre.X + sx * (doorBayW * 0.5 + glassW * 0.5)
+		Build.part({
+			name = "ShopKnee",
+			size = Vector3.new(glassW, 1.8, 1),
+			cframe = CFrame.new(glassX, 1.9, frontZ),
+			color = body,
+			material = Enum.Material.SmoothPlastic,
+			parent = shop,
+		})
+		Build.part({
+			name = "ShopGlass",
+			size = Vector3.new(glassW, 6.4, 0.6),
+			cframe = CFrame.new(glassX, 2.8 + 3.2, frontZ),
+			color = Palette.color(Palette.station.glass),
+			material = Enum.Material.Glass,
+			transparency = 0.35,
+			parent = shop,
+		})
+		-- Mullions, so the glass is a shopfront rather than a gap.
+		for m = -1, 1 do
+			Build.part({
+				name = "Mullion",
+				size = Vector3.new(0.5, 6.4, 0.8),
+				cframe = CFrame.new(glassX + m * glassW / 3, 2.8 + 3.2, frontZ),
+				color = trim,
+				material = Enum.Material.SmoothPlastic,
+				canCollide = false,
+				parent = shop,
+			})
+		end
+	end
+	Build.part({
+		name = "ShopHeader",
+		size = Vector3.new(shopW, wallH - 8.2, 1),
+		cframe = CFrame.new(shopCentre.X, 1 + 8.2 + (wallH - 8.2) * 0.5, frontZ),
+		color = body,
+		material = Enum.Material.SmoothPlastic,
+		parent = shop,
+	})
+	Build.mesh({
+		prop = "Door",
+		name = "ShopDoor",
+		size = Vector3.new(7, 9.2, 0.9),
+		cframe = CFrame.new(shopCentre.X, 1 + 4.6, frontZ),
+		color = dark,
+		parent = shop,
+	})
+
+	-- Flat roof with the same red band as the canopy, and the badge over the
+	-- door where a shop wears its name.
+	Build.part({
+		name = "ShopRoof",
+		size = Vector3.new(shopW + 3, 1.6, shopD + 3),
+		cframe = CFrame.new(shopCentre + Vector3.new(0, 1 + wallH + 0.8, 0)),
+		color = trim,
+		material = Enum.Material.SmoothPlastic,
+		parent = shop,
+	})
+	for _, sz in { -1, 1 } do
+		Build.part({
+			name = "ShopFascia",
+			size = Vector3.new(shopW + 3.6, 2.4, 0.9),
+			cframe = CFrame.new(shopCentre + Vector3.new(0, 1 + wallH + 0.9, sz * (shopD * 0.5 + 1.55))),
+			color = fascia,
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			parent = shop,
+		})
+	end
+	for _, sx in { -1, 1 } do
+		Build.part({
+			name = "ShopFascia",
+			size = Vector3.new(0.9, 2.4, shopD + 3.6),
+			cframe = CFrame.new(shopCentre + Vector3.new(sx * (shopW * 0.5 + 1.8), 1 + wallH + 0.9, 0)),
+			color = fascia,
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			parent = shop,
+		})
+	end
+	stationEmblem(CFrame.new(shopCentre.X, 1 + wallH + 0.9, frontZ - 2.1), 4.4, shop)
+
+	-- Stock on show through the glass: the counter and a couple of sacks,
+	-- because an empty lit box reads as an unfinished room.
+	Build.mesh({
+		prop = "Counter",
+		name = "ShopCounter",
+		size = Vector3.new(22, 5.5, 4.6),
+		cframe = CFrame.new(shopCentre + Vector3.new(-14, 1 + 2.75, shopD * 0.5 - 3.4)),
+		parent = shop,
+	})
+	for index, offset in { Vector3.new(16, 0, 6), Vector3.new(20, 0, 2) } do
+		Build.mesh({
+			prop = "Sack",
+			name = "ShopSack",
+			size = Vector3.new(3, 3.6, 3.2),
+			cframe = CFrame.new(shopCentre + offset + Vector3.new(0, 1 + 1.8, 0))
+				* CFrame.Angles(0, index * 1.1, 0),
+			canCollide = false,
+			parent = shop,
+		})
+	end
+
+	----------------------------------------------------------------
+	-- The road sign at the kerb, badge facing both ways.
+	----------------------------------------------------------------
+	local signAt = Vector3.new(spawnAt.X + 22, 0, 4)
+	Build.part({
+		name = "SignPole",
+		size = Vector3.new(1.2, 16, 1.2),
+		cframe = CFrame.new(signAt + Vector3.new(0, 8, 0)),
+		color = dark,
+		material = Enum.Material.Metal,
+		parent = station,
+	})
+	stationEmblem(CFrame.new(signAt + Vector3.new(0, 16.5, -0.4)), 7, station)
+	stationEmblem(
+		CFrame.new(signAt + Vector3.new(0, 16.5, 0.4)) * CFrame.Angles(0, math.pi, 0),
+		7,
+		station
+	)
+end
+
 --[[
 	The shed: a workshop you walk into, not a signpost.
 
@@ -908,17 +1227,26 @@ local function buildTrailer(world: Types.WorldDef, parent: Folder): BasePart
 	local centre = WorldService.tilePointFlat(world.trailer.x, world.trailer.z)
 	local trailer = Build.folder("Trailer", parent)
 
-	-- One trailer, rather than a slab with two slabs stood on its edges.
+	--[[
+		One trailer, at the size a trailer is.
+
+		The old numbers drew it twenty-four studs wide by nine tall — with the
+		model's long axis turned sideways, so it was also stretched three and a
+		half times across its width — which made the thing you dump your bag
+		into bigger than the gas station's shop and taller than its pumps. The
+		size is in the model's own proportions now, and the quarter turn is in
+		the CFrame instead, parking it along the kerb the way a trailer parks.
+	]]
 	local bed = Build.mesh({
 		prop = "Trailer",
 		name = "Bed",
-		size = Vector3.new(24, 9, 13),
-		collisionSize = Vector3.new(24, 4, 12),
-		cframe = CFrame.new(centre + Vector3.new(0, 2, 0)),
+		size = Vector3.new(9.9, 6.1, 15),
+		collisionSize = Vector3.new(7, 4, 14),
+		cframe = CFrame.new(centre + Vector3.new(0, 2, 0)) * CFrame.Angles(0, math.rad(90), 0),
 		parent = trailer,
 	})
 
-	local gui = Build.billboard(bed, UDim2.fromScale(12, 3.2), 8, 300)
+	local gui = Build.billboard(bed, UDim2.fromScale(12, 3.2), 6, 300)
 	Build.label(gui, "TRAILER", UDim2.fromScale(1, 0.55), UDim2.fromScale(0, 0), 2.2)
 	Build.label(gui, "Dump your bag here", UDim2.fromScale(1, 0.4), UDim2.fromScale(0, 0.58), 1.2)
 
@@ -1458,12 +1786,12 @@ local exitPart: BasePart? = nil
 local function buildExit(world: Types.WorldDef, parent: Folder)
 	local at = WorldService.tilePointFlat(world.exit.x, world.exit.z)
 
-	local frame = Build.mesh({
-		prop = "BrickWall",
+	local frame = Build.part({
 		name = "ExitFrame",
 		size = Vector3.new(14, 16, 2),
 		cframe = CFrame.new(at + Vector3.new(0, 8, 0)),
 		color = Palette.color(Palette.house.brickDark),
+		material = Enum.Material.Brick,
 		parent = parent,
 	})
 
@@ -1607,7 +1935,11 @@ function WorldService.load(worldId: string)
 		local driveCentre = WorldService.tilePointFlat(13, 19)
 		Build.flagstone(parent, driveCentre + Vector3.new(0, 0.25, 0), Vector2.new(68, 84), 6, rng)
 	else
-		Build.fence(parent, 0, 0, width, depth, 6, Palette.color(Palette.fence.rail), 14)
+		local lot = world.style == "lot"
+		Build.fence(parent, 0, 0, width, depth, 6, Palette.color(Palette.fence.rail), 14, lot)
+		if lot then
+			buildGasStation(world, parent)
+		end
 	end
 
 	local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)

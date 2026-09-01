@@ -766,10 +766,15 @@ function Build.fence(
 	maxZ: number,
 	height: number,
 	color: Color3,
-	spacing: number
+	spacing: number,
+	openSouth: boolean?
 )
 	--[[
 		The boundary of a lot, in fence panels.
+
+		`openSouth` leaves the run along minZ out. The Gas Station fronts the
+		road there, and a filling station behind its own garden fence is not a
+		filling station — the frontage is how you know the building faces you.
 
 		This used to be a thin rail plus one thin post every few studs — a
 		hundred and sixty-four little boxes standing in for a fence, and the
@@ -810,7 +815,10 @@ function Build.fence(
 		Vector3.new(minX, 0, maxZ),
 	}
 	for index, corner in corners do
-		run(corner, corners[index % #corners + 1])
+		-- The first run is minZ -> maxX along the south edge.
+		if not (openSouth and index == 1) then
+			run(corner, corners[index % #corners + 1])
+		end
 	end
 end
 

@@ -220,32 +220,32 @@ function Structures.wallRing(options: WallRingOptions)
 			if length > 0.1 then
 				local mid = (low + high) * 0.5
 				--[[
-					Brickwork, tiled along the run.
+					One plain part per run, in the caller's material.
 
-					Stretching one panel the length of a cellar wall would give
-					bricks eighty studs wide, so the run is cut into panel-sized
-					pieces and each gets its own. Vertically it stretches, which
-					is fine: courses of brick are horizontal.
+					These were panels of the brick model, tinted — and the
+					model's own paint is a mossy blue-green with hard contrast
+					between bricks, which a tint can shift but never quiet. It
+					is why the wash bay read as a chequerboard from across the
+					lot. Every caller already names the material it wants
+					(brick, concrete, slate); now the wall is actually made of
+					it, and the panelling is unnecessary because materials
+					tile.
 				]]
-				local panels = math.max(math.floor(length / 12 + 0.5), 1)
-				local panelLength = length / panels
-				for panel = 0, panels - 1 do
-					local at = run[1] + panelLength * (panel + 0.5)
-					local size = if side.alongX
-						then Vector3.new(panelLength, options.height, options.thickness)
-						else Vector3.new(options.thickness, options.height, panelLength)
-					local slide = if side.alongX then Vector3.new(at, 0, 0) else Vector3.new(0, 0, at)
-					Build.mesh({
-						prop = "BrickWall",
-						name = options.name,
-						size = size,
-						cframe = CFrame.new(
-							centre + side.offset + slide + Vector3.new(0, options.height * 0.5, 0)
-						),
-						color = options.color,
-						parent = options.parent,
-					})
-				end
+				local at = (low + high) * 0.5
+				local size = if side.alongX
+					then Vector3.new(length, options.height, options.thickness)
+					else Vector3.new(options.thickness, options.height, length)
+				local slide = if side.alongX then Vector3.new(at, 0, 0) else Vector3.new(0, 0, at)
+				Build.part({
+					name = options.name,
+					size = size,
+					cframe = CFrame.new(
+						centre + side.offset + slide + Vector3.new(0, options.height * 0.5, 0)
+					),
+					color = options.color,
+					material = options.material,
+					parent = options.parent,
+				})
 			end
 		end
 	end
