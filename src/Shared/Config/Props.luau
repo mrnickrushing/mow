@@ -67,7 +67,15 @@ local catalogue: { [string]: Prop } = {
 	-- Structures.
 	Fence = prop("rbxassetid://109120828950770", "rbxassetid://99346791051845", 5.272, 3.059, 0.600),
 	Shed = prop("rbxassetid://136505549556407", "rbxassetid://130296685263073", 15.868, 18.000, 15.692),
-	Trailer = prop("rbxassetid://72699501903410", "rbxassetid://119991357734404", 7.030, 5.706, 12.000),
+	--[[
+		The trailer you dump your bag into, which is the most-visited object in
+		the game and was a green wooden hand-cart — a tub on cart wheels, drawn
+		twenty-four studs wide with its long axis turned sideways, so it stood
+		taller than the gas pumps and read as furniture from a cartoon quarry.
+		This one is the thing a landscaping crew actually tows: a flatbed on
+		tandem rubber wheels with side rails and an a-frame hitch.
+	]]
+	Trailer = prop("rbxassetid://135220375508208", "rbxassetid://97134128130312", 6.834, 4.200, 10.387),
 
 	-- The gas station's own furniture.
 	GasPump = prop("rbxassetid://77359286982223", "rbxassetid://129997331021782", 2.000, 3.827, 1.000),

@@ -1227,17 +1227,26 @@ local function buildTrailer(world: Types.WorldDef, parent: Folder): BasePart
 	local centre = WorldService.tilePointFlat(world.trailer.x, world.trailer.z)
 	local trailer = Build.folder("Trailer", parent)
 
-	-- One trailer, rather than a slab with two slabs stood on its edges.
+	--[[
+		One trailer, at the size a trailer is.
+
+		The old numbers drew it twenty-four studs wide by nine tall — with the
+		model's long axis turned sideways, so it was also stretched three and a
+		half times across its width — which made the thing you dump your bag
+		into bigger than the gas station's shop and taller than its pumps. The
+		size is in the model's own proportions now, and the quarter turn is in
+		the CFrame instead, parking it along the kerb the way a trailer parks.
+	]]
 	local bed = Build.mesh({
 		prop = "Trailer",
 		name = "Bed",
-		size = Vector3.new(24, 9, 13),
-		collisionSize = Vector3.new(24, 4, 12),
-		cframe = CFrame.new(centre + Vector3.new(0, 2, 0)),
+		size = Vector3.new(9.9, 6.1, 15),
+		collisionSize = Vector3.new(7, 4, 14),
+		cframe = CFrame.new(centre + Vector3.new(0, 2, 0)) * CFrame.Angles(0, math.rad(90), 0),
 		parent = trailer,
 	})
 
-	local gui = Build.billboard(bed, UDim2.fromScale(12, 3.2), 8, 300)
+	local gui = Build.billboard(bed, UDim2.fromScale(12, 3.2), 6, 300)
 	Build.label(gui, "TRAILER", UDim2.fromScale(1, 0.55), UDim2.fromScale(0, 0), 2.2)
 	Build.label(gui, "Dump your bag here", UDim2.fromScale(1, 0.4), UDim2.fromScale(0, 0.58), 1.2)
 
