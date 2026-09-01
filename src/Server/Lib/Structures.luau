@@ -367,11 +367,18 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 			Every roofed section played in the dark: the walls and ceiling
 			seal out the daylight, nothing inside emitted any, and the
 			player was left mowing a floor they could not see. One warm
-			fixture per rough eight-tile bay reads as worklights strung
+			fixture per rough fourteen-tile bay reads as worklights strung
 			from the ceiling and keeps the part count honest.
+
+			The spacing is set by what a light costs, not by what looks
+			even: at one per eight tiles the Mansion's orangery hung
+			twenty-four of them and gave back a sixth of the frame rate,
+			which is not a trade worth making on the tablet this is played
+			on. Fewer fixtures with the range to reach between them light
+			the same floor for a third of the lights.
 		]]
-		local lampsX = math.max(math.floor(width / 26), 1)
-		local lampsZ = math.max(math.floor(depth / 26), 1)
+		local lampsX = math.max(math.floor(width / 42), 1)
+		local lampsZ = math.max(math.floor(depth / 42), 1)
 		for ix = 1, lampsX do
 			for iz = 1, lampsZ do
 				local at = centre
@@ -392,8 +399,8 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 				})
 				local light = Instance.new("PointLight")
 				light.Color = Color3.fromRGB(255, 226, 180)
-				light.Brightness = 0.9
-				light.Range = 30
+				light.Brightness = 1.1
+				light.Range = 58
 				light.Shadows = false
 				light.Parent = lamp
 			end

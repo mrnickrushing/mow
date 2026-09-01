@@ -508,8 +508,16 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		two arched windows inside the bays — glass in the middle of a garage
 		door, which is not a thing.
 	]]
-	local GARAGE_BAY_WIDTH, GARAGE_BAYS = 14, 2
-	local garageWidth = GARAGE_BAY_WIDTH * GARAGE_BAYS + 1.5
+	--[[
+		A bay is fourteen studs because a car is about ten, and how many
+		of them there are follows the frontage: two on The House's
+		hundred and seventy-six, three on The Mansion's two hundred and
+		sixty-four. A two-car garage on a mansion reads as a shed
+		bolted to a hotel.
+	]]
+	local GARAGE_BAY_WIDTH = 14
+	local GARAGE_BAYS = math.clamp(math.round(width / 90), 2, 4)
+	local garageWidth = GARAGE_BAY_WIDTH * GARAGE_BAYS + 1.5 * (GARAGE_BAYS - 1)
 	local garageOffset = width * 0.28
 
 	--[[
