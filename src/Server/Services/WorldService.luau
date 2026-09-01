@@ -501,6 +501,18 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	local frontZ = centre.Z - depth * 0.5
 
 	--[[
+		The garage's footprint on the front wall, measured once.
+
+		The windows need it to keep off it and the doors need it to be built
+		at, and when only the door builder knew it the window scatter placed
+		two arched windows inside the bays — glass in the middle of a garage
+		door, which is not a thing.
+	]]
+	local GARAGE_BAY_WIDTH, GARAGE_BAYS = 14, 2
+	local garageWidth = GARAGE_BAY_WIDTH * GARAGE_BAYS + 1.5
+	local garageOffset = width * 0.28
+
+	--[[
 		Windows, on every side and enough of them to read as a house.
 
 		There used to be two, both on the front, at fixed fractions of the
@@ -526,11 +538,19 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		Places a row of windows along one wall.
 
 		`origin` is the middle of the wall face, `along` the direction the wall
-		runs, and `yaw` the way the window should face. `clear` is the half-width
-		of a stretch in the middle of the wall to leave alone, for the front,
-		where the porch roof would hide anything behind it.
+		runs, and `yaw` the way the window should face. `keepOuts` are stretches
+		of the wall to leave alone, each an offset from the wall's middle and a
+		half-width: the porch, whose roof would hide anything behind it, and the
+		garage, whose doors are not a place to put a window.
 	]]
-	local function windowsAlong(origin: Vector3, along: Vector3, span: number, yaw: number, clear: number)
+	type KeepOut = { at: number, half: number }
+	local function windowsAlong(
+		origin: Vector3,
+		along: Vector3,
+		span: number,
+		yaw: number,
+		keepOuts: { KeepOut }?
+	)
 		local usable = span - MARGIN
 		if usable <= 0 then
 			return
@@ -541,8 +561,17 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		for index = 0, count do
 			local offset = -usable * 0.5 + step * index
 			for storey, height in storeys do
-				-- The porch only hides the ground floor.
-				local hidden = storey == 1 and clear > 0 and math.abs(offset - (-width * 0.18)) < clear
+				-- Both the porch and the garage are ground-floor things; a
+				-- second storey sails over the top of either.
+				local hidden = false
+				if storey == 1 and keepOuts then
+					for _, zone in keepOuts do
+						if math.abs(offset - zone.at) < zone.half then
+							hidden = true
+							break
+						end
+					end
+				end
 				if not hidden then
 					local at = origin + along * offset
 					Build.mesh({
@@ -564,11 +593,17 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	local sideways = Vector3.new(1, 0, 0)
 	local frontways = Vector3.new(0, 0, 1)
 
-	-- Front, back, then the two ends.
-	windowsAlong(centre - frontways * (halfDepth + 0.7), sideways, width, 0, porchClear)
-	windowsAlong(centre + frontways * (halfDepth + 0.7), sideways, width, math.pi, 0)
-	windowsAlong(centre - sideways * (halfWidth + 0.7), frontways, depth, math.rad(-90), 0)
-	windowsAlong(centre + sideways * (halfWidth + 0.7), frontways, depth, math.rad(90), 0)
+	-- Front, back, then the two ends. Only the front has anything on it.
+	local frontKeepOuts: { KeepOut } = {
+		{ at = -width * 0.18, half = porchClear },
+		-- The trim runs a stud past the doors on each side, and a window
+		-- wants a little wall of its own beyond that.
+		{ at = garageOffset, half = garageWidth * 0.5 + 7 },
+	}
+	windowsAlong(centre - frontways * (halfDepth + 0.7), sideways, width, 0, frontKeepOuts)
+	windowsAlong(centre + frontways * (halfDepth + 0.7), sideways, width, math.pi, nil)
+	windowsAlong(centre - sideways * (halfWidth + 0.7), frontways, depth, math.rad(-90), nil)
+	windowsAlong(centre + sideways * (halfWidth + 0.7), frontways, depth, math.rad(90), nil)
 
 	--[[
 		A chimney, for the roofline.
@@ -705,7 +740,7 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	-- Attached garage door
 	--------------------------------------------------------------------
 
-	local garageX = centre.X + width * 0.28
+	local garageX = centre.X + garageOffset
 	local garage = Build.folder("GarageFront", house)
 	--[[
 		A sectional door is sections, so it is built as sections.
@@ -724,12 +759,19 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		and the thing that gave away that nothing on this building was drawn to
 		a human scale. A car is about ten studs, so a bay is fourteen.
 	]]
-	local bayWidth = 14
-	local bays = 2
-	local garageHeight = 13
+	local bayWidth, bays = GARAGE_BAY_WIDTH, GARAGE_BAYS
+	--[[
+		The doors run from the driveway up, not from the plinth up.
+
+		The house sits on a four-stud brick foundation and the bays were
+		built on top of it, so the driveway ran up to a brick wall with the
+		doors hanging above it — no car was ever getting in. A garage floor
+		is at grade whatever the house does, so the opening starts at the
+		ground and the doors stand proud of the brick.
+	]]
+	local garageHeight = 17
 	local courses = math.max(math.floor(garageHeight / 2.6), 1)
 	local courseHeight = garageHeight / courses
-	local garageWidth = bayWidth * bays + 1.5
 	for bay = 0, bays - 1 do
 		local bayX = garageX + (bay - (bays - 1) * 0.5) * (bayWidth + 1.5)
 		for course = 0, courses - 1 do
@@ -743,22 +785,26 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 				color = Palette.color(Palette.house.garage),
 				size = Vector3.new(bayWidth, courseHeight * 0.97, 1.2),
 				collisionSize = Vector3.new(bayWidth, courseHeight, 0.8),
-				cframe = CFrame.new(
-					bayX,
-					10.5 - garageHeight * 0.5 + courseHeight * (course + 0.5),
-					frontZ - 0.5
-				),
+				cframe = CFrame.new(bayX, courseHeight * (course + 0.5), frontZ - 0.5),
 				parent = garage,
 			})
 		end
 	end
 	Build.part({
 		name = "GarageFrame",
-		-- Deep enough that its face clears the proudest siding course (0.6
-		-- out from the wall plane) — at 0.5 deep the cream boards striped
-		-- straight through the trim.
-		size = Vector3.new(garageWidth + 2, 15, 1.0),
-		cframe = CFrame.new(garageX, 10, frontZ - 0.65),
+		--[[
+			The trim sits in the gap between the siding and the doors.
+
+			At 0.5 deep on the wall plane it was buried behind the proudest
+			siding course, which striped straight through it. Pushed out to
+			clear the siding it went too far the other way and stood in
+			front of the doors, hiding both bays behind one teal slab. The
+			siding's proudest face is 0.6 out and the doors' is 1.1 out, so
+			the trim's face goes at 0.75 — visible as a surround, with the
+			doors still standing proud of it.
+		]]
+		size = Vector3.new(garageWidth + 2, garageHeight + 1.5, 1.0),
+		cframe = CFrame.new(garageX, (garageHeight + 0.5) * 0.5, frontZ - 0.25),
 		color = Palette.color(Palette.house.trim),
 		material = Enum.Material.SmoothPlastic,
 		canCollide = false,
