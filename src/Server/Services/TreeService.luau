@@ -23,6 +23,7 @@ local Format = require(Shared.Util.Format)
 local Palette = require(Shared.Config.Palette)
 local Tools = require(Shared.Config.Tools)
 local Types = require(Shared.Types)
+local Worlds = require(Shared.Config.Worlds)
 local BagService = require(script.Parent.BagService)
 local Build = require(script.Parent.Parent.Lib.Build)
 local DataService = require(script.Parent.DataService)
@@ -185,6 +186,11 @@ local function scatter(world: Types.WorldDef, section: Types.ZoneDef, count: num
 
 		if clear then
 			local at = WorldService.tilePointToWorld(tx, tz)
+			-- Not through the paving: a trunk in the middle of the driveway
+			-- reads as a mistake, not a chore.
+			if Worlds.onPaving(world, at.X, at.Z, 3) then
+				clear = false
+			end
 			-- Keep trees from growing through each other.
 			for _, existing in points do
 				if (existing - at).Magnitude < 18 then
