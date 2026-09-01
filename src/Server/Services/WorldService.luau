@@ -643,29 +643,45 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		parent = porch,
 	})
 
-	-- Rail: top bar plus balusters, down the open side of the porch.
+	--[[
+		Rail down the open side of the porch — with a way through it.
+
+		This ran the porch's whole front in one unbroken, collidable line, and
+		the steps climbed straight into the middle of it: you walked up the
+		path, up the stairs, and stood face to a fence with the front door on
+		the other side. A porch rail has an opening at its steps, because the
+		steps are the way onto the porch.
+	]]
 	local railZ = porchZ - porchDepth * 0.5 + 0.6
-	local railSpan = porchWidth - 4
-	local railSections = math.max(math.floor(railSpan / 10 + 0.5), 1)
-	local railWidth = railSpan / railSections
-	for index = 0, railSections - 1 do
-		Build.mesh({
-			prop = "Railing",
-			name = "RailTop",
-			size = Vector3.new(railWidth, 4.2, 0.9),
-			collisionSize = Vector3.new(railWidth, 4.2, 0.8),
-			cframe = CFrame.new(porchX - railSpan * 0.5 + railWidth * (index + 0.5), 6.4, railZ),
-			parent = porch,
-		})
+	local GAP = 10
+	local railEnds = { porchX - (porchWidth - 4) * 0.5, porchX + (porchWidth - 4) * 0.5 }
+	for _, run in { { railEnds[1], porchX - GAP * 0.5 }, { porchX + GAP * 0.5, railEnds[2] } } do
+		local span = run[2] - run[1]
+		if span > 1 then
+			local railSections = math.max(math.floor(span / 10 + 0.5), 1)
+			local railWidth = span / railSections
+			for index = 0, railSections - 1 do
+				Build.mesh({
+					prop = "Railing",
+					name = "RailTop",
+					size = Vector3.new(railWidth, 4.2, 0.9),
+					collisionSize = Vector3.new(railWidth, 4.2, 0.8),
+					cframe = CFrame.new(run[1] + railWidth * (index + 0.5), 6.4, railZ),
+					parent = porch,
+				})
+			end
+		end
 	end
 
-	-- Steps down to the path.
+	-- Steps down to the path, as wide as the opening in the rail above them
+	-- rather than half the porch: steps wider than their doorway invite you
+	-- to climb them anywhere and meet the rail everywhere but the middle.
 	for step = 0, 2 do
 		Build.mesh({
 			prop = "StepBlock",
 			name = "Step",
-			size = Vector3.new(porchWidth * 0.5, 1.3, 3),
-			collisionSize = Vector3.new(porchWidth * 0.5, 1.3, 3),
+			size = Vector3.new(GAP + 2, 1.3, 3),
+			collisionSize = Vector3.new(GAP + 2, 1.3, 3),
 			cframe = CFrame.new(porchX, 3.3 - step * 1.2, porchZ - porchDepth * 0.5 - 1.6 - step * 2.6),
 			parent = porch,
 		})
@@ -1929,8 +1945,16 @@ function WorldService.load(worldId: string)
 		Build.hedge(scenery, WorldService.tilePointFlat(72, 8), WorldService.tilePointFlat(72, 54), 13, 7)
 		Build.hedge(scenery, WorldService.tilePointFlat(24, 78), WorldService.tilePointFlat(72, 78), 13, 7)
 
-		-- A flagstone path from the kerb up to the porch, and a paved driveway.
-		local pathCentre = WorldService.tilePointFlat(48, 20)
+		--[[
+			A flagstone path from the kerb up to the porch, and a paved
+			driveway.
+
+			The path used to run up the lot's centreline, which is not where
+			the porch is: it delivered you to a blank stretch of wall east of
+			the steps, with the front door thirty studs to your left. A path
+			exists to lead somewhere, so it runs at the door's own axis.
+		]]
+		local pathCentre = WorldService.tilePointFlat(40, 20)
 		Build.flagstone(parent, pathCentre + Vector3.new(0, 0.25, 0), Vector2.new(20, 96), 5, rng)
 		local driveCentre = WorldService.tilePointFlat(13, 19)
 		Build.flagstone(parent, driveCentre + Vector3.new(0, 0.25, 0), Vector2.new(68, 84), 6, rng)
