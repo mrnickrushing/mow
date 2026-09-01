@@ -27,6 +27,7 @@ local BagService = require(script.Parent.BagService)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local PlayerService = require(script.Parent.PlayerService)
+local RewardService = require(script.Parent.RewardService)
 local QuestService = require(script.Parent.QuestService)
 local ReplicationService = require(script.Parent.ReplicationService)
 local RunState = require(script.Parent.RunState)
@@ -351,6 +352,16 @@ local function winRun()
 				EconomyService.notify(player, "reward", `New best: {Format.clock(elapsed)}`, nil)
 			end
 		end)
+
+		--[[
+			The reward for a first clean sweep, which nothing ever called.
+
+			`RewardService.awardFirstCompletion` was written, tested against a
+			`firstCompletionClaimed` flag on the profile, and then never
+			reached from anywhere: winning a run is the only moment it can be
+			paid, and this is that moment.
+		]]
+		RewardService.awardFirstCompletion(player)
 
 		-- The world just beaten is what unlocks the next one, and the level
 		-- select is about to be shown, so the client needs to hear about it

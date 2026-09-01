@@ -44,7 +44,7 @@ luau scripts/simulate.luau
 
 Plays one run of each world from nothing and reports whether it is beatable
 inside the clock, where it stalls, and what gear you finish holding. Pass a
-player count (`luau scripts/simulate.luau 4`) to check wave scaling. Run it after
+player count (`luau scripts/simulate.luau -a 4`) to check wave scaling. Run it after
 any balance change.
 
 ## Layout

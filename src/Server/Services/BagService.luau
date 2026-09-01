@@ -149,11 +149,6 @@ local function sell(player: Player, weightToSell: number): number
 	local worldMultiplier = if property then property.payoutMultiplier else 1
 	local chipper = hasChipper(player)
 
-	local run = RunState.find(player)
-	local personal = if run
-		then Balance.cashMultiplier(run.upgrades, EconomyService.modifiers(player))
-		else 1
-
 	local remaining = weightToSell
 	local unitsSold = 0
 	local base = 0
@@ -188,7 +183,16 @@ local function sell(player: Player, weightToSell: number): number
 
 	bag.weight = math.max(bag.weight - (weightToSell - remaining), 0)
 
-	local paid = EconomyService.award(player, base * personal)
+	--[[
+		The base price, not the multiplied one.
+
+		This used to work out the player's cash multiplier here and hand the
+		multiplied figure to `award`, which works out the same multiplier and
+		applies it again: every upgrade and every boost was squared, so a
+		doubled payout paid four times and a tripled one paid nine. `award`
+		owns the multiplier; the seller owns the price.
+	]]
+	local paid = EconomyService.award(player, base)
 
 	DataService.withProfile(player, function(profile)
 		profile.stats.unitsSold += unitsSold
