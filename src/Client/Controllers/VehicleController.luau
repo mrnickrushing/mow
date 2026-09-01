@@ -10,6 +10,7 @@ local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
@@ -96,22 +97,65 @@ local function drive()
 	end
 end
 
+local function onToggleSeat(_, inputState)
+	if inputState ~= Enum.UserInputState.Begin then
+		return Enum.ContextActionResult.Pass
+	end
+	if seated() then
+		remote:FireServer("dismount")
+	elseif VehicleController.hasVehicleEquipped() then
+		remote:FireServer("mount")
+	end
+	return Enum.ContextActionResult.Sink
+end
+
+local TOUCH_ACTION = "MowAllTheLawns_VehicleTouch"
+
+--[[
+	The on-screen seat button, which exists only while it means something.
+
+	Mounting was the F key and a gamepad button, full stop — on a tablet there
+	was no way onto a riding mower at all, which made the three most expensive
+	tools in the game unusable on the platform most players will hold. A
+	permanent button would be clutter for the whole run, so this one appears
+	when a rideable tool is equipped or the player is already in the seat, and
+	its label says which of the two things pressing it will do.
+]]
+local function refreshTouchButton()
+	if not UserInputService.TouchEnabled then
+		return
+	end
+	pcall(function()
+		ContextActionService:UnbindAction(TOUCH_ACTION)
+	end)
+	local inSeat = seated()
+	if inSeat or VehicleController.hasVehicleEquipped() then
+		ContextActionService:BindAction(TOUCH_ACTION, onToggleSeat, true)
+		ContextActionService:SetTitle(TOUCH_ACTION, if inSeat then "Hop Off" else "Ride")
+	end
+end
+
+local function watchSeat(character: Model)
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	if humanoid and humanoid:IsA("Humanoid") then
+		humanoid.Seated:Connect(refreshTouchButton)
+	end
+	refreshTouchButton()
+end
+
 function VehicleController.start()
 	remote = Remotes.event(Remotes.VEHICLE)
 
 	RunService.Heartbeat:Connect(drive)
 
-	ContextActionService:BindAction(ACTION_NAME, function(_, inputState)
-		if inputState ~= Enum.UserInputState.Begin then
-			return Enum.ContextActionResult.Pass
-		end
-		if seated() then
-			remote:FireServer("dismount")
-		elseif VehicleController.hasVehicleEquipped() then
-			remote:FireServer("mount")
-		end
-		return Enum.ContextActionResult.Sink
-	end, false, Enum.KeyCode.F, Enum.KeyCode.ButtonX)
+	ContextActionService:BindAction(ACTION_NAME, onToggleSeat, false, Enum.KeyCode.F, Enum.KeyCode.ButtonX)
+
+	PlayerState.Changed:Connect(refreshTouchButton)
+	player.CharacterAdded:Connect(watchSeat)
+	local character = player.Character
+	if character then
+		task.spawn(watchSeat, character)
+	end
 end
 
 return VehicleController
