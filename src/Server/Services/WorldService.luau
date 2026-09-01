@@ -1009,21 +1009,26 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 		windows are what the back of a real shop wears, and they are enough
 		to make it a building instead of a backdrop.
 	]]
-	local backZ = shopCentre.Z + shopD * 0.5
+	-- The wall's outer face, not its centre: parts hung on the middle of a
+	-- one-stud wall are inside it, which is where the door and both
+	-- windows spent their first outing.
+	local backZ = shopCentre.Z + shopD * 0.5 + 0.5
 	Build.mesh({
 		prop = "Door",
 		name = "ShopBackDoor",
 		size = Vector3.new(6.5, 9.2, 0.9),
-		cframe = CFrame.new(shopCentre.X - shopW * 0.25, 1 + 4.6, backZ + 0.2),
+		-- Centred, because at a quarter of the width it stood underneath
+		-- the left-hand window.
+		cframe = CFrame.new(shopCentre.X, 1 + 4.6, backZ + 0.35),
 		color = dark,
 		parent = shop,
 	})
 	for _, sx in { -1, 1 } do
-		local wx = shopCentre.X + sx * shopW * 0.22
+		local wx = shopCentre.X + sx * shopW * 0.28
 		Build.part({
 			name = "ShopBackWindowFrame",
 			size = Vector3.new(8.6, 3.0, 0.5),
-			cframe = CFrame.new(wx, 1 + wallH - 2.6, backZ + 0.1),
+			cframe = CFrame.new(wx, 1 + wallH - 2.6, backZ + 0.15),
 			color = dark,
 			material = Enum.Material.SmoothPlastic,
 			canCollide = false,
@@ -1032,10 +1037,13 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 		Build.part({
 			name = "ShopBackWindow",
 			size = Vector3.new(8, 2.4, 0.6),
-			cframe = CFrame.new(wx, 1 + wallH - 2.6, backZ + 0.15),
+			cframe = CFrame.new(wx, 1 + wallH - 2.6, backZ + 0.35),
 			color = Palette.color(Palette.station.glass),
 			material = Enum.Material.Glass,
-			transparency = 0.35,
+			-- Barely see-through. The forecourt looks at these from the
+			-- north with an unlit stockroom behind them, and at a third
+			-- clear that is not a window, it is a black rectangle.
+			transparency = 0.1,
 			canCollide = false,
 			parent = shop,
 		})
