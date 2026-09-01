@@ -156,6 +156,19 @@ function PlayerService.canDump(player: Player): boolean
 		return false
 	end
 
+	--[[
+		Instant Dump sells from anywhere, which is the whole of what it sells.
+
+		The pass was on the board at 599 Robux with "Sell your bag from
+		anywhere on the property" written under it, and nothing anywhere read
+		it: it reached no modifier and this function still measured the
+		distance to the trailer. Charging for a thing that does nothing is the
+		one bug worth fixing before any of the scenery.
+	]]
+	if EconomyService.modifiers(player).instantDump then
+		return true
+	end
+
 	local radius = Balance.dumpRadius(run.upgrades)
 	local offset = root.Position - trailer.Position
 	return offset.X * offset.X + offset.Z * offset.Z <= radius * radius

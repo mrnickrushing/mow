@@ -292,6 +292,7 @@ function MonetizationService.start()
 			doubleBag = table_.doubleBag,
 			fastFeet = table_.fastFeet,
 			infiniteFuel = table_.infiniteFuel,
+			instantDump = table_.instantDump,
 			vip = table_.vip,
 		}
 	end)
