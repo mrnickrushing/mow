@@ -508,6 +508,31 @@ function Worlds.pavingRects(world: Types.WorldDef): { Paving }
 	}
 end
 
+--[[
+	The ground the shed stands on, in studs.
+
+	The shed is a solid floor with three walls, so whatever is under it is
+	under a building: debris seeded there is invisible and still counts, which
+	leaves a section stuck a few percent short with nothing on it to cut. The
+	builder and the seeder both read this rectangle so neither can drift from
+	the other.
+]]
+function Worlds.shedRect(world: Types.WorldDef): Paving
+	local tile = GameConfig.TILE_SIZE
+	local centreX = world.shed.x * tile + tile * 0.5
+	local centreZ = world.shed.z * tile + tile * 0.5
+	-- The shed is thirty by twenty-six; the extra two studs cover the
+	-- collision walls that stand just outside it.
+	local w, d = 32, 28
+	return { x = centreX - w * 0.5, z = centreZ - d * 0.5, w = w, d = d, stone = 0 }
+end
+
+--- Whether a world position (in studs) is under the shed.
+function Worlds.underShed(world: Types.WorldDef, wx: number, wz: number): boolean
+	local r = Worlds.shedRect(world)
+	return wx >= r.x and wx <= r.x + r.w and wz >= r.z and wz <= r.z + r.d
+end
+
 --- Whether a world position (in studs) lands on any paving slab.
 function Worlds.onPaving(world: Types.WorldDef, wx: number, wz: number, margin: number): boolean
 	for _, slab in Worlds.pavingRects(world) do

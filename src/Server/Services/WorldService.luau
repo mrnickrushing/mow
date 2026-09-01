@@ -179,13 +179,18 @@ local function seedTiles(world: Types.WorldDef, grid: Grid.Grid, tiles: buffer)
 				local index = Grid.toIndex(grid, tx, tz)
 				tileSection[index] = section.id
 
+				-- Nothing is sown under the shed: it is a building with a floor,
+				-- so anything seeded there is invisible and still counts, which
+				-- leaves a section stuck short with nothing on it to cut.
+				local wx, wz = Grid.tileToWorld(grid, tx, tz)
+				local underShed = Worlds.underShed(world, wx, wz)
 				local onWater = water ~= nil
 					and tx >= water.x
 					and tx < water.x + water.w
 					and tz >= water.z
 					and tz < water.z + water.d
 
-				if not onWater and rng:NextNumber() <= section.density then
+				if not onWater and not underShed and rng:NextNumber() <= section.density then
 					local entry = pickFill(section)
 					if entry then
 						local height = rng:NextInteger(entry.heightMin, entry.heightMax)
@@ -1217,6 +1222,33 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 		material = Enum.Material.Concrete,
 		parent = shed,
 	})
+
+	--[[
+		A plinth, where the ground under the shed has been cut away.
+
+		The shed stands on open ground between the sections, but a sunken
+		one reaches under its floor: on both The House and The Mansion the
+		back of the shed hung over an eighteen-stud drop with nothing
+		holding it up. A building at the edge of a sunken yard stands on a
+		retaining wall, so this fills whatever the cut took away.
+	]]
+	local lowest = 0
+	local halfW, halfD = math.ceil(width / TILE / 2), math.ceil(depth / TILE / 2)
+	for tz = world.shed.z - halfD, world.shed.z + halfD do
+		for tx = world.shed.x - halfW, world.shed.x + halfW do
+			lowest = math.min(lowest, Worlds.elevationAt(world, tx, tz))
+		end
+	end
+	if lowest < 0 then
+		Build.part({
+			name = "ShedPlinth",
+			size = Vector3.new(width, -lowest, depth),
+			cframe = CFrame.new(centre + Vector3.new(0, lowest * 0.5, 0)),
+			color = Palette.color(Palette.ground.stoneDark),
+			material = Enum.Material.Concrete,
+			parent = shed,
+		})
+	end
 
 	Build.mesh({
 		prop = "Shed",
