@@ -40,7 +40,8 @@ end
 	Twenty-nine puts the deck's top face just proud of the cap, so the debris
 	rests on the surface the player is actually standing on.
 ]]
-local ROOF_ELEVATION = 29
+--- Just proud of the cap, so the debris rests on what the player stands on.
+local ROOF_ELEVATION = GameConfig.HOUSE_ROOF_TOP + 0.8
 local BASEMENT_ELEVATION = -18
 
 --------------------------------------------------------------------
