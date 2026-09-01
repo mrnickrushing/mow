@@ -28,7 +28,7 @@ local WorldService = {}
 
 local TILE = GameConfig.TILE_SIZE
 --- Wall height of a house, which is what the rooftop section sits on.
-local ROOF_HEIGHT = 24
+local ROOF_HEIGHT = GameConfig.HOUSE_ROOF_HEIGHT
 
 export type SectionState = {
 	def: Types.ZoneDef,
@@ -480,8 +480,15 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	if walkableRoof(world, rect) then
 		Build.part({
 			name = "Roof",
-			size = Vector3.new(width + 5, 2.4, depth + 5),
-			cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight + 3, 0)),
+			size = Vector3.new(width + 5, GameConfig.HOUSE_ROOF_THICKNESS, depth + 5),
+			cframe = CFrame.new(
+				centre
+					+ Vector3.new(
+						0,
+						GameConfig.HOUSE_FOUNDATION + wallHeight + GameConfig.HOUSE_ROOF_RISE,
+						0
+					)
+			),
 			color = Palette.color(Palette.house.roof),
 			material = Enum.Material.Slate,
 			parent = house,

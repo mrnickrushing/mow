@@ -9,6 +9,7 @@
 ]]
 
 local Debris = require("./.build/Shared/Config/Debris")
+local GameConfig = require("./.build/Shared/Config/GameConfig")
 local Monetization = require("./.build/Shared/Config/Monetization")
 local Worlds = require("./.build/Shared/Config/Worlds")
 local Tools = require("./.build/Shared/Config/Tools")
@@ -318,6 +319,29 @@ return function()
 						h.expectFalse(
 							pointInRect(point.x, point.z, house),
 							`{world.id}: {label} is inside the house`
+						)
+					end
+				end
+			end
+		end)
+
+		h.it("stands a rooftop on the house's roof, not inside it", function()
+			--[[
+				The Rooftop's floor was once a hand-written 24 that happened to
+				match ROOF_HEIGHT, while the roof it stands on is a capped slab
+				whose top face is four studs higher. The section was built
+				inside the building and seven hundred and fifty-seven tiles of
+				debris went with it, invisible from the deck the player stands
+				on. Both numbers come from GameConfig now; this is the guard
+				that says they still agree.
+			]]
+			for _, world in Worlds.list do
+				for _, section in world.sections do
+					if (section.kind or "open") == "roof" then
+						h.expectTrue(
+							(section.elevation or 0) > GameConfig.HOUSE_ROOF_TOP,
+							`{world.id}: {section.id} sits at {section.elevation or 0}, `
+								.. `inside a roof whose top is {GameConfig.HOUSE_ROOF_TOP}`
 						)
 					end
 				end

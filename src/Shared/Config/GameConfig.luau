@@ -30,6 +30,22 @@ local GameConfig = {
 	--- Y coordinate of the lawn surface.
 	GROUND_Y = 0,
 
+	--[[
+		The house, in studs, shared because two modules have to agree on it.
+
+		The builder raises the walls and caps them; the level config decides
+		how high the Rooftop's floor sits. When the builder owned these
+		numbers privately and the config guessed at them, the guess was four
+		studs low and the whole Rooftop was built inside the roof. Neither
+		side guesses now.
+	]]
+	HOUSE_ROOF_HEIGHT = 24,
+	--- Brick foundation the walls stand on.
+	HOUSE_FOUNDATION = 4,
+	--- How far the capped roof slab sits above the wall top, and its depth.
+	HOUSE_ROOF_RISE = 3,
+	HOUSE_ROOF_THICKNESS = 2.4,
+
 	--------------------------------------------------------------------
 	-- Network
 	--------------------------------------------------------------------
@@ -130,5 +146,11 @@ local GameConfig = {
 
 --- Studs per chunk side.
 GameConfig.CHUNK_STUDS = GameConfig.CHUNK_TILES * GameConfig.TILE_SIZE
+
+--- The top face of a walkable capped roof: what a Rooftop section stands on.
+GameConfig.HOUSE_ROOF_TOP = GameConfig.HOUSE_FOUNDATION
+	+ (GameConfig.HOUSE_ROOF_HEIGHT - 4)
+	+ GameConfig.HOUSE_ROOF_RISE
+	+ GameConfig.HOUSE_ROOF_THICKNESS * 0.5
 
 return GameConfig
