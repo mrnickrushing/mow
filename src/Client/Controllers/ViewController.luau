@@ -86,15 +86,23 @@ local function held(tool: Types.ToolDef): Held
 			at = CFrame.new(0.1, -0.12, -0.35),
 		}
 	elseif category == "Trimmer" then
+		--[[
+			The trimmer model stands upright — its shaft is its height — so it
+			is sized in its own proportions and pitched forward until the head
+			hangs low in front, which is how a trimmer is actually carried.
+			The old numbers squashed it four to one into a box shaped like the
+			previous model.
+		]]
 		return {
 			prop = "TrimmerTool",
-			size = Vector3.new(0.9, 1.0, 3.0),
-			at = CFrame.new(0, -0.12, -0.5) * CFrame.Angles(math.rad(-6), 0, 0),
+			size = Vector3.new(0.76, 3.2, 0.83),
+			at = CFrame.new(0.05, -0.28, -0.62) * CFrame.Angles(math.rad(-64), 0, 0),
 		}
 	elseif category == "Saw" or category == "Chainsaw" then
+		-- In the saw's own proportions: a wide flat blade, not a box.
 		return {
 			prop = "SawTool",
-			size = Vector3.new(0.9, 1.0, 2.6),
+			size = Vector3.new(0.31, 1.35, 2.6),
 			at = CFrame.new(0.05, -0.1, -0.45),
 		}
 	elseif category == "HedgeTrimmer" then

@@ -1786,12 +1786,12 @@ local exitPart: BasePart? = nil
 local function buildExit(world: Types.WorldDef, parent: Folder)
 	local at = WorldService.tilePointFlat(world.exit.x, world.exit.z)
 
-	local frame = Build.mesh({
-		prop = "BrickWall",
+	local frame = Build.part({
 		name = "ExitFrame",
 		size = Vector3.new(14, 16, 2),
 		cframe = CFrame.new(at + Vector3.new(0, 8, 0)),
 		color = Palette.color(Palette.house.brickDark),
+		material = Enum.Material.Brick,
 		parent = parent,
 	})
 
