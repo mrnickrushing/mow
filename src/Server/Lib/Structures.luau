@@ -352,14 +352,59 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 	if not sunken then
 		-- Slate rather than the shingle model, which at this size was a coarse
 		-- green chequerboard rather than a roof.
+		--[[
+			A roof with eaves, and a fascia under them.
+
+			The ceiling used to stop one stud past the walls, which on the
+			Gas Station's wash bay meant a hundred-and-eighty stud run of
+			bare concrete with a lid on it — the largest blank surface in
+			the game once the shop got its back door. The house gets its
+			roofline from overhanging eaves and a room gets one the same
+			way: the shadow the overhang casts is what stops a long wall
+			reading as a sheet.
+		]]
+		local OVERHANG, FASCIA = 2.5, 2.6
 		Build.part({
 			name = "Ceiling",
-			size = Vector3.new(width + 2, 1.5, depth + 2),
+			size = Vector3.new(width + OVERHANG * 2, 1.5, depth + OVERHANG * 2),
 			cframe = CFrame.new(centre + Vector3.new(0, wallHeight, 0)),
 			color = Palette.color(Palette.house.roof),
 			material = Enum.Material.Slate,
 			parent = folder,
 		})
+		local fasciaY = wallHeight - 0.75 - FASCIA * 0.5
+		for _, sz in { -1, 1 } do
+			Build.part({
+				name = "Eaves",
+				size = Vector3.new(width + OVERHANG * 2, FASCIA, 1.4),
+				cframe = CFrame.new(
+					centre + Vector3.new(0, fasciaY, sz * (depth * 0.5 + OVERHANG - 0.7))
+				),
+				-- The roof's own colour: a fascia belongs to the roof, and the
+				-- trim teal that suits a house is a stranger on a filling
+				-- station's wash bay.
+				color = Palette.color(Palette.house.roof),
+				material = Enum.Material.SmoothPlastic,
+				canCollide = false,
+				parent = folder,
+			})
+		end
+		for _, sx in { -1, 1 } do
+			Build.part({
+				name = "Eaves",
+				size = Vector3.new(1.4, FASCIA, depth + OVERHANG * 2),
+				cframe = CFrame.new(
+					centre + Vector3.new(sx * (width * 0.5 + OVERHANG - 0.7), fasciaY, 0)
+				),
+				-- The roof's own colour: a fascia belongs to the roof, and the
+				-- trim teal that suits a house is a stranger on a filling
+				-- station's wash bay.
+				color = Palette.color(Palette.house.roof),
+				material = Enum.Material.SmoothPlastic,
+				canCollide = false,
+				parent = folder,
+			})
+		end
 
 		--[[
 			Lamps, because a roofed room is a box the sun cannot reach.
