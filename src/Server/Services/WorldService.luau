@@ -2045,6 +2045,74 @@ WorldService.trailerPart = nil :: BasePart?
 WorldService.sectionSigns = {} :: { [string]: BasePart }
 
 --- Tears down the previous world and generates `worldId`.
+--[[
+	Debris built over is debris nobody can see.
+
+	A tile is seeded before anything is built on top of it, so the porch deck,
+	a flight of steps, a gate arch and the upgrade stations all end up standing
+	on ground that was sown. Those clippings are inside a structure: you cannot
+	see them, and because cutting is decided by where you stand rather than
+	what you can see, the only way to clear them is to walk onto the porch and
+	mow what looks like bare boards. That is the last two percent of a section
+	spent hunting for nothing, which is exactly the tedium the clutter is
+	supposed to replace.
+
+	So once the world is built, whatever it built over is swept. A room's own
+	ceiling does not count — a roofed room is somewhere you walk into, not
+	something standing on top of you.
+]]
+local BURIES_NOTHING: { [string]: boolean } = { Ceiling = true, Eaves = true }
+
+local function clearBuriedTiles(world: Types.WorldDef, grid: Grid.Grid, tiles: buffer)
+	local root = container
+	if not root then
+		return
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { root }
+
+	for _, section in world.sections do
+		local state = WorldService.sections[section.id]
+		if state then
+			local elevation = section.elevation or 0
+			local r = section.rect
+			for tz = r.z, math.min(r.z + r.d - 1, grid.depth - 1) do
+				for tx = r.x, math.min(r.x + r.w - 1, grid.width - 1) do
+					local index = Grid.toIndex(grid, tx, tz)
+					if WorldService.tileSection and WorldService.tileSection[index] == section.id then
+						local byte = buffer.readu8(tiles, index - 1)
+						if ChunkCodec.height(byte) > 0 then
+							local x, z = Grid.tileToWorld(grid, tx, tz)
+							local above = workspace:Raycast(
+								Vector3.new(x, elevation + 1.5, z),
+								Vector3.new(0, 60, 0),
+								params
+							)
+							if
+								above
+								and above.Instance.CanCollide
+								and not BURIES_NOTHING[above.Instance.Name]
+							then
+								local units = Cutting.unitsOnTile(byte)
+								buffer.writeu8(tiles, index - 1, 0)
+								state.totalUnits -= units
+								state.remainingUnits -= units
+								WorldService.totalUnits -= units
+								WorldService.remainingUnits -= units
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	-- The client was handed the total at attach time, before any of this was
+	-- built; without this the bar can never reach a hundred.
+	ReplicationService.setTotalUnits(WorldService.totalUnits)
+end
+
 function WorldService.load(worldId: string)
 	local world = Worlds.expect(worldId)
 
@@ -2187,6 +2255,10 @@ function WorldService.load(worldId: string)
 	-- only places anybody when a character is *loaded*, and moving between
 	-- worlds does not load one. See `RunService`.
 	WorldService.spawnAt = spawnLocation.CFrame + Vector3.new(0, 4, 0)
+
+	-- Last, because it asks what is standing on each tile and the answer
+	-- is only complete once everything has been built.
+	clearBuriedTiles(world, grid, tiles)
 
 	loadedSignal:Fire(world)
 end
