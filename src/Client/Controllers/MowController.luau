@@ -288,6 +288,41 @@ function MowController.release()
 	end
 end
 
+--[[
+	A tap on the world, which is how a touch game says "act here".
+
+	On a phone or tablet the only trigger used to be the round tool button in
+	the corner, so the screen itself was dead: tapping the pile in front of you
+	did nothing, which is backwards on a platform where tapping the thing is
+	the first thing anybody tries. A tap now works the tool for a beat — long
+	enough for the intent loop to take a real bite out of whatever the tool is
+	pointed at — and tapping again before the beat is up simply extends it, so
+	drumming on the screen reads as continuous work. A latched tool (the
+	blower) treats a tap as its switch, same as its button.
+
+	Held separately from press/release so a tap's delayed let-go can tell
+	whether it is still the most recent thing that happened, rather than
+	cutting short a newer tap.
+]]
+local TAP_BURST_SECONDS = 0.45
+local tapCount = 0
+
+function MowController.tap()
+	local tool = equipped()
+	if tool and tool.toggle then
+		MowController.press()
+		return
+	end
+	tapCount += 1
+	local tap = tapCount
+	MowController.press()
+	task.delay(TAP_BURST_SECONDS, function()
+		if tap == tapCount then
+			MowController.release()
+		end
+	end)
+end
+
 function MowController.isMowing(): boolean
 	return mowing
 end
@@ -365,6 +400,20 @@ function MowController.start()
 		end
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2, Enum.KeyCode.E)
+
+	--[[
+		The engine has already done the filtering by the time this fires: a
+		touch the UI consumed does not reach it, and neither does a drag the
+		camera claimed as a look. What is left is a deliberate tap on the
+		world, which is the platform's grammar for "use the thing" — the round
+		button stays as the hold control, this is the tap one.
+	]]
+	UserInputService.TouchTapInWorld:Connect(function(_, processedByUI)
+		if processedByUI then
+			return
+		end
+		MowController.tap()
+	end)
 
 	-- Switching tools mid-swing stops the swing: a latched blower must not keep
 	-- running through a rake.
