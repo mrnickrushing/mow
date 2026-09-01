@@ -754,8 +754,11 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	end
 	Build.part({
 		name = "GarageFrame",
-		size = Vector3.new(garageWidth + 2, 15, 0.5),
-		cframe = CFrame.new(garageX, 10, frontZ - 0.2),
+		-- Deep enough that its face clears the proudest siding course (0.6
+		-- out from the wall plane) — at 0.5 deep the cream boards striped
+		-- straight through the trim.
+		size = Vector3.new(garageWidth + 2, 15, 1.0),
+		cframe = CFrame.new(garageX, 10, frontZ - 0.65),
 		color = Palette.color(Palette.house.trim),
 		material = Enum.Material.SmoothPlastic,
 		canCollide = false,
@@ -939,6 +942,47 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 			cframe = CFrame.new(shopCentre + Vector3.new(sx * (shopW * 0.5 - 0.5), 1 + wallH * 0.5, 0)),
 			color = body,
 			material = Enum.Material.SmoothPlastic,
+			parent = shop,
+		})
+	end
+
+	--[[
+		The back of the shop, dressed.
+
+		The storefront faces the road, which means the forecourt — where the
+		player spends the entire run — looks at the rear. Bare, that rear was
+		the biggest white rectangle in the game. A service door and two high
+		windows are what the back of a real shop wears, and they are enough
+		to make it a building instead of a backdrop.
+	]]
+	local backZ = shopCentre.Z + shopD * 0.5
+	Build.mesh({
+		prop = "Door",
+		name = "ShopBackDoor",
+		size = Vector3.new(6.5, 9.2, 0.9),
+		cframe = CFrame.new(shopCentre.X - shopW * 0.25, 1 + 4.6, backZ + 0.2),
+		color = dark,
+		parent = shop,
+	})
+	for _, sx in { -1, 1 } do
+		local wx = shopCentre.X + sx * shopW * 0.22
+		Build.part({
+			name = "ShopBackWindowFrame",
+			size = Vector3.new(8.6, 3.0, 0.5),
+			cframe = CFrame.new(wx, 1 + wallH - 2.6, backZ + 0.1),
+			color = dark,
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			parent = shop,
+		})
+		Build.part({
+			name = "ShopBackWindow",
+			size = Vector3.new(8, 2.4, 0.6),
+			cframe = CFrame.new(wx, 1 + wallH - 2.6, backZ + 0.15),
+			color = Palette.color(Palette.station.glass),
+			material = Enum.Material.Glass,
+			transparency = 0.35,
+			canCollide = false,
 			parent = shop,
 		})
 	end
@@ -1726,6 +1770,7 @@ end
 local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 	local context: Structures.Context = {
 		parent = parent,
+		world = world,
 		flat = function(tx: number, tz: number): Vector3
 			return WorldService.tilePointFlat(tx, tz)
 		end,
@@ -1970,18 +2015,23 @@ function WorldService.load(worldId: string)
 		Build.hedge(scenery, WorldService.tilePointFlat(24, 78), WorldService.tilePointFlat(72, 78), 13, 7)
 
 		--[[
-			A flagstone path from the kerb up to the porch, and a paved
-			driveway.
+			A flagstone path from the kerb to the porch, and a driveway from
+			the kerb to the garage doors.
 
-			The path used to run up the lot's centreline, which is not where
-			the porch is: it delivered you to a blank stretch of wall east of
-			the steps, with the front door thirty studs to your left. A path
-			exists to lead somewhere, so it runs at the door's own axis.
+			The rectangles come from Worlds.pavingRects — the same ones the
+			tree and clutter scatters keep off of — so the slabs land on the
+			door and bay axes of whichever house this lot builds, not the
+			tiles they were once measured at on The House.
 		]]
-		local pathCentre = WorldService.tilePointFlat(40, 20)
-		Build.flagstone(parent, pathCentre + Vector3.new(0, 0.25, 0), Vector2.new(20, 96), 5, rng)
-		local driveCentre = WorldService.tilePointFlat(13, 19)
-		Build.flagstone(parent, driveCentre + Vector3.new(0, 0.25, 0), Vector2.new(68, 84), 6, rng)
+		for _, slab in Worlds.pavingRects(world) do
+			Build.flagstone(
+				parent,
+				Vector3.new(slab.x + slab.w * 0.5, GameConfig.GROUND_Y + 0.25, slab.z + slab.d * 0.5),
+				Vector2.new(slab.w, slab.d),
+				slab.stone,
+				rng
+			)
+		end
 	else
 		local lot = world.style == "lot"
 		Build.fence(parent, 0, 0, width, depth, 6, Palette.color(Palette.fence.rail), 14, lot)
