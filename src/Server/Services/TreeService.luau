@@ -168,6 +168,21 @@ local function scatter(world: Types.WorldDef, section: Types.ZoneDef, count: num
 			clear = false
 		end
 
+		--[[
+			Nothing grows on the doorstep.
+
+			The house was the only thing kept clear, so a tree could take root
+			on the spawn pad or against the trailer — the two places a run
+			begins and ends, and the two places something in the way is most
+			expensive.
+		]]
+		for _, keepOut in { world.spawn, world.trailer } do
+			if keepOut and math.abs(tx - keepOut.x) < 7 and math.abs(tz - keepOut.z) < 7 then
+				clear = false
+				break
+			end
+		end
+
 		if clear then
 			local at = WorldService.tilePointToWorld(tx, tz)
 			-- Keep trees from growing through each other.

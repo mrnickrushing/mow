@@ -38,9 +38,9 @@ local TILE = GameConfig.TILE_SIZE
 local HEIGHT_STUD = GameConfig.HEIGHT_STUD
 
 --- Leaves drawn per height level on a tile.
-local LEAVES_PER_LEVEL = 3
+local LEAVES_PER_LEVEL = 4
 --- Cap, so a deep drift never explodes the part budget.
-local MAX_LEAVES_PER_TILE = 8
+local MAX_LEAVES_PER_TILE = 10
 
 local grid: Grid.Grid? = nil
 local tiles: buffer? = nil
@@ -58,9 +58,41 @@ local leafPool: { Part } = {}
 local activeIsLeaf: { [number]: boolean } = {}
 local lodParts: { [number]: Part } = {}
 local known: { [number]: boolean } = {}
-local requested: { [number]: boolean } = {}
+--[[
+	When each chunk was last asked for.
+
+	This was a plain "have we asked?" flag, set the first time a chunk came
+	into range and never cleared, so a request that went out and never came
+	back left a hole in the world for the rest of the run — the client would
+	not ask twice. On The Mansion that was not a rare packet either: better
+	than a third of the property arrived as bare ground you could walk across
+	and never clear, because the tiles were on the server and the client had
+	simply given up asking. Asking again after a few seconds costs one number
+	per missing chunk and closes the hole.
+]]
+local requestedAt: { [number]: number } = {}
+
+--- How long to wait for a chunk before asking for it again.
+local REQUEST_RETRY_SECONDS = 3
+
+--- Chunks asked for in one pass, so a world that has just loaded does not send
+--- its entire grid in a single packet.
+local REQUEST_BATCH = 256
 local openSections: { [string]: boolean } = {}
 local tileSection: { string } = {}
+
+--[[
+	The colours the distance is painted in, for the world now loaded.
+
+	A chunk seen from far off is one flat slab, and what it should look like is
+	the ground of this particular lot: green on the two lawns, dark stone on the
+	Gas Station. Taking it from the grass palette instead laid a green rectangle
+	over the stone yard, which is the same mistake as painting a leafy chunk
+	gold, one world along. Both are worked out once per load from the world's
+	own `baseGround`.
+]]
+local groundColor = Palette.color(Palette.ground.lawn)
+local driftColor = Palette.color(Palette.ground.lawn)
 local tileElevation: { number } = {}
 
 local requestChunks: RemoteEvent
@@ -132,6 +164,37 @@ local function newPart(leaf: boolean): Part
 		mesh.Parent = part
 	end
 
+	return part
+end
+
+--[[
+	The stand-in for a whole chunk seen from far off.
+
+	It carries no model at all, unlike the near tiles, and that is the point.
+	It used to be a lawn panel — a three stud square of turf — scaled to a
+	thirty-two stud chunk, which is nine times its own size, so its weave came
+	out as bands several studs wide. Every chunk stretched the same panel the
+	same way, so the bands lined up across chunk boundaries and the whole
+	middle distance of every property was striped like a ploughed field. It was
+	the same mistake as the ground under it, one layer up.
+
+	A plain slab in the lawn's own colour and material has nothing to magnify,
+	and meets the ground it sits on without a seam.
+
+	Kept out of the pools the near tiles share, because those parts carry a
+	`SpecialMesh` and one with no id set renders as nothing at all — which is
+	how the far half of a property once came to be a hole.
+]]
+local function newLodPart(): Part
+	local part = Instance.new("Part")
+	part.Name = "Lod"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
 	return part
 end
 
@@ -208,6 +271,13 @@ local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
 	if not world then
 		return
 	end
+	local ground = world.baseGround
+	groundColor = Color3.new(ground[1], ground[2], ground[3])
+	-- A fifth of the way toward the leaves and no further: the carpet is smooth
+	-- where the lot around it is full of clumps, so its shape already gives it
+	-- away and its colour has to stay quiet.
+	driftColor = groundColor:Lerp(Palette.color(Palette.leafAverage), 0.2)
+
 	for _, section in world.sections do
 		local r = section.rect
 		local elevation = section.elevation or 0
@@ -309,15 +379,38 @@ local function drawLeaves(index: number, wx: number, wz: number, floor: number, 
 
 		-- Roughly a third are the pointed maple sort, the rest the oak.
 		local def = if shapeRoll < 0.34 then LEAF_SHAPES[1] else LEAF_SHAPES[2]
-		local width, thickness, length = 3.0 * scale, 0.34, 2.1 * scale
+		--[[
+			A leaf, at the size a leaf is.
+
+			These were three studs across. A player is five studs tall, so
+			every leaf on the lawn was the size of a dinner plate, and eight
+			of them on a four stud tile covered it three times over — which
+			is why a drift read as a sheet of red paint rather than as
+			leaves. At this size they overlap about once, which is what a
+			real drift does.
+		]]
+		local width, thickness, length = 1.55 * scale, 0.16, 1.15 * scale
 		local meshScale, lie = layFlat(def, width, thickness, length)
 
 		local mesh = part:FindFirstChild("Blade")
 		if mesh and mesh:IsA("SpecialMesh") then
 			if mesh.MeshId ~= def.mesh then
 				mesh.MeshId = def.mesh
-				mesh.TextureId = def.texture or ""
 			end
+			--[[
+				No texture on a leaf, on purpose.
+
+				Both leaf models are painted red in their own texture, and a
+				texture is what a mesh shows: the nine autumn shades the
+				drift is supposed to be drawn from were being multiplied into
+				a red that was already red, so every leaf in the game came
+				out the same fire red whichever shade it had been given. A
+				leaf is one flat colour anyway, and an untextured mesh takes
+				the colour of the part under it, so dropping the texture is
+				what actually gets the palette onto the lawn.
+			]]
+			mesh.TextureId = ""
+			mesh.VertexColor = Vector3.one
 			mesh.Scale = meshScale
 		end
 
@@ -331,23 +424,10 @@ local function drawLeaves(index: number, wx: number, wz: number, floor: number, 
 			color = desaturate(color)
 		end
 
-		--[[
-			A textured mesh pays no attention to the colour of the part under
-			it, and the drift depends on that colour: every leaf takes a shade
-			from the autumn palette, and a leaf in a section still locked is
-			greyed to say so. Both go through the mesh tint instead, which
-			multiplies the texture rather than replacing it — so the shade is
-			normalised to keep its hue without darkening the leaf to mud.
-		]]
-		if mesh and mesh:IsA("SpecialMesh") then
-			local brightest = math.max(color.R, color.G, color.B, 0.001)
-			mesh.VertexColor = Vector3.new(color.R, color.G, color.B) / brightest
-		end
-
 		part.Size = Vector3.new(width, thickness, length)
 		-- Yaw in the world, then lie down and take on the tilt, so the couple of
 		-- degrees of pitch and roll stay small however the model was authored.
-		part.CFrame = CFrame.new(wx + offsetX, floor + 0.17 + layer * 0.15, wz + offsetZ)
+		part.CFrame = CFrame.new(wx + offsetX, floor + 0.09 + layer * 0.07, wz + offsetZ)
 			* CFrame.Angles(0, yaw, 0)
 			* lie
 			* CFrame.Angles(pitch, 0, roll)
@@ -358,8 +438,22 @@ local function drawLeaves(index: number, wx: number, wz: number, floor: number, 
 	end
 end
 
---- Grass, weeds and hedges keep the block form, because their height falling is
---- what makes a mower upgrade legible.
+--[[
+	Grass, weeds, hedges and sticks, which keep their height because a tile
+	getting shorter as it is worked is what makes a tool upgrade legible.
+
+	They are drawn as a handful of separate clumps scattered over the tile
+	rather than as one clump stretched to fill it. Filling it was the worst
+	thing on the screen: the grass model is a four stud square with its own
+	patch of ground under it, so one per tile laid a four stud square of
+	lighter green edge to edge across the whole property, and the lawn came
+	out as something you could count the tiles of. Clumps narrower than a tile
+	overlap their neighbours and leave gaps between, which is what reads as a
+	continuous lawn instead of a grid.
+
+	How many there are falls with the height, so clearing a tile thins it as
+	well as shortening it.
+]]
 --- Which clump model stands in for each kind of debris.
 local CLUMP_FOR: { [number]: Props.Prop } = {
 	[DebrisConfig.Grass] = Props.catalogue.GrassTuft,
@@ -368,43 +462,88 @@ local CLUMP_FOR: { [number]: Props.Prop } = {
 	[DebrisConfig.Sticks] = Props.catalogue.Twigs,
 }
 
---- A few yaws to spread the clumps around, so a lawn is not a stamped grid.
-local TILE_YAW = { 0, 37, 74, 111, 148, 185, 222, 259, 296, 333 }
+--- Roughly how wide one clump of each kind is, in studs. Everything but the
+--- hedge is narrower than a tile so the scatter can overlap across tile edges.
+local CLUMP_WIDTH: { [number]: number } = {
+	[DebrisConfig.Grass] = 1.8,
+	[DebrisConfig.Weeds] = 1.9,
+	[DebrisConfig.Hedge] = TILE,
+	[DebrisConfig.Sticks] = 1.7,
+}
+
+--[[
+	A hedge is a solid mass and stays one piece; everything else thins out as
+	it is cleared.
+
+	One more clump than there are levels of height, because a tile worked down
+	to its last level should still have something on it rather than a single
+	tuft marooned in the middle of four studs of bare lawn.
+]]
+local function clumpsOn(debrisId: number, height: number): number
+	if debrisId == DebrisConfig.Hedge then
+		return 1
+	end
+	return math.clamp(height + 1, 2, 4)
+end
 
 local function drawBlock(index: number, wx: number, wz: number, floor: number, height: number, debrisId: number, locked: boolean)
-	local parts = slots(index, 1, false)
-	local part = parts[1]
+	local count = clumpsOn(debrisId, height)
+	local parts = slots(index, count, false)
 	local studs = height * HEIGHT_STUD
 	local color = baseColor(debrisId, index)
+	if locked then
+		color = desaturate(color)
+	end
 
-	part.Size = Vector3.new(TILE, studs, TILE)
-	part.CFrame = CFrame.new(wx, floor + studs * 0.5, wz)
-	part.Color = if locked then desaturate(color) else color
-	part.Material = if debrisId == DebrisConfig.Sticks then Enum.Material.Wood else Enum.Material.Grass
-	part.Transparency = 0
+	local def = CLUMP_FOR[debrisId] or CLUMP_FOR[DebrisConfig.Grass]
+	local width = CLUMP_WIDTH[debrisId] or 2.5
+	-- One clump stands in the middle of its tile; several spread out far
+	-- enough to reach the edges without leaving the tile they belong to.
+	local spread = if count == 1 then 0 else (TILE - width) * 0.5 + 0.55
 
-	-- The clump that stands in for this tile, sized to the grass actually on
-	-- it, and turned a different way per tile so a mown row is not a row of
-	-- identical models.
-	local clump = part:FindFirstChild("Clump")
-	if clump and clump:IsA("SpecialMesh") then
-		local def = CLUMP_FOR[debrisId] or CLUMP_FOR[DebrisConfig.Grass]
-		if def then
+	for slot, part in parts do
+		local offsetX = (hash01(index, slot * 3 + 1) - 0.5) * 2 * spread
+		local offsetZ = (hash01(index, slot * 3 + 2) - 0.5) * 2 * spread
+		local yaw = hash01(index, slot * 3 + 3) * math.pi * 2
+		-- Vary the size around the nominal one rather than below it, so a
+		-- thinned tile is not also a uniformly smaller one.
+		local sway = if count == 1 then 1 else 0.78 + hash01(index, slot * 7 + 1) * 0.46
+		local wide = width * sway
+		local tall = math.max(studs * sway, 0.2)
+
+		part.Size = Vector3.new(wide, tall, wide)
+		part.CFrame = CFrame.new(wx + offsetX, floor + tall * 0.5, wz + offsetZ) * CFrame.Angles(0, yaw, 0)
+		part.Color = color
+		part.Material = if debrisId == DebrisConfig.Sticks then Enum.Material.Wood else Enum.Material.Grass
+		part.Transparency = 0
+
+		local clump = part:FindFirstChild("Clump")
+		if clump and clump:IsA("SpecialMesh") and def then
 			if clump.MeshId ~= def.mesh then
 				clump.MeshId = def.mesh
-				clump.TextureId = def.texture or ""
 			end
-			clump.Scale = Vector3.new(
-				TILE / def.native.X,
-				studs / def.native.Y,
-				TILE / def.native.Z
-			)
+			-- Set every time: these parts come back from the same pool the
+			-- distant carpets use, and would otherwise keep that texture and
+			-- whatever tint it was last drawn with.
+			clump.TextureId = def.texture or ""
+			--[[
+				Bring the clump to the palette's green.
+
+				A textured mesh ignores the colour of the part under it, so
+				every tuft was showing whatever green its own texture happened
+				to be painted — a colder, bluer one than the lawn it stands on,
+				which made the grass read as a different plant from the ground.
+				The tint is normalised to its brightest channel so it carries
+				the hue without darkening the blades to mud.
+			]]
+			local brightest = math.max(color.R, color.G, color.B, 0.001)
+			clump.VertexColor = Vector3.new(color.R, color.G, color.B) / brightest
+			clump.Scale = Vector3.new(wide / def.native.X, tall / def.native.Y, wide / def.native.Z)
 			clump.Offset = Vector3.zero
 		end
-	end
-	part.Orientation = Vector3.new(0, TILE_YAW[(index % #TILE_YAW) + 1], 0)
 
-	part.Parent = detailFolder
+		part.Parent = detailFolder
+	end
 end
 
 local function drawTile(theGrid: Grid.Grid, theTiles: buffer, index: number, locked: boolean)
@@ -476,7 +615,21 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 
 	local existing = lodParts[chunkIndex]
 
-	if samples == 0 or remaining == 0 then
+	--[[
+		Grass at distance is the ground it grows on, so nothing is drawn for it.
+
+		The carpet is the lot's own ground colour now, laid a stud or two above
+		the actual ground, which is the same colour and the same material. That
+		should be invisible and is not: a raised slab catches the light a shade
+		differently and puts a shadow along its edge, so the far half of every
+		property kept a faint grid of thirty-two stud rectangles on it — the
+		last of the chequerboard, in its quietest form.
+
+		A drift still gets one, because a lawn covered in leaves genuinely does
+		look different from across a property and that is worth being able to
+		see. Bare grass does not, so it is left to the ground to draw.
+	]]
+	if samples == 0 or remaining == 0 or debrisId ~= DebrisConfig.Leaves then
 		if existing then
 			existing.Parent = nil
 		end
@@ -487,8 +640,7 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	if existing then
 		part = existing
 	else
-		part = newPart(false)
-		part.Name = "Lod"
+		part = newLodPart()
 		lodParts[chunkIndex] = part
 	end
 
@@ -502,26 +654,6 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	local x, z = Grid.chunkCentre(theGrid, cx, cz)
 
 	--[[
-		The stand-in for a whole chunk seen from far off.
-
-		Two things about this used to draw a chequerboard across the far half of
-		every property. It shares the pool with the near tiles, and those now
-		carry a clump model — a mesh with no id set renders as nothing at all,
-		so every distant chunk was a hole. And the colour was drawn from one
-		arbitrary tile inside the chunk, so neighbouring chunks landed on the
-		light green and the dark green at random: a thirty-two stud grid of
-		alternating squares, which is the exact look the clumps were meant to
-		get rid of.
-
-		So the carpet is the same model and the same shade in every chunk, and
-		the kind of debris only tints it. Turf rather than a leaf pile even for
-		leaves: a pile is a mound with clear ground around it, and one mound per
-		chunk reads as a grid of orange blobs. A turf panel fills its square, so
-		the chunks meet without a seam.
-	]]
-	local carpet = Props.catalogue.LawnPanel
-
-	--[[
 		Far enough away, a lawn is two things: lawn, and leaves on it.
 
 		Weeds, hedge clippings and fallen sticks each had their own colour out
@@ -532,44 +664,13 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		their own colour because a drift genuinely is the thing you can see from
 		across a property.
 	]]
-	local color = baseColor(
-		if debrisId == DebrisConfig.Leaves then DebrisConfig.Leaves else DebrisConfig.Grass,
-		1
-	)
+	local color = if debrisId == DebrisConfig.Leaves then driftColor else groundColor
 
 	part.Size = Vector3.new(studs, thickness, studs)
 	part.CFrame = CFrame.new(x, floor + thickness * 0.5, z)
 	part.Color = color
 	part.Material = if debrisId == DebrisConfig.Leaves then Enum.Material.SmoothPlastic else Enum.Material.Grass
 	part.Transparency = 0
-
-	local clump = part:FindFirstChild("Clump")
-	if clump and clump:IsA("SpecialMesh") and carpet then
-		if clump.MeshId ~= carpet.mesh then
-			clump.MeshId = carpet.mesh
-		end
-		clump.Scale = Vector3.new(
-			studs / carpet.native.X,
-			math.max(thickness, 0.2) / carpet.native.Y,
-			studs / carpet.native.Z
-		)
-		--[[
-			Set every time rather than only alongside the mesh id, because these
-			parts come back from the same pool as the near tiles and would
-			otherwise keep whatever texture and tint they were last drawn with.
-
-			The turf panel that used to do this job had a light-and-dark weave
-			in its texture, which is right under your feet and wrong stretched
-			across a thirty-two stud chunk: a coarse chequerboard over the far
-			half of the lawn, every chunk repeating the same squares. This
-			panel has no weave to magnify, so it keeps its texture, and the
-			debris colour tints it — a textured mesh ignores the part colour.
-		]]
-		clump.TextureId = carpet.texture or ""
-		local brightest = math.max(color.R, color.G, color.B, 0.001)
-		clump.VertexColor = Vector3.new(color.R, color.G, color.B) / brightest
-	end
-
 	part.Parent = lodFolder
 end
 
@@ -591,6 +692,7 @@ local function refresh()
 		return
 	end
 	local focus = camera.CFrame.Position
+	local now = os.clock()
 
 	local centreTx, centreTz = Grid.worldToTile(theGrid, focus.X, focus.Z)
 	local reachChunks = math.ceil(GameConfig.LOD_RADIUS / (theGrid.chunkTiles * TILE)) + 1
@@ -608,9 +710,12 @@ local function refresh()
 				local distanceSq = dx * dx + dz * dz
 
 				if distanceSq <= LOD_SQ then
-					if not known[chunkIndex] and not requested[chunkIndex] then
-						requested[chunkIndex] = true
-						table.insert(pendingRequest, chunkIndex)
+					if not known[chunkIndex] and #pendingRequest < REQUEST_BATCH then
+						local askedAt = requestedAt[chunkIndex]
+						if not askedAt or now - askedAt > REQUEST_RETRY_SECONDS then
+							requestedAt[chunkIndex] = now
+							table.insert(pendingRequest, chunkIndex)
+						end
 					end
 
 					local chunkReach = theGrid.chunkTiles * TILE * 0.75
@@ -667,7 +772,7 @@ local function resetWorld(width: number, depth: number)
 	end
 	table.clear(lodParts)
 	table.clear(known)
-	table.clear(requested)
+	table.clear(requestedAt)
 
 	grid = Grid.new(width, depth)
 	tiles = buffer.create(width * depth)

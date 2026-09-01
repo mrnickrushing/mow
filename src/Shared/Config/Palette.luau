@@ -30,9 +30,20 @@ Palette.sky = {
 	--- Warm haze that sits over everything and does most of the work.
 	fog = rgb(252, 186, 96),
 	ambient = rgb(126, 96, 66),
-	outdoorAmbient = rgb(196, 148, 96),
-	--- Late-afternoon sun, low and orange.
-	tint = rgb(255, 214, 150),
+	--[[
+		Daylight, warm but not orange.
+
+		These two were a strong orange, on the theory that an autumn afternoon
+		is orange light. It is, but a saturated green lit by strongly orange
+		light is not a green lawn, it is a khaki one: every stretch of grass in
+		direct sun came out the colour of dead straw, and only the parts in
+		shadow looked like grass at all. The warmth lives in the haze and the
+		sky now, where it belongs, and the light itself is close enough to
+		neutral to leave the palette's own colours recognisable.
+	]]
+	outdoorAmbient = rgb(150, 148, 136),
+	--- Late-afternoon sun: warm, but not so warm it repaints the lawn.
+	tint = rgb(240, 228, 208),
 	cloud = rgb(255, 250, 242),
 }
 
@@ -62,6 +73,24 @@ Palette.leaves = {
 
 --- Underside of a leaf, used on the ones that land face down.
 Palette.leafPale = rgb(252, 214, 142)
+
+--[[
+	The average of the nine shades above.
+
+	Used to work out what a drift reads as from across a property. Far enough
+	away to be a surface rather than separate leaves, a leafy lot is not the
+	colour of a leaf — it is ground with litter on it, so the renderer carries
+	its world's own ground colour a short way toward this one rather than
+	painting the distance in a leaf colour. Doing the latter put a band of
+	flat, fully saturated gold across the middle of every property: a solid
+	sheet with straight chunk edges, looking nothing like the drift you walk
+	into when you reach it.
+
+	The blend has to start from the ground rather than from grass, because not
+	every lot is a lawn. The Gas Station is a stone yard, and a green-derived
+	drift laid over dark stone is just as wrong as gold over grass.
+]]
+Palette.leafAverage = rgb(237, 141, 51)
 
 Palette.grass = {
 	blade = rgb(142, 194, 76),
@@ -130,6 +159,21 @@ Palette.props = {
 	barrel = rgb(102, 112, 118),
 	shed = rgb(226, 214, 186),
 	pool = rgb(78, 168, 214),
+}
+
+--[[
+	The gas station's livery: cream body, a red fascia band, storefront glass.
+
+	Red and cream rather than the house palette, because a filling station is
+	commercial architecture — it should read as a different kind of building
+	from across the lot, and the fascia stripe is the thing that says so.
+]]
+Palette.station = {
+	body = rgb(242, 238, 228),
+	fascia = rgb(206, 56, 44),
+	trim = rgb(248, 246, 240),
+	glass = rgb(148, 202, 218),
+	dark = rgb(56, 58, 60),
 }
 
 Palette.tree = {

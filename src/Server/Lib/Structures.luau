@@ -220,32 +220,32 @@ function Structures.wallRing(options: WallRingOptions)
 			if length > 0.1 then
 				local mid = (low + high) * 0.5
 				--[[
-					Brickwork, tiled along the run.
+					One plain part per run, in the caller's material.
 
-					Stretching one panel the length of a cellar wall would give
-					bricks eighty studs wide, so the run is cut into panel-sized
-					pieces and each gets its own. Vertically it stretches, which
-					is fine: courses of brick are horizontal.
+					These were panels of the brick model, tinted — and the
+					model's own paint is a mossy blue-green with hard contrast
+					between bricks, which a tint can shift but never quiet. It
+					is why the wash bay read as a chequerboard from across the
+					lot. Every caller already names the material it wants
+					(brick, concrete, slate); now the wall is actually made of
+					it, and the panelling is unnecessary because materials
+					tile.
 				]]
-				local panels = math.max(math.floor(length / 12 + 0.5), 1)
-				local panelLength = length / panels
-				for panel = 0, panels - 1 do
-					local at = run[1] + panelLength * (panel + 0.5)
-					local size = if side.alongX
-						then Vector3.new(panelLength, options.height, options.thickness)
-						else Vector3.new(options.thickness, options.height, panelLength)
-					local slide = if side.alongX then Vector3.new(at, 0, 0) else Vector3.new(0, 0, at)
-					Build.mesh({
-						prop = "BrickWall",
-						name = options.name,
-						size = size,
-						cframe = CFrame.new(
-							centre + side.offset + slide + Vector3.new(0, options.height * 0.5, 0)
-						),
-						color = options.color,
-						parent = options.parent,
-					})
-				end
+				local at = (low + high) * 0.5
+				local size = if side.alongX
+					then Vector3.new(length, options.height, options.thickness)
+					else Vector3.new(options.thickness, options.height, length)
+				local slide = if side.alongX then Vector3.new(at, 0, 0) else Vector3.new(0, 0, at)
+				Build.part({
+					name = options.name,
+					size = size,
+					cframe = CFrame.new(
+						centre + side.offset + slide + Vector3.new(0, options.height * 0.5, 0)
+					),
+					color = options.color,
+					material = options.material,
+					parent = options.parent,
+				})
 			end
 		end
 	end
@@ -287,12 +287,20 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 	local centre = context.flat(r.x + r.w * 0.5, r.z + r.d * 0.5) + Vector3.new(0, elevation, 0)
 	local width, depth = r.w * tile, r.d * tile
 
-	Build.mesh({
-		prop = "ConcreteFloor",
+	--[[
+		A floor is a surface, so it gets a material rather than a model.
+
+		The concrete panel model is about a stud and a half across. Scaled to an
+		eighty by fifty-six stud cellar it stopped being concrete and became one
+		enormous smeared slab, because a mesh texture stretches rather than
+		repeating. Roblox's concrete tiles at any size.
+	]]
+	Build.part({
 		name = "Floor",
 		size = Vector3.new(width, 2, depth),
 		cframe = CFrame.new(centre - Vector3.new(0, 1, 0)),
 		color = Palette.color(Palette.ground.stoneDark),
+		material = Enum.Material.Concrete,
 		parent = folder,
 	})
 
@@ -314,12 +322,14 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 
 	-- An above-ground room gets a roof; a sunken one stays open so you can see in.
 	if not sunken then
-		Build.mesh({
-			prop = "Shingle",
+		-- Slate rather than the shingle model, which at this size was a coarse
+		-- green chequerboard rather than a roof.
+		Build.part({
 			name = "Ceiling",
 			size = Vector3.new(width + 2, 1.5, depth + 2),
 			cframe = CFrame.new(centre + Vector3.new(0, wallHeight, 0)),
 			color = Palette.color(Palette.house.roof),
+			material = Enum.Material.Slate,
 			parent = folder,
 		})
 	end
@@ -419,12 +429,12 @@ function Structures.pool(context: Context, zone: Types.ZoneDef)
 	local rim = 1.5
 	local floorY = -depthBelow - 0.5
 
-	Build.mesh({
-		prop = "ConcreteFloor",
+	Build.part({
 		name = "PoolFloor",
 		size = Vector3.new(width + rim * 2, 1, depth + rim * 2),
 		cframe = CFrame.new(centre + Vector3.new(0, floorY, 0)),
 		color = Palette.color(Palette.ground.path),
+		material = Enum.Material.Concrete,
 		parent = folder,
 	})
 
