@@ -507,11 +507,58 @@ end
 -- Lifecycle
 --------------------------------------------------------------------
 
+--[[
+	Waves may fall when the hands that justified them leave.
+
+	Wave counts are fixed at the start so a late joiner cannot move the
+	goalposts on everyone already partway through a section. That rule is right
+	going up and ruinous going down: a server that starts with thirty players
+	and drains to five leaves those five owing thirty waves of every section
+	against a clock that never moved, which is not hard, it is arithmetic they
+	cannot beat. On a public game with fifty-player servers, that is a Tuesday.
+
+	So the count is allowed to come down to what the remaining players justify,
+	and never up. A section still in progress keeps at least the wave being
+	worked on, so nothing completes by people leaving.
+]]
+local function relaxWaves()
+	if phase ~= "running" then
+		return
+	end
+	local world = WorldService.world
+	if not world then
+		return
+	end
+
+	local playerCount = math.max(#Players:GetPlayers(), 1)
+	local changed = false
+	for _, section in world.sections do
+		local needed = wavesNeeded[section.id] or 1
+		local cleared = wavesCleared[section.id] or 0
+		if cleared < needed then
+			local target = math.max(Worlds.wavesFor(section, playerCount), cleared + 1)
+			if target < needed then
+				wavesNeeded[section.id] = target
+				changed = true
+			end
+		end
+	end
+
+	if changed then
+		broadcast()
+	end
+end
+
 function RunService.start()
 	roundState = Remotes.event(Remotes.ROUND_STATE)
 
 	Players.PlayerAdded:Connect(function()
 		task.defer(broadcast)
+	end)
+
+	-- Someone leaving takes their share of the work with them.
+	Players.PlayerRemoving:Connect(function()
+		task.defer(relaxWaves)
 	end)
 
 	-- Contribution drives the end-of-run split; it is counted from the cut
