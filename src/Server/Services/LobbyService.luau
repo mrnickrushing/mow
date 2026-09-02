@@ -21,6 +21,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.Config.GameConfig)
 local Palette = require(Shared.Config.Palette)
 local Worlds = require(Shared.Config.Worlds)
 local Build = require(script.Parent.Parent.Lib.Build)
@@ -267,9 +268,20 @@ local function build()
 			parent = root,
 		})
 	end
+	--[[
+		The board's top line, and what it says when there is no news.
+
+		It only ever carried the result of the run you just came back from,
+		which meant that on the one view every player is guaranteed to see —
+		the first time they arrive, before they have played anything — the
+		largest object in the game was a hundred and twenty studs of blank
+		board with one line of instruction pushed into its bottom half. It
+		reads as the game's masthead until there is an outcome to report.
+	]]
 	outcomeLabel = surface(statusPost, Enum.NormalId.Front, 0.32)
 	local outcome = outcomeLabel :: TextLabel
 	outcome.Position = UDim2.fromScale(0.04, 0.08)
+	outcome.Text = GameConfig.GAME_NAME
 	statusLabel = surface(statusPost, Enum.NormalId.Front, 0.38)
 	local status = statusLabel :: TextLabel
 	status.Position = UDim2.fromScale(0.04, 0.52)
@@ -544,7 +556,7 @@ function LobbyService.start()
 							then `You cleared {lastWorldName}!`
 							elseif lastOutcome == "lost" and lastWorldName
 								then `The clock beat you on {lastWorldName}.`
-							else ""
+							else GameConfig.GAME_NAME
 					end
 					chosenWorld = nil
 					countdownLeft = nil
