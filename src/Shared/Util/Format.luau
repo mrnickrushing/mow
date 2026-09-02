@@ -57,6 +57,29 @@ function Format.count(value: number): string
 	return text .. SUFFIXES[tier + 1]
 end
 
+--[[
+	A stat value on an upgrade card.
+
+	`Format.count` floors anything under a thousand, which is right for leaves
+	and wrong for every stat that climbs in fractions. It turned the Fortune
+	line — on the journal page and on the board standing in the world — into
+	"1 --> 1x cash", an upgrade that read as doing nothing at all for thirty
+	dollars. Whole numbers still print whole; fractional ones keep the decimals
+	that make the purchase legible.
+]]
+function Format.stat(value: number): string
+	local n = math.abs(value)
+	if n >= 1000 or value % 1 == 0 then
+		return Format.count(value)
+	end
+
+	local text = string.format("%.2f", value)
+	-- 17.80 reads as 17.8, but 1.15 keeps both places.
+	text = string.gsub(text, "0$", "")
+	text = string.gsub(text, "%.$", "")
+	return text
+end
+
 --- Seconds as M:SS, or H:MM:SS past an hour.
 function Format.clock(seconds: number): string
 	local total = math.max(math.floor(seconds), 0)
