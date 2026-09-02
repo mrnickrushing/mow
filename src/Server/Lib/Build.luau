@@ -102,9 +102,16 @@ local function warnIfStretched(options: MeshOptions, scale: Vector3)
 	if options.untextured then
 		return
 	end
-	local worst = math.max(scale.X, scale.Y, scale.Z)
-	local least = math.min(scale.X, scale.Y, scale.Z)
-	if worst <= MAX_STRETCH or worst / math.max(least, 0.001) < 2 then
+	-- The two largest axes are the face a texture lives on; the smallest is
+	-- depth. Squashing depth flattens a relief without smearing anything —
+	-- the station emblem is its face scaled evenly and its depth held at a
+	-- badge's half stud, and that is a badge, not a barcode.
+	local axes = { scale.X, scale.Y, scale.Z }
+	table.sort(axes, function(a, b)
+		return a > b
+	end)
+	local worst, second = axes[1], axes[2]
+	if worst <= MAX_STRETCH or worst / math.max(second, 0.001) < 2 then
 		return
 	end
 	warn(string.format(

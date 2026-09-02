@@ -12,6 +12,7 @@
 ]]
 
 local Debris = require(script.Parent.Debris)
+local GameConfig = require(script.Parent.GameConfig)
 local Palette = require(script.Parent.Palette)
 local Types = require(script.Parent.Parent.Types)
 
@@ -25,7 +26,22 @@ local function mix(debris: number, weight: number, heightMin: number, heightMax:
 	return { debris = debris, weight = weight, heightMin = heightMin, heightMax = heightMax }
 end
 
-local ROOF_ELEVATION = 24
+--[[
+	The height the Rooftop's floor sits at.
+
+	This was 24, matching ROOF_HEIGHT, on the assumption that the top of the
+	house is at the height the house is called. It is not: a walkable roof is
+	a capped slab built at four plus the wall height plus three, and it is
+	2.4 thick, so its top face is at 28.2 — four studs above where the
+	Rooftop was putting its floor. The whole section was built inside the
+	house's own roof, which is why seven hundred and fifty-seven tiles of
+	leaves sat on a roof you could stand on and see nothing on.
+
+	Twenty-nine puts the deck's top face just proud of the cap, so the debris
+	rests on the surface the player is actually standing on.
+]]
+--- Just proud of the cap, so the debris rests on what the player stands on.
+local ROOF_ELEVATION = GameConfig.HOUSE_ROOF_TOP + 0.8
 local BASEMENT_ELEVATION = -18
 
 --------------------------------------------------------------------
@@ -472,6 +488,79 @@ function Worlds.requiredSections(world: Types.WorldDef): { Types.ZoneDef }
 		end
 	end
 	return out
+end
+
+--- A slab of flagstones, in world studs, with the stone size it is laid at.
+export type Paving = { x: number, z: number, w: number, d: number, stone: number }
+
+--[[
+	The flagstone slabs a "house"-style lot lays: a path from the kerb to
+	the porch, and a driveway from the kerb to the garage doors.
+
+	This is the one place that geometry lives. The builder that lays the
+	stones, the scatter that plants trees and the scatter that drops crates
+	all read the same rectangles — because when each of them measured for
+	itself, the driveway was measured on The House and The Mansion grew two
+	trees through its paving.
+
+	The 0.18 and 0.28 offsets are the ones buildHouse hangs the porch and
+	the garage bays at; the kerb line is where the front sections begin.
+]]
+function Worlds.pavingRects(world: Types.WorldDef): { Paving }
+	local hr = world.houseRect
+	if world.style ~= "house" or not hr then
+		return {}
+	end
+	local tile = GameConfig.TILE_SIZE
+	local centreX = (hr.x + hr.w * 0.5) * tile + tile * 0.5
+	local frontZ = hr.z * tile + tile * 0.5
+	local doorX = centreX - hr.w * tile * 0.18
+	local garageX = centreX + hr.w * tile * 0.28
+	local kerbZ = 34
+	return {
+		{ x = doorX - 10, z = kerbZ, w = 20, d = frontZ - 8 - kerbZ, stone = 5 },
+		{ x = garageX - 17, z = kerbZ, w = 34, d = frontZ - 1 - kerbZ, stone = 6 },
+	}
+end
+
+--[[
+	The ground the shed stands on, in studs.
+
+	The shed is a solid floor with three walls, so whatever is under it is
+	under a building: debris seeded there is invisible and still counts, which
+	leaves a section stuck a few percent short with nothing on it to cut. The
+	builder and the seeder both read this rectangle so neither can drift from
+	the other.
+]]
+function Worlds.shedRect(world: Types.WorldDef): Paving
+	local tile = GameConfig.TILE_SIZE
+	local centreX = world.shed.x * tile + tile * 0.5
+	local centreZ = world.shed.z * tile + tile * 0.5
+	-- The shed is thirty by twenty-six; the extra two studs cover the
+	-- collision walls that stand just outside it.
+	local w, d = 32, 28
+	return { x = centreX - w * 0.5, z = centreZ - d * 0.5, w = w, d = d, stone = 0 }
+end
+
+--- Whether a world position (in studs) is under the shed.
+function Worlds.underShed(world: Types.WorldDef, wx: number, wz: number): boolean
+	local r = Worlds.shedRect(world)
+	return wx >= r.x and wx <= r.x + r.w and wz >= r.z and wz <= r.z + r.d
+end
+
+--- Whether a world position (in studs) lands on any paving slab.
+function Worlds.onPaving(world: Types.WorldDef, wx: number, wz: number, margin: number): boolean
+	for _, slab in Worlds.pavingRects(world) do
+		if
+			wx >= slab.x - margin
+			and wx <= slab.x + slab.w + margin
+			and wz >= slab.z - margin
+			and wz <= slab.z + slab.d + margin
+		then
+			return true
+		end
+	end
+	return false
 end
 
 --- Worlds the player may pick, given the ones they have already beaten.

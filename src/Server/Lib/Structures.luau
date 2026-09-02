@@ -12,12 +12,15 @@
 
 local Palette = require(game:GetService("ReplicatedStorage").Shared.Config.Palette)
 local Types = require(game:GetService("ReplicatedStorage").Shared.Types)
+local Worlds = require(game:GetService("ReplicatedStorage").Shared.Config.Worlds)
 local Build = require(script.Parent.Build)
 
 local Structures = {}
 
 export type Context = {
 	parent: Instance,
+	--- The world being built, for placement rules that read its layout.
+	world: Types.WorldDef,
 	--- Tile-space to world position on the flat ground plane.
 	flat: (number, number) -> Vector3,
 	tileSize: number,
@@ -166,13 +169,16 @@ function Structures.clutter(context: Context, zone: Types.ZoneDef, count: number
 		for _ = 1, 20 do
 			tx = context.rng:NextInteger(r.x, r.x + r.w - 1)
 			tz = context.rng:NextInteger(r.z, r.z + r.d - 1)
-			if
-				not water
-				or tx < water.x
-				or tx >= water.x + water.w
-				or tz < water.z
-				or tz >= water.z + water.d
-			then
+			local onWater = water ~= nil
+				and tx >= water.x
+				and tx < water.x + water.w
+				and tz >= water.z
+				and tz < water.z + water.d
+			-- Off the paving for the same reason it stays off the water: a
+			-- planter in the middle of the driveway sits like a crate on a
+			-- pool.
+			local flat = context.flat(tx, tz)
+			if not onWater and not Worlds.onPaving(context.world, flat.X, flat.Z, 1) then
 				break
 			end
 		end
@@ -346,14 +352,104 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 	if not sunken then
 		-- Slate rather than the shingle model, which at this size was a coarse
 		-- green chequerboard rather than a roof.
+		--[[
+			A roof with eaves, and a fascia under them.
+
+			The ceiling used to stop one stud past the walls, which on the
+			Gas Station's wash bay meant a hundred-and-eighty stud run of
+			bare concrete with a lid on it — the largest blank surface in
+			the game once the shop got its back door. The house gets its
+			roofline from overhanging eaves and a room gets one the same
+			way: the shadow the overhang casts is what stops a long wall
+			reading as a sheet.
+		]]
+		local OVERHANG, FASCIA = 2.5, 2.6
 		Build.part({
 			name = "Ceiling",
-			size = Vector3.new(width + 2, 1.5, depth + 2),
+			size = Vector3.new(width + OVERHANG * 2, 1.5, depth + OVERHANG * 2),
 			cframe = CFrame.new(centre + Vector3.new(0, wallHeight, 0)),
 			color = Palette.color(Palette.house.roof),
 			material = Enum.Material.Slate,
 			parent = folder,
 		})
+		local fasciaY = wallHeight - 0.75 - FASCIA * 0.5
+		for _, sz in { -1, 1 } do
+			Build.part({
+				name = "Eaves",
+				size = Vector3.new(width + OVERHANG * 2, FASCIA, 1.4),
+				cframe = CFrame.new(
+					centre + Vector3.new(0, fasciaY, sz * (depth * 0.5 + OVERHANG - 0.7))
+				),
+				-- The roof's own colour: a fascia belongs to the roof, and the
+				-- trim teal that suits a house is a stranger on a filling
+				-- station's wash bay.
+				color = Palette.color(Palette.house.roof),
+				material = Enum.Material.SmoothPlastic,
+				canCollide = false,
+				parent = folder,
+			})
+		end
+		for _, sx in { -1, 1 } do
+			Build.part({
+				name = "Eaves",
+				size = Vector3.new(1.4, FASCIA, depth + OVERHANG * 2),
+				cframe = CFrame.new(
+					centre + Vector3.new(sx * (width * 0.5 + OVERHANG - 0.7), fasciaY, 0)
+				),
+				-- The roof's own colour: a fascia belongs to the roof, and the
+				-- trim teal that suits a house is a stranger on a filling
+				-- station's wash bay.
+				color = Palette.color(Palette.house.roof),
+				material = Enum.Material.SmoothPlastic,
+				canCollide = false,
+				parent = folder,
+			})
+		end
+
+		--[[
+			Lamps, because a roofed room is a box the sun cannot reach.
+
+			Every roofed section played in the dark: the walls and ceiling
+			seal out the daylight, nothing inside emitted any, and the
+			player was left mowing a floor they could not see. One warm
+			fixture per rough fourteen-tile bay reads as worklights strung
+			from the ceiling and keeps the part count honest.
+
+			The spacing is set by what a light costs, not by what looks
+			even: at one per eight tiles the Mansion's orangery hung
+			twenty-four of them and gave back a sixth of the frame rate,
+			which is not a trade worth making on the tablet this is played
+			on. Fewer fixtures with the range to reach between them light
+			the same floor for a third of the lights.
+		]]
+		local lampsX = math.max(math.floor(width / 42), 1)
+		local lampsZ = math.max(math.floor(depth / 42), 1)
+		for ix = 1, lampsX do
+			for iz = 1, lampsZ do
+				local at = centre
+					+ Vector3.new(
+						width * (ix / (lampsX + 1) - 0.5),
+						wallHeight - 1.2,
+						depth * (iz / (lampsZ + 1) - 0.5)
+					)
+				local lamp = Build.part({
+					name = "Lamp",
+					size = Vector3.new(2.4, 0.4, 2.4),
+					cframe = CFrame.new(at),
+					color = Color3.fromRGB(255, 236, 200),
+					material = Enum.Material.Neon,
+					canCollide = false,
+					castShadow = false,
+					parent = folder,
+				})
+				local light = Instance.new("PointLight")
+				light.Color = Color3.fromRGB(255, 226, 180)
+				light.Brightness = 1.1
+				light.Range = 58
+				light.Shadows = false
+				light.Parent = lamp
+			end
+		end
 	end
 
 	return folder
@@ -389,6 +485,29 @@ function Structures.stairs(context: Context, from: Vector3, to: Vector3, width: 
 	local stepRise = delta.Y / steps
 	local thickness = math.max(math.abs(stepRise), 0.6) + 0.6
 
+	-- A solid stringer under the whole flight. Bare treads float in the air
+	-- with daylight between them, which reads as scaffolding from any low
+	-- angle; a wedge filling the space underneath turns the flight into one
+	-- carved block the treads are cut from. The taper (-Z) points downhill.
+	local rise = math.abs(delta.Y)
+	if rise > 1 then
+		local lowY = math.min(from.Y, to.Y)
+		local centre = (from + to) * 0.5
+		local downhill = if delta.Y > 0 then -direction else direction
+		local wedge = Instance.new("WedgePart")
+		wedge.Name = "StairStringer"
+		wedge.Anchored = true
+		wedge.Size = Vector3.new(width, rise, run)
+		wedge.CFrame = CFrame.lookAt(
+			Vector3.new(centre.X, lowY + rise * 0.5, centre.Z),
+			Vector3.new(centre.X, lowY + rise * 0.5, centre.Z) + downhill
+		)
+		wedge.Material = Enum.Material.Concrete
+		local tint = Palette.color(Palette.ground.path)
+		wedge.Color = Color3.new(tint.R * 0.88, tint.G * 0.88, tint.B * 0.88)
+		wedge.Parent = parent
+	end
+
 	for index = 1, steps do
 		local tread = from
 			+ direction * (stepRun * (index - 0.5))
@@ -397,6 +516,10 @@ function Structures.stairs(context: Context, from: Vector3, to: Vector3, width: 
 		Build.mesh({
 			prop = "StepBlock",
 			name = "Step",
+			-- Painted stone for the same reason the porch steps are: the
+			-- model's own texture is a pale blue that reads as bare plastic.
+			untextured = true,
+			color = Palette.color(Palette.ground.path),
 			size = Vector3.new(width, thickness, stepRun + 0.4),
 			cframe = CFrame.lookAt(at, at + direction),
 			parent = parent,

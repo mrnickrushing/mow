@@ -32,11 +32,11 @@ local KICK_MESSAGE = "We could not load your save. Please rejoin in a moment —
 local function onPlayerAdded(player: Player)
 	loading[player] = true
 
-	local raw = Store.load(store, player.UserId)
+	-- A brand new player legitimately has no saved data, so the absence of data
+	-- says nothing; only the load's own verdict does.
+	local raw, loaded = Store.load(store, player.UserId)
 
-	-- A brand new player legitimately has no saved data; only a hard datastore
-	-- failure returns nil after a successful lock, and load() already warned.
-	if raw == nil and not store.memoryOnly and store.store ~= nil and store.active[player.UserId] == nil then
+	if not loaded then
 		--[[
 			In Studio, a datastore failure is a scratch session, not a kick.
 

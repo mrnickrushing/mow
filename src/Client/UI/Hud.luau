@@ -230,6 +230,9 @@ local function buildRightColumn(gui: ScreenGui)
 	tabHint.BackgroundTransparency = 0
 	Theme.corner(tabHint, 5)
 	Theme.stroke(tabHint, 2, Theme.colors.outline, 0.2)
+	-- A key hint is a lie on a screen with no keyboard; the book is its own
+	-- button there, so the whole pill stays off rather than an empty chip.
+	tabHint.Visible = not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
 
 	-- The tool, and whether it is running. On touch this is also the button that
 	-- runs it; on a mouse the camera is locked to the centre of the screen, so

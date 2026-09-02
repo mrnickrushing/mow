@@ -21,6 +21,7 @@ local Sprites = require(Shared.Config.Sprites)
 local Types = require(Shared.Types)
 local BagService = require(script.Parent.BagService)
 local Build = require(script.Parent.Parent.Lib.Build)
+local Structures = require(script.Parent.Parent.Lib.Structures)
 local EconomyService = require(script.Parent.EconomyService)
 local ReplicationService = require(script.Parent.ReplicationService)
 local WorldService = require(script.Parent.WorldService)
@@ -256,6 +257,36 @@ end
 -- Lifecycle
 --------------------------------------------------------------------
 
+--[[
+	A tile in the section that a hazard can stand on.
+
+	The pick used to be any tile in the rect, and the middle of a pool
+	section's rect is water: The House put both of its sprinklers in the deep
+	end, where they stood on the surface watering the swimming pool. The same
+	rectangle the ground builder cuts the basin with is the one the pick now
+	avoids, which is how the clutter scatter already works.
+]]
+local function dryTile(section: Types.ZoneDef): (number, number)
+	local r = section.rect
+	local water = if (section.kind or "open") == "pool" then Structures.poolRect(section) else nil
+	local tx = rng:NextInteger(r.x + 2, r.x + r.w - 3)
+	local tz = rng:NextInteger(r.z + 2, r.z + r.d - 3)
+	for _ = 1, 20 do
+		if
+			not water
+			or tx < water.x
+			or tx >= water.x + water.w
+			or tz < water.z
+			or tz >= water.z + water.d
+		then
+			break
+		end
+		tx = rng:NextInteger(r.x + 2, r.x + r.w - 3)
+		tz = rng:NextInteger(r.z + 2, r.z + r.d - 3)
+	end
+	return tx, tz
+end
+
 function HazardService.generate(world: Types.WorldDef)
 	running = false
 	if container then
@@ -273,19 +304,14 @@ function HazardService.generate(world: Types.WorldDef)
 	for _, section in world.sections do
 		local hazards = section.hazards
 		if hazards then
-			local r = section.rect
 			for _, kind in hazards do
-				local tx = rng:NextInteger(r.x + 2, r.x + r.w - 3)
-				local tz = rng:NextInteger(r.z + 2, r.z + r.d - 3)
+				local tx, tz = dryTile(section)
 
 				if kind == "sprinkler" then
 					-- Two per section, so there is somewhere dry to retreat to.
 					makeSprinkler(tx, tz, parent)
-					makeSprinkler(
-						rng:NextInteger(r.x + 2, r.x + r.w - 3),
-						rng:NextInteger(r.z + 2, r.z + r.d - 3),
-						parent
-					)
+					local bx, bz = dryTile(section)
+					makeSprinkler(bx, bz, parent)
 				elseif kind == "wasps" then
 					makeWaspNest(tx, tz, parent)
 				elseif kind == "dog" then
