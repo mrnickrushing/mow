@@ -268,7 +268,7 @@ end
 -- Flow
 --------------------------------------------------------------------
 
-local function beginRun(id: string)
+local function beginRun(id: string, partySize: number?)
 	worldId = id
 	local world = Worlds.expect(id)
 
@@ -282,9 +282,15 @@ local function beginRun(id: string)
 	exitOpen = false
 	sectionsFinished = 0
 
-	-- Wave counts are fixed at the start. Letting a late joiner raise them would
-	-- move the goalposts on everyone already partway through a section.
-	local playerCount = math.max(#Players:GetPlayers(), 1)
+	--[[
+		Wave counts are fixed at the start. Letting a late joiner raise them
+		would move the goalposts on everyone already partway through a section.
+
+		A team assembled on the lobby pads says its own size, because that is
+		the whole point of standing on three pads rather than four: the work
+		should be the work for three.
+	]]
+	local playerCount = math.max(partySize or #Players:GetPlayers(), 1)
 	for _, section in world.sections do
 		wavesNeeded[section.id] = Worlds.wavesFor(section, playerCount)
 		wavesCleared[section.id] = 0
@@ -487,6 +493,20 @@ local function onWorldSelected(player: Player, worldId: any)
 end
 
 --- A player reaching the open grate finishes the run for everyone.
+--[[
+	Started by the lobby pads rather than by the menu.
+
+	The pads have already checked that whoever chose the property has unlocked
+	it, and they know how many are standing on the team pads, which the menu
+	never could.
+]]
+function RunService.startFromLobby(worldId: string, partySize: number)
+	if phase ~= "lobby" or not Worlds.get(worldId) then
+		return
+	end
+	beginRun(worldId, partySize)
+end
+
 function RunService.reachExit(player: Player)
 	if phase ~= "running" or not exitOpen then
 		return

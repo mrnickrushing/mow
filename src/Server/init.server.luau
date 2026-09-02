@@ -39,6 +39,7 @@ local AutoCollectService = require(Services.AutoCollectService)
 local RewardService = require(Services.RewardService)
 local StripeService = require(Services.StripeService)
 local SweepService = require(Services.SweepService)
+local LobbyService = require(Services.LobbyService)
 
 -- Order matters: data before anything that reads a profile, replication before
 -- anything that marks tiles, and every listener connected before RunService
@@ -76,5 +77,9 @@ AutoCollectService.start()
 CollectibleService.start()
 HazardService.start()
 RunService.start()
+
+-- Last, because it watches the run's phase and puts people in the yard between
+-- runs; it needs the run to exist before it can have an opinion about it.
+LobbyService.start()
 
 print(`[Mow] server ready on {Worlds.expect(Worlds.STARTER_ID).name}`)
