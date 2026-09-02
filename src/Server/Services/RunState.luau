@@ -106,6 +106,33 @@ function RunState.all(): { [Player]: State }
 	return states
 end
 
+--[[
+	Hands back tools bought outright, once the profile saying so has arrived.
+
+	A run state is built the moment a player joins, and a profile takes a
+	round trip to a datastore to appear — so a player quick enough to join and
+	stand on a pad before their save lands was handed a loadout built from no
+	profile at all, which is a loadout with none of the tools they paid Robux
+	for. They would have bought a permanent unlock and spent the run with bare
+	hands.
+
+	Nothing else in the state is touched: cash, upgrades and progress within
+	the run stay exactly as they were. This only adds back what was already
+	owned.
+]]
+local function grantPermanentTools(player: Player)
+	local state = states[player]
+	local profile = DataService.get(player)
+	if not state or not profile then
+		return
+	end
+	for toolId, bought in profile.permanentTools do
+		if bought and Tools.get(toolId) then
+			state.ownedTools[toolId] = true
+		end
+	end
+end
+
 function RunState.start()
 	Players.PlayerRemoving:Connect(function(player)
 		states[player] = nil
@@ -115,6 +142,9 @@ function RunState.start()
 	Players.PlayerAdded:Connect(function(player)
 		states[player] = RunState.fresh(player)
 	end)
+
+	-- The profile lands after the state is built, so it is applied when it does.
+	DataService.ProfileLoaded:Connect(grantPermanentTools)
 end
 
 return RunState

@@ -30,6 +30,7 @@ local TeleportService = game:GetService("TeleportService")
 
 local MowRunService = require(script.Parent.RunService)
 local MowEconomyService = require(script.Parent.EconomyService)
+local Worlds = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared").Config.Worlds)
 
 local MatchmakingService = {}
 
@@ -169,10 +170,30 @@ function MatchmakingService.startRunServer()
 		MowRunService.startFromLobby(worldId, tonumber((data :: any).partySize) or 1)
 	end
 
+	--[[
+		A run server plays exactly what it was sent to play.
+
+		The idle backstop that starts a world on a quiet server belongs to the
+		lobby's public server, not here: on a reserved one it is the thing that
+		would start a second run around a team that never managed to leave.
+		The one case it was covering — a reservation that arrives with no
+		usable teleport data — is handled below, deliberately and once.
+	]]
+	MowRunService.setAutoStart(false)
+
 	for _, player in Players:GetPlayers() do
 		beginFrom(player)
 	end
 	Players.PlayerAdded:Connect(beginFrom)
+
+	-- A reservation that arrived with nothing to play falls back to the
+	-- starter world rather than sitting empty.
+	task.delay(45, function()
+		if not started and #Players:GetPlayers() > 0 then
+			started = true
+			MowRunService.startFromLobby(Worlds.STARTER_ID, #Players:GetPlayers())
+		end
+	end)
 
 	--[[
 		A run server has one job, so when the run is over it hands everyone
@@ -188,11 +209,44 @@ function MatchmakingService.startRunServer()
 				wasRunning = true
 			elseif wasRunning and phase == "lobby" then
 				wasRunning = false
-				local players = Players:GetPlayers()
-				if #players > 0 and canTeleport() then
-					pcall(function()
+				--[[
+					Keep trying to hand them back, and never start a new run.
+
+					A reserved server has no lobby in it, so a team whose
+					return teleport failed would sit in an empty world until
+					the idle backstop began another run — on a server nobody
+					else can join, forever. The send is retried a few times,
+					and if it will not go they are told, because a stuck
+					player who knows they are stuck can rejoin.
+				]]
+				local sent = false
+				for attempt = 1, 4 do
+					local players = Players:GetPlayers()
+					if #players == 0 then
+						sent = true
+						break
+					end
+					if not canTeleport() then
+						break
+					end
+					sent = pcall(function()
 						TeleportService:TeleportAsync(game.PlaceId, players)
 					end)
+					if sent then
+						break
+					end
+					warn(`[Matchmaking] return teleport failed (attempt {attempt})`)
+					task.wait(5)
+				end
+				if not sent then
+					for _, player in Players:GetPlayers() do
+						MowEconomyService.notify(
+							player,
+							"denied",
+							"Could not get you back to the lobby — please rejoin",
+							nil
+						)
+					end
 				end
 			end
 		end

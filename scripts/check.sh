@@ -16,6 +16,7 @@ LSP_VERSION="1.49.1"
 LUAU="${LUAU_BIN:-luau}"
 ANALYZE="${LUAU_LSP_BIN:-luau-lsp}"
 ROJO="${ROJO_BIN:-rojo}"
+SELENE="${SELENE_BIN:-selene}"
 DEFS=".tools/globalTypes.d.luau"
 SETTINGS=".tools/settings.json"
 DEFS_URL="https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/${LSP_VERSION}/scripts/globalTypes.d.luau"
@@ -49,6 +50,18 @@ if "$ANALYZE" analyze \
 	echo "  types ok"
 else
 	echo "  TYPE ERRORS"
+	fail=1
+fi
+
+echo "== lint =="
+if ! command -v "$SELENE" >/dev/null 2>&1; then
+	# Not every environment installs it; a missing linter is a gap, not a
+	# failure, and saying so is better than passing in silence.
+	echo "  selene not installed, skipped"
+elif "$SELENE" --allow-warnings src; then
+	echo "  lint ok"
+else
+	echo "  LINT ERRORS"
 	fail=1
 fi
 

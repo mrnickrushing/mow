@@ -430,7 +430,17 @@ local function step(delta: number)
 					break
 				end
 			end
-			if occupant then
+			if occupant and DataService.get(occupant) == nil then
+				--[[
+					Stood on the pad, but their save has not landed yet.
+
+					A run built before the profile arrives is a run without the
+					tools they paid Robux for, so the pad waits rather than
+					sending them into one.
+				]]
+				label.Text = "…"
+				part.Color = Palette.color(Palette.ground.stoneDark)
+			elseif occupant then
 				party += 1
 				table.insert(team, occupant)
 				label.Text = occupant.DisplayName
