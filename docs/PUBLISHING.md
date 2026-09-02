@@ -1,63 +1,52 @@
 # Getting the game onto Roblox (and your iPad)
 
-The `latest` release on GitHub is a **Studio file** — it never touches
-Roblox's servers, which is why nothing shows up in the Roblox app. To play on
-an iPad or phone, the place has to be **published to a Roblox experience**.
-CI does that automatically on every merge — after a one-time setup that only
-a person can do, because Roblox requires the experience itself to be created
-in Studio.
+The experience already exists on Roblox: **Mow Money, Mow Problems!**
+(universe `10764684362`, start place `71269136447904`). Two ways a build
+reaches it:
 
-## One-time setup (needs a Mac or Windows PC with Roblox Studio)
+- **`scripts/publish.sh`** — builds and publishes from your own computer.
+  Needs `.deploy_key` in the repo root (gitignored): an Open Cloud API key
+  with the **universe-places: write** scope for this experience.
+- **CI, automatically on every merge** — the `Publish to Roblox` step in
+  `.github/workflows/ci.yml` uploads the freshly built place through the
+  same Open Cloud endpoint, live immediately. It needs one secret.
 
-1. **Publish once from Studio.**
-   Download `MowAllTheLawns.rbxlx` from
-   <https://github.com/mrnickrushing/mow/releases/tag/latest>, open it in
-   Roblox Studio, then **File → Publish to Roblox As…** Give it the name
-   *Mow all the lawns!* and publish. This creates the experience.
+## One-time: give CI the key
 
-2. **Copy the two ids.**
-   Go to <https://create.roblox.com/dashboard/creations>, open the new
-   experience, and note:
-   - **Universe ID** — shown on the experience's overview page.
-   - **Place ID** — the number in the start place's URL
-     (`roblox.com/games/<PLACE_ID>/...`), also listed under *Places*.
+1. At <https://create.roblox.com/dashboard/credentials> create (or reuse)
+   an API key with access permission **universe-places → write**, restricted
+   to this experience. Set accepted IPs to `0.0.0.0/0` — GitHub's runners
+   have no fixed address. If you already made a key for `scripts/publish.sh`
+   (`.deploy_key`), the same key works.
+2. Repo → **Settings → Secrets and variables → Actions → New repository
+   secret** → name `ROBLOX_API_KEY`, value = the key.
 
-3. **Make an Open Cloud API key.**
-   At <https://create.roblox.com/dashboard/credentials> create an API key:
-   - Access permissions: add **universe-places**, scope **write**, and
-     restrict it to this one experience.
-   - Accepted IP addresses: `0.0.0.0/0` (GitHub's runners have no fixed IP).
-   - Copy the key — it is shown once.
+That's it — the universe and place ids are public identifiers and are
+already baked in as defaults (`ROBLOX_UNIVERSE_ID` / `ROBLOX_PLACE_ID`
+secrets override them if the experience ever changes). Until the secret
+exists, the step prints a note and skips.
 
-4. **Paste all three into GitHub.**
-   Repo → **Settings → Secrets and variables → Actions → New repository
-   secret**, three times:
+## Finding it on the iPad
 
-   | Secret name          | Value                    |
-   | -------------------- | ------------------------ |
-   | `ROBLOX_API_KEY`     | the Open Cloud key       |
-   | `ROBLOX_UNIVERSE_ID` | the universe id          |
-   | `ROBLOX_PLACE_ID`    | the start place id       |
+The GitHub release is a Studio file and never appears in the Roblox app —
+only published builds do. In the **Roblox app**:
 
-From the next merge on, CI uploads the freshly built place to that
-experience and publishes it live. Until the secrets exist, the step prints a
-note and skips — nothing breaks.
+1. Tap your **avatar / profile** (bottom bar).
+2. Scroll to **Creations** (your experiences) — *Mow Money, Mow Problems!*
+   is there. Direct link: <https://www.roblox.com/games/71269136447904>.
+3. Tap **Play**. A private experience is playable by you as its owner;
+   flip it to Public on the Creator Dashboard when you want others in.
 
-## Playing it on the iPad
-
-Open the **Roblox app** → tap your avatar (profile) → under your profile's
-**Experiences / Creations** you'll find *Mow all the lawns!* → tap it →
-**Play**. A private experience is playable by you, its owner; when you want
-others in, set it to Public on the Creator Dashboard. Make sure the
-experience's supported devices include tablet/phone (they are on by
-default).
+If it does not appear under Creations, check
+<https://create.roblox.com/dashboard/creations> on any browser — the
+experience page also has a Play button that hands off to the app.
 
 ## Notes
 
-- CI publishes the **binary** `.rbxl` (smaller, same content); the `.rbxlx`
-  on the release stays for anyone who wants to read the place as XML.
-- The publish endpoint is Open Cloud's
+- Both paths publish the **binary** `.rbxl`; the `.rbxlx` on the GitHub
+  release stays for anyone who wants the place as readable XML.
+- The endpoint is Open Cloud's
   `POST /universes/v1/{universeId}/places/{placeId}/versions?versionType=Published`.
-  `versionType=Published` makes the build live immediately; change it to
-  `Saved` if you ever want merges to stage without going live.
-- Rotating the API key only means updating the `ROBLOX_API_KEY` secret.
+  `Published` goes live immediately; `Saved` would stage without going live.
+- Rotating the key = updating the `ROBLOX_API_KEY` secret (and
+  `.deploy_key` locally).
