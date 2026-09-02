@@ -28,7 +28,18 @@ local list: { Types.ToolDef } = {
 		currency = "Cash",
 		deck = 1,
 		power = 1,
-		rate = 1.2,
+		--[[
+			Deliberately miserable.
+
+			Hands clear every kind of debris at full height, which is what
+			stops a broke player being stranded — but it also made them a
+			universal tool good enough to finish The House with, so the
+			simulated player bought nothing all run and the mowers went
+			unsold. They still work on anything; they are simply the slowest
+			and shortest-reaching way to do it, so the first ten dollars
+			always want to become a mower.
+		]]
+		rate = 0.7,
 		reach = 5,
 		-- Everything starts here, so hands have to be able to shift anything a
 		-- tile can hold. Otherwise a section full of something you cannot afford
@@ -40,29 +51,9 @@ local list: { Types.ToolDef } = {
 		description = "One armful at a time. It is going to be a long afternoon.",
 	},
 	{
-		id = "rake",
-		name = "Rake",
-		tier = 1,
-		category = "Rake",
-		mode = "pickup",
-		cost = 8,
-		currency = "Cash",
-		deck = 1,
-		power = 2,
-		rate = 1.5,
-		reach = 6,
-		clears = { Debris.Leaves },
-		maxHeight = 3,
-		fuelBurn = 0,
-		robuxOnce = 25,
-		robuxPermanent = 60,
-		robuxWas = 149,
-		description = "For the leaves you would be all day picking up by hand.",
-	},
-	{
 		id = "reel_mower",
 		name = "Push Reel Mower",
-		tier = 2,
+		tier = 1,
 		category = "Mower",
 		-- Tuft by tuft, like the hands it replaces — just faster and deeper.
 		-- Swath mowing is what the ride-on mowers sell: the moment you sit on a
@@ -70,7 +61,16 @@ local list: { Types.ToolDef } = {
 		-- biggest before/after in the game, and it only lands if everything
 		-- before it worked one patch at a time.
 		mode = "pickup",
-		cost = 25,
+		--[[
+			The first rung, because the first rung should mow.
+
+			The rake used to sit here at eight against this mower's twenty-five,
+			so the opening purchase of a lawn-mowing game was a rake and the
+			opening minutes were spent raking. They have swapped places and
+			prices; the rake is still the right tool for a drift of leaves, just
+			no longer the first thing anybody buys.
+		]]
+		cost = 10,
 		currency = "Cash",
 		deck = 1,
 		power = 1,
@@ -79,10 +79,30 @@ local list: { Types.ToolDef } = {
 		clears = { Debris.Grass },
 		maxHeight = 2,
 		fuelBurn = 0,
+		robuxOnce = 25,
+		robuxPermanent = 60,
+		robuxWas = 149,
+		description = "No engine, no fuel, no mercy on your calves.",
+	},
+	{
+		id = "rake",
+		name = "Rake",
+		tier = 2,
+		category = "Rake",
+		mode = "pickup",
+		cost = 30,
+		currency = "Cash",
+		deck = 1,
+		power = 2,
+		rate = 1.5,
+		reach = 6,
+		clears = { Debris.Leaves },
+		maxHeight = 3,
+		fuelBurn = 0,
 		robuxOnce = 35,
 		robuxPermanent = 80,
 		robuxWas = 199,
-		description = "No engine, no fuel, no mercy on your calves.",
+		description = "For the leaves you would be all day picking up by hand.",
 	},
 	{
 		id = "gas_mower",

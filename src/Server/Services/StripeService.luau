@@ -17,6 +17,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
+local DebrisConfig = require(Shared.Config.Debris)
 local Format = require(Shared.Util.Format)
 local GameConfig = require(Shared.Config.GameConfig)
 local DataService = require(script.Parent.DataService)
@@ -115,7 +116,18 @@ local function onCut(player: Player, tileIndex: number)
 end
 
 function StripeService.start()
-	TileService.Cut:Connect(function(player: Player, tileIndex: number)
+	--[[
+		A stripe is a mown stripe.
+
+		The bonus counted any tile cut in a straight line, so raking a tidy
+		row of leaves striped just as well as mowing did — which made the
+		one piece of skill in the game say nothing about mowing. Stripes are
+		cut in grass; everything else is tidying up.
+	]]
+	TileService.Cut:Connect(function(player: Player, tileIndex: number, debrisId: number)
+		if debrisId ~= DebrisConfig.Grass then
+			return
+		end
 		onCut(player, tileIndex)
 	end)
 
