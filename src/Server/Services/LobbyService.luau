@@ -369,18 +369,36 @@ end
 -- The loop
 --------------------------------------------------------------------
 
-local function refreshLevelLabels(unlockedBy: { [string]: boolean })
+--[[
+	Whether the destination is settled.
+
+	Anybody stood on a plaque used to be able to change where the team was
+	going, right up to the last tick of the countdown — including somebody who
+	was not on a pad and was not going. Once the count starts, the choice
+	holds; stepping off the pads clears it and the room is open again.
+]]
+local function locked(): boolean
+	return countdownLeft ~= nil
+end
+
+--[[
+	The plaques say what a property asks of you.
+
+	A board in the world is seen by everyone at once, so it cannot show one
+	player their own progress — it names the requirement instead, and whether
+	the person standing on it has met that is settled when they stand on it.
+]]
+local function refreshLevelLabels()
 	for _, world in Worlds.list do
 		local label = levelLabels[world.id]
 		if label then
-			local unlocked = not world.requiresWorld or unlockedBy[world.requiresWorld]
 			local mark = if chosenWorld == world.id then "▶ " else ""
-			label.Text = if unlocked
-				then `{mark}{world.name}\n{world.difficulty}`
-				else `{world.name}\nBeat {Worlds.expect(world.requiresWorld :: string).name} first`
-			label.TextColor3 = if unlocked
-				then Color3.fromRGB(255, 255, 255)
-				else Color3.fromRGB(150, 150, 150)
+			label.Text = if world.requiresWorld
+				then `{mark}{world.name}\nNeeds {Worlds.expect(world.requiresWorld).name}`
+				else `{mark}{world.name}\n{world.difficulty}`
+			label.TextColor3 = if chosenWorld == world.id
+				then Color3.fromRGB(255, 244, 180)
+				else Color3.fromRGB(255, 255, 255)
 		end
 	end
 end
@@ -424,24 +442,24 @@ local function step(delta: number)
 		end
 	end
 
-	-- What anyone standing on a plaque has picked, if they may pick it.
-	local unlockedBy: { [string]: boolean } = {}
-	for player in where do
-		local profile = DataService.get(player)
-		if profile and profile.worldsBeaten then
-			for id, beaten in profile.worldsBeaten do
-				if beaten then
-					unlockedBy[id] = true
-				end
-			end
-		end
-	end
+	--[[
+		A property is unlocked by the player standing on it, and nobody else.
 
+		The unlocks used to be pooled: every profile in the lobby was rolled
+		into one set and the plaque was tested against that. So a first-time
+		player could stand on The Gas Station and take it, provided somebody
+		who had beaten The Mansion happened to be in the room — progression
+		you could walk past rather than earn. It is the stepper's own record
+		that decides now.
+	]]
 	for id, part in levelPads do
 		for player, position in where do
-			if standingOn(part, position) then
+			if standingOn(part, position) and not locked() then
 				local world = Worlds.expect(id)
-				local allowed = not world.requiresWorld or unlockedBy[world.requiresWorld]
+				local profile = DataService.get(player)
+				local beaten = if profile then profile.worldsBeaten else nil
+				local allowed = not world.requiresWorld
+					or (beaten ~= nil and beaten[world.requiresWorld] == true)
 				if allowed then
 					chosenWorld = id
 				end
@@ -449,7 +467,7 @@ local function step(delta: number)
 		end
 	end
 
-	refreshLevelLabels(unlockedBy)
+	refreshLevelLabels()
 
 	-- Ready when somebody is on a pad and a property is picked.
 	local status = statusLabel

@@ -77,9 +77,28 @@ function MatchmakingService.send(team: { Player }, worldId: string, partySize: n
 		end)
 
 		if not ok or type(code) ~= "string" then
-			warn("[Matchmaking] could not reserve a server; playing here instead")
+			--[[
+				A failed reservation leaves the team in the lobby.
+
+				This used to fall back to starting the run here, which is the
+				right answer in Studio, where there is one player and nowhere
+				else to go, and quite wrong on a live lobby: it would convert
+				the room everyone else was still choosing in into somebody
+				else's run and drag them all along. Better to say it did not
+				work and let them press the pad again.
+			]]
+			warn("[Matchmaking] could not reserve a server for the team")
 			sending = false
-			MowRunService.startFromLobby(worldId, partySize)
+			for _, player in team do
+				if player.Parent then
+					MowEconomyService.notify(
+						player,
+						"denied",
+						"No lawn free just now — try the pad again",
+						nil
+					)
+				end
+			end
 			return
 		end
 
