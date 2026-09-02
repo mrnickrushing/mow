@@ -127,7 +127,21 @@ local GameConfig = {
 	--- Tools at or below this tier stall outright in wet grass.
 	WET_STALL_MAX_TIER = 3,
 	--- Tiles in a row, in one straight line, to bank a Clean Stripe bonus.
-	STRIPE_MIN_TILES = 12,
+	--[[
+		Short enough to earn on the bag you start with.
+
+		A stripe wanted twelve tiles. Grass is four units a level and a
+		starting bag holds twenty-five, so twelve tiles of it is somewhere
+		between forty-eight and ninety-six units — the bag fills at about
+		five and cutting stops. The one piece of skill in the game was
+		unreachable until two or three bag upgrades in, which is long after
+		the moment it would have taught somebody to mow in straight lines.
+
+		Six tiles of short grass is twenty-four units: it just fits, so the
+		first clean stripe can happen on the first lawn. The bonus is per
+		tile, so a short stripe still pays a short stripe's worth.
+	]]
+	STRIPE_MIN_TILES = 6,
 	--- Cash per tile awarded for a completed stripe.
 	STRIPE_BONUS_PER_TILE = 0.04,
 	--- Tips awarded per completed stripe.
