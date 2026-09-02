@@ -26,6 +26,7 @@ local Worlds = require(Shared.Config.Worlds)
 local Build = require(script.Parent.Parent.Lib.Build)
 local DataService = require(script.Parent.DataService)
 local MowRunService = require(script.Parent.RunService)
+local MatchmakingService = require(script.Parent.MatchmakingService)
 
 local LobbyService = {}
 
@@ -280,6 +281,7 @@ local function step(delta: number)
 
 	-- Who is on a team pad.
 	local party = 0
+	local team: { Player } = {}
 	for index = 1, TEAM_PADS do
 		local part = teamPads[index]
 		local label = teamLabels[index]
@@ -293,6 +295,7 @@ local function step(delta: number)
 			end
 			if occupant then
 				party += 1
+				table.insert(team, occupant)
 				label.Text = occupant.DisplayName
 				part.Color = Palette.color(Palette.ground.lawn)
 			else
@@ -342,9 +345,16 @@ local function step(delta: number)
 			countdownLeft = nil
 			chosenWorld = nil
 			if status then
-				status.Text = "Loading…"
+				--[[
+					The team leaves; the lobby does not.
+
+					Only the players on the pads are sent, so anybody still
+					choosing keeps a working room around them rather than
+					being dragged into somebody else's lawn.
+				]]
+				status.Text = "Finding you a lawn…"
 			end
-			MowRunService.startFromLobby(id, party)
+			MatchmakingService.send(team, id, party)
 		end
 	else
 		countdownLeft = nil
