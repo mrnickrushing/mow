@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local Types = require(Shared.Types)
+local RateLimiter = require(Shared.Util.RateLimiter)
 local Build = require(script.Parent.Parent.Lib.Build)
 local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
@@ -245,7 +246,32 @@ local function onMount(player: Player)
 	end)
 end
 
+--[[
+	Mounting builds a vehicle, so it is worth rate limiting.
+
+	Every other remote the client can reach is behind a limiter; this one was
+	not, and it is the most expensive of them per call — each mount constructs
+	a mower model, seats the player and destroys the one before it. A client
+	calling it in a loop would have the server building and tearing down models
+	as fast as it could, for everyone on it, and a public server holds fifty
+	people. Four a second is more than a person can press.
+]]
+local MOUNT_HZ = 4
+local mountLimiters: { [Player]: RateLimiter.RateLimiter } = {}
+
+local function mountLimiterFor(player: Player): RateLimiter.RateLimiter
+	local limiter = mountLimiters[player]
+	if not limiter then
+		limiter = RateLimiter.new(MOUNT_HZ, MOUNT_HZ)
+		mountLimiters[player] = limiter
+	end
+	return limiter
+end
+
 local function onVehicleRemote(player: Player, action: any)
+	if not mountLimiterFor(player):tryConsume() then
+		return
+	end
 	if action == "mount" then
 		onMount(player)
 	elseif action == "dismount" then
@@ -320,7 +346,10 @@ function VehicleService.start()
 
 	RunService.Heartbeat:Connect(drive)
 
-	Players.PlayerRemoving:Connect(VehicleService.dismount)
+	Players.PlayerRemoving:Connect(function(player: Player)
+		mountLimiters[player] = nil
+		VehicleService.dismount(player)
+	end)
 
 	-- A respawn leaves the old mower orphaned; clear it.
 	Players.PlayerAdded:Connect(function(player)
