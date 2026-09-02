@@ -260,7 +260,17 @@ function LevelSelect.start()
 			end
 			subtitle.Text = if opener == "" then "Where next?" else `{opener} Where next?`
 		end
-		LevelSelect.setOpen(lobby)
+		--[[
+			The choice is made in the lobby now, with your feet.
+
+			This panel covered the screen between runs, which is exactly what
+			it could not do once the lobby became a place you stand in: you
+			cannot walk onto a pad you cannot see. The screen is kept, and
+			still knows how to draw itself, so a lobby that ever fails to
+			build has somewhere to fall back to.
+		]]
+		LevelSelect.setOpen(false)
+		local _ = lobby
 		if lobby and isOpen then
 			render()
 		end

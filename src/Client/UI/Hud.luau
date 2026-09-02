@@ -835,11 +835,10 @@ function Hud.start()
 		elseif kind == "sectionUnlock" then
 			-- The message is just the section's name; the card carries the rest.
 			Hud.card(`A new area is open!`, "Unlocked :", message)
-		elseif kind == "quest" then
-			-- The toast is already coloured for the kind; it does not need a
-			-- glyph in front of the words as well.
-			Hud.toast(kind, message)
 		else
+			-- Everything else is a toast, quests included: the toast is already
+			-- coloured for its kind, so a quest does not need a branch of its
+			-- own to say the same thing in the same way.
 			Hud.toast(kind, message)
 		end
 

@@ -21,9 +21,14 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      LUAU_VERSION: "0.700"
+      # Pinned, and actually used: the download below fetched `latest` while
+      # this number only ever reached the cache key, so CI ran whatever Luau
+      # had shipped that week under a key claiming 0.700 — and a cache hit
+      # then pinned that accident in place. Bump this to move.
+      LUAU_VERSION: "0.736"
       LSP_VERSION: "1.49.1"
       ROJO_VERSION: "7.5.1"
+      SELENE_VERSION: "0.31.0"
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -32,8 +37,13 @@ jobs:
         id: toolchain-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          path: .bin
-          key: toolchain-${{ env.LUAU_VERSION }}-${{ env.LSP_VERSION }}-${{ env.ROJO_VERSION }}
+          # Selene fetches the Roblox standard library into its own cache on
+          # first use, so that rides along here rather than being refetched
+          # from the network on every run.
+          path: |
+            .bin
+            ~/.cache/selene
+          key: toolchain-${{ env.LUAU_VERSION }}-${{ env.LSP_VERSION }}-${{ env.ROJO_VERSION }}-${{ env.SELENE_VERSION }}
 
       - name: Install toolchain
         if: steps.toolchain-cache.outputs.cache-hit != 'true'
@@ -42,7 +52,7 @@ jobs:
           mkdir -p .bin && cd .bin
 
           curl -sSfL -o luau.zip \
-            "https://github.com/luau-lang/luau/releases/latest/download/luau-ubuntu.zip"
+            "https://github.com/luau-lang/luau/releases/download/${LUAU_VERSION}/luau-ubuntu.zip"
           unzip -o luau.zip luau
 
           curl -sSfL -o lsp.zip \
@@ -53,7 +63,11 @@ jobs:
             "https://github.com/rojo-rbx/rojo/releases/download/v${ROJO_VERSION}/rojo-${ROJO_VERSION}-linux-x86_64.zip"
           unzip -o rojo.zip rojo
 
-          chmod +x luau luau-lsp rojo
+          curl -sSfL -o selene.zip \
+            "https://github.com/Kampfkarren/selene/releases/download/${SELENE_VERSION}/selene-${SELENE_VERSION}-linux.zip"
+          unzip -o selene.zip selene
+
+          chmod +x luau luau-lsp rojo selene
           rm -f ./*.zip
 
       - name: Run checks
