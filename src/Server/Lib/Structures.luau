@@ -471,7 +471,7 @@ local STEP_RISE = 1.5
 	Each step is placed by its tread rather than its centre, so the top tread
 	lands exactly on `to` and meets the floor it arrives at flush.
 ]]
-function Structures.stairs(context: Context, from: Vector3, to: Vector3, width: number, parent: Instance)
+function Structures.stairs(_context: Context, from: Vector3, to: Vector3, width: number, parent: Instance)
 	local delta = to - from
 	local flat = Vector3.new(delta.X, 0, delta.Z)
 	local run = flat.Magnitude
