@@ -106,3 +106,29 @@ jobs:
           files: |
             build/MowAllTheLawns.rbxlx
             build/MowAllTheLawns.rbxl
+
+      # Pushes the same build straight to the live Roblox experience, so the
+      # game on a phone or iPad is always the newest merge. Publishing can only
+      # UPDATE an experience — Roblox requires the experience itself to be
+      # created once, by a person, in Studio — so this step skips harmlessly
+      # until the three secrets exist. docs/PUBLISHING.md walks through that
+      # one-time setup.
+      - name: Publish to Roblox
+        if: github.ref == 'refs/heads/main' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        env:
+          ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
+          ROBLOX_UNIVERSE_ID: ${{ secrets.ROBLOX_UNIVERSE_ID }}
+          ROBLOX_PLACE_ID: ${{ secrets.ROBLOX_PLACE_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ROBLOX_API_KEY:-}" ] || [ -z "${ROBLOX_UNIVERSE_ID:-}" ] || [ -z "${ROBLOX_PLACE_ID:-}" ]; then
+            echo "Roblox secrets not set - skipping publish. See docs/PUBLISHING.md for the one-time setup."
+            exit 0
+          fi
+          curl -sSf -X POST \
+            "https://apis.roblox.com/universes/v1/${ROBLOX_UNIVERSE_ID}/places/${ROBLOX_PLACE_ID}/versions?versionType=Published" \
+            -H "x-api-key: ${ROBLOX_API_KEY}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @build/MowAllTheLawns.rbxl
+          echo ""
+          echo "Published to Roblox - the live experience now runs this build."
