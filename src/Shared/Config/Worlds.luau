@@ -18,8 +18,22 @@ local Types = require(script.Parent.Parent.Types)
 
 local Worlds = {}
 
-local function grass(heightMin: number, heightMax: number): Types.FillEntry
-	return { debris = Debris.Grass, weight = 1, heightMin = heightMin, heightMax = heightMax }
+--[[
+	Grass, and how much of the lawn is grass.
+
+	The weight used to be a flat 1, which put grass on level terms with every
+	kind of litter beside it — and since most sections listed two or three of
+	those, the lawn in a lawn-mowing game came out under a third grass. Leaves
+	were the biggest job in every world. A lawn is mostly lawn; the litter is
+	what is lying on it.
+]]
+local function grass(heightMin: number, heightMax: number, weight: number?): Types.FillEntry
+	return {
+		debris = Debris.Grass,
+		weight = weight or 4,
+		heightMin = heightMin,
+		heightMax = heightMax,
+	}
 end
 
 local function mix(debris: number, weight: number, heightMin: number, heightMax: number): Types.FillEntry
@@ -88,7 +102,7 @@ local house: Types.WorldDef = {
 			density = 0.94,
 			-- Short grass on purpose: this is the teaching lawn, and the first
 			-- gate opening is the hook. The deep stuff starts behind it.
-			fill = { grass(1, 2), mix(Debris.Leaves, 1, 1, 2) },
+			fill = { grass(1, 2), mix(Debris.Leaves, 0.5, 1, 2) },
 			kind = "open",
 			trees = 3,
 			clutter = 8,
@@ -131,7 +145,7 @@ local house: Types.WorldDef = {
 			requires = "front_yard",
 			rect = { x = 24, z = 56, w = 48, d = 22 },
 			density = 0.92,
-			fill = { grass(2, 3), mix(Debris.Leaves, 0.8, 2, 3), mix(Debris.Weeds, 0.6, 1, 2) },
+			fill = { grass(2, 3), mix(Debris.Leaves, 0.5, 2, 3), mix(Debris.Weeds, 0.4, 1, 2) },
 			kind = "open",
 			trees = 3,
 			clutter = 10,
@@ -150,7 +164,7 @@ local house: Types.WorldDef = {
 			-- backyard, so that is where the door stands.
 			gateSide = "east",
 			density = 0.88,
-			fill = { mix(Debris.Leaves, 2, 2, 3), grass(1, 3), mix(Debris.Sticks, 0.5, 1, 2) },
+			fill = { grass(1, 3, 2.5), mix(Debris.Leaves, 1.2, 2, 3), mix(Debris.Sticks, 0.4, 1, 2) },
 			kind = "pool",
 			hazards = { "sprinkler" },
 			clutter = 7,
@@ -163,7 +177,7 @@ local house: Types.WorldDef = {
 			requires = "backyard",
 			rect = { x = 24, z = 80, w = 48, d = 14 },
 			density = 0.94,
-			fill = { grass(3, 3), mix(Debris.Hedge, 1.2, 3, 3), mix(Debris.Leaves, 0.8, 2, 3) },
+			fill = { grass(3, 3), mix(Debris.Hedge, 1, 3, 3), mix(Debris.Leaves, 0.4, 2, 3) },
 			kind = "maze",
 			hazards = { "wasps" },
 			clutter = 4,
@@ -176,7 +190,7 @@ local house: Types.WorldDef = {
 			requires = "hedge_maze",
 			rect = { x = 2, z = 8, w = 20, d = 36 },
 			density = 0.95,
-			fill = { grass(3, 3), mix(Debris.Weeds, 1.4, 2, 3), mix(Debris.Leaves, 0.7, 2, 3) },
+			fill = { grass(3, 3), mix(Debris.Weeds, 1, 2, 3), mix(Debris.Leaves, 0.4, 2, 3) },
 			kind = "open",
 			trees = 2,
 			hazards = { "dog" },
@@ -245,7 +259,7 @@ local mansion: Types.WorldDef = {
 			unlock = "start",
 			rect = { x = 40, z = 10, w = 70, d = 38 },
 			density = 0.95,
-			fill = { grass(2, 3), mix(Debris.Leaves, 1, 2, 3) },
+			fill = { grass(2, 3), mix(Debris.Leaves, 0.5, 2, 3) },
 			kind = "open",
 			trees = 5,
 			clutter = 14,
@@ -258,7 +272,7 @@ local mansion: Types.WorldDef = {
 			requires = "grand_lawn",
 			rect = { x = 112, z = 10, w = 28, d = 70 },
 			density = 0.94,
-			fill = { grass(2, 3), mix(Debris.Hedge, 1, 3, 3), mix(Debris.Leaves, 1, 2, 3) },
+			fill = { grass(2, 3), mix(Debris.Hedge, 0.8, 3, 3), mix(Debris.Leaves, 0.4, 2, 3) },
 			kind = "open",
 			trees = 4,
 			clutter = 14,
@@ -271,7 +285,7 @@ local mansion: Types.WorldDef = {
 			requires = "east_wing",
 			rect = { x = 4, z = 52, w = 31, d = 44 },
 			density = 0.95,
-			fill = { grass(2, 3), mix(Debris.Leaves, 2, 3, 3), mix(Debris.Sticks, 0.8, 2, 3) },
+			fill = { grass(2, 3, 3), mix(Debris.Leaves, 1, 3, 3), mix(Debris.Sticks, 0.5, 2, 3) },
 			kind = "room",
 			clutter = 16,
 		},
@@ -283,7 +297,7 @@ local mansion: Types.WorldDef = {
 			requires = "orangery",
 			rect = { x = 40, z = 84, w = 70, d = 30 },
 			density = 0.96,
-			fill = { grass(2, 3), mix(Debris.Hedge, 2, 3, 3), mix(Debris.Leaves, 0.8, 3, 3) },
+			fill = { grass(2, 3), mix(Debris.Hedge, 1.5, 3, 3), mix(Debris.Leaves, 0.4, 3, 3) },
 			kind = "maze",
 			hazards = { "wasps" },
 			clutter = 8,
@@ -330,7 +344,7 @@ local gasStation: Types.WorldDef = {
 			unlock = "start",
 			rect = { x = 36, z = 10, w = 72, d = 36 },
 			density = 0.95,
-			fill = { grass(2, 3), mix(Debris.Weeds, 1.2, 2, 3), mix(Debris.Leaves, 1, 2, 3) },
+			fill = { grass(2, 3), mix(Debris.Weeds, 1, 2, 3), mix(Debris.Leaves, 0.4, 2, 3) },
 			kind = "open",
 			trees = 4,
 			clutter = 16,
@@ -343,7 +357,7 @@ local gasStation: Types.WorldDef = {
 			requires = "forecourt",
 			rect = { x = 4, z = 10, w = 27, d = 46 },
 			density = 0.96,
-			fill = { grass(2, 3), mix(Debris.Weeds, 2, 2, 3), mix(Debris.Leaves, 1, 3, 3) },
+			fill = { grass(2, 3, 3), mix(Debris.Weeds, 1.5, 2, 3), mix(Debris.Leaves, 0.5, 3, 3) },
 			kind = "room",
 			hazards = { "sprinkler" },
 			clutter = 14,
@@ -356,7 +370,7 @@ local gasStation: Types.WorldDef = {
 			requires = "wash_bay",
 			rect = { x = 36, z = 50, w = 72, d = 46 },
 			density = 0.96,
-			fill = { grass(3, 3), mix(Debris.Weeds, 1.2, 2, 3), mix(Debris.Leaves, 1, 3, 3) },
+			fill = { grass(3, 3), mix(Debris.Weeds, 1, 2, 3), mix(Debris.Leaves, 0.4, 3, 3) },
 			kind = "open",
 			trees = 6,
 			clutter = 18,
@@ -369,7 +383,7 @@ local gasStation: Types.WorldDef = {
 			requires = "back_lot",
 			rect = { x = 112, z = 50, w = 28, d = 66 },
 			density = 0.97,
-			fill = { grass(2, 3), mix(Debris.Sticks, 1.2, 3, 3), mix(Debris.Leaves, 1, 3, 3) },
+			fill = { grass(2, 3, 3.5), mix(Debris.Sticks, 1, 3, 3), mix(Debris.Leaves, 0.4, 3, 3) },
 			kind = "open",
 			trees = 3,
 			hazards = { "dog" },
