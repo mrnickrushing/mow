@@ -29,6 +29,7 @@ local RobloxRunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 
 local MowRunService = require(script.Parent.RunService)
+local MowEconomyService = require(script.Parent.EconomyService)
 
 local MatchmakingService = {}
 
@@ -106,6 +107,30 @@ end
 	The property arrives with the players rather than being chosen here: it is
 	in the teleport data of whoever was sent, which every one of them carries.
 ]]
+--[[
+	A teleport can fail after it has been accepted.
+
+	`TeleportAsync` returning without error only means Roblox took the request;
+	a player can still bounce back with a reason a moment later. Without this
+	they would simply be standing in the lobby again with no idea why, watching
+	a countdown they had already finished. Roblox puts them back on its own —
+	the least this can do is say what happened.
+]]
+function MatchmakingService.watchFailures()
+	TeleportService.TeleportInitFailed:Connect(function(player, result, message)
+		warn(`[Matchmaking] teleport failed for {player.Name}: {result.Name} {message}`)
+		sending = false
+		if player.Parent then
+			MowEconomyService.notify(
+				player,
+				"denied",
+				"Could not find you a lawn — try the pad again",
+				nil
+			)
+		end
+	end)
+end
+
 function MatchmakingService.startRunServer()
 	local function beginFrom(player: Player)
 		if started then

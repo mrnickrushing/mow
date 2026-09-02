@@ -90,6 +90,7 @@ if MatchmakingService.isRunServer() then
 	MatchmakingService.startRunServer()
 else
 	RunService.setAutoStart(false)
+	MatchmakingService.watchFailures()
 	LobbyService.start()
 end
 
