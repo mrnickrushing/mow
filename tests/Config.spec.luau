@@ -17,6 +17,7 @@ local Types = require("./.build/Shared/Types")
 local DefaultData = require("./.build/Server/Lib/DefaultData")
 local Props = require("./.build/Shared/Config/Props")
 local Upgrades = require("./.build/Shared/Config/Upgrades")
+local Quests = require("./.build/Shared/Config/Quests")
 local h = require("./harness")
 
 local function rectsOverlap(a: Types.Rect, b: Types.Rect): boolean
@@ -723,6 +724,57 @@ return function()
 					previousPermanent = tool.robuxPermanent
 				end
 			end
+		end)
+
+		h.it("only asks for grass where a player can find grass", function()
+			--[[
+				The opening chain now names grass and counts only grass, which
+				is a promise about the world as much as about the quest: a
+				`collect` quest with subject "grass" is unfinishable in a
+				section that seeds none. Every world opens on its first
+				section, so that is the one that has to carry it.
+			]]
+			local wantsGrass = false
+			for _, quest in Quests.list do
+				if quest.kind == "collect" and quest.subject == "grass" then
+					wantsGrass = true
+				end
+			end
+			h.expectTrue(wantsGrass, "the opening chain should ask for grass at all")
+			for _, world in Worlds.list do
+				local first = world.sections[1]
+				local found = false
+				for _, entry in first.fill do
+					if entry.debris == Debris.Grass then
+						found = true
+					end
+				end
+				h.expectTrue(
+					found,
+					`{world.id} opens on {first.id}, which seeds no grass for the first quest`
+				)
+			end
+		end)
+
+		h.it("keeps the portable trailer a level Haul can reach", function()
+			--[[
+				Haul level 1 sells the portable trailer, the Journal reads it
+				back, and `Economy.earnRate` shortens every walk once it is
+				owned — three systems all describing a remote nobody had
+				connected. The unlock level has to stay inside the ladder or
+				the sentence goes back to being false.
+			]]
+			local haul: any = nil
+			for _, upgrade in Upgrades.list do
+				if upgrade.id == "trailer" then
+					haul = upgrade
+				end
+			end
+			h.expectTrue(haul ~= nil, "the Haul upgrade should exist")
+			h.expectTrue(
+				Upgrades.PORTABLE_TRAILER_LEVEL >= 1 and Upgrades.PORTABLE_TRAILER_LEVEL <= haul.maxLevel,
+				"the portable trailer unlocks at a level Haul can actually reach"
+			)
 		end)
 
 		h.it("keeps the free reward loops meaningful", function()

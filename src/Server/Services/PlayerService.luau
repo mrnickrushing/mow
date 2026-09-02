@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
 local GameConfig = require(Shared.Config.GameConfig)
+local Grid = require(Shared.Grid)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local BagService = require(script.Parent.BagService)
@@ -24,6 +25,7 @@ local PlayerService = {}
 local playerState: RemoteEvent
 local dumpRemote: RemoteEvent
 local equipRemote: RemoteEvent
+local trailerRemote: RemoteEvent
 
 --- How often full state is pushed to each client, in Hz.
 local PUSH_HZ = 5
@@ -231,13 +233,93 @@ end
 -- Lifecycle
 --------------------------------------------------------------------
 
+--------------------------------------------------------------------
+-- The portable trailer
+--------------------------------------------------------------------
+
+--[[
+	Haul level 1 reads "unlocks the portable trailer" on the shed board, the
+	Journal reads back "portable, N studs", and the earn-rate model shortens
+	every walk to the trailer the moment it is owned. None of that was true.
+	`PlaceTrailer` was declared in Remotes, created as a live RemoteEvent, and
+	connected on neither side, so ninety dollars bought a wider dump radius and
+	a sentence — the same shape of bug as the Instant Dump pass above, which is
+	why that one has a paragraph and this one now has a handler.
+
+	Parking is the whole feature: press the key, the trailer arrives behind
+	you. It is the property's only trailer, so it moves for the whole team.
+]]
+local PARK_COOLDOWN = 2
+--- Far enough back that the trailer never lands on the player who called it,
+--- close enough that they are still inside the base twelve-stud dump radius.
+local PARK_BEHIND = 9
+--- Checked well clear of the ground plate, so only walls and buildings block.
+local PARK_PROBE_HEIGHT = 8
+local PARK_PROBE = Vector3.new(14, 12, 18)
+
+local lastPark: { [Player]: number } = {}
+
+local parkOverlap = OverlapParams.new()
+parkOverlap.FilterType = Enum.RaycastFilterType.Exclude
+
+local function onPlaceTrailer(player: Player)
+	local run = RunState.find(player)
+	local trailer = WorldService.trailerPart
+	local grid = WorldService.grid
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not run or not trailer or not grid or not root or not root:IsA("BasePart") then
+		return
+	end
+
+	if not Balance.hasPortableTrailer(run.upgrades) then
+		EconomyService.notify(player, "stall", "Buy Haul at the shed to park the trailer where you stand", nil)
+		return
+	end
+
+	local now = os.clock()
+	if now - (lastPark[player] or -math.huge) < PARK_COOLDOWN then
+		return
+	end
+
+	local at = root.Position - root.CFrame.LookVector * PARK_BEHIND
+	local tx, tz = Grid.worldToTile(grid, at.X, at.Z)
+	if not Grid.inBounds(grid, tx, tz) then
+		EconomyService.notify(player, "stall", "Too far off the property to park the trailer", nil)
+		return
+	end
+
+	-- Quarter-turned to match the way `buildTrailer` parks it along the kerb.
+	local ground = WorldService.tilePointToWorld(tx, tz)
+	local target = CFrame.new(ground + Vector3.new(0, 2, 0)) * CFrame.Angles(0, math.rad(90), 0)
+
+	parkOverlap.FilterDescendantsInstances = if character then { trailer, character } else { trailer }
+	local probe = CFrame.new(ground + Vector3.new(0, PARK_PROBE_HEIGHT, 0))
+	for _, part in workspace:GetPartBoundsInBox(probe, PARK_PROBE, parkOverlap) do
+		if part.CanCollide and part.Anchored then
+			EconomyService.notify(player, "stall", "No room to park the trailer here", nil)
+			return
+		end
+	end
+
+	lastPark[player] = now
+	trailer.CFrame = target
+	EconomyService.notifyAll("quest", `{player.DisplayName} parked the trailer`, nil)
+end
+
 function PlayerService.start()
 	playerState = Remotes.event(Remotes.PLAYER_STATE)
 	dumpRemote = Remotes.event(Remotes.DUMP)
 	equipRemote = Remotes.event(Remotes.EQUIP)
+	trailerRemote = Remotes.event(Remotes.PLACE_TRAILER)
 
 	dumpRemote.OnServerEvent:Connect(onDump)
 	equipRemote.OnServerEvent:Connect(onEquip)
+	trailerRemote.OnServerEvent:Connect(onPlaceTrailer)
+
+	Players.PlayerRemoving:Connect(function(player: Player)
+		lastPark[player] = nil
+	end)
 
 	local function hookCharacter(player: Player)
 		player.CharacterAdded:Connect(function()

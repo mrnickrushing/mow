@@ -39,7 +39,8 @@ export type Quest = {
 	target: number,
 	--- Cash paid on completion.
 	reward: number,
-	--- Restricts the objective to one zone, tool or upgrade where it matters.
+	--- Restricts the objective to one zone, debris type or upgrade where it
+	--- matters. `collect` reads it as a debris kind: "grass" counts only grass.
 	subject: string?,
 }
 
@@ -51,14 +52,15 @@ local list: { Quest } = {
 	{
 		id = "collect_first",
 		kind = "collect",
-		text = "Collect 5 leaves",
+		text = "Mow 5 tufts of grass",
 		target = 5,
 		reward = 0.5,
+		subject = "grass",
 	},
 	{
 		id = "sell_first",
 		kind = "sell",
-		text = "Sell 5 leaves",
+		text = "Sell 5 units of clippings",
 		target = 5,
 		reward = 1,
 	},
@@ -87,9 +89,10 @@ local list: { Quest } = {
 	{
 		id = "collect_hundred",
 		kind = "collect",
-		text = "Collect 100 leaves",
+		text = "Mow 100 patches of grass",
 		target = 100,
 		reward = 5,
+		subject = "grass",
 	},
 	{
 		id = "first_tool",
