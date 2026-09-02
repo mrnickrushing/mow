@@ -28,7 +28,7 @@ local WorldService = {}
 
 local TILE = GameConfig.TILE_SIZE
 --- Wall height of a house, which is what the rooftop section sits on.
-local ROOF_HEIGHT = 24
+local ROOF_HEIGHT = GameConfig.HOUSE_ROOF_HEIGHT
 
 export type SectionState = {
 	def: Types.ZoneDef,
@@ -179,13 +179,18 @@ local function seedTiles(world: Types.WorldDef, grid: Grid.Grid, tiles: buffer)
 				local index = Grid.toIndex(grid, tx, tz)
 				tileSection[index] = section.id
 
+				-- Nothing is sown under the shed: it is a building with a floor,
+				-- so anything seeded there is invisible and still counts, which
+				-- leaves a section stuck short with nothing on it to cut.
+				local wx, wz = Grid.tileToWorld(grid, tx, tz)
+				local underShed = Worlds.underShed(world, wx, wz)
 				local onWater = water ~= nil
 					and tx >= water.x
 					and tx < water.x + water.w
 					and tz >= water.z
 					and tz < water.z + water.d
 
-				if not onWater and rng:NextNumber() <= section.density then
+				if not onWater and not underShed and rng:NextNumber() <= section.density then
 					local entry = pickFill(section)
 					if entry then
 						local height = rng:NextInteger(entry.heightMin, entry.heightMax)
@@ -475,8 +480,15 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	if walkableRoof(world, rect) then
 		Build.part({
 			name = "Roof",
-			size = Vector3.new(width + 5, 2.4, depth + 5),
-			cframe = CFrame.new(centre + Vector3.new(0, 4 + wallHeight + 3, 0)),
+			size = Vector3.new(width + 5, GameConfig.HOUSE_ROOF_THICKNESS, depth + 5),
+			cframe = CFrame.new(
+				centre
+					+ Vector3.new(
+						0,
+						GameConfig.HOUSE_FOUNDATION + wallHeight + GameConfig.HOUSE_ROOF_RISE,
+						0
+					)
+			),
 			color = Palette.color(Palette.house.roof),
 			material = Enum.Material.Slate,
 			parent = house,
@@ -499,6 +511,26 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	end
 
 	local frontZ = centre.Z - depth * 0.5
+
+	--[[
+		The garage's footprint on the front wall, measured once.
+
+		The windows need it to keep off it and the doors need it to be built
+		at, and when only the door builder knew it the window scatter placed
+		two arched windows inside the bays — glass in the middle of a garage
+		door, which is not a thing.
+	]]
+	--[[
+		A bay is fourteen studs because a car is about ten, and how many
+		of them there are follows the frontage: two on The House's
+		hundred and seventy-six, three on The Mansion's two hundred and
+		sixty-four. A two-car garage on a mansion reads as a shed
+		bolted to a hotel.
+	]]
+	local GARAGE_BAY_WIDTH = 14
+	local GARAGE_BAYS = math.clamp(math.round(width / 90), 2, 4)
+	local garageWidth = GARAGE_BAY_WIDTH * GARAGE_BAYS + 1.5 * (GARAGE_BAYS - 1)
+	local garageOffset = width * 0.28
 
 	--[[
 		Windows, on every side and enough of them to read as a house.
@@ -526,11 +558,19 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		Places a row of windows along one wall.
 
 		`origin` is the middle of the wall face, `along` the direction the wall
-		runs, and `yaw` the way the window should face. `clear` is the half-width
-		of a stretch in the middle of the wall to leave alone, for the front,
-		where the porch roof would hide anything behind it.
+		runs, and `yaw` the way the window should face. `keepOuts` are stretches
+		of the wall to leave alone, each an offset from the wall's middle and a
+		half-width: the porch, whose roof would hide anything behind it, and the
+		garage, whose doors are not a place to put a window.
 	]]
-	local function windowsAlong(origin: Vector3, along: Vector3, span: number, yaw: number, clear: number)
+	type KeepOut = { at: number, half: number }
+	local function windowsAlong(
+		origin: Vector3,
+		along: Vector3,
+		span: number,
+		yaw: number,
+		keepOuts: { KeepOut }?
+	)
 		local usable = span - MARGIN
 		if usable <= 0 then
 			return
@@ -541,8 +581,17 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		for index = 0, count do
 			local offset = -usable * 0.5 + step * index
 			for storey, height in storeys do
-				-- The porch only hides the ground floor.
-				local hidden = storey == 1 and clear > 0 and math.abs(offset - (-width * 0.18)) < clear
+				-- Both the porch and the garage are ground-floor things; a
+				-- second storey sails over the top of either.
+				local hidden = false
+				if storey == 1 and keepOuts then
+					for _, zone in keepOuts do
+						if math.abs(offset - zone.at) < zone.half then
+							hidden = true
+							break
+						end
+					end
+				end
 				if not hidden then
 					local at = origin + along * offset
 					Build.mesh({
@@ -564,11 +613,17 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	local sideways = Vector3.new(1, 0, 0)
 	local frontways = Vector3.new(0, 0, 1)
 
-	-- Front, back, then the two ends.
-	windowsAlong(centre - frontways * (halfDepth + 0.7), sideways, width, 0, porchClear)
-	windowsAlong(centre + frontways * (halfDepth + 0.7), sideways, width, math.pi, 0)
-	windowsAlong(centre - sideways * (halfWidth + 0.7), frontways, depth, math.rad(-90), 0)
-	windowsAlong(centre + sideways * (halfWidth + 0.7), frontways, depth, math.rad(90), 0)
+	-- Front, back, then the two ends. Only the front has anything on it.
+	local frontKeepOuts: { KeepOut } = {
+		{ at = -width * 0.18, half = porchClear },
+		-- The trim runs a stud past the doors on each side, and a window
+		-- wants a little wall of its own beyond that.
+		{ at = garageOffset, half = garageWidth * 0.5 + 7 },
+	}
+	windowsAlong(centre - frontways * (halfDepth + 0.7), sideways, width, 0, frontKeepOuts)
+	windowsAlong(centre + frontways * (halfDepth + 0.7), sideways, width, math.pi, nil)
+	windowsAlong(centre - sideways * (halfWidth + 0.7), frontways, depth, math.rad(-90), nil)
+	windowsAlong(centre + sideways * (halfWidth + 0.7), frontways, depth, math.rad(90), nil)
 
 	--[[
 		A chimney, for the roofline.
@@ -680,6 +735,10 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		Build.mesh({
 			prop = "StepBlock",
 			name = "Step",
+			-- Painted stone rather than the model's own pale blue, because
+			-- these steps are the last three feet of the flagstone path.
+			untextured = true,
+			color = Palette.color(Palette.ground.path),
 			size = Vector3.new(GAP + 2, 1.3, 3),
 			collisionSize = Vector3.new(GAP + 2, 1.3, 3),
 			cframe = CFrame.new(porchX, 3.3 - step * 1.2, porchZ - porchDepth * 0.5 - 1.6 - step * 2.6),
@@ -701,7 +760,7 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	-- Attached garage door
 	--------------------------------------------------------------------
 
-	local garageX = centre.X + width * 0.28
+	local garageX = centre.X + garageOffset
 	local garage = Build.folder("GarageFront", house)
 	--[[
 		A sectional door is sections, so it is built as sections.
@@ -720,12 +779,19 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		and the thing that gave away that nothing on this building was drawn to
 		a human scale. A car is about ten studs, so a bay is fourteen.
 	]]
-	local bayWidth = 14
-	local bays = 2
-	local garageHeight = 13
+	local bayWidth, bays = GARAGE_BAY_WIDTH, GARAGE_BAYS
+	--[[
+		The doors run from the driveway up, not from the plinth up.
+
+		The house sits on a four-stud brick foundation and the bays were
+		built on top of it, so the driveway ran up to a brick wall with the
+		doors hanging above it — no car was ever getting in. A garage floor
+		is at grade whatever the house does, so the opening starts at the
+		ground and the doors stand proud of the brick.
+	]]
+	local garageHeight = 17
 	local courses = math.max(math.floor(garageHeight / 2.6), 1)
 	local courseHeight = garageHeight / courses
-	local garageWidth = bayWidth * bays + 1.5
 	for bay = 0, bays - 1 do
 		local bayX = garageX + (bay - (bays - 1) * 0.5) * (bayWidth + 1.5)
 		for course = 0, courses - 1 do
@@ -739,19 +805,26 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 				color = Palette.color(Palette.house.garage),
 				size = Vector3.new(bayWidth, courseHeight * 0.97, 1.2),
 				collisionSize = Vector3.new(bayWidth, courseHeight, 0.8),
-				cframe = CFrame.new(
-					bayX,
-					10.5 - garageHeight * 0.5 + courseHeight * (course + 0.5),
-					frontZ - 0.5
-				),
+				cframe = CFrame.new(bayX, courseHeight * (course + 0.5), frontZ - 0.5),
 				parent = garage,
 			})
 		end
 	end
 	Build.part({
 		name = "GarageFrame",
-		size = Vector3.new(garageWidth + 2, 15, 0.5),
-		cframe = CFrame.new(garageX, 10, frontZ - 0.2),
+		--[[
+			The trim sits in the gap between the siding and the doors.
+
+			At 0.5 deep on the wall plane it was buried behind the proudest
+			siding course, which striped straight through it. Pushed out to
+			clear the siding it went too far the other way and stood in
+			front of the doors, hiding both bays behind one teal slab. The
+			siding's proudest face is 0.6 out and the doors' is 1.1 out, so
+			the trim's face goes at 0.75 — visible as a surround, with the
+			doors still standing proud of it.
+		]]
+		size = Vector3.new(garageWidth + 2, garageHeight + 1.5, 1.0),
+		cframe = CFrame.new(garageX, (garageHeight + 0.5) * 0.5, frontZ - 0.25),
 		color = Palette.color(Palette.house.trim),
 		material = Enum.Material.SmoothPlastic,
 		canCollide = false,
@@ -940,6 +1013,55 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 	end
 
 	--[[
+		The back of the shop, dressed.
+
+		The storefront faces the road, which means the forecourt — where the
+		player spends the entire run — looks at the rear. Bare, that rear was
+		the biggest white rectangle in the game. A service door and two high
+		windows are what the back of a real shop wears, and they are enough
+		to make it a building instead of a backdrop.
+	]]
+	-- The wall's outer face, not its centre: parts hung on the middle of a
+	-- one-stud wall are inside it, which is where the door and both
+	-- windows spent their first outing.
+	local backZ = shopCentre.Z + shopD * 0.5 + 0.5
+	Build.mesh({
+		prop = "Door",
+		name = "ShopBackDoor",
+		size = Vector3.new(6.5, 9.2, 0.9),
+		-- Centred, because at a quarter of the width it stood underneath
+		-- the left-hand window.
+		cframe = CFrame.new(shopCentre.X, 1 + 4.6, backZ + 0.35),
+		color = dark,
+		parent = shop,
+	})
+	for _, sx in { -1, 1 } do
+		local wx = shopCentre.X + sx * shopW * 0.28
+		Build.part({
+			name = "ShopBackWindowFrame",
+			size = Vector3.new(8.6, 3.0, 0.5),
+			cframe = CFrame.new(wx, 1 + wallH - 2.6, backZ + 0.15),
+			color = dark,
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			parent = shop,
+		})
+		Build.part({
+			name = "ShopBackWindow",
+			size = Vector3.new(8, 2.4, 0.6),
+			cframe = CFrame.new(wx, 1 + wallH - 2.6, backZ + 0.35),
+			color = Palette.color(Palette.station.glass),
+			material = Enum.Material.Glass,
+			-- Barely see-through. The forecourt looks at these from the
+			-- north with an unlit stockroom behind them, and at a third
+			-- clear that is not a window, it is a black rectangle.
+			transparency = 0.1,
+			canCollide = false,
+			parent = shop,
+		})
+	end
+
+	--[[
 		The storefront: pier, knee wall and glass, a door bay in the middle,
 		and a continuous header over the lot of it. Glass rather than the
 		house's windows because a shop front is one sheet of it, and the knee
@@ -1107,6 +1229,33 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 		material = Enum.Material.Concrete,
 		parent = shed,
 	})
+
+	--[[
+		A plinth, where the ground under the shed has been cut away.
+
+		The shed stands on open ground between the sections, but a sunken
+		one reaches under its floor: on both The House and The Mansion the
+		back of the shed hung over an eighteen-stud drop with nothing
+		holding it up. A building at the edge of a sunken yard stands on a
+		retaining wall, so this fills whatever the cut took away.
+	]]
+	local lowest = 0
+	local halfW, halfD = math.ceil(width / TILE / 2), math.ceil(depth / TILE / 2)
+	for tz = world.shed.z - halfD, world.shed.z + halfD do
+		for tx = world.shed.x - halfW, world.shed.x + halfW do
+			lowest = math.min(lowest, Worlds.elevationAt(world, tx, tz))
+		end
+	end
+	if lowest < 0 then
+		Build.part({
+			name = "ShedPlinth",
+			size = Vector3.new(width, -lowest, depth),
+			cframe = CFrame.new(centre + Vector3.new(0, lowest * 0.5, 0)),
+			color = Palette.color(Palette.ground.stoneDark),
+			material = Enum.Material.Concrete,
+			parent = shed,
+		})
+	end
 
 	Build.mesh({
 		prop = "Shed",
@@ -1354,7 +1503,9 @@ local function buildUpgradeStations(world: Types.WorldDef, parent: Folder)
 
 	-- A row across the shed's open front, facing the lawn.
 	local count = #Upgrades.list
-	local spacing = 7
+	-- Boards are seven wide, so seven apart left them edge to edge and their
+	-- billboards ran into each other: "ReserveFortune" across two signs.
+	local spacing = 9.5
 	local startX = -(count - 1) * spacing * 0.5
 
 	for index, def in Upgrades.list do
@@ -1722,6 +1873,7 @@ end
 local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 	local context: Structures.Context = {
 		parent = parent,
+		world = world,
 		flat = function(tx: number, tz: number): Vector3
 			return WorldService.tilePointFlat(tx, tz)
 		end,
@@ -1895,6 +2047,74 @@ WorldService.trailerPart = nil :: BasePart?
 WorldService.sectionSigns = {} :: { [string]: BasePart }
 
 --- Tears down the previous world and generates `worldId`.
+--[[
+	Debris built over is debris nobody can see.
+
+	A tile is seeded before anything is built on top of it, so the porch deck,
+	a flight of steps, a gate arch and the upgrade stations all end up standing
+	on ground that was sown. Those clippings are inside a structure: you cannot
+	see them, and because cutting is decided by where you stand rather than
+	what you can see, the only way to clear them is to walk onto the porch and
+	mow what looks like bare boards. That is the last two percent of a section
+	spent hunting for nothing, which is exactly the tedium the clutter is
+	supposed to replace.
+
+	So once the world is built, whatever it built over is swept. A room's own
+	ceiling does not count — a roofed room is somewhere you walk into, not
+	something standing on top of you.
+]]
+local BURIES_NOTHING: { [string]: boolean } = { Ceiling = true, Eaves = true }
+
+local function clearBuriedTiles(world: Types.WorldDef, grid: Grid.Grid, tiles: buffer)
+	local root = container
+	if not root then
+		return
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { root }
+
+	for _, section in world.sections do
+		local state = WorldService.sections[section.id]
+		if state then
+			local elevation = section.elevation or 0
+			local r = section.rect
+			for tz = r.z, math.min(r.z + r.d - 1, grid.depth - 1) do
+				for tx = r.x, math.min(r.x + r.w - 1, grid.width - 1) do
+					local index = Grid.toIndex(grid, tx, tz)
+					if WorldService.tileSection and WorldService.tileSection[index] == section.id then
+						local byte = buffer.readu8(tiles, index - 1)
+						if ChunkCodec.height(byte) > 0 then
+							local x, z = Grid.tileToWorld(grid, tx, tz)
+							local above = workspace:Raycast(
+								Vector3.new(x, elevation + 1.5, z),
+								Vector3.new(0, 60, 0),
+								params
+							)
+							if
+								above
+								and above.Instance.CanCollide
+								and not BURIES_NOTHING[above.Instance.Name]
+							then
+								local units = Cutting.unitsOnTile(byte)
+								buffer.writeu8(tiles, index - 1, 0)
+								state.totalUnits -= units
+								state.remainingUnits -= units
+								WorldService.totalUnits -= units
+								WorldService.remainingUnits -= units
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	-- The client was handed the total at attach time, before any of this was
+	-- built; without this the bar can never reach a hundred.
+	ReplicationService.setTotalUnits(WorldService.totalUnits)
+end
+
 function WorldService.load(worldId: string)
 	local world = Worlds.expect(worldId)
 
@@ -1966,18 +2186,23 @@ function WorldService.load(worldId: string)
 		Build.hedge(scenery, WorldService.tilePointFlat(24, 78), WorldService.tilePointFlat(72, 78), 13, 7)
 
 		--[[
-			A flagstone path from the kerb up to the porch, and a paved
-			driveway.
+			A flagstone path from the kerb to the porch, and a driveway from
+			the kerb to the garage doors.
 
-			The path used to run up the lot's centreline, which is not where
-			the porch is: it delivered you to a blank stretch of wall east of
-			the steps, with the front door thirty studs to your left. A path
-			exists to lead somewhere, so it runs at the door's own axis.
+			The rectangles come from Worlds.pavingRects — the same ones the
+			tree and clutter scatters keep off of — so the slabs land on the
+			door and bay axes of whichever house this lot builds, not the
+			tiles they were once measured at on The House.
 		]]
-		local pathCentre = WorldService.tilePointFlat(40, 20)
-		Build.flagstone(parent, pathCentre + Vector3.new(0, 0.25, 0), Vector2.new(20, 96), 5, rng)
-		local driveCentre = WorldService.tilePointFlat(13, 19)
-		Build.flagstone(parent, driveCentre + Vector3.new(0, 0.25, 0), Vector2.new(68, 84), 6, rng)
+		for _, slab in Worlds.pavingRects(world) do
+			Build.flagstone(
+				parent,
+				Vector3.new(slab.x + slab.w * 0.5, GameConfig.GROUND_Y + 0.25, slab.z + slab.d * 0.5),
+				Vector2.new(slab.w, slab.d),
+				slab.stone,
+				rng
+			)
+		end
 	else
 		local lot = world.style == "lot"
 		Build.fence(parent, 0, 0, width, depth, 6, Palette.color(Palette.fence.rail), 14, lot)
@@ -2032,6 +2257,10 @@ function WorldService.load(worldId: string)
 	-- only places anybody when a character is *loaded*, and moving between
 	-- worlds does not load one. See `RunService`.
 	WorldService.spawnAt = spawnLocation.CFrame + Vector3.new(0, 4, 0)
+
+	-- Last, because it asks what is standing on each tile and the answer
+	-- is only complete once everything has been built.
+	clearBuriedTiles(world, grid, tiles)
 
 	loadedSignal:Fire(world)
 end

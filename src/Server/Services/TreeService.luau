@@ -23,6 +23,7 @@ local Format = require(Shared.Util.Format)
 local Palette = require(Shared.Config.Palette)
 local Tools = require(Shared.Config.Tools)
 local Types = require(Shared.Types)
+local Worlds = require(Shared.Config.Worlds)
 local BagService = require(script.Parent.BagService)
 local Build = require(script.Parent.Parent.Lib.Build)
 local DataService = require(script.Parent.DataService)
@@ -152,6 +153,39 @@ local function makeTree(position: Vector3, sectionId: string, parent: Instance)
 end
 
 --- Scatters `count` points inside a section, keeping clear of the house.
+--[[
+	Whether something already built stands where a tree wants to go.
+
+	The scatter knew about the house rect, the spawn, the trailer and the
+	paving — every one of them a rectangle somebody remembered to write down.
+	The Gas Station's shop is not in that list, so a maple grew against its
+	back wall and stood in front of the service door. Trees are planted after
+	the world is built, so rather than keeping a list of what exists, this
+	asks: the box starts three studs up, which lets the lawn, the paving and
+	the road pass underneath it and catches anything standing on them.
+]]
+local structureParams = OverlapParams.new()
+structureParams.FilterType = Enum.RaycastFilterType.Include
+
+local function blockedByStructure(at: Vector3): boolean
+	local root = WorldService.container()
+	if not root then
+		return false
+	end
+	structureParams.FilterDescendantsInstances = { root }
+	local parts = workspace:GetPartBoundsInBox(
+		CFrame.new(at + Vector3.new(0, 11, 0)),
+		Vector3.new(16, 16, 16),
+		structureParams
+	)
+	for _, part in parts do
+		if part.CanCollide then
+			return true
+		end
+	end
+	return false
+end
+
 local function scatter(world: Types.WorldDef, section: Types.ZoneDef, count: number): { Vector3 }
 	local points: { Vector3 } = {}
 	local r = section.rect
@@ -185,6 +219,11 @@ local function scatter(world: Types.WorldDef, section: Types.ZoneDef, count: num
 
 		if clear then
 			local at = WorldService.tilePointToWorld(tx, tz)
+			-- Not through the paving: a trunk in the middle of the driveway
+			-- reads as a mistake, not a chore.
+			if Worlds.onPaving(world, at.X, at.Z, 3) or blockedByStructure(at) then
+				clear = false
+			end
 			-- Keep trees from growing through each other.
 			for _, existing in points do
 				if (existing - at).Magnitude < 18 then

@@ -26,6 +26,7 @@ local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local MowController = require(script.Parent.Parent.Controllers.MowController)
 local Journal = require(script.Parent.Journal)
+local Store = require(script.Parent.Store)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 local Theme = require(script.Parent.Theme)
 local Props = require(Shared.Config.Props)
@@ -230,6 +231,62 @@ local function buildRightColumn(gui: ScreenGui)
 	tabHint.BackgroundTransparency = 0
 	Theme.corner(tabHint, 5)
 	Theme.stroke(tabHint, 2, Theme.colors.outline, 0.2)
+	-- A key hint is a lie on a screen with no keyboard; the book is its own
+	-- button there, so the whole pill stays off rather than an empty chip.
+	local hasKeyboard = not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
+	tabHint.Visible = hasKeyboard
+
+	--[[
+		The store, beside the book.
+
+		It was bound to G and to nothing else, which meant that on a tablet —
+		the way most of this game is played — the Robux store could not be
+		opened at all. There was no button anywhere on the screen, and the only
+		place the key was written down was a line on the journal's tips page
+		that you needed the journal open to read.
+	]]
+	local shop = Instance.new("TextButton")
+	shop.Name = "Store"
+	shop.Size = UDim2.fromOffset(50, 50)
+	shop.Position = UDim2.new(1, -86, 0, 82)
+	shop.AnchorPoint = Vector2.new(1, 0)
+	shop.BackgroundColor3 = Theme.colors.tips
+	shop.BorderSizePixel = 0
+	shop.Rotation = 5
+	shop.Text = ""
+	shop.AutoButtonColor = true
+	shop.Parent = column
+	Theme.corner(shop, 8)
+	Theme.stroke(shop, 3, Theme.colors.outline, 0.05)
+	Theme.icon({
+		name = "StoreIcon",
+		prop = "Coin",
+		size = UDim2.fromScale(0.74, 0.74),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		parent = shop,
+	})
+
+	shop.Activated:Connect(function()
+		Store.toggle()
+	end)
+
+	local shopHint = Theme.text({
+		name = "StoreHint",
+		text = "G",
+		size = UDim2.fromOffset(50, 22),
+		position = UDim2.new(1, -86, 0, 140),
+		anchor = Vector2.new(1, 0),
+		parent = column,
+		align = Enum.TextXAlignment.Center,
+		color = Theme.colors.outline,
+		textSize = 16,
+	})
+	shopHint.BackgroundColor3 = Theme.colors.tips
+	shopHint.BackgroundTransparency = 0
+	Theme.corner(shopHint, 5)
+	Theme.stroke(shopHint, 2, Theme.colors.outline, 0.2)
+	shopHint.Visible = hasKeyboard
 
 	-- The tool, and whether it is running. On touch this is also the button that
 	-- runs it; on a mouse the camera is locked to the centre of the screen, so

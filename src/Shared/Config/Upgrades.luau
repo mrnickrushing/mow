@@ -30,6 +30,7 @@ local list: { Types.UpgradeDef } = {
 		step = 1.55,
 		mode = "mul",
 		suffix = " units",
+		whole = true,
 	},
 	{
 		id = "walk",
@@ -66,6 +67,7 @@ local list: { Types.UpgradeDef } = {
 		step = 1.25,
 		mode = "mul",
 		suffix = " L",
+		whole = true,
 	},
 	{
 		id = "trailer",
@@ -107,10 +109,12 @@ end
 --- The stat value a player has at `level` of this line.
 function Upgrades.valueAt(def: Types.UpgradeDef, level: number): number
 	local clamped = math.clamp(level, 0, def.maxLevel)
-	if def.mode == "mul" then
-		return def.base * def.step ^ clamped
-	end
-	return def.base + def.step * clamped
+	local value = if def.mode == "mul"
+		then def.base * def.step ^ clamped
+		else def.base + def.step * clamped
+	-- Rounded here rather than only where the stat is consumed, so the number
+	-- on the card and the number in the bag are the same number.
+	return if def.whole then math.floor(value) else value
 end
 
 return Upgrades

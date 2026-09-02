@@ -24,3 +24,4 @@
 /tests/.build/
 /sourcemap.json
 /.bin/
+.deploy_key

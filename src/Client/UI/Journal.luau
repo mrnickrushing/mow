@@ -7,8 +7,8 @@
 	world, and that difference is most of what makes this genre feel warm rather
 	than administrative.
 
-	Four tabs down the left spine: what to do, what to buy, what you have found,
-	and how any of it works.
+	Five tabs down the left spine: what to do, what to buy for yourself, what to
+	buy for your tools, what you have found, and how any of it works.
 ]]
 
 local Players = game:GetService("Players")
@@ -22,6 +22,8 @@ local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local Types = require(Shared.Types)
 local ToolUpgrades = require(Shared.Config.ToolUpgrades)
+local Monetization = require(Shared.Config.Monetization)
+local Upgrades = require(Shared.Config.Upgrades)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 local Store = require(script.Parent.Store)
 local Theme = require(script.Parent.Theme)
@@ -49,9 +51,18 @@ local INK = Color3.fromRGB(58, 46, 96)
 local COVER = Color3.fromRGB(58, 118, 186)
 local LOCKED = Color3.fromRGB(158, 154, 148)
 
+--[[
+	The tabs, in the order a player needs them.
+
+	"Upgrades" used to mean the per-tool trees and nothing else, which left the
+	bag — the first and most important thing anybody buys — with no tab at all.
+	The word now sits on the page that actually sells the bag, and the tool
+	trees are "Tools", which is what they were always about.
+]]
 local TABS = {
 	{ id = "objectives", label = "Journal", icon = "Scroll", color = Color3.fromRGB(226, 198, 150) },
-	{ id = "upgrades", label = "Upgrades", icon = "UpArrow", color = Color3.fromRGB(178, 214, 168) },
+	{ id = "stats", label = "Upgrades", icon = "Sack", color = Color3.fromRGB(178, 214, 168) },
+	{ id = "upgrades", label = "Tools", icon = "Toolbox", color = Color3.fromRGB(190, 210, 226) },
 	{ id = "collection", label = "Collection", icon = "LeafMaple", color = Color3.fromRGB(232, 196, 156) },
 	{ id = "tips", label = "Tips", icon = "QuestionSign", color = Color3.fromRGB(200, 200, 216) },
 }
@@ -66,6 +77,27 @@ local function clear(page: Frame)
 			child:Destroy()
 		end
 	end
+end
+
+--[[
+	The numbers on the open spread that move on their own.
+
+	The server pushes state five times a second, and the book used to redraw
+	itself from scratch on every one of those pushes — every card, every avatar,
+	every button destroyed and rebuilt two hundred milliseconds apart. That is
+	what made the journal blink, and it is why buying was so hard: a button only
+	counts a click if it receives both the press and the release, and the one
+	under the cursor rarely survived long enough for both.
+
+	So a page is built once, and anything on it that tracks cash or progress
+	registers here instead. `render` reruns these in place; it only tears the
+	spread down when what is actually *on* it has changed.
+]]
+local liveBits: { () -> () } = {}
+
+local function live(update: () -> ())
+	table.insert(liveBits, update)
+	update()
 end
 
 --- A page heading in the book's ink colour.
@@ -158,7 +190,16 @@ local function renderObjectives()
 		title.Parent = row
 
 		local progress = Instance.new("TextLabel")
-		progress.Text = `({Format.count(entry.progress)}/{Format.count(entry.target)})`
+		-- Read back out of `questState` by position rather than closing over
+		-- `entry`: a quest push replaces the whole table, so the row this was
+		-- built from is a stale copy the moment the next snapshot lands.
+		local slot = order
+		live(function()
+			local current = questState[slot]
+			if current then
+				progress.Text = `({Format.count(current.progress)}/{Format.count(current.target)})`
+			end
+		end)
 		progress.Size = UDim2.new(1, -40, 0, 22)
 		progress.Position = UDim2.fromOffset(36, 26)
 		progress.BackgroundTransparency = 1
@@ -227,9 +268,14 @@ local function renderPlayers()
 		local isSelf = subject == player
 		-- The coin and the leaf are models sat beside the numbers, so the row
 		-- reads the same on every device. See `Theme.icon`.
-		stats.Text = if isSelf
-			then `    {Format.cash(PlayerState.get().cash)}       {Format.count(PlayerState.get().bagWeight)}`
-			else "    —       —"
+		if isSelf then
+			live(function()
+				local mine = PlayerState.get()
+				stats.Text = `    {Format.cash(mine.cash)}       {Format.count(mine.bagWeight)}`
+			end)
+		else
+			stats.Text = "    —       —"
+		end
 		stats.Size = UDim2.new(1, -64, 0, 24)
 		stats.Position = UDim2.fromOffset(60, 30)
 		Theme.icon({
@@ -432,9 +478,11 @@ local function toolPanel(parent: Instance, order: number, tool: Types.ToolDef, o
 		buy.Size = UDim2.fromOffset(150, 26)
 		buy.Position = UDim2.new(0.5, 0, 0, 182)
 		buy.AnchorPoint = Vector2.new(0.5, 0)
-		buy.BackgroundColor3 = if state.cash >= tool.cost
-			then Color3.fromRGB(126, 158, 78)
-			else Color3.fromRGB(196, 190, 178)
+		live(function()
+			buy.BackgroundColor3 = if PlayerState.get().cash >= tool.cost
+				then Color3.fromRGB(126, 158, 78)
+				else Color3.fromRGB(196, 190, 178)
+		end)
 		buy.BorderSizePixel = 0
 		buy.Font = Theme.font
 		buy.TextColor3 = Color3.fromRGB(250, 244, 228)
@@ -530,14 +578,17 @@ local function renderUpgrades()
 		detailText.Text = "Select an upgrade!"
 	end
 
-	local affordable = selectedCost ~= nil and state.cash >= (selectedCost :: number)
-
 	local buyButton = Instance.new("TextButton")
 	buyButton.Text = if selectedCost then `BUY  —  {string.format("%.2f", selectedCost :: number)}$` else "BUY"
 	buyButton.Size = UDim2.new(0.8, 0, 0, 48)
-	buyButton.BackgroundColor3 = if affordable
-		then Color3.fromRGB(126, 158, 78)
-		else Color3.fromRGB(196, 190, 178)
+	-- Green the instant the money lands, without the page being rebuilt under
+	-- the cursor to do it.
+	live(function()
+		local cost = selectedCost
+		buyButton.BackgroundColor3 = if cost and PlayerState.get().cash >= cost
+			then Color3.fromRGB(126, 158, 78)
+			else Color3.fromRGB(196, 190, 178)
+	end)
 	buyButton.BorderSizePixel = 0
 	buyButton.Font = Theme.font
 	buyButton.TextColor3 = Color3.fromRGB(250, 246, 238)
@@ -547,7 +598,11 @@ local function renderUpgrades()
 	Theme.corner(buyButton, 12)
 	Theme.outline(buyButton, 2)
 
-	if affordable and selectedKey then
+	-- Connected whether or not the money is there yet. Wiring this only when
+	-- the price was already met left a button that stayed dead after the cash
+	-- arrived, because the page no longer rebuilds itself to notice. The server
+	-- is the one that decides, and it says no politely.
+	if selectedKey then
 		local key = selectedKey :: string
 		buyButton.Activated:Connect(function()
 			purchaseRemote:FireServer("toolUpgrade", key)
@@ -562,6 +617,191 @@ local function renderUpgrades()
 			toolPanel(right, index, tool, state.ownedTools[tool.id] == true)
 		end
 	end
+end
+
+--------------------------------------------------------------------
+-- Yourself: the bag, the legs, the rate and the reach
+--------------------------------------------------------------------
+
+--[[
+	The player's own stat lines, sold from the book.
+
+	These five — how much you carry, how fast you walk, what you charge, how
+	long the tank lasts, how far the trailer reaches — used to be sold only at
+	the boards standing in front of the shed. That meant the single most
+	important purchase in the early game, the bag, was invisible to anyone who
+	had not already walked up to the right board, while the tips page told them
+	to buy it first and a toast announced they could now afford it. Three parts
+	of the game pointing at a thing with no way to reach it.
+
+	They are still on the boards. They are also here, because "where do I buy
+	the bag" should never be a question the game leaves you holding.
+]]
+local function renderStats()
+	heading(leftPage, "Upgrades")
+	local scroll = body(leftPage)
+
+	for order, def in Upgrades.list do
+		local row = Instance.new("Frame")
+		row.Name = def.id
+		row.Size = UDim2.new(1, -12, 0, 80)
+		row.BackgroundColor3 = PAPER
+		row.BackgroundTransparency = 0.45
+		row.BorderSizePixel = 0
+		row.LayoutOrder = order
+		row.Parent = scroll
+		Theme.corner(row, 8)
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Thickness = 1.5
+		stroke.Color = INK
+		stroke.Transparency = 0.6
+		stroke.Parent = row
+
+		local name = Instance.new("TextLabel")
+		name.Text = def.name:upper()
+		name.Size = UDim2.new(1, -130, 0, 24)
+		name.Position = UDim2.fromOffset(12, 6)
+		name.BackgroundTransparency = 1
+		name.Font = Theme.font
+		name.TextColor3 = INK
+		name.TextSize = 21
+		name.TextXAlignment = Enum.TextXAlignment.Left
+		name.Parent = row
+
+		local blurb = Instance.new("TextLabel")
+		blurb.Text = def.description
+		blurb.Size = UDim2.new(1, -130, 0, 30)
+		blurb.Position = UDim2.fromOffset(12, 28)
+		blurb.BackgroundTransparency = 1
+		blurb.Font = Theme.fontRegular
+		blurb.TextColor3 = Color3.fromRGB(92, 84, 74)
+		blurb.TextSize = 14
+		blurb.TextXAlignment = Enum.TextXAlignment.Left
+		blurb.TextYAlignment = Enum.TextYAlignment.Top
+		blurb.TextWrapped = true
+		blurb.Parent = row
+
+		-- "25 --> 39 units" rather than "+1 level": the purchase has to be
+		-- legible as the thing it does, not as an abstraction over it.
+		local change = Instance.new("TextLabel")
+		change.Size = UDim2.new(1, -130, 0, 22)
+		change.Position = UDim2.fromOffset(12, 56)
+		change.BackgroundTransparency = 1
+		change.Font = Theme.font
+		change.TextColor3 = Color3.fromRGB(150, 106, 30)
+		change.TextSize = 16
+		change.TextXAlignment = Enum.TextXAlignment.Left
+		change.Parent = row
+
+		local buy = Instance.new("TextButton")
+		buy.Name = "Buy"
+		buy.Size = UDim2.fromOffset(104, 44)
+		buy.Position = UDim2.new(1, -12, 0.5, 0)
+		buy.AnchorPoint = Vector2.new(1, 0.5)
+		buy.BorderSizePixel = 0
+		buy.Font = Theme.font
+		buy.TextColor3 = Color3.fromRGB(250, 246, 238)
+		buy.TextSize = 17
+		buy.AutoButtonColor = true
+		buy.Parent = row
+		Theme.corner(buy, 8)
+		Theme.outline(buy, 2)
+
+		live(function()
+			local state = PlayerState.get()
+			local level = state.upgrades[def.id] or 0
+			local cost = Upgrades.costAt(def, level)
+
+			if not cost then
+				change.Text = `{Format.stat(Upgrades.valueAt(def, level))}{def.suffix} — the top of the line`
+				buy.Text = "MAX"
+				buy.BackgroundColor3 = Color3.fromRGB(178, 172, 160)
+				return
+			end
+
+			local now = Upgrades.valueAt(def, level)
+			local next_ = Upgrades.valueAt(def, level + 1)
+			change.Text = `Lv {level}   {Format.stat(now)} --> {Format.stat(next_)}{def.suffix}`
+			buy.Text = Format.cash(cost)
+			buy.BackgroundColor3 = if state.cash >= cost
+				then Color3.fromRGB(126, 158, 78)
+				else Color3.fromRGB(196, 190, 178)
+		end)
+
+		buy.Activated:Connect(function()
+			purchaseRemote:FireServer("upgrade", def.id)
+		end)
+	end
+
+	heading(rightPage, "You Right Now")
+	local right = body(rightPage)
+
+	local readouts: { { label: string, read: (PlayerState.State) -> string } } = {
+		{ label = "Bag", read = function(mine)
+			return `{Format.count(mine.bagWeight)} / {Format.count(mine.bagCapacity)} units`
+		end },
+		{ label = "Stride", read = function(mine)
+			return `{Format.stat(mine.walkSpeed)} studs/s`
+		end },
+		{ label = "Fortune", read = function(mine)
+			return `{string.format("%.2f", mine.cashMultiplier)}x cash`
+		end },
+		{ label = "Reserve", read = function(mine)
+			return `{Format.stat(mine.fuel)} / {Format.stat(mine.fuelCapacity)} L`
+		end },
+		{ label = "Haul", read = function(mine)
+			return if mine.hasPortableTrailer
+				then `portable, {Format.stat(mine.dumpRadius)} studs`
+				else "walk it to the trailer"
+		end },
+	}
+
+	for order, readout in readouts do
+		local row = Instance.new("Frame")
+		row.Size = UDim2.new(1, -12, 0, 38)
+		row.BackgroundTransparency = 1
+		row.LayoutOrder = order
+		row.Parent = right
+
+		local label = Instance.new("TextLabel")
+		label.Text = readout.label
+		label.Size = UDim2.new(0.4, 0, 1, 0)
+		label.BackgroundTransparency = 1
+		label.Font = Theme.font
+		label.TextColor3 = INK
+		label.TextSize = 19
+		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.Parent = row
+
+		local value = Instance.new("TextLabel")
+		value.Size = UDim2.new(0.6, -12, 1, 0)
+		value.Position = UDim2.new(1, 0, 0, 0)
+		value.AnchorPoint = Vector2.new(1, 0)
+		value.BackgroundTransparency = 1
+		value.Font = Theme.fontRegular
+		value.TextColor3 = Color3.fromRGB(52, 44, 36)
+		value.TextSize = 18
+		value.TextXAlignment = Enum.TextXAlignment.Right
+		value.Parent = row
+
+		live(function()
+			value.Text = readout.read(PlayerState.get())
+		end)
+	end
+
+	local note = Instance.new("TextLabel")
+	note.Text = "These are also sold at the boards outside the shed."
+	note.Size = UDim2.new(1, -12, 0, 48)
+	note.BackgroundTransparency = 1
+	note.Font = Theme.fontRegular
+	note.TextColor3 = LOCKED
+	note.TextSize = 15
+	note.TextXAlignment = Enum.TextXAlignment.Left
+	note.TextYAlignment = Enum.TextYAlignment.Top
+	note.TextWrapped = true
+	note.LayoutOrder = #readouts + 1
+	note.Parent = right
 end
 
 --------------------------------------------------------------------
@@ -633,14 +873,24 @@ local function renderCollection()
 
 	heading(rightPage, "Records")
 	local right = body(rightPage)
-	local lines = {
-		`Earned this run: {Format.cash(PlayerState.get().earned)}`,
-		`Tips banked: {Format.count(PlayerState.get().tips)}`,
-		`Bag capacity: {Format.count(PlayerState.get().bagCapacity)}`,
+	-- Written out of the state each time rather than baked into a string, so
+	-- the records keep counting while the page stays still.
+	local lines: { (PlayerState.State) -> string } = {
+		function(mine)
+			return `Earned this run: {Format.cash(mine.earned)}`
+		end,
+		function(mine)
+			return `Tips banked: {Format.count(mine.tips)}`
+		end,
+		function(mine)
+			return `Bag capacity: {Format.count(mine.bagCapacity)}`
+		end,
 	}
 	for order, line in lines do
 		local label = Instance.new("TextLabel")
-		label.Text = line
+		live(function()
+			label.Text = line(PlayerState.get())
+		end)
 		label.Size = UDim2.new(1, -12, 0, 34)
 		label.BackgroundTransparency = 1
 		label.Font = Theme.fontRegular
@@ -658,7 +908,7 @@ local function renderTips()
 
 	local tips = {
 		"Hold to work. Your deck cuts a swath as wide as the tool.",
-		"The bag is the bottleneck early. Upgrade it before anything else.",
+		"The bag is the bottleneck early. Buy it on the Upgrades tab, first.",
 		"Walk into the trailer to sell — there is no button to press.",
 		"Grass too thick for your tool will bog it down. That means buy better.",
 		"Cut in long straight lines to bank a Clean Stripe bonus.",
@@ -681,12 +931,17 @@ local function renderTips()
 
 	heading(rightPage, "Controls")
 	local right = body(rightPage)
+	-- What the keys actually do. This list used to promise that B opened "the
+	-- shed", which it never did — B and TAB are bound to the same action, and
+	-- both open this book.
 	local controls = {
 		"Hold left mouse or E — work",
-		"TAB — open this journal",
-		"B — the shed",
-		"G — the store",
+		"TAB or B — open this journal",
+		"G — the Robux store",
 		"F — mount a riding mower",
+		"",
+		"Upgrades and tools are bought in this book,",
+		"or at the boards outside the shed.",
 	}
 	for order, line in controls do
 		local label = Instance.new("TextLabel")
@@ -706,16 +961,85 @@ end
 -- Shell
 --------------------------------------------------------------------
 
+--[[
+	What the open spread is made of, as one string.
+
+	Everything that changes the *shape* of a page goes in here; nothing that
+	merely changes a number on it does. Cash, bag weight and quest progress are
+	deliberately absent — those move five times a second, and they are what
+	`live` is for.
+]]
+local function signature(): string
+	local state = PlayerState.get()
+	local parts = { activeTab, state.equippedTool, selectedKey or "-", tostring(state.hasPortableTrailer) }
+
+	local owned = {}
+	for id in state.ownedTools do
+		table.insert(owned, id)
+	end
+	table.sort(owned)
+	table.insert(parts, table.concat(owned, ","))
+
+	local levels = {}
+	for key, level in state.upgrades do
+		table.insert(levels, `{key}={level}`)
+	end
+	table.sort(levels)
+	table.insert(parts, table.concat(levels, ","))
+
+	for _, entry in questState do
+		table.insert(parts, `{entry.id}:{if entry.done then 1 else 0}`)
+	end
+
+	for _, subject in Players:GetPlayers() do
+		table.insert(parts, tostring(subject.UserId))
+	end
+
+	local world = PlayerState.world()
+	table.insert(parts, if world then world.id else "-")
+
+	local open = {}
+	for id, isOpenSection in PlayerState.openSections() do
+		if isOpenSection then
+			table.insert(open, id)
+		end
+	end
+	table.sort(open)
+	table.insert(parts, table.concat(open, ","))
+
+	return table.concat(parts, "|")
+end
+
+local lastSignature: string? = nil
+
 local function render()
 	if not isOpen then
+		-- Nothing is standing, so nothing can be reused next time it opens.
+		lastSignature = nil
+		table.clear(liveBits)
 		return
 	end
+
+	moneyLabel.Text = `your money :  {Format.cash(PlayerState.get().cash)}    `
+
+	local now = signature()
+	if now == lastSignature then
+		for _, update in liveBits do
+			update()
+		end
+		return
+	end
+	lastSignature = now
+
+	table.clear(liveBits)
 	clear(leftPage)
 	clear(rightPage)
 
 	if activeTab == "objectives" then
 		renderObjectives()
 		renderPlayers()
+	elseif activeTab == "stats" then
+		renderStats()
 	elseif activeTab == "upgrades" then
 		renderUpgrades()
 	elseif activeTab == "collection" then
@@ -723,8 +1047,6 @@ local function render()
 	else
 		renderTips()
 	end
-
-	moneyLabel.Text = `your money :  {Format.cash(PlayerState.get().cash)}    `
 end
 
 --- Re-renders the open spread in place. Cards call this after a selection.
@@ -736,6 +1058,15 @@ end
 --- itself — is affordable right now.
 function Journal.somethingAffordable(): boolean
 	local state = PlayerState.get()
+
+	-- The player's own lines first: the bag is usually the answer, and it is
+	-- the one the badge most needs to be pointing at.
+	for _, def in Upgrades.list do
+		local cost = Upgrades.costAt(def, state.upgrades[def.id] or 0)
+		if cost and state.cash >= cost then
+			return true
+		end
+	end
 
 	for toolId in state.ownedTools do
 		for _, slot in ToolUpgrades.treeFor(toolId) do
@@ -911,7 +1242,7 @@ local function build()
 	-- Tabs hang off the left edge, behind the cover.
 	local rail = Instance.new("Frame")
 	rail.Name = "Tabs"
-	rail.Size = UDim2.fromOffset(180, 240)
+	rail.Size = UDim2.fromOffset(180, #TABS * 56 + 80)
 	rail.Position = UDim2.new(0, -164, 0, 60)
 	rail.BackgroundTransparency = 1
 	rail.ZIndex = 0
@@ -949,17 +1280,34 @@ local function build()
 	bang.ZIndex = 3
 	bang.Parent = badge
 
-	-- The Robux quick-buy hanging under the tabs: the flagship gamepass, one
-	-- press from anywhere in the book.
+	--[[
+		The Robux quick-buy hanging under the tabs.
+
+		Its price used to be the string "180", which matched no pass in the
+		catalogue at any point — and it was shown even on a place where none of
+		the passes have been created yet, so pressing it opened a store that
+		said "nothing here yet". A button advertising a price for a thing that
+		cannot be bought is worse than no button, so it now names the cheapest
+		pass that actually exists and hides itself when none do.
+	]]
+	local cheapest: Monetization.PassDef? = nil
+	for _, def in Monetization.passes do
+		if Monetization.isConfigured(def.id) and (cheapest == nil or def.robux < cheapest.robux) then
+			cheapest = def
+		end
+	end
+
 	local quick = Instance.new("TextButton")
 	quick.Name = "RobuxQuick"
 	quick.Size = UDim2.fromOffset(120, 56)
-	quick.Position = UDim2.fromOffset(24, 208)
+	-- Below the last tab, wherever the last tab now ends: the tabs are laid out
+	-- 56 apart from the top of the rail, and this sat at a hardcoded 208 that
+	-- was one row short the moment a fifth tab was added.
+	quick.Position = UDim2.fromOffset(24, #TABS * 56 + 12)
 	quick.BackgroundTransparency = 1
-	-- The blower it sells sits above the price, as the model rather than a
-	-- puff-of-air emoji. The Robux mark stays a character: it is Roblox's, not
-	-- ours to redraw.
-	quick.Text = "\n\n⬡ 180"
+	-- The Robux mark stays a character: it is Roblox's, not ours to redraw.
+	quick.Text = if cheapest then `\n\n⬡ {cheapest.robux}` else ""
+	quick.Visible = cheapest ~= nil
 	quick.Font = Theme.font
 	quick.TextColor3 = Theme.colors.cash
 	quick.TextSize = 20

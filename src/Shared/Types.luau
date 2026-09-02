@@ -193,6 +193,10 @@ export type UpgradeDef = {
 	step: number,
 	mode: "add" | "mul",
 	suffix: string?,
+	--- True for a line whose stat is only ever a whole number downstream — the
+	--- bag holds 38 units, not 38.75. Without it the card advertised a value
+	--- the game then floored, and promised a quarter of a unit it never gave.
+	whole: boolean?,
 }
 
 export type DebrisDef = {

@@ -107,16 +107,27 @@ end
 	the caller should refuse to let the player play rather than hand them a fresh
 	profile that will overwrite their real save.
 ]]
-function Store.load(self: Store, userId: number): any?
+--[[
+	Returns the profile and whether the load actually succeeded.
+
+	The two are not the same thing and the caller cannot tell them apart from
+	the data alone: a brand new player loads perfectly and has no data. That
+	used to be inferred from `active[userId]` being empty, which is exactly
+	what a successful load of a new player leaves behind — assigning nil to a
+	table key stores nothing — so every genuinely new player on the live game
+	was read as a datastore failure and kicked before they could play. The
+	success flag is now said out loud rather than guessed at.
+]]
+function Store.load(self: Store, userId: number): (any?, boolean)
 	if self.memoryOnly then
 		local existing = self.memory[userId]
 		self.active[userId] = existing
-		return existing
+		return existing, true
 	end
 
 	local store = self.store
 	if not store then
-		return nil
+		return nil, false
 	end
 
 	for tries = 1, LOCK_ATTEMPTS do
@@ -131,14 +142,23 @@ function Store.load(self: Store, userId: number): any?
 			datastore then failed the final attempt. That is what "the controls
 			are broken" looks like from inside the game.
 		]]
-		local stolen = tries == LOCK_ATTEMPTS or RunService:IsStudio()
+		--[[
+			Only a lock nobody is holding any more may be taken.
+
+			This used to force the steal on the fifth attempt — about twelve
+			seconds — while a live lock is one whose heartbeat is under ninety
+			seconds old. A player rejoining quickly could therefore be loaded
+			by a second server while the first still had them, and whichever
+			saved last erased the other. Waiting is bounded anyway: once the
+			holder stops beating, `lockIsLive` goes false on its own.
+		]]
+		local stolen = RunService:IsStudio()
 		local ok, loaded = attempt(`load {userId}`, function()
 			return store:UpdateAsync(keyFor(userId), function(raw: any)
 				local entry: Entry = if type(raw) == "table" then raw else { data = nil }
 				local now = os.time()
 
-				-- On the final attempt the previous holder has had ample time to
-				-- release; take the lock rather than lock the player out forever.
+				-- A live lock belongs to somebody; leave it alone.
 				if not stolen and lockIsLive(entry, self.serverId, now) then
 					return nil
 				end
@@ -152,7 +172,7 @@ function Store.load(self: Store, userId: number): any?
 		if ok and loaded ~= nil then
 			local entry = loaded :: Entry
 			self.active[userId] = entry.data
-			return entry.data
+			return entry.data, true
 		end
 
 		if tries < LOCK_ATTEMPTS then
@@ -161,7 +181,7 @@ function Store.load(self: Store, userId: number): any?
 	end
 
 	warn(`[Store] could not acquire a session lock for {userId}`)
-	return nil
+	return nil, false
 end
 
 --- Writes the profile back and refreshes the lock heartbeat.

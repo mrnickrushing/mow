@@ -26,6 +26,8 @@ export type Modifiers = {
 	doubleBag: boolean?,
 	fastFeet: boolean?,
 	infiniteFuel: boolean?,
+	--- Sells the bag from anywhere, rather than only beside the trailer.
+	instantDump: boolean?,
 	vip: boolean?,
 	--- Product-granted cash multiplier, 1 when no boost is running.
 	cashBoost: number?,
