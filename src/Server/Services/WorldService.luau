@@ -1503,7 +1503,9 @@ local function buildUpgradeStations(world: Types.WorldDef, parent: Folder)
 
 	-- A row across the shed's open front, facing the lawn.
 	local count = #Upgrades.list
-	local spacing = 7
+	-- Boards are seven wide, so seven apart left them edge to edge and their
+	-- billboards ran into each other: "ReserveFortune" across two signs.
+	local spacing = 9.5
 	local startX = -(count - 1) * spacing * 0.5
 
 	for index, def in Upgrades.list do

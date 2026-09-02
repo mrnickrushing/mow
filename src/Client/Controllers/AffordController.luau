@@ -52,7 +52,10 @@ local function check()
 			local key = `upgrade:{def.id}:{level}`
 			if not announced[key] then
 				announced[key] = true
-				Hud.toast("afford", `You can now afford {def.name}!`)
+				-- Where, as well as what. Being told you can afford the Bag
+				-- without being told where the Bag is sold is the whole of the
+				-- complaint this line used to generate.
+				Hud.toast("afford", `You can now afford {def.name}! — Journal, Upgrades tab`)
 			end
 		end
 	end
