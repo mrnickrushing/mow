@@ -500,6 +500,19 @@ end
 	it, and they know how many are standing on the team pads, which the menu
 	never could.
 ]]
+--[[
+	Whether an idle server eventually starts a run by itself.
+
+	It should, on a server that is the game; it must not on one that is the
+	lobby, where the backstop would drop everybody standing at the pads into
+	The House while they were still reading the plaques.
+]]
+local autoStart = true
+
+function RunService.setAutoStart(on: boolean)
+	autoStart = on
+end
+
 function RunService.startFromLobby(worldId: string, partySize: number)
 	if phase ~= "lobby" or not Worlds.get(worldId) then
 		return
@@ -661,7 +674,7 @@ function RunService.start()
 				-- play. The timer is only a backstop for an empty server, or
 				-- one where nobody picks: it drops back to the starter world
 				-- rather than sitting on a menu forever.
-				if RunService.secondsLeft() <= -LOBBY_IDLE_RESTART then
+				if autoStart and RunService.secondsLeft() <= -LOBBY_IDLE_RESTART then
 					beginRun(Worlds.STARTER_ID)
 				else
 					broadcast()

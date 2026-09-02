@@ -10,7 +10,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Worlds = require(Shared.Config.Worlds)
 local Remotes = require(Shared.Remotes)
 
 Remotes.init()
@@ -40,6 +39,7 @@ local RewardService = require(Services.RewardService)
 local StripeService = require(Services.StripeService)
 local SweepService = require(Services.SweepService)
 local LobbyService = require(Services.LobbyService)
+local MatchmakingService = require(Services.MatchmakingService)
 
 -- Order matters: data before anything that reads a profile, replication before
 -- anything that marks tiles, and every listener connected before RunService
@@ -78,8 +78,19 @@ CollectibleService.start()
 HazardService.start()
 RunService.start()
 
--- Last, because it watches the run's phase and puts people in the yard between
--- runs; it needs the run to exist before it can have an opinion about it.
-LobbyService.start()
+--[[
+	One place, two jobs.
 
-print(`[Mow] server ready on {Worlds.expect(Worlds.STARTER_ID).name}`)
+	Every team gets a server of its own, and a reserved server is another
+	instance of this same place — so the last thing the server does is work out
+	which of the two it is. A public server is a lobby and never starts a run
+	by itself; a reserved server is a run and never builds a lobby.
+]]
+if MatchmakingService.isRunServer() then
+	MatchmakingService.startRunServer()
+else
+	RunService.setAutoStart(false)
+	LobbyService.start()
+end
+
+print(`[Mow] server ready — {if MatchmakingService.isRunServer() then "a run" else "the lobby"}`)
