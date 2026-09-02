@@ -32,9 +32,7 @@ local LobbyService = {}
 
 --- Far enough from every lot that nothing can ever overlap it.
 local CENTRE = Vector3.new(-600, 0, -600)
-local FLOOR_W, FLOOR_D = 170, 170
---- How close counts as standing on a pad.
-local PAD_RADIUS = 7
+local FLOOR_W, FLOOR_D = 260, 260
 local TEAM_PADS = 4
 --- Seconds between a team being ready and the property loading.
 local COUNTDOWN = 6
@@ -131,89 +129,210 @@ local function pad(name: string, at: Vector3, colour: Color3, parent: Instance, 
 	return part, surface(part, Enum.NormalId.Top, 0.55)
 end
 
+--[[
+	The yard itself.
+
+	It is a lawn with a fence round it, because that is what this game is about
+	and because a grey slab in the void is a menu with walls. Big enough to walk
+	about in while you decide, a path down the middle so the route to the pads
+	is obvious, and everything that has to be read either painted on the ground
+	or stood behind the thing it names.
+]]
 local function build()
 	if folder then
 		return
 	end
 	local root = Build.folder("MowLobby", workspace)
 	folder = root
+	local rng = Random.new(20260902)
 
 	Build.part({
-		name = "Floor",
+		name = "Lawn",
 		size = Vector3.new(FLOOR_W, 2, FLOOR_D),
 		cframe = CFrame.new(CENTRE - Vector3.new(0, 1, 0)),
-		color = Palette.color(Palette.ground.path),
-		material = Enum.Material.Concrete,
+		color = Palette.color(Palette.ground.lawn),
+		material = Enum.Material.Grass,
 		parent = root,
 	})
 
-	for _, side in { -1, 1 } do
-		Build.part({
-			name = "Wall",
-			size = Vector3.new(FLOOR_W, 22, 2),
-			cframe = CFrame.new(CENTRE + Vector3.new(0, 11, side * FLOOR_D * 0.5)),
-			color = Palette.color(Palette.fence.rail),
-			material = Enum.Material.SmoothPlastic,
-			parent = root,
-		})
-		Build.part({
-			name = "Wall",
-			size = Vector3.new(2, 22, FLOOR_D),
-			cframe = CFrame.new(CENTRE + Vector3.new(side * FLOOR_W * 0.5, 11, 0)),
-			color = Palette.color(Palette.fence.rail),
-			material = Enum.Material.SmoothPlastic,
-			parent = root,
-		})
+	--[[
+		A picket fence on all four sides, open where you arrive.
+
+		The gap matters more than the fence: a yard you cannot see out of is a
+		room, and the point of standing here is that it feels like the front of
+		somebody's house.
+	]]
+	local halfW, halfD = FLOOR_W * 0.5, FLOOR_D * 0.5
+	local fences = Build.folder("Fences", root)
+	local corners = {
+		{ CENTRE + Vector3.new(-halfW, 0, -halfD), CENTRE + Vector3.new(halfW, 0, -halfD) },
+		{ CENTRE + Vector3.new(-halfW, 0, -halfD), CENTRE + Vector3.new(-halfW, 0, halfD) },
+		{ CENTRE + Vector3.new(halfW, 0, -halfD), CENTRE + Vector3.new(halfW, 0, halfD) },
+		-- The near side, in two runs with the gate between them.
+		{ CENTRE + Vector3.new(-halfW, 0, halfD), CENTRE + Vector3.new(-18, 0, halfD) },
+		{ CENTRE + Vector3.new(18, 0, halfD), CENTRE + Vector3.new(halfW, 0, halfD) },
+	}
+	for _, run in corners do
+		Build.picketFence(fences, run[1], run[2], 9, false)
 	end
 
-	local teamHeading = floorHeading("TeamSign", 60, CENTRE + Vector3.new(0, 0, 46), root)
+	-- A path from the gate to the plaques, so the way in is a way somewhere.
+	Build.flagstone(
+		root,
+		CENTRE + Vector3.new(0, 1.15, 20),
+		Vector2.new(16, 190),
+		5,
+		rng
+	)
+
+	--------------------------------------------------------------------
+	-- The team pads
+	--------------------------------------------------------------------
+
+	local teamHeading = floorHeading("TeamSign", 64, CENTRE + Vector3.new(0, 1.9, 74), root)
 	teamHeading.Text = "YOUR TEAM — STAND ON A PAD"
 
 	for index = 1, TEAM_PADS do
-		local at = CENTRE + Vector3.new((index - (TEAM_PADS + 1) * 0.5) * 18, 0, 30)
-		local part, label = pad(`TeamPad{index}`, at, Palette.color(Palette.ground.stone), root)
+		local at = CENTRE + Vector3.new((index - (TEAM_PADS + 1) * 0.5) * 26, 1.5, 46)
+		local part, label = pad(`TeamPad{index}`, at, Palette.color(Palette.ground.stone), root, 18)
 		label.Text = `{index}`
 		teamPads[index] = part
 		teamLabels[index] = label
 	end
 
-	local pickHeading = floorHeading("PickSign", 66, CENTRE + Vector3.new(0, 0, -12), root)
+	--------------------------------------------------------------------
+	-- The property plaques, each with its own board behind it
+	--------------------------------------------------------------------
+
+	local pickHeading = floorHeading("PickSign", 70, CENTRE + Vector3.new(0, 1.9, -2), root)
 	pickHeading.Text = "PICK A PROPERTY — STAND ON ONE"
 
 	local list = Worlds.list
 	for index, world in list do
-		local at = CENTRE + Vector3.new((index - (#list + 1) * 0.5) * 48, 0, -42)
-		local part, label = pad(`LevelPad_{world.id}`, at, Palette.color(Palette.ground.stoneDark), root, 22)
-		label.Text = world.name
+		local x = (index - (#list + 1) * 0.5) * 74
+		local at = CENTRE + Vector3.new(x, 1.5, -46)
+		local part, padLabel = pad(`LevelPad_{world.id}`, at, Palette.color(Palette.ground.stoneDark), root, 26)
+		padLabel.Text = world.difficulty
+
+		-- The board stands beyond the pad rather than in front of it, so it
+		-- backs the thing it names instead of hiding it.
+		local post = Build.part({
+			name = `LevelSign_{world.id}`,
+			size = Vector3.new(52, 18, 1.2),
+			cframe = CFrame.lookAt(
+				CENTRE + Vector3.new(x, 12, -70),
+				CENTRE + Vector3.new(x, 12, -69)
+			),
+			color = Palette.color(Palette.house.trim),
+			material = Enum.Material.SmoothPlastic,
+			parent = root,
+		})
+		for _, side in { -1, 1 } do
+			Build.part({
+				name = "SignPost",
+				size = Vector3.new(1.6, 12, 1.6),
+				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 24, 6, -70)),
+				color = Palette.color(Palette.fence.rail),
+				material = Enum.Material.SmoothPlastic,
+				parent = root,
+			})
+		end
 		levelPads[world.id] = part
-		levelLabels[world.id] = label
+		levelLabels[world.id] = surface(post, Enum.NormalId.Front, 0.86)
+		levelLabels[world.id].Text = world.name
 	end
+
+	--------------------------------------------------------------------
+	-- The board at the far end
+	--------------------------------------------------------------------
 
 	local statusPost = Build.part({
 		name = "StatusBoard",
-		size = Vector3.new(86, 26, 1),
+		size = Vector3.new(120, 30, 1.5),
 		cframe = CFrame.lookAt(
-			CENTRE + Vector3.new(0, 15, -82),
-			CENTRE + Vector3.new(0, 15, -81)
+			CENTRE + Vector3.new(0, 34, -112),
+			CENTRE + Vector3.new(0, 34, -111)
 		),
 		color = Palette.color(Palette.house.trim),
 		material = Enum.Material.SmoothPlastic,
-		canCollide = false,
 		parent = root,
 	})
-	outcomeLabel = surface(statusPost, Enum.NormalId.Front, 0.34)
+	for _, side in { -1, 1 } do
+		Build.part({
+			name = "BoardPost",
+			size = Vector3.new(3, 34, 3),
+			cframe = CFrame.new(CENTRE + Vector3.new(side * 56, 17, -112)),
+			color = Palette.color(Palette.fence.rail),
+			material = Enum.Material.SmoothPlastic,
+			parent = root,
+		})
+	end
+	outcomeLabel = surface(statusPost, Enum.NormalId.Front, 0.32)
 	local outcome = outcomeLabel :: TextLabel
-	outcome.Position = UDim2.fromScale(0.04, 0.06)
-	statusLabel = surface(statusPost, Enum.NormalId.Front, 0.4)
+	outcome.Position = UDim2.fromScale(0.04, 0.08)
+	statusLabel = surface(statusPost, Enum.NormalId.Front, 0.38)
 	local status = statusLabel :: TextLabel
-	status.Position = UDim2.fromScale(0.04, 0.5)
+	status.Position = UDim2.fromScale(0.04, 0.52)
 	status.Text = "Stand on a pad and pick a property"
+
+	--------------------------------------------------------------------
+	-- Dressing
+	--------------------------------------------------------------------
+
+	-- Trees down both flanks, well clear of anything anybody has to read.
+	for _, side in { -1, 1 } do
+		for _, z in { 96, 58, 16, -30, -76 } do
+			Build.mesh({
+				prop = "Tree",
+				name = "Tree",
+				size = Vector3.new(24, 34, 24),
+				collisionSize = Vector3.new(4, 30, 4),
+				cframe = CFrame.new(CENTRE + Vector3.new(side * (halfW - 20), 17, z))
+					* CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0),
+				parent = root,
+			})
+		end
+	end
+
+	-- Hedges along the inside of the flanks, and a few bushes about.
+	for _, side in { -1, 1 } do
+		Build.hedge(
+			root,
+			CENTRE + Vector3.new(side * (halfW - 34), 1, -100),
+			CENTRE + Vector3.new(side * (halfW - 34), 1, 100),
+			8,
+			7
+		)
+	end
+	for _ = 1, 14 do
+		local x = rng:NextNumber(-halfW + 30, halfW - 30)
+		local z = rng:NextNumber(-halfD + 24, halfD - 24)
+		if math.abs(x) > 34 then
+			Build.mesh({
+				prop = "Bush",
+				name = "Bush",
+				size = Vector3.new(7, 7, 7),
+				cframe = CFrame.new(CENTRE + Vector3.new(x, 3.5, z))
+					* CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0),
+				canCollide = false,
+				parent = root,
+			})
+		end
+	end
 end
 
+--[[
+	Standing on a pad means standing on the pad.
+
+	This used to be a fixed seven-stud radius, which was smaller than the
+	plaques it was testing: you could be stood squarely on The Gas Station with
+	both feet on the stone and have the lobby decide you were on the grass. The
+	pad's own footprint is the answer, with a stud of forgiveness at the edge.
+]]
 local function standingOn(part: BasePart, position: Vector3): boolean
 	local offset = position - part.Position
-	return offset.X * offset.X + offset.Z * offset.Z <= PAD_RADIUS * PAD_RADIUS
-		and math.abs(offset.Y) < 12
+	local reach = part.Size.X * 0.5 + 1
+	return math.abs(offset.X) <= reach and math.abs(offset.Z) <= reach and math.abs(offset.Y) < 12
 end
 
 --- Everyone in the lobby right now, and where they are standing.
@@ -236,7 +355,7 @@ function LobbyService.place(player: Player)
 	if not character or not character.PrimaryPart then
 		return
 	end
-	local at = CENTRE + Vector3.new(0, 4, 66)
+	local at = CENTRE + Vector3.new(0, 5, 104)
 	character:PivotTo(CFrame.lookAt(at, at - Vector3.new(0, 0, 20)))
 end
 
