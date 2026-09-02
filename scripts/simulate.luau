@@ -238,8 +238,19 @@ local function simulate(world)
 				local options = candidates(state, world, debrisId)
 				local pick = options[1]
 
-				-- Buy only what pays for itself inside the work that is left.
-				local remaining = (units - cleared) / perSecond
+				--[[
+					Buy only what pays for itself inside the work that is left.
+
+					The horizon is the rest of the section, not the rest of this
+					wave. Waves scale with the player count while each wave
+					shrinks by it, so judging payback against one wave made the
+					buyer four times more short-sighted at four players than at
+					one: it refused every upgrade and ground both The House and
+					The Mansion out with bare hands, which read as a balance
+					cliff that was not there. Measured over the section, the
+					horizon is the same for one player as for four.
+				]]
+				local remaining = ((units - cleared) + units * (waves - wave)) / perSecond
 				if pick and rate > 0 and pick.gain * remaining > pick.cost then
 					local wait = math.max(pick.cost - state.cash, 0) / rate
 					state.seconds += wait
