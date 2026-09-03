@@ -21,6 +21,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
+local Loop = require(Shared.Util.Loop)
 local GameConfig = require(Shared.Config.GameConfig)
 local LobbyPad = require(Shared.LobbyPad)
 local Remotes = require(Shared.Remotes)
@@ -499,27 +500,25 @@ function LevelSelect.start()
 		the player has actually left the pad — so pressing Confirm or the X
 		does not put the panel straight back up under their feet.
 	]]
-	task.spawn(function()
-		while true do
-			task.wait(0.2)
-			--[[
-				Not while the opening is running.
+	Loop.forever("LevelSelect.pad", function()
+		task.wait(0.2)
+		--[[
+			Not while the opening is running.
 
-				The intro takes the camera and hides the rest of the screen,
-				and a player can still walk during it — so without this, the
-				first thing anybody ever sees is a settings panel opening on
-				top of the story, over a camera pointing somewhere else
-				entirely.
-			]]
-			local on = padUnderfoot() and not Intro.isPlaying()
-			if not on then
-				dismissedOnPad = false
-				if isOpen then
-					LevelSelect.setOpen(false)
-				end
-			elseif not isOpen and not dismissedOnPad then
-				LevelSelect.setOpen(true)
+			The intro takes the camera and hides the rest of the screen,
+			and a player can still walk during it — so without this, the
+			first thing anybody ever sees is a settings panel opening on
+			top of the story, over a camera pointing somewhere else
+			entirely.
+		]]
+		local on = padUnderfoot() and not Intro.isPlaying()
+		if not on then
+			dismissedOnPad = false
+			if isOpen then
+				LevelSelect.setOpen(false)
 			end
+		elseif not isOpen and not dismissedOnPad then
+			LevelSelect.setOpen(true)
 		end
 	end)
 

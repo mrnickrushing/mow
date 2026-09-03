@@ -21,6 +21,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Debris = require(Shared.Config.Debris)
+local Loop = require(Shared.Util.Loop)
 local RunOnly = require(script.Parent.RunOnly)
 local Format = require(Shared.Util.Format)
 local Remotes = require(Shared.Remotes)
@@ -831,11 +832,9 @@ function Hud.start()
 	build()
 	refresh()
 
-	task.spawn(function()
-		while true do
-			task.wait(0.15)
-			stepTally()
-		end
+	Loop.forever("Hud.tally", function()
+		task.wait(0.15)
+		stepTally()
 	end)
 
 	PlayerState.Changed:Connect(refresh)

@@ -9,10 +9,13 @@
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local GameConfig = require(game:GetService("ReplicatedStorage").Shared.Config.GameConfig)
 local DefaultData = require(script.Parent.Parent.Lib.DefaultData)
-local Loop = require(script.Parent.Parent.Lib.Loop)
+local Loop = require(Shared.Util.Loop)
 local Store = require(script.Parent.Parent.Lib.Store)
 
 local DataService = {}

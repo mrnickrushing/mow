@@ -12,9 +12,12 @@
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local BagService = require(script.Parent.BagService)
-local Loop = require(script.Parent.Parent.Lib.Loop)
+local Loop = require(Shared.Util.Loop)
 local CollectibleService = require(script.Parent.CollectibleService)
 local MonetizationService = require(script.Parent.MonetizationService)
 
