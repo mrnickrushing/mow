@@ -15,6 +15,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
 local Monetization = require(Shared.Config.Monetization)
 local BoostService = require(script.Parent.BoostService)
+local Loop = require(script.Parent.Parent.Lib.Loop)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 
@@ -123,14 +124,12 @@ function RewardService.start()
 		nextFreeRental[player] = nil
 	end)
 
-	task.spawn(function()
 		local step = 5
-		while true do
-			task.wait(step)
-			for _, player in Players:GetPlayers() do
-				if DataService.get(player) then
-					tick(player, step)
-				end
+	Loop.forever("Reward.playtime", function()
+		task.wait(step)
+		for _, player in Players:GetPlayers() do
+			if DataService.get(player) then
+				tick(player, step)
 			end
 		end
 	end)

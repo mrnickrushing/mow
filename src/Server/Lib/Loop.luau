@@ -36,14 +36,16 @@ local REPORT_EVERY = 30
 local FAILURE_PAUSE = 1
 
 --[[
-	Runs `body` forever. `body` is one iteration and is expected to do its own
-	`task.wait`, so any cadence — fixed, variable, or per-player — fits.
+	Runs `body` while `keepGoing()` holds. `body` is one iteration and is
+	expected to do its own `task.wait`, so any cadence — fixed, variable, or
+	per-player — fits. A sprinkler runs while its head is still in the world;
+	the round tick runs for the life of the server.
 ]]
-function Loop.forever(name: string, body: () -> ())
+function Loop.whileTrue(name: string, keepGoing: () -> boolean, body: () -> ())
 	task.spawn(function()
 		local lastReport = -math.huge
 		local suppressed = 0
-		while true do
+		while keepGoing() do
 			local ok, err = pcall(body :: any)
 			if not ok then
 				local now = os.clock()
@@ -59,6 +61,15 @@ function Loop.forever(name: string, body: () -> ())
 			end
 		end
 	end)
+end
+
+local function always(): boolean
+	return true
+end
+
+--- Runs `body` for the life of the server.
+function Loop.forever(name: string, body: () -> ())
+	Loop.whileTrue(name, always, body)
 end
 
 return Loop
