@@ -988,6 +988,28 @@ return function()
 			end
 		end)
 
+		h.it("names the lobby pad in one place", function()
+			--[[
+				The server builds the game pads and the client watches for them
+				by name to know when to open the settings panel, so the name
+				crosses the wire.
+
+				It was written out on both sides. Renaming the pads from
+				`TeamPad` to `GamePad` therefore stopped the panel opening
+				at all — which is precisely the "nothing happens when I stand
+				on the pad" the rebuild existed to fix, reintroduced by the
+				rebuild. A shared constant is the fix; this is the guard that
+				it stays shared and stays usable.
+			]]
+			local prefix = GameConfig.LOBBY_PAD_PREFIX
+			h.expectTrue(type(prefix) == "string", "the pad prefix should be a string")
+			h.expectTrue(#prefix > 0, "an empty prefix would match every part in the lobby")
+			h.expectTrue(
+				string.match(prefix, "^%a[%w_]*$") ~= nil,
+				`pad prefix "{prefix}" should be a plain name, since it is matched against instance names`
+			)
+		end)
+
 		h.it("keeps the free reward loops meaningful", function()
 			local rewards = Monetization.rewards
 			h.expectTrue(#rewards.dailyStreak >= 7, "a daily streak should run at least a week")

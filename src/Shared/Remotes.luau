@@ -40,8 +40,6 @@ Remotes.PLACE_TRAILER = "PlaceTrailer"
 Remotes.VEHICLE = "Vehicle"
 --- Server -> client: the objective chain and its progress.
 Remotes.QUESTS = "Quests"
---- Client -> server: pick the world to play next, from the level select.
-Remotes.SELECT_WORLD = "SelectWorld"
 --[[
 	Client -> server: the lobby's game settings, confirmed.
 
@@ -72,7 +70,6 @@ local EVENTS = {
 	Remotes.PLACE_TRAILER,
 	Remotes.VEHICLE,
 	Remotes.QUESTS,
-	Remotes.SELECT_WORLD,
 	Remotes.LOBBY_CONFIRM,
 	Remotes.INTRO_DONE,
 }

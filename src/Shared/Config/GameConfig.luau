@@ -173,6 +173,18 @@ local GameConfig = {
 	--------------------------------------------------------------------
 	-- Persistence
 	--------------------------------------------------------------------
+	--[[
+		What a lobby game pad is called.
+
+		The server builds them and the client watches for them to know when to
+		open the settings panel, so the name crosses the wire and belongs in
+		one place. It was written out on both sides, and the moment the pads
+		were renamed from `TeamPad` to `GamePad` the panel stopped opening —
+		which is exactly the "nothing happens when I stand on the pad" the pads
+		were rebuilt to fix.
+	]]
+	LOBBY_PAD_PREFIX = "GamePad",
+
 	DATASTORE_NAME = "MowAllTheLawns_PlayerData_v1",
 	--[[
 		How often a profile is written back — which is also, and this is the
