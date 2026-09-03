@@ -210,9 +210,7 @@ function BoostService.carryRentals()
 	local now = os.clock()
 	for player, rental in rentals do
 		local run = RunState.find(player)
-		if not run then
-			rentals[player] = nil
-		elseif rental.expiresAt <= now then
+		if not run or rental.expiresAt <= now then
 			rentals[player] = nil
 		else
 			-- What the fresh state starts them with is what the rental hands
