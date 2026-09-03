@@ -44,6 +44,15 @@ WorldService.tiles = nil :: buffer?
 WorldService.world = nil :: Types.WorldDef?
 --- Zone id per tile index, or "" for ground that belongs to no section.
 WorldService.tileSection = nil :: { string }?
+--[[
+	Tiles the world was built on top of, by tile index.
+
+	`clearBuriedTiles` runs once, after the structures are up, and empties the
+	tiles the porch deck and the steps and the walls ended up standing on. A
+	wave refill re-seeds a section's whole rect, so without a record of them it
+	sowed every one of those tiles again — see `refillSection`.
+]]
+WorldService.buriedTiles = {} :: { [number]: boolean }
 WorldService.sections = {} :: { [string]: SectionState }
 WorldService.totalUnits = 0
 --- Where a player should be standing in the world now loaded. See
@@ -2098,6 +2107,10 @@ local function clearBuriedTiles(world: Types.WorldDef, grid: Grid.Grid, tiles: b
 							then
 								local units = Cutting.unitsOnTile(byte)
 								buffer.writeu8(tiles, index - 1, 0)
+								-- Remembered, because a wave refills the whole
+								-- rect and would otherwise put every one of
+								-- these straight back under the porch.
+								WorldService.buriedTiles[index] = true
 								state.totalUnits -= units
 								state.remainingUnits -= units
 								WorldService.totalUnits -= units
@@ -2131,6 +2144,9 @@ function WorldService.load(worldId: string)
 	WorldService.tiles = tiles
 	WorldService.world = world
 	table.clear(openSections)
+	-- Tile indices belong to the grid that produced them, so last world's
+	-- buried set would suppress seeding at unrelated places in this one.
+	table.clear(WorldService.buriedTiles)
 
 	seedTiles(world, grid, tiles)
 
@@ -2358,7 +2374,28 @@ function WorldService.refillSection(sectionId: string)
 				and tz >= water.z
 				and tz < water.z + water.d
 
-			if not onWater and rng:NextNumber() <= section.density then
+			--[[
+				A refill obeys the same three rules the first sowing did.
+
+				It obeyed one of them. The pool was spared and nothing else
+				was, so every wave after the first re-seeded the tiles under
+				the shed — which `seedTiles` skips precisely because they are
+				inside a building — and every tile `clearBuriedTiles` had
+				emptied under the porch deck, the steps and the walls.
+
+				Waves are `math.max(playerCount, 1)`, so this only ever
+				happened with somebody else on the server, and it took the
+				section's own completion with it: twenty-two tiles of the
+				House's front yard alone come back under the porch, and a
+				section whose remaining units cannot reach zero never clears,
+				never opens the one behind it, and ends the run on the clock.
+			]]
+			local wx, wz = Grid.tileToWorld(grid, tx, tz)
+			local blocked = onWater
+				or WorldService.buriedTiles[index] == true
+				or Worlds.underShed(world, wx, wz)
+
+			if not blocked and rng:NextNumber() <= section.density then
 				local entry = pickFill(section)
 				if entry then
 					local height = math.clamp(

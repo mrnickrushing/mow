@@ -392,7 +392,7 @@ local function loseRun()
 	end
 	phase = "lost"
 	endsAt = os.clock() + GameConfig.INTERMISSION_SECONDS
-	EconomyService.notifyAll("round", "Out of time. The leaves win this one.", nil)
+	EconomyService.notifyAll("round", "Out of time. The grass wins this one.", nil)
 	broadcast()
 end
 

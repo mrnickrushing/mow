@@ -273,7 +273,7 @@ local function onPlaceTrailer(player: Player)
 	end
 
 	if not Balance.hasPortableTrailer(run.upgrades) then
-		EconomyService.notify(player, "stall", "Buy Haul at the shed to park the trailer where you stand", nil)
+		EconomyService.notify(player, "stall", "Buy Haul in your book to park the trailer where you stand", nil)
 		return
 	end
 
