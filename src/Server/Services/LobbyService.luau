@@ -22,6 +22,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
+local LobbyPad = require(Shared.LobbyPad)
 local Palette = require(Shared.Config.Palette)
 local Remotes = require(Shared.Remotes)
 local Worlds = require(Shared.Config.Worlds)
@@ -259,12 +260,12 @@ local function build()
 		settings for that game; the board behind it says what it is.
 	]]
 	for index = 1, GAME_SLOTS do
-		local x = (index - (GAME_SLOTS + 1) * 0.5) * 32
+		local x = (index - (GAME_SLOTS + 1) * 0.5) * LobbyPad.SPACING
 		local at = CENTRE + Vector3.new(x, 1.5, 8)
 		local padPart = glowPad(
 			`{GameConfig.LOBBY_PAD_PREFIX}{index}`,
 			at - Vector3.new(0, 1.3, 0),
-			24,
+			LobbyPad.SPAN,
 			root
 		)
 
@@ -495,17 +496,14 @@ local function build()
 		parent = yard,
 	})
 
-	-- Hedges framing the depot, so the middle of the yard reads as a place
-	-- rather than as the gap between two piles of props.
-	for _, side in { -1, 1 } do
-		Build.hedge(
-			yard,
-			CENTRE + Vector3.new(side * 46, 0, 22),
-			CENTRE + Vector3.new(side * 46, 0, -22),
-			5,
-			4
-		)
-	end
+	--[[
+		The depot used to get its own short hedge either side, at the same 46
+		studs out that the flanks were wrongly using — so it was planted in the
+		first and last pad along with them. The flank line now runs the full
+		depth of the lawn outside the pads, which already frames the yard; a
+		second row on the same line would only be fourteen more parts in the
+		same place.
+	]]
 
 	--------------------------------------------------------------------
 	-- The street it stands on
@@ -675,11 +673,12 @@ local function build()
 	end
 
 	-- Hedges along the inside of the flanks, and a few bushes about.
+	local flankX = LobbyPad.flankX(GAME_SLOTS)
 	for _, side in { -1, 1 } do
 		Build.hedge(
 			root,
-			CENTRE + Vector3.new(side * (halfW - 34), 1, -100),
-			CENTRE + Vector3.new(side * (halfW - 34), 1, 100),
+			CENTRE + Vector3.new(side * flankX, 1, -100),
+			CENTRE + Vector3.new(side * flankX, 1, 100),
 			8,
 			7
 		)
@@ -710,9 +709,7 @@ end
 	pad's own footprint is the answer, with a stud of forgiveness at the edge.
 ]]
 local function standingOn(part: BasePart, position: Vector3): boolean
-	local offset = position - part.Position
-	local reach = part.Size.X * 0.5 + 1
-	return math.abs(offset.X) <= reach and math.abs(offset.Z) <= reach and math.abs(offset.Y) < 12
+	return LobbyPad.partCovers(part, position)
 end
 
 --- Everyone in the lobby right now, and where they are standing.

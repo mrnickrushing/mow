@@ -21,7 +21,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
-local GameConfig = require(Shared.Config.GameConfig)
+local LobbyPad = require(Shared.LobbyPad)
 local Remotes = require(Shared.Remotes)
 local Types = require(Shared.Types)
 local Worlds = require(Shared.Config.Worlds)
@@ -445,13 +445,8 @@ local function padUnderfoot(): boolean
 		return false
 	end
 	for _, part in lobby:GetChildren() do
-		local prefix = GameConfig.LOBBY_PAD_PREFIX
-		if part:IsA("BasePart") and string.sub(part.Name, 1, #prefix) == prefix then
-			local offset = root.Position - part.Position
-			local reach = part.Size.X * 0.5 + 2
-			if offset.X * offset.X + offset.Z * offset.Z <= reach * reach then
-				return true
-			end
+		if part:IsA("BasePart") and LobbyPad.isPad(part.Name) and LobbyPad.partCovers(part, root.Position) then
+			return true
 		end
 	end
 	return false

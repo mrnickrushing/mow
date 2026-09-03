@@ -18,6 +18,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
+local RunOnly = require(script.Parent.RunOnly)
 local Remotes = require(Shared.Remotes)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 local Journal = require(script.Parent.Journal)
@@ -141,6 +142,7 @@ local function build()
 		align = Enum.TextXAlignment.Right,
 		textSize = 36,
 	})
+	RunOnly.add(timerLabel)
 
 	-- Tucked left of the status column rather than directly under it: the
 	-- column grows downward and the two met on a short viewport.
