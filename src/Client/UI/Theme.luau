@@ -307,7 +307,22 @@ export type IconOptions = {
 }
 
 --- How far back the camera sits, as a multiple of the model's largest side.
-local ICON_PULL_BACK = 1.15
+--[[
+	How much of its frame an icon's subject fills.
+
+	At 1.15 the camera sat far enough back that a prop occupied about three
+	fifths of its frame height, and that frame is itself a fraction of the tile
+	around it — so a tool icon in the journal came out roughly a third of the
+	card it sat in and read as a smudge rather than a rake. The reference fills
+	its icon tiles almost edge to edge, which is what makes its shelf of
+	upgrades legible at a glance.
+
+	Not pushed further than this: the subject is framed on its largest
+	dimension and then turned three-quarters on, so a long prop projects wider
+	than that dimension and the remaining margin is what stops a rake handle
+	being cut off at the frame edge.
+]]
+local ICON_PULL_BACK = 1.42
 --- Three-quarter view: enough turn to read a shape as a solid, not a plan.
 local ICON_ANGLE = Vector3.new(0.42, 0.34, 1).Unit
 

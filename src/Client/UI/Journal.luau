@@ -386,7 +386,7 @@ end
 local function slotCard(parent: Instance, order: number, slot: any, owned: boolean, level: number)
 	local card = Instance.new("TextButton")
 	card.Name = if owned then slot.key else "Locked"
-	card.Size = UDim2.fromOffset(92, 132)
+	card.Size = UDim2.fromOffset(104, 150)
 	card.BackgroundTransparency = 1
 	card.Text = ""
 	card.LayoutOrder = order
@@ -399,7 +399,7 @@ local function slotCard(parent: Instance, order: number, slot: any, owned: boole
 	name.BackgroundTransparency = 1
 	name.Font = Theme.font
 	name.TextColor3 = Color3.fromRGB(52, 44, 36)
-	name.TextSize = 17
+	name.TextSize = 19
 	name.Parent = card
 
 	if owned then
@@ -407,7 +407,8 @@ local function slotCard(parent: Instance, order: number, slot: any, owned: boole
 	end
 
 	local tile = Instance.new("Frame")
-	tile.Size = UDim2.fromOffset(72, 66)
+	-- Square, and most of the card: the reference's icon tiles are the card.
+	tile.Size = UDim2.fromOffset(88, 84)
 	tile.Position = UDim2.new(0.5, 0, 0, 40)
 	tile.AnchorPoint = Vector2.new(0.5, 0)
 	tile.BackgroundColor3 = if owned then Color3.fromRGB(214, 210, 200) else Color3.fromRGB(96, 92, 88)
@@ -435,14 +436,14 @@ local function slotCard(parent: Instance, order: number, slot: any, owned: boole
 	price.Name = "Price"
 	price.Text = if not owned then "?" elseif cost then `{string.format("%.2f", cost)}$` else "MAX"
 	price.Size = UDim2.new(1, 0, 0, 22)
-	price.Position = UDim2.new(0, 0, 0, 108)
+	price.Position = UDim2.new(0, 0, 0, 126)
 	price.BackgroundTransparency = 1
 	price.Font = Theme.font
 	price.TextColor3 = if not owned
 		then LOCKED
 		elseif cost then Color3.fromRGB(150, 106, 30)
 		else Color3.fromRGB(126, 158, 78)
-	price.TextSize = 17
+	price.TextSize = 19
 	price.Parent = card
 
 	if owned then
@@ -457,7 +458,7 @@ end
 local function toolPanel(parent: Instance, order: number, tool: Types.ToolDef, owned: boolean)
 	local holder = Instance.new("Frame")
 	holder.Name = tool.id
-	holder.Size = UDim2.new(1, -8, 0, 208)
+	holder.Size = UDim2.new(1, -8, 0, 242)
 	holder.BackgroundTransparency = 1
 	holder.LayoutOrder = order
 	holder.Parent = parent
@@ -468,11 +469,11 @@ local function toolPanel(parent: Instance, order: number, tool: Types.ToolDef, o
 	title.BackgroundTransparency = 1
 	title.Font = Theme.font
 	title.TextColor3 = INK
-	title.TextSize = 27
+	title.TextSize = 30
 	title.Parent = holder
 
 	local frame = Instance.new("Frame")
-	frame.Size = UDim2.new(1, -4, 0, 152)
+	frame.Size = UDim2.new(1, -4, 0, 170)
 	frame.Position = UDim2.fromOffset(2, 38)
 	frame.BackgroundColor3 = PAPER
 	frame.BackgroundTransparency = 0.5
@@ -522,7 +523,7 @@ local function toolPanel(parent: Instance, order: number, tool: Types.ToolDef, o
 		local buy = Instance.new("TextButton")
 		buy.Text = text
 		buy.Size = UDim2.fromOffset(width, 26)
-		buy.Position = UDim2.new(0.5, x, 0, 182)
+		buy.Position = UDim2.new(0.5, x, 0, 212)
 		buy.AnchorPoint = Vector2.new(0.5, 0)
 		live(function()
 			buy.BackgroundColor3 = if affordable()
