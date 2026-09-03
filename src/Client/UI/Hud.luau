@@ -262,25 +262,42 @@ local function buildRightColumn(gui: ScreenGui)
 	})
 	bang.TextYAlignment = Enum.TextYAlignment.Center
 
-	local tabHint = Theme.text({
-		name = "TabHint",
-		text = "Tab",
-		size = UDim2.fromOffset(58, 22),
-		position = UDim2.new(1, -8, 0, 140),
-		anchor = Vector2.new(1, 0),
-		parent = column,
-		align = Enum.TextXAlignment.Center,
-		color = Theme.colors.outline,
-		textSize = 16,
-	})
-	tabHint.BackgroundColor3 = Theme.colors.progress
-	tabHint.BackgroundTransparency = 0
-	Theme.corner(tabHint, 5)
-	Theme.stroke(tabHint, 2, Theme.colors.outline, 0.2)
-	-- A key hint is a lie on a screen with no keyboard; the book is its own
-	-- button there, so the whole pill stays off rather than an empty chip.
+	--[[
+		A word under each tile, the way the reference labels its own.
+
+		These used to be key hints — a small pill reading "Tab" or "G" — and
+		a key hint is a lie on a screen with no keyboard, so on a tablet they
+		were switched off and the two buttons went out unlabelled. That is
+		most of the people who play this: two coloured squares in the corner
+		with a picture on them and nothing saying what either one is.
+
+		A name works on every screen, and the keyboard's shortcut rides along
+		with it where there is a keyboard to press. One line, not two.
+	]]
 	local hasKeyboard = not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
-	tabHint.Visible = hasKeyboard
+
+	local function caption(name: string, word: string, key: string, x: number): TextLabel
+		local label = Theme.text({
+			name = name,
+			text = if hasKeyboard then `{word}  {key}` else word,
+			size = UDim2.fromOffset(74, 22),
+			position = UDim2.new(1, x, 0, 142),
+			anchor = Vector2.new(1, 0),
+			parent = column,
+			align = Enum.TextXAlignment.Center,
+			color = Theme.colors.outline,
+			textSize = 15,
+		})
+		label.BackgroundColor3 = Theme.colors.progress
+		label.BackgroundTransparency = 0
+		Theme.corner(label, 5)
+		Theme.stroke(label, 2, Theme.colors.outline, 0.2)
+		return label
+	end
+
+	-- Centred under a 62-wide tile whose right edge is 14 in from the screen:
+	-- the caption is 74 wide, so it hangs six studs proud either side.
+	caption("BookLabel", "Book", "Tab", -8)
 
 	--[[
 		The store, beside the book.
@@ -293,8 +310,8 @@ local function buildRightColumn(gui: ScreenGui)
 	]]
 	local shop = Instance.new("TextButton")
 	shop.Name = "Store"
-	shop.Size = UDim2.fromOffset(50, 50)
-	shop.Position = UDim2.new(1, -86, 0, 82)
+	shop.Size = UDim2.fromOffset(62, 62)
+	shop.Position = UDim2.new(1, -86, 0, 76)
 	shop.AnchorPoint = Vector2.new(1, 0)
 	shop.BackgroundColor3 = Theme.colors.tips
 	shop.BorderSizePixel = 0
@@ -317,22 +334,8 @@ local function buildRightColumn(gui: ScreenGui)
 		Store.toggle()
 	end)
 
-	local shopHint = Theme.text({
-		name = "StoreHint",
-		text = "G",
-		size = UDim2.fromOffset(50, 22),
-		position = UDim2.new(1, -86, 0, 140),
-		anchor = Vector2.new(1, 0),
-		parent = column,
-		align = Enum.TextXAlignment.Center,
-		color = Theme.colors.outline,
-		textSize = 16,
-	})
-	shopHint.BackgroundColor3 = Theme.colors.tips
-	shopHint.BackgroundTransparency = 0
-	Theme.corner(shopHint, 5)
-	Theme.stroke(shopHint, 2, Theme.colors.outline, 0.2)
-	shopHint.Visible = hasKeyboard
+	local shopLabel = caption("StoreLabel", "Shop", "G", -80)
+	shopLabel.BackgroundColor3 = Theme.colors.tips
 
 	-- The tool, and whether it is running. On touch this is also the button that
 	-- runs it; on a mouse the camera is locked to the centre of the screen, so
