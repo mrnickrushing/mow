@@ -29,7 +29,17 @@ local slotFrames: { TextButton } = {}
 local layout: { string } = {}
 
 --- Slots shown. More than this and the bar starts covering the lawn.
-local MAX_SLOTS = 6
+--[[
+	Slots on the bar.
+
+	Sixteen tools across eleven categories will not fit in six, and the six it
+	kept were the six cheapest — so a maxed player's bar was hands, reel mower,
+	rake, gas mower, trimmer and blower, with everything they had actually
+	worked for missing from it. Eight covers the best of eight categories,
+	which between them clear every kind of debris in the game with room to
+	spare.
+]]
+local MAX_SLOTS = 8
 
 local function buildSlot(order: number): TextButton
 	local button = Instance.new("TextButton")
@@ -104,12 +114,73 @@ end
 local function refresh()
 	local state = PlayerState.get()
 
+	--[[
+		Which six of the sixteen.
+
+		This took the first six owned in tier order, which is fine until you
+		own seven. The hotbar is the only thing in the game that fires the
+		equip remote — the book buys tools, it does not switch between them —
+		so anything that fell off the end of the bar could never be selected
+		again. A player who had worked up to a sixty-five thousand dollar
+		Zero-Turn could hold it exactly until they pressed another number, and
+		then never get it back.
+
+		The bar is built to guarantee three things instead: your hands are
+		always on it, because they clear every kind of debris and are what the
+		game tells you to reach for when a tool refuses; whatever you are
+		holding is always on it; and after that it is the best tool you own of
+		each category, strongest first, so a mower, a rake, a blower and a saw
+		beat four grades of mower.
+
+		Laid out weakest to strongest at the end, so the order a player learns
+		does not shuffle every time they buy something.
+	]]
 	table.clear(layout)
+
+	local taken: { [string]: boolean } = {}
+	local function add(toolId: string?)
+		if not toolId or toolId == "" or taken[toolId] then
+			return
+		end
+		if not state.ownedTools[toolId] or not Tools.get(toolId) or #layout >= MAX_SLOTS then
+			return
+		end
+		taken[toolId] = true
+		table.insert(layout, toolId)
+	end
+
+	add(Tools.STARTER_ID)
+	add(state.equippedTool)
+
+	local best: { [string]: any } = {}
 	for _, tool in Tools.list do
-		if state.ownedTools[tool.id] and #layout < MAX_SLOTS then
-			table.insert(layout, tool.id)
+		if state.ownedTools[tool.id] then
+			local current = best[tool.category]
+			if not current or tool.tier > current.tier then
+				best[tool.category] = tool
+			end
 		end
 	end
+
+	local ranked: { any } = {}
+	for _, tool in best do
+		table.insert(ranked, tool)
+	end
+	table.sort(ranked, function(a, b)
+		return a.tier > b.tier
+	end)
+	for _, tool in ranked do
+		add(tool.id)
+	end
+
+	-- Any room left goes to the strongest thing still unlisted.
+	for index = #Tools.list, 1, -1 do
+		add(Tools.list[index].id)
+	end
+
+	table.sort(layout, function(a, b)
+		return Tools.expect(a).tier < Tools.expect(b).tier
+	end)
 
 	for order, button in slotFrames do
 		local toolId = layout[order]
@@ -149,6 +220,17 @@ function Hotbar.start()
 	holder.BackgroundTransparency = 1
 	holder.Parent = gui
 
+	--[[
+		Scaled to the screen, like every other panel.
+
+		This was the one piece of UI in the game with no viewport scaling on
+		it: a fixed bar in pixels, which on a narrow phone ran off both ends
+		and took the outer slots with it. It is the widest thing on the HUD and
+		it sits along the bottom edge, so it is the one that could least afford
+		to be fixed.
+	]]
+	Theme.fitToViewport(holder, MAX_SLOTS * 74 + 40, 120)
+
 	local layoutOrder = Instance.new("UIListLayout")
 	layoutOrder.FillDirection = Enum.FillDirection.Horizontal
 	layoutOrder.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -168,6 +250,8 @@ function Hotbar.start()
 		Enum.KeyCode.Four,
 		Enum.KeyCode.Five,
 		Enum.KeyCode.Six,
+		Enum.KeyCode.Seven,
+		Enum.KeyCode.Eight,
 	}
 	for order, key in keys do
 		ContextActionService:BindAction(`MowSlot{order}`, function(_, inputState)
