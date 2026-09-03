@@ -45,7 +45,7 @@ local bagCountLabel: TextLabel
 local bagCapacityLabel: TextLabel
 local rateLabel: TextLabel
 local toolButton: TextButton
-local toolIcon: ViewportFrame
+local toolIcon: Frame
 local toolStateLabel: TextLabel
 local journalBadge: Frame
 local gainHolder: Frame

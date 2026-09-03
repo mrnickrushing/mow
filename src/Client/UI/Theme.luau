@@ -341,11 +341,38 @@ end
 
 --- Shows `propName` in an icon frame built by `Theme.icon`. Silent on an
 --- unknown name, so a new tool category cannot blank the hotbar.
-function Theme.setIcon(viewport: ViewportFrame, propName: string)
+function Theme.setIcon(frame: GuiObject, propName: string)
 	local def = Props.get(propName)
+	if not def then
+		return
+	end
+
+	--[[
+		A drawn icon if the prop has one, and the spun mesh if it does not.
+
+		Both live under the same frame: the picture on top, the viewport
+		underneath. Swapping which is visible keeps one call site for every
+		icon in the game, and means a prop nobody has drawn yet still shows
+		something rather than a hole.
+	]]
+	local picture = frame:FindFirstChild("Picture") :: ImageLabel?
+	if picture then
+		picture.Image = def.icon or ""
+		picture.Visible = def.icon ~= nil
+	end
+
+	local viewport = if frame:IsA("ViewportFrame") then frame else frame:FindFirstChildWhichIsA("ViewportFrame")
+	if not viewport then
+		return
+	end
+	viewport.Visible = def.icon == nil
+	if def.icon then
+		return
+	end
+
 	local part = viewport:FindFirstChild("Model") :: BasePart?
 	local mesh = if part then part:FindFirstChildWhichIsA("SpecialMesh") else nil
-	if not def or not part or not mesh then
+	if not part or not mesh then
 		return
 	end
 	if mesh.MeshId ~= def.mesh then
@@ -356,12 +383,58 @@ function Theme.setIcon(viewport: ViewportFrame, propName: string)
 	frameIcon(viewport, def.native)
 end
 
-function Theme.icon(options: IconOptions): ViewportFrame
+--[[
+	Fades an icon, whichever of the two it is showing.
+
+	A `ViewportFrame` and an `ImageLabel` both fade through
+	`ImageTransparency`, but they are different instances under the holder, so
+	a caller that used to hold the viewport directly needs one call that
+	reaches whichever is up.
+]]
+function Theme.setIconTransparency(frame: GuiObject, transparency: number)
+	local picture = frame:FindFirstChild("Picture")
+	if picture and picture:IsA("ImageLabel") then
+		picture.ImageTransparency = transparency
+	end
+	local viewport = frame:FindFirstChildWhichIsA("ViewportFrame")
+	if viewport then
+		viewport.ImageTransparency = transparency
+	end
+end
+
+function Theme.icon(options: IconOptions): Frame
+	--[[
+		A holder carrying both ways of showing a prop.
+
+		Callers name a prop and a size and get one frame back, exactly as
+		before; which of the two is visible is `setIcon`'s business.
+	]]
+	local holder = Instance.new("Frame")
+	holder.Name = options.name or "Icon"
+	holder.Size = options.size
+	holder.Position = options.position
+	holder.AnchorPoint = options.anchor or Vector2.new(0, 0)
+	holder.BackgroundTransparency = 1
+	holder.BorderSizePixel = 0
+	if options.zIndex then
+		holder.ZIndex = options.zIndex
+	end
+
+	local picture = Instance.new("ImageLabel")
+	picture.Name = "Picture"
+	picture.Size = UDim2.fromScale(1, 1)
+	picture.BackgroundTransparency = 1
+	picture.BorderSizePixel = 0
+	picture.ScaleType = Enum.ScaleType.Fit
+	picture.Visible = false
+	if options.zIndex then
+		picture.ZIndex = options.zIndex
+	end
+	picture.Parent = holder
+
 	local viewport = Instance.new("ViewportFrame")
-	viewport.Name = options.name or "Icon"
-	viewport.Size = options.size
-	viewport.Position = options.position
-	viewport.AnchorPoint = options.anchor or Vector2.new(0, 0)
+	viewport.Name = "Mesh"
+	viewport.Size = UDim2.fromScale(1, 1)
 	viewport.BackgroundTransparency = 1
 	viewport.BorderSizePixel = 0
 	if options.zIndex then
@@ -390,9 +463,10 @@ function Theme.icon(options: IconOptions): ViewportFrame
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera
 
-	viewport.Parent = options.parent
-	Theme.setIcon(viewport, options.prop)
-	return viewport
+	viewport.Parent = holder
+	holder.Parent = options.parent
+	Theme.setIcon(holder, options.prop)
+	return holder
 end
 
 return Theme
