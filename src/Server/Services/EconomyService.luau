@@ -121,9 +121,32 @@ function EconomyService.awardTips(player: Player, amount: number)
 		return
 	end
 	local granted = if EconomyService.modifiers(player).vip then amount * 2 else amount
+	local explain = false
 	DataService.withProfile(player, function(profile)
 		profile.tips += granted
+		--[[
+			Say what they are, once, at the moment the first one is earned.
+
+			A number appeared in the corner reading "3 tips" and nothing in the
+			game ever said what it was for — you could finish a property
+			without learning that tips are the one thing a run does not take
+			back, or that they buy a tool you then start every run holding.
+			The first one is earned by doing something deliberate, which is
+			exactly when a player is looking to see what it did.
+		]]
+		if not profile.tipsExplained then
+			profile.tipsExplained = true
+			explain = true
+		end
 	end)
+	if explain then
+		EconomyService.notify(
+			player,
+			"reward",
+			"Tips are yours to keep — a run never takes them back. Spend them in your book to own a tool for good.",
+			nil
+		)
+	end
 end
 
 function EconomyService.tips(player: Player): number

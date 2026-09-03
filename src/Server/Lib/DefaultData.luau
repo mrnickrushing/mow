@@ -79,6 +79,9 @@ export type Profile = {
 	firstCompletionClaimed: boolean,
 	--- Whether this player has seen the opening. Shown once, then never again.
 	introSeen: boolean,
+	--- True once the game has explained what tips are, which it does the first
+	--- time one is earned.
+	tipsExplained: boolean,
 	musicEnabled: boolean,
 	sfxEnabled: boolean,
 }
@@ -111,6 +114,7 @@ function DefaultData.template(): Profile
 		playtime = 0,
 		firstCompletionClaimed = false,
 		introSeen = false,
+		tipsExplained = false,
 		musicEnabled = true,
 		sfxEnabled = true,
 	}
