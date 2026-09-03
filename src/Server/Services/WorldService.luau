@@ -1520,9 +1520,48 @@ local function buildSectionSigns(world: Types.WorldDef, parent: Folder): { [stri
 			})
 			post:SetAttribute("ZoneId", section.id)
 
-			-- On the board itself, which the mesh hangs at the top of its post.
-			local board = Build.billboard(post, UDim2.fromScale(6.2, 2.2), 2.4, 140)
-			Build.label(board, section.name, UDim2.fromScale(1, 1), UDim2.new(), 1.1)
+			--[[
+				The name goes on the board, not in the air above it.
+
+				`Build.billboard` lifts its text clear of whatever it hangs
+				on, which is right for a price floating over a door and wrong
+				here. This sign is a plank hanging from a crossbar, and the
+				lift put the writing exactly on the plank's top edge, where
+				the crossbar cuts through it and whatever tree stands behind
+				the sign shows through it. Every paid section had a blank
+				board with its name drawn in the air somewhere behind.
+
+				So the writing is adorned to a marker sitting on the board's
+				own face, half a stud proud of the wood. Going through the
+				sign's CFrame rather than a billboard offset keeps it honest:
+				the sign turns to face whichever way you walk up to it, and
+				`post.CFrame * CFrame.new(...)` turns with it, whereas the
+				two kinds of studs-offset differ in exactly this case.
+			]]
+			local face = Build.part({
+				name = "Face",
+				size = Vector3.new(0.2, 0.2, 0.2),
+				-- Measured against the mesh rather than assumed: the plank
+				-- hangs a little off the post's centre, and the marker sits
+				-- half a stud proud of the wood so the writing clears it.
+				cframe = post.CFrame * CFrame.new(0.6, 0, -1.6),
+				color = Color3.fromRGB(255, 255, 255),
+				material = Enum.Material.SmoothPlastic,
+				transparency = 1,
+				canCollide = false,
+				parent = post,
+			})
+			face.CastShadow = false
+
+			-- Narrower than the plank looks, because the marker stands a
+			-- stud and a half nearer than the post and a billboard sized in
+			-- studs grows as it comes towards you.
+			local board = Build.billboard(face, UDim2.fromScale(4.9, 1.7), 0, 140)
+			local label = Build.label(board, section.name, UDim2.fromScale(1, 1), UDim2.new(), 1.1)
+			-- Paint on pale wood, not a label floating over a bush: the white
+			-- and its black stroke belong to the things that hang in the air.
+			label.TextColor3 = Color3.fromRGB(78, 52, 30)
+			label.TextStrokeTransparency = 1
 
 			signs[section.id] = post
 		end
