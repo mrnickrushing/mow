@@ -9,6 +9,7 @@
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -1464,12 +1465,14 @@ local function gateBasis(section: Types.ZoneDef): CFrame
 end
 
 --[[
-	One sign per paid section.
+	One sign per paid section, naming it.
 
-	Zones unlock per player, so there is no physical barrier — a shared collision
-	wall could not be open for one player and shut for another. The sign carries
-	the price and a prompt, the client tints locked ground, and the server simply
-	refuses to cut a tile in a section the player has not bought.
+	The price and the prompt live on the gate's door now. This comment used to
+	say the sign carried them, and when they moved the sign was left as it is
+	built here: a seven-stud hanging board beside every paid gate with nothing
+	written on it. Walked up to in the gas station, that was a blank plank next
+	to a door that says "Unlock $75.00" — the one place the property could say
+	*what* you were buying, and it did not. The board carries the section's name.
 ]]
 local function buildSectionSigns(world: Types.WorldDef, parent: Folder): { [string]: BasePart }
 	local signs: { [string]: BasePart } = {}
@@ -1493,6 +1496,11 @@ local function buildSectionSigns(world: Types.WorldDef, parent: Folder): { [stri
 				parent = folder,
 			})
 			post:SetAttribute("ZoneId", section.id)
+
+			-- On the board itself, which the mesh hangs at the top of its post.
+			local board = Build.billboard(post, UDim2.fromScale(6.2, 2.2), 2.4, 140)
+			Build.label(board, section.name, UDim2.fromScale(1, 1), UDim2.new(), 1.1)
+
 			signs[section.id] = post
 		end
 	end
@@ -2015,7 +2023,9 @@ local function buildExit(world: Types.WorldDef, parent: Folder)
 	})
 	grate:SetAttribute("Shut", true)
 
-	local gui = Build.billboard(frame, UDim2.fromScale(9, 3), 11, 220)
+	-- Above the gate's raised position, not the block's top: opened, the gate
+	-- rises ten studs and a sign hung at eleven was read through its bars.
+	local gui = Build.billboard(frame, UDim2.fromScale(9, 3), 18, 220)
 	Build.label(gui, "WAY OUT", UDim2.fromScale(1, 0.55), UDim2.fromScale(0, 0), 2)
 	Build.label(gui, "Locked", UDim2.fromScale(1, 0.4), UDim2.fromScale(0, 0.58), 1.1)
 
@@ -2035,10 +2045,41 @@ function WorldService.openExit()
 	end
 	grate:SetAttribute("Shut", false)
 
-	grate.Transparency = 0.75
+	--[[
+		Open has to look like something.
+
+		Shut, the grate is an arched iron gate set in a brick block, and it
+		reads. Open, it was faded to three-quarters transparent neon green
+		over dark brick — which from any distance is nothing at all, so the
+		block that had a gate in it now had none: "open" looked like a wall,
+		with only the sign's small text to say otherwise. Walked up to at the
+		end of the Gas Station with every section clear, the way out was a
+		brick monolith on a lawn.
+
+		A portcullis that has gone up is the shape everybody knows. The gate
+		rises clear of the arch, stays solid, and the doorway it leaves is lit
+		in the cash green so it carries across the property. The prompt moves
+		to the doorway, where the player actually stands.
+	]]
 	grate.CanCollide = false
-	grate.Color = Palette.color(Palette.ui.cash)
-	grate.Material = Enum.Material.Neon
+	local lift = grate.Size.Y * 0.8
+	TweenService:Create(grate, TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		CFrame = grate.CFrame + Vector3.new(0, lift, 0),
+	}):Play()
+
+	-- Half a stud in front of where the gate hung: the gate's own centre is
+	-- inside the front of the brick, so a panel left there was buried in it.
+	local doorway = Build.part({
+		name = "ExitDoorway",
+		size = Vector3.new(grate.Size.X - 1.5, grate.Size.Y - 1.5, 0.3),
+		cframe = grate.CFrame * CFrame.new(0, 0, -0.5),
+		color = Palette.color(Palette.ui.cash),
+		material = Enum.Material.Neon,
+		transparency = 0.15,
+		canCollide = false,
+		parent = grate.Parent,
+	})
+	doorway.CanQuery = false
 
 	local frame = grate.Parent and grate.Parent:FindFirstChild("ExitFrame")
 	if frame and frame:IsA("BasePart") then
@@ -2053,7 +2094,7 @@ function WorldService.openExit()
 		end
 	end
 
-	local prompt = Build.prompt(grate, "Leave", "Way Out", 14)
+	local prompt = Build.prompt(doorway, "Leave", "Way Out", 14)
 	prompt.HoldDuration = 0.6
 	prompt.Triggered:Connect(function(player: Player)
 		exitSignal:Fire(player)
