@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
+local RateLimiter = require(Shared.Util.RateLimiter)
 local GameConfig = require(Shared.Config.GameConfig)
 local Grid = require(Shared.Grid)
 local Remotes = require(Shared.Remotes)
@@ -224,8 +225,35 @@ end
 -- Equipping
 --------------------------------------------------------------------
 
+--[[
+	A ceiling on the two things a client can ask this service to do.
+
+	Equipping and parking both answer back — equip with a full state push,
+	parking with a notice when it refuses — and neither had a limit, so one
+	client packet bought an unbounded reply stream off a shared server. Every
+	other remote boundary in the game already had a bucket; these two were
+	simply missed.
+
+	Ten a second is far above a player mashing the hotbar and far below what
+	the abuse needs to be worth doing.
+]]
+local ACTION_HZ = 10
+local actionLimiters: { [Player]: RateLimiter.RateLimiter } = {}
+
+local function actionLimiterFor(player: Player): RateLimiter.RateLimiter
+	local limiter = actionLimiters[player]
+	if not limiter then
+		limiter = RateLimiter.new(ACTION_HZ, ACTION_HZ)
+		actionLimiters[player] = limiter
+	end
+	return limiter
+end
+
 local function onEquip(player: Player, toolId: any)
 	if type(toolId) ~= "string" then
+		return
+	end
+	if not actionLimiterFor(player):tryConsume() then
 		return
 	end
 	local run = RunState.find(player)
@@ -270,6 +298,9 @@ local parkOverlap = OverlapParams.new()
 parkOverlap.FilterType = Enum.RaycastFilterType.Exclude
 
 local function onPlaceTrailer(player: Player)
+	if not actionLimiterFor(player):tryConsume() then
+		return
+	end
 	local run = RunState.find(player)
 	local trailer = WorldService.trailerPart
 	local grid = WorldService.grid
@@ -327,8 +358,24 @@ function PlayerService.start()
 		nothing about that should cost them the story.
 	]]
 	Remotes.event(Remotes.INTRO_DONE).OnServerEvent:Connect(function(player: Player)
-		DataService.withProfile(player, function(profile)
-			profile.introSeen = true
+		--[[
+			Once, and then free.
+
+			Every other handler on this boundary rate-limits what a client can
+			ask for; this one did a profile write and a full state push per
+			fire, with nothing stopping a client firing it in a loop. Server
+			CPU is shared, so that is not only the exploiter's problem.
+
+			It does not need a limiter, because it is not a request that can
+			sensibly repeat: the opening is watched once. Reading the flag
+			first makes every fire after the first cost a table lookup.
+		]]
+		local profile = DataService.get(player)
+		if profile == nil or profile.introSeen then
+			return
+		end
+		DataService.withProfile(player, function(saved)
+			saved.introSeen = true
 		end)
 		PlayerService.push(player)
 	end)
@@ -338,6 +385,7 @@ function PlayerService.start()
 
 	Players.PlayerRemoving:Connect(function(player: Player)
 		lastPark[player] = nil
+		actionLimiters[player] = nil
 	end)
 
 	local function hookCharacter(player: Player)
