@@ -296,6 +296,47 @@ function Intro.play()
 	end)
 end
 
+--[[
+	Waits until there is actually something to point the camera at.
+
+	The opening fires on the first profile push, which beats the world to the
+	client: `frameShot` looks for `MowWorld`, does not find it yet, and returns
+	nil. `play` guards its camera work with `if camera and shot`, so the whole
+	shot was quietly skipped and the six lines ran over Roblox's own camera,
+	which at that moment is drifting toward a character the lobby has not
+	placed yet. Measured from a cold join, the camera reads `Custom` for the
+	entire cutscene and spends the first three seconds pointed at open sky.
+
+	That guard is the right shape — a cutscene with no shot should not pretend
+	— it just had nothing behind it. Waiting for the world and for the player
+	to be standing somewhere gives it something. If neither arrives, the story
+	is skipped rather than played badly, and `introSeen` stays unset so the
+	next join gets a proper go at it.
+]]
+local READY_TIMEOUT = 20
+
+local function ready(): boolean
+	if frameShot() == nil then
+		return false
+	end
+	local character = player.Character
+	return character ~= nil and character.PrimaryPart ~= nil
+end
+
+local function waitThenPlay()
+	local deadline = os.clock() + READY_TIMEOUT
+	while os.clock() < deadline do
+		if finished or playing then
+			return
+		end
+		if ready() then
+			Intro.play()
+			return
+		end
+		task.wait(0.2)
+	end
+end
+
 function Intro.start()
 	doneRemote = Remotes.event(Remotes.INTRO_DONE)
 	build()
@@ -332,7 +373,7 @@ function Intro.start()
 			if connection then
 				connection:Disconnect()
 			end
-			Intro.play()
+			task.spawn(waitThenPlay)
 		end
 	end)
 end
