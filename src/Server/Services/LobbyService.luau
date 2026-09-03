@@ -50,6 +50,8 @@ local FLOOR_W, FLOOR_D = 160, 160
 local GAME_SLOTS = 4
 --- Seconds between a team being ready and the property loading.
 local COUNTDOWN = 6
+--- Seconds a set-up game may stand empty before it goes back to being an offer.
+local ABANDON_SECONDS = 20
 
 local folder: Folder? = nil
 --[[
@@ -66,6 +68,8 @@ export type Slot = {
 	worldId: string?,
 	cap: number,
 	countdown: number?,
+	--- Seconds this game has stood empty, so an abandoned one clears itself.
+	idle: number,
 }
 
 local slots: { Slot } = {}
@@ -341,6 +345,7 @@ local function build()
 			worldId = nil,
 			cap = GAME_SLOTS,
 			countdown = nil,
+			idle = 0,
 		}
 	end
 
@@ -857,6 +862,10 @@ local function step(delta: number)
 			end
 		end
 
+		if #here > 0 then
+			slot.idle = 0
+		end
+
 		local world = if slot.worldId then Worlds.get(slot.worldId) else nil
 		local ready = #team > 0
 			and world ~= nil
@@ -874,6 +883,7 @@ local function step(delta: number)
 				slot.countdown = nil
 				slot.worldId = nil
 				slot.cap = GAME_SLOTS
+				slot.idle = 0
 				--[[
 					This game leaves; the yard does not.
 
@@ -893,7 +903,26 @@ local function step(delta: number)
 				slot.padLabel.Text = `{#team}/{slot.cap}\nNeeds {Worlds.expect((world :: any).requiresWorld).name}`
 				slot.pad.Color = Palette.color(Palette.ground.stoneDark)
 			elseif world then
-				slot.padLabel.Text = `0/{slot.cap}\nStand here`
+				--[[
+					Set up, but nobody on it — so it is counting itself out.
+
+					A game keeps its map after whoever chose it walks off,
+					which is right for the second or two it takes somebody to
+					step aside and let a friend on. Kept forever it is litter:
+					a pad reading "The Mansion" that a new player cannot use
+					and has to work out how to reset, on a property they have
+					not unlocked. Empty for long enough and it goes back to
+					being an offer.
+				]]
+				slot.idle += delta
+				if slot.idle >= ABANDON_SECONDS then
+					slot.worldId = nil
+					slot.cap = GAME_SLOTS
+					slot.idle = 0
+					slot.padLabel.Text = "Create a game!"
+				else
+					slot.padLabel.Text = `0/{slot.cap}\nStand here`
+				end
 				slot.pad.Color = Palette.color(Palette.ground.stone)
 			else
 				slot.padLabel.Text = "Create a game!"
@@ -1006,6 +1035,7 @@ function LobbyService.start()
 						slot.worldId = nil
 						slot.cap = GAME_SLOTS
 						slot.countdown = nil
+						slot.idle = 0
 					end
 					placeEveryone()
 				end

@@ -212,6 +212,33 @@ end
 -- Intent handling
 --------------------------------------------------------------------
 
+--[[
+	One notice per problem, not ten a second.
+
+	Every one of these fires from the mow tick, which runs ten times a second
+	for as long as the button is held. Walking a mower across a drift of
+	leaves, or holding it down with a full bag, produced a toast per tick — a
+	wall of identical messages that buries the one thing the player might
+	actually want to read.
+
+	Keyed by kind rather than by text, so the wording changing between debris
+	types does not start a fresh flood, and cleared when the message changes so
+	a genuinely new problem is never swallowed.
+]]
+local NOTICE_GAP = 4
+
+local lastNotice: { [Player]: { kind: string, text: string, at: number } } = {}
+
+local function say(player: Player, kind: string, text: string)
+	local now = os.clock()
+	local last = lastNotice[player]
+	if last and last.kind == kind and last.text == text and now - last.at < NOTICE_GAP then
+		return
+	end
+	lastNotice[player] = { kind = kind, text = text, at = now }
+	EconomyService.notify(player, kind, text, nil)
+end
+
 local function onMowIntent(player: Player, payload: any)
 	if type(payload) ~= "table" then
 		return
@@ -302,9 +329,9 @@ local function onMowIntent(player: Player, payload: any)
 	local result = TileService.applyPasses(player, actual, look, tool, passes)
 
 	if result.blockedBySection and result.tilesTouched == 0 then
-		EconomyService.notify(player, "locked", "You have not bought this zone yet", nil)
+		say(player, "locked", "You have not bought this zone yet")
 	elseif result.stalled and result.tilesTouched == 0 then
-		EconomyService.notify(player, "stall", `The {tool.name} bogs down here — you need better gear`, nil)
+		say(player, "stall", `The {tool.name} bogs down here — you need better gear`)
 	elseif result.wrongTool and result.tilesTouched == 0 then
 		--[[
 			Name the thing and name what shifts it.
@@ -317,16 +344,15 @@ local function onMowIntent(player: Player, payload: any)
 		]]
 		local def = DebrisConfig.get(result.wrongTool)
 		local fix = Tools.cheapestFor(result.wrongTool)
-		EconomyService.notify(
+		say(
 			player,
 			"stall",
 			if fix and fix.id ~= tool.id
 				then `{tool.name} will not shift {def.name} — your hands will, or a {fix.name}`
-				else `{tool.name} will not shift {def.name} — your hands will`,
-			nil
+				else `{tool.name} will not shift {def.name} — your hands will`
 		)
 	elseif result.bagFull then
-		EconomyService.notify(player, "bagFull", "Bag full — get to the trailer", nil)
+		say(player, "bagFull", "Bag full — get to the trailer")
 	end
 end
 
@@ -338,6 +364,7 @@ function TileService.start()
 		limiters[player] = nil
 		progress[player] = nil
 		lastIntentAt[player] = nil
+		lastNotice[player] = nil
 	end)
 end
 
