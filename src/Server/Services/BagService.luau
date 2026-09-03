@@ -153,9 +153,50 @@ local function sell(player: Player, weightToSell: number): number
 	local unitsSold = 0
 	local base = 0
 
-	for debrisId, held in bag.units do
+	--[[
+		Cheapest per unit of bag weight first, which is what the note above
+		promises and what the loop did not do.
+
+		It read straight off `bag.units`, and that is a hash table: Luau gives
+		no order for one, so which debris drained first was whatever the
+		internal layout happened to yield. The total paid was right either way,
+		so nothing looked wrong — but the pour takes a couple of seconds, and a
+		player who walks off part way through kept an arbitrary remainder
+		rather than the logs they felled a tree for.
+
+		The chipper is folded in because it triples wood, which only makes wood
+		more firmly the thing worth keeping until last.
+	]]
+	local order: { number } = {}
+	for debrisId in bag.units do
+		table.insert(order, debrisId)
+	end
+	table.sort(order, function(a, b)
+		local defA, defB = DebrisConfig.get(a), DebrisConfig.get(b)
+		local rateA = defA.value / defA.weight
+		local rateB = defB.value / defB.weight
+		if chipper then
+			if a == DebrisConfig.Log or a == DebrisConfig.Chips then
+				rateA *= CHIPPER_MULTIPLIER
+			end
+			if b == DebrisConfig.Log or b == DebrisConfig.Chips then
+				rateB *= CHIPPER_MULTIPLIER
+			end
+		end
+		if rateA == rateB then
+			-- Ties broken by id so a mixed bag always drains the same way.
+			return a < b
+		end
+		return rateA < rateB
+	end)
+
+	for _, debrisId in order do
 		if remaining <= 0 then
 			break
+		end
+		local held = bag.units[debrisId]
+		if not held then
+			continue
 		end
 		local def = DebrisConfig.get(debrisId)
 		local units = math.min(held, remaining / def.weight)
