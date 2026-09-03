@@ -246,7 +246,7 @@ function Hotbar.start()
 		nothing changes on a desktop.
 	]]
 	local CORNER_RESERVE = 262
-	Theme.fitToViewport(holder, MAX_SLOTS * 74 + 2 * CORNER_RESERVE + 96, 120)
+	Theme.fitToViewport(holder, MAX_SLOTS * 74, 120, 0, CORNER_RESERVE)
 
 	local layoutOrder = Instance.new("UIListLayout")
 	layoutOrder.FillDirection = Enum.FillDirection.Horizontal
