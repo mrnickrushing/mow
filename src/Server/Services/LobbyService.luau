@@ -244,10 +244,10 @@ local function build()
 
 		The room used to have a single property choice shared by everybody in
 		it: three plaques you stood on, four pads you stood on afterwards, and
-		one `chosenWorld` between the lot. With one group in the yard that
-		works. With two it is a fight — whoever last touched a plaque decides
-		where the other four are about to be sent — and on a fifty-player
-		server it is chaos.
+		one choice between the lot. With one group in the yard that works. With
+		two it is a fight — whoever last touched a plaque decides where the
+		other four are about to be sent — and on a fifty-player server it is
+		chaos.
 
 		A pad is a game now. It carries its own map, its own party size and its
 		own countdown, so four groups can be setting up four different runs
@@ -257,7 +257,12 @@ local function build()
 	for index = 1, GAME_SLOTS do
 		local x = (index - (GAME_SLOTS + 1) * 0.5) * 32
 		local at = CENTRE + Vector3.new(x, 1.5, 8)
-		local padPart = glowPad(`GamePad{index}`, at - Vector3.new(0, 1.3, 0), 24, root)
+		local padPart = glowPad(
+			`{GameConfig.LOBBY_PAD_PREFIX}{index}`,
+			at - Vector3.new(0, 1.3, 0),
+			24,
+			root
+		)
 
 		--[[
 			The count floats over the pad rather than being painted on it.
@@ -776,21 +781,17 @@ end
 	opposite of what a pad wants to know.
 ]]
 --[[
-	Whether the team that is about to leave may play this property.
+	Whether the group about to leave this pad may play what it is set to.
 
-	`chosenWorld` is sticky on purpose: you step on a plaque to pick, then walk
-	the ninety studs back to a team pad, and the choice has to survive the
-	walk. What it also survived was the chooser. The plaque checks the record
-	of the player standing on it — "It is the stepper's own record that decides
-	now" — and then nothing ever looked again, so the team that actually
-	departed was never the team that was tested. A player who has beaten The
-	House could tap The Mansion, wander off, and the next first-timer to stand
-	on a team pad was sent there alone.
+	The settings panel already checks the record of whoever pressed Confirm,
+	but the group that departs is not necessarily the one that set the game up:
+	somebody can walk off after choosing, and somebody else can walk on. So it
+	is checked again at the moment of leaving.
 
-	At least one of the departing players has to have earned it, which leaves
-	a friend able to bring somebody along — the pads are a team, and a team of
-	four going where one of them has been is the point of the room — while the
-	empty case, where nobody leaving has the world open at all, is refused.
+	One of them having earned it is enough, which leaves a friend able to bring
+	somebody along — four pads exist so that four people can go together, and a
+	team going where one of them has been is the point of that. The case it
+	refuses is the empty one, where nobody leaving has the property open at all.
 ]]
 local function teamAllows(team: { Player }, worldId: string): boolean
 	local world = Worlds.expect(worldId)
