@@ -10,6 +10,7 @@ local harness = require("./harness")
 
 local suites = {
 	require("./Grid.spec"),
+	require("./Stripe.spec"),
 	require("./ChunkCodec.spec"),
 	require("./Balance.spec"),
 	require("./Config.spec"),
