@@ -57,6 +57,27 @@ local hintLabel: TextLabel
 
 local toastOrder = 0
 
+--[[
+	The bottom edge belongs to the hotbar, and everything above it stacks.
+
+	The hotbar and the bag are anchored to the bottom by a pixel offset; the
+	hint line and the toasts were placed at 0.86 and 0.74 of the screen's
+	height. Those agree on a tall screen and converge on a short one, so on a
+	phone the toasts and the hint were drawn on top of the tool slots —
+	measured at 1136x640, 560x46 and 520x26 of overlap, and worse at 1024x576.
+	None of it shows up on a desktop, which is why it lasted.
+
+	Measuring these off the bottom edge instead keeps the same stack at every
+	height. The numbers are chosen so a tall screen lands where it already did.
+]]
+--- The hotbar's own band: 80 pixels of slots and the 12 it sits clear by.
+local HOTBAR_BAND = 92
+--- Breathing room between the stacked rows.
+local GUTTER = 8
+--- Bottom offsets for the two rows that sit above the hotbar.
+local HINT_BOTTOM = HOTBAR_BAND + GUTTER
+local TOAST_BOTTOM = HINT_BOTTOM + 26 + GUTTER
+
 local NOTICE_COLORS: { [string]: Color3 } = {
 	sale = Theme.colors.cash,
 	stripe = Theme.colors.tips,
@@ -455,8 +476,8 @@ local function buildMiddle(gui: ScreenGui)
 		name = "Hint",
 		text = "",
 		size = UDim2.fromOffset(520, 26),
-		position = UDim2.fromScale(0.5, 0.86),
-		anchor = Vector2.new(0.5, 0),
+		position = UDim2.new(0.5, 0, 1, -HINT_BOTTOM),
+		anchor = Vector2.new(0.5, 1),
 		parent = gui,
 		align = Enum.TextXAlignment.Center,
 		color = Theme.colors.tips,
@@ -479,8 +500,8 @@ local function build(): ScreenGui
 	toastHolder = Instance.new("Frame")
 	toastHolder.Name = "Toasts"
 	toastHolder.Size = UDim2.fromOffset(560, 120)
-	toastHolder.Position = UDim2.fromScale(0.5, 0.74)
-	toastHolder.AnchorPoint = Vector2.new(0.5, 0)
+	toastHolder.Position = UDim2.new(0.5, 0, 1, -TOAST_BOTTOM)
+	toastHolder.AnchorPoint = Vector2.new(0.5, 1)
 	toastHolder.BackgroundTransparency = 1
 	toastHolder.Parent = gui
 
