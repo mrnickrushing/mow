@@ -745,12 +745,37 @@ return function()
 			end
 		end)
 
-		h.it("ships with placeholder ids so nothing charges by accident", function()
+		--[[
+			This used to insist every id was still a placeholder, which was
+			right while the shop did not exist: an id committed by accident
+			would have charged somebody real Robux for a thing the game could
+			not deliver. The passes and products are made now, so the guard
+			changes job rather than going away.
+
+			What can still go wrong is worse and quieter. Two entries sharing
+			an id means buying one grants the other, and nothing anywhere
+			would say so — the purchase succeeds, the wrong thing arrives.
+			An id that is set but obviously not an asset id (a price typed
+			into the wrong field, say) fails at the till, in front of a
+			player, for a reason nobody can see from the code.
+		]]
+		h.it("never sells two different things under one id", function()
+			local seen: { [number]: string } = {}
+			local function check(key: string, id: number)
+				if not Monetization.isConfigured(id) then
+					return
+				end
+				h.expectTrue(seen[id] == nil, `{key} shares id {id} with {seen[id] or "?"}`)
+				seen[id] = key
+				-- Roblox ids are large. A price or a level typed into this
+				-- field would sail through every other check in here.
+				h.expectTrue(id > 1000000, `{key} has id {id}, which is not an asset id`)
+			end
 			for _, pass in Monetization.passes do
-				h.expectFalse(Monetization.isConfigured(pass.id), `{pass.key} has a real id committed`)
+				check(pass.key, pass.id)
 			end
 			for _, product in Monetization.products do
-				h.expectFalse(Monetization.isConfigured(product.id), `{product.key} has a real id committed`)
+				check(product.key, product.id)
 			end
 		end)
 

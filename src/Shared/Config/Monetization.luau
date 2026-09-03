@@ -60,14 +60,14 @@ export type ProductDef = {
 local passes: { PassDef } = {
 	{
 		key = "doubleCash",
-		id = 0,
+		id = 1970440268,
 		name = "2x Cash",
 		robux = 199,
 		description = "Every load you sell is worth double, forever.",
 	},
 	{
 		key = "doubleBag",
-		id = 0,
+		id = 1967898814,
 		name = "2x Bag",
 		robux = 249,
 		description = "Twice the capacity. Half the trips to the trailer.",
@@ -84,7 +84,7 @@ local passes: { PassDef } = {
 	]]
 	{
 		key = "autoCollect",
-		id = 0,
+		id = 1969206508,
 		name = "Auto-Collect",
 		robux = 399,
 		description = "Dropped log piles and Golden Blades come to you as you walk, no prompts.",
@@ -103,7 +103,7 @@ local passes: { PassDef } = {
 	]]
 	{
 		key = "vip",
-		id = 0,
+		id = 1969158517,
 		name = "VIP",
 		--[[
 			Repriced, and given a second perk that is worth having.
@@ -120,21 +120,21 @@ local passes: { PassDef } = {
 	},
 	{
 		key = "fastFeet",
-		id = 0,
+		id = 1968774518,
 		name = "Fast Feet",
 		robux = 149,
 		description = "Move 30% faster on foot.",
 	},
 	{
 		key = "infiniteFuel",
-		id = 0,
+		id = 1967916808,
 		name = "Infinite Fuel",
 		robux = 349,
 		description = "Gas tools and vehicles never need refilling.",
 	},
 	{
 		key = "instantDump",
-		id = 0,
+		id = 1968300719,
 		name = "Instant Dump",
 		robux = 599,
 		description = "Sell your bag from anywhere on the property.",
@@ -148,7 +148,7 @@ local passes: { PassDef } = {
 local products: { ProductDef } = {
 	{
 		key = "rentZeroTurn",
-		id = 0,
+		id = 3711182520,
 		name = "Rent a Zero-Turn (2 min)",
 		robux = 49,
 		kind = "rental",
@@ -158,7 +158,7 @@ local products: { ProductDef } = {
 	},
 	{
 		key = "rentRidingMower",
-		id = 0,
+		id = 3711182451,
 		name = "Rent a Riding Mower (2 min)",
 		robux = 25,
 		kind = "rental",
@@ -168,7 +168,7 @@ local products: { ProductDef } = {
 	},
 	{
 		key = "fuelCan",
-		id = 0,
+		id = 3711182201,
 		name = "Fuel Can",
 		robux = 10,
 		kind = "fuel",
@@ -176,7 +176,7 @@ local products: { ProductDef } = {
 	},
 	{
 		key = "cashBoost3x",
-		id = 0,
+		id = 3711182500,
 		name = "3x Cash (5 min)",
 		robux = 39,
 		kind = "cashBoost",
@@ -186,7 +186,7 @@ local products: { ProductDef } = {
 	},
 	{
 		key = "emptyBag",
-		id = 0,
+		id = 3711182265,
 		name = "Empty Bag",
 		robux = 15,
 		kind = "bag",
@@ -194,7 +194,7 @@ local products: { ProductDef } = {
 	},
 	{
 		key = "cleanSweep",
-		id = 0,
+		id = 3711182591,
 		name = "Clean Sweep",
 		robux = 99,
 		kind = "sweep",
@@ -203,7 +203,7 @@ local products: { ProductDef } = {
 	},
 	{
 		key = "serverBoost",
-		id = 0,
+		id = 3711182615,
 		name = "Neighbourhood Boost (10 min)",
 		robux = 149,
 		kind = "serverBoost",
@@ -213,7 +213,7 @@ local products: { ProductDef } = {
 	},
 	{
 		key = "extendRound",
-		id = 0,
+		id = 3711182585,
 		name = "Extend Round (+10 min)",
 		robux = 79,
 		kind = "roundTime",
