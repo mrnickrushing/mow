@@ -171,6 +171,15 @@ local function simulate(world)
 				)
 				break
 			end
+			-- Printed because a gate is the one place a run can end on arithmetic
+			-- rather than on the clock: the margin here is what says whether the
+			-- price is a decision or a wall.
+			print(string.format(
+				"             gate %-16s %s of %s banked",
+				section.name,
+				Format.cash(section.cost),
+				Format.cash(state.cash)
+			))
 			state.cash -= section.cost
 		end
 

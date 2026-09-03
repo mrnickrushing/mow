@@ -25,7 +25,6 @@ local RunState = {}
 
 export type State = {
 	cash: number,
-	tips: number,
 	--- Cash earned across the whole run, for the end screen.
 	earned: number,
 	ownedTools: { [string]: boolean },
@@ -65,7 +64,6 @@ function RunState.fresh(player: Player?): State
 
 	return {
 		cash = 0,
-		tips = 0,
 		earned = 0,
 		ownedTools = owned,
 		equippedTool = Tools.STARTER_ID,

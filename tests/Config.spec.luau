@@ -852,6 +852,68 @@ return function()
 			)
 		end)
 
+		h.it("prices a cash gate under what the lawn before it is worth", function()
+			--[[
+				A cash gate is the one place a run can end on arithmetic rather
+				than on the clock. Every one of them sits on the critical path,
+				so a player who has cleared everything open to them and still
+				cannot pay has no way left to earn: the run is dead and the
+				clock just has to run out.
+
+				The three were priced at $1, $8 and $15 against worlds holding
+				$1,826, $6,463 and $11,837 of clippings, which is a door that
+				opens itself.
+
+				This is a ceiling, not a proof. What decides a stall is what is
+				*banked* when the player arrives, after everything they bought
+				on the way, and no static sum can know that — `scripts/simulate.luau`
+				is the thing that can, and it caught the first attempt at these
+				prices stalling The Gas Station outright. The fraction below is
+				set just under where that attempt sat, so raising a gate past
+				it fails here and sends you to the simulator, which is the
+				point.
+			]]
+			local function grossOf(world: any, section: any): number
+				local tiles = section.rect.w * section.rect.d * section.density
+				local weight, perTile = 0, 0
+				for _, entry in section.fill do
+					weight += entry.weight
+				end
+				for _, entry in section.fill do
+					local def = Debris.get(entry.debris)
+					local height = (entry.heightMin + entry.heightMax) * 0.5
+					perTile += (entry.weight / weight) * height * def.unitsPerLevel * def.value
+				end
+				return tiles * perTile * world.payoutMultiplier
+			end
+
+			for _, world in Worlds.list do
+				for _, section in world.sections do
+					if Worlds.unlockKind(section) == "cash" then
+						local required = section.requires
+						h.expectTrue(
+							required ~= nil,
+							`{world.id}/{section.id} charges at the door but names no lawn before it`
+						)
+						local before = nil
+						for _, other in world.sections do
+							if other.id == required then
+								before = other
+							end
+						end
+						h.expectTrue(before ~= nil, `{world.id}/{section.id} requires a section that is not there`)
+						local earnable = grossOf(world, before :: any)
+						h.expectTrue(
+							section.cost <= earnable * 0.15,
+							`{world.id}/{section.id} costs {section.cost} against {required}'s `
+								.. `{string.format("%.0f", earnable)} — past the ceiling, so run `
+								.. "scripts/simulate.luau and check nothing stalls at the door"
+						)
+					end
+				end
+			end
+		end)
+
 		h.it("keeps the free reward loops meaningful", function()
 			local rewards = Monetization.rewards
 			h.expectTrue(#rewards.dailyStreak >= 7, "a daily streak should run at least a week")

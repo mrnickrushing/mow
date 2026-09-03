@@ -14,6 +14,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
 local Types = require(Shared.Types)
 local Remotes = require(Shared.Remotes)
+local DataService = require(script.Parent.DataService)
 local RunState = require(script.Parent.RunState)
 
 local EconomyService = {}
@@ -103,19 +104,39 @@ end
 -- Tips
 --------------------------------------------------------------------
 
+--[[
+	Tips live on the profile, not on the run.
+
+	They were kept in `RunState` beside cash, which a run start wipes — so the
+	daily login streak, the reward for a clean stripe, the Golden Blades and
+	the trickle for time played were all being handed out into something that
+	emptied at the next round. A streak you lose by playing is not a streak.
+
+	VIP doubles them. It is the one perk on that pass that is worth paying for
+	without making any single run easier: tips buy permanent tools, so it moves
+	how fast you unlock things and not how hard the lawn in front of you is.
+]]
 function EconomyService.awardTips(player: Player, amount: number)
-	local run = RunState.find(player)
-	if run and amount > 0 then
-		run.tips += amount
+	if amount <= 0 then
+		return
 	end
+	local granted = if EconomyService.modifiers(player).vip then amount * 2 else amount
+	DataService.withProfile(player, function(profile)
+		profile.tips += granted
+	end)
+end
+
+function EconomyService.tips(player: Player): number
+	local profile = DataService.get(player)
+	return if profile then profile.tips else 0
 end
 
 function EconomyService.spendTips(player: Player, amount: number): boolean
-	local run = RunState.find(player)
-	if not run or amount < 0 or run.tips < amount then
+	local profile = DataService.get(player)
+	if not profile or amount < 0 or profile.tips < amount then
 		return false
 	end
-	run.tips -= amount
+	profile.tips -= amount
 	return true
 end
 

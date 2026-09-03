@@ -36,6 +36,7 @@ export type State = {
 	fuelCapacity: number,
 	equippedTool: string,
 	ownedTools: { [string]: boolean },
+	permanentTools: { [string]: boolean },
 	upgrades: { [string]: number },
 
 	walkSpeed: number,
@@ -59,6 +60,7 @@ local state: State = {
 	fuelCapacity = 0,
 	equippedTool = "",
 	ownedTools = {},
+	permanentTools = {},
 	upgrades = {},
 
 	walkSpeed = 16,
@@ -189,6 +191,9 @@ local function applyPayload(payload: any)
 		end
 		if type(payload.rentalToolId) == "string" then
 			state.rentalToolId = payload.rentalToolId
+		end
+		if type(payload.permanentTools) == "table" then
+			state.permanentTools = payload.permanentTools
 		end
 		if type(payload.ownedTools) == "table" then
 			state.ownedTools = payload.ownedTools

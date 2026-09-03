@@ -43,6 +43,8 @@ export type StatePayload = {
 	fuelCapacity: number,
 	equippedTool: string,
 	ownedTools: { [string]: boolean },
+	--- Tools kept across runs, so the book knows not to offer one twice.
+	permanentTools: { [string]: boolean },
 	upgrades: { [string]: number },
 	walkSpeed: number,
 	dumpRadius: number,
@@ -65,7 +67,7 @@ function PlayerService.buildState(player: Player): StatePayload?
 	return {
 		worldsBeaten = if profile then profile.worldsBeaten else {},
 		cash = run.cash,
-		tips = run.tips,
+		tips = EconomyService.tips(player),
 		earned = run.earned,
 		bagWeight = BagService.weight(player),
 		bagCapacity = BagService.capacity(player),
@@ -75,6 +77,7 @@ function PlayerService.buildState(player: Player): StatePayload?
 		fuelCapacity = Balance.fuelCapacity(run.upgrades),
 		equippedTool = run.equippedTool,
 		ownedTools = run.ownedTools,
+		permanentTools = if profile then profile.permanentTools else {},
 		upgrades = run.upgrades,
 
 		walkSpeed = Balance.walkSpeed(run.upgrades, mods),
@@ -109,7 +112,7 @@ function PlayerService.pushLive(player: Player)
 	playerState:FireClient(player, {
 		partial = true,
 		cash = run.cash,
-		tips = run.tips,
+		tips = EconomyService.tips(player),
 		earned = run.earned,
 		bagWeight = BagService.weight(player),
 		bagCapacity = BagService.capacity(player),
