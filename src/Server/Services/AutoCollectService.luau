@@ -14,6 +14,7 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 
 local BagService = require(script.Parent.BagService)
+local Loop = require(script.Parent.Parent.Lib.Loop)
 local CollectibleService = require(script.Parent.CollectibleService)
 local MonetizationService = require(script.Parent.MonetizationService)
 
@@ -64,15 +65,13 @@ local function sweepFor(player: Player, at: Vector3)
 end
 
 function AutoCollectService.start()
-	task.spawn(function()
-		while true do
-			task.wait(INTERVAL)
-			for _, player in Players:GetPlayers() do
-				if MonetizationService.owns(player, "autoCollect") then
-					local root = rootOf(player)
-					if root then
-						sweepFor(player, root.Position)
-					end
+	Loop.forever("AutoCollect", function()
+		task.wait(INTERVAL)
+		for _, player in Players:GetPlayers() do
+			if MonetizationService.owns(player, "autoCollect") then
+				local root = rootOf(player)
+				if root then
+					sweepFor(player, root.Position)
 				end
 			end
 		end

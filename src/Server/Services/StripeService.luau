@@ -22,6 +22,7 @@ local Format = require(Shared.Util.Format)
 local GameConfig = require(Shared.Config.GameConfig)
 local Stripe = require(Shared.Stripe)
 local DataService = require(script.Parent.DataService)
+local Loop = require(script.Parent.Parent.Lib.Loop)
 local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
 local QuestService = require(script.Parent.QuestService)
@@ -107,15 +108,13 @@ function StripeService.start()
 	end)
 
 	-- Bank runs that simply stop, rather than only ones that end in a turn.
-	task.spawn(function()
-		while true do
-			task.wait(0.5)
-			local now = os.clock()
-			for player, stripe in stripes do
-				if now - stripe.lastAt > Stripe.IDLE_TIMEOUT then
-					bank(player, stripe)
-					stripes[player] = nil
-				end
+	Loop.forever("Stripe.idle", function()
+		task.wait(0.5)
+		local now = os.clock()
+		for player, stripe in stripes do
+			if now - stripe.lastAt > Stripe.IDLE_TIMEOUT then
+				bank(player, stripe)
+				stripes[player] = nil
 			end
 		end
 	end)

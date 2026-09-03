@@ -17,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
 local Tools = require(Shared.Config.Tools)
 local RunState = require(script.Parent.RunState)
+local Loop = require(script.Parent.Parent.Lib.Loop)
 local EconomyService = require(script.Parent.EconomyService)
 local VehicleService = require(script.Parent.VehicleService)
 
@@ -268,22 +269,20 @@ function BoostService.start()
 
 	-- Rentals are advertised in seconds, so a one-second tick is precise enough
 	-- and costs nothing.
-	task.spawn(function()
-		while true do
-			task.wait(1)
-			for player, rental in rentals do
-				if not alive(rental.expiresAt) then
-					expireRental(player)
-				end
+	Loop.forever("Boost.expiry", function()
+		task.wait(1)
+		for player, rental in rentals do
+			if not alive(rental.expiresAt) then
+				expireRental(player)
 			end
-			for player, boost in cashBoosts do
-				if not alive(boost.expiresAt) then
-					cashBoosts[player] = nil
-				end
+		end
+		for player, boost in cashBoosts do
+			if not alive(boost.expiresAt) then
+				cashBoosts[player] = nil
 			end
-			if serverBoost and not alive(serverBoost.expiresAt) then
-				serverBoost = nil
-			end
+		end
+		if serverBoost and not alive(serverBoost.expiresAt) then
+			serverBoost = nil
 		end
 	end)
 
