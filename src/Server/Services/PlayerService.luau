@@ -52,6 +52,7 @@ export type StatePayload = {
 	rentalToolId: string,
 	--- Worlds this player has finished, which is what the level select locks on.
 	worldsBeaten: { [string]: boolean },
+	bestTimes: { [string]: number },
 }
 
 function PlayerService.buildState(player: Player): StatePayload?
@@ -65,6 +66,8 @@ function PlayerService.buildState(player: Player): StatePayload?
 
 	return {
 		worldsBeaten = if profile then profile.worldsBeaten else {},
+		--- Per world, in seconds. The map cards show it as a personal best.
+		bestTimes = if profile then profile.bestTimes else {},
 		cash = run.cash,
 		tips = EconomyService.tips(player),
 		earned = run.earned,

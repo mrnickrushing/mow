@@ -46,6 +46,7 @@ export type State = {
 	rentalToolId: string,
 	--- Worlds finished, which is what the level select locks its rows on.
 	worldsBeaten: { [string]: boolean },
+	bestTimes: { [string]: number },
 }
 
 local state: State = {
@@ -69,6 +70,7 @@ local state: State = {
 	rentalSecondsLeft = 0,
 	rentalToolId = "",
 	worldsBeaten = {},
+	bestTimes = {},
 }
 
 local world: Types.WorldDef? = nil
@@ -200,6 +202,9 @@ local function applyPayload(payload: any)
 		end
 		if type(payload.upgrades) == "table" then
 			state.upgrades = payload.upgrades
+		end
+		if type(payload.bestTimes) == "table" then
+			state.bestTimes = payload.bestTimes
 		end
 		if type(payload.worldsBeaten) == "table" then
 			state.worldsBeaten = payload.worldsBeaten

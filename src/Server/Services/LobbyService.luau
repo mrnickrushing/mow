@@ -23,9 +23,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
 local Palette = require(Shared.Config.Palette)
+local Remotes = require(Shared.Remotes)
 local Worlds = require(Shared.Config.Worlds)
 local Build = require(script.Parent.Parent.Lib.Build)
 local DataService = require(script.Parent.DataService)
+local MowEconomyService = require(script.Parent.EconomyService)
 local MowRunService = require(script.Parent.RunService)
 local MatchmakingService = require(script.Parent.MatchmakingService)
 
@@ -44,10 +46,21 @@ local teamLabels: { TextLabel } = {}
 local levelPads: { [string]: BasePart } = {}
 local levelLabels: { [string]: TextLabel } = {}
 local statusLabel: TextLabel? = nil
+--- The board over the pads that says how many of you are going.
+local teamCountLabel: TextLabel? = nil
 local outcomeLabel: TextLabel? = nil
 
 local chosenWorld: string? = nil
 local countdownLeft: number? = nil
+--[[
+	The party size the pads were set to, from the settings panel.
+
+	The room could only ever count how many people were standing on pads. It
+	had no way to say how many you were *waiting* for, which is why a lone
+	player had nothing telling them one was a valid answer. Defaults to the
+	full four, so the behaviour without the panel is what it always was.
+]]
+local partyCap = TEAM_PADS
 --- What the last run did, so the lobby can say so rather than a panel.
 local lastOutcome: string? = nil
 local lastWorldName: string? = nil
@@ -187,60 +200,274 @@ local function build()
 	)
 
 	--------------------------------------------------------------------
-	-- The team pads
+	-- One: the property plaques
 	--------------------------------------------------------------------
 
-	local teamHeading = floorHeading("TeamSign", 64, CENTRE + Vector3.new(0, 1.9, 74), root)
-	teamHeading.Text = "YOUR TEAM — STAND ON A PAD"
+	--[[
+		The room is walked in the order it works in.
+
+		Players are placed at the south end facing north, and the two halves
+		used to be the other way round: you crossed the team pads first, stood
+		on one, and were told to pick a property while already standing on a
+		pad. The plaques were another ninety studs on, and since the choice is
+		sticky you then had to walk all the way back to the pad you had already
+		used. Nothing about that said "this is how you get in".
+
+		Plaques first, pads second. Pick a property, keep walking, stand on a
+		pad, and it counts you down.
+	]]
+	local pickHeading = floorHeading("PickSign", 78, CENTRE + Vector3.new(0, 1.9, 74), root)
+	pickHeading.Text = "1. PICK A PROPERTY — STAND ON ONE"
+
+	local list = Worlds.list
+	for index, world in list do
+		local x = (index - (#list + 1) * 0.5) * 74
+		local at = CENTRE + Vector3.new(x, 1.5, 46)
+		local part, padLabel = pad(`LevelPad_{world.id}`, at, Palette.color(Palette.ground.stoneDark), root, 26)
+		padLabel.Text = world.difficulty
+
+		--[[
+			A lawn sign, not a billboard.
+
+			These used to be eighteen studs of board on twelve-stud posts. Down
+			at this end of the yard that is tall enough to stand squarely in
+			front of the status board at the far end — the one thing in the
+			room that says what is happening — so the sign that tells you the
+			property would have hidden the sign that tells you the game. Low
+			and wide, staked in the grass like the board outside a house that
+			is up for sale, which is also the right thing for a lawn business
+			to have in its yard.
+		]]
+		for _, side in { -1, 1 } do
+			Build.part({
+				name = "SignStake",
+				size = Vector3.new(0.7, 6, 0.7),
+				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 9, 3, 30)),
+				color = Palette.color(Palette.fence.rail),
+				material = Enum.Material.SmoothPlastic,
+				parent = root,
+			})
+		end
+		local board = Build.part({
+			name = `LevelSign_{world.id}`,
+			size = Vector3.new(24, 6, 0.8),
+			cframe = CFrame.lookAt(
+				CENTRE + Vector3.new(x, 8, 30),
+				CENTRE + Vector3.new(x, 8, 31)
+			),
+			color = Palette.color(Palette.house.trim),
+			material = Enum.Material.SmoothPlastic,
+			parent = root,
+		})
+		levelPads[world.id] = part
+		levelLabels[world.id] = surface(board, Enum.NormalId.Front, 0.86)
+		levelLabels[world.id].Text = world.name
+
+		-- A planter either side, because a sign in bare grass is a placeholder.
+		for _, side in { -1, 1 } do
+			Build.mesh({
+				prop = "Planter",
+				name = "Planter",
+				size = Vector3.new(5, 7.6, 5),
+				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 17, 3.8, 30)),
+				parent = root,
+			})
+		end
+	end
+
+	--------------------------------------------------------------------
+	-- Two: the team pads, and how many of you there are
+	--------------------------------------------------------------------
+
+	local teamHeading = floorHeading("TeamSign", 72, CENTRE + Vector3.new(0, 1.9, -2), root)
+	teamHeading.Text = "2. STAND ON A PAD — ONE EACH"
 
 	for index = 1, TEAM_PADS do
-		local at = CENTRE + Vector3.new((index - (TEAM_PADS + 1) * 0.5) * 26, 1.5, 46)
+		local at = CENTRE + Vector3.new((index - (TEAM_PADS + 1) * 0.5) * 26, 1.5, -46)
 		local part, label = pad(`TeamPad{index}`, at, Palette.color(Palette.ground.stone), root, 18)
 		label.Text = `{index}`
 		teamPads[index] = part
 		teamLabels[index] = label
 	end
 
-	--------------------------------------------------------------------
-	-- The property plaques, each with its own board behind it
-	--------------------------------------------------------------------
+	--[[
+		How many of you are going, said out loud.
 
-	local pickHeading = floorHeading("PickSign", 70, CENTRE + Vector3.new(0, 1.9, -2), root)
-	pickHeading.Text = "PICK A PROPERTY — STAND ON ONE"
-
-	local list = Worlds.list
-	for index, world in list do
-		local x = (index - (#list + 1) * 0.5) * 74
-		local at = CENTRE + Vector3.new(x, 1.5, -46)
-		local part, padLabel = pad(`LevelPad_{world.id}`, at, Palette.color(Palette.ground.stoneDark), root, 26)
-		padLabel.Text = world.difficulty
-
-		-- The board stands beyond the pad rather than in front of it, so it
-		-- backs the thing it names instead of hiding it.
-		local post = Build.part({
-			name = `LevelSign_{world.id}`,
-			size = Vector3.new(52, 18, 1.2),
-			cframe = CFrame.lookAt(
-				CENTRE + Vector3.new(x, 12, -70),
-				CENTRE + Vector3.new(x, 12, -69)
-			),
-			color = Palette.color(Palette.house.trim),
+		Four pads and a name written on whichever ones are occupied is a team
+		size, but it is not a *number*, and the first thing anybody asked was
+		where the box is that picks how many players. This is the box: it
+		counts the pads that are stood on, over the pads themselves, at the
+		height you are already looking.
+	]]
+	local counterPost = Build.part({
+		name = "TeamCounter",
+		size = Vector3.new(46, 11, 1.2),
+		cframe = CFrame.lookAt(
+			CENTRE + Vector3.new(0, 15, -64),
+			CENTRE + Vector3.new(0, 15, -63)
+		),
+		color = Palette.color(Palette.house.trim),
+		material = Enum.Material.SmoothPlastic,
+		parent = root,
+	})
+	for _, side in { -1, 1 } do
+		Build.part({
+			name = "CounterPost",
+			size = Vector3.new(1.4, 15, 1.4),
+			cframe = CFrame.new(CENTRE + Vector3.new(side * 21, 7.5, -64)),
+			color = Palette.color(Palette.fence.rail),
 			material = Enum.Material.SmoothPlastic,
 			parent = root,
 		})
+	end
+	teamCountLabel = surface(counterPost, Enum.NormalId.Front, 0.7)
+	;(teamCountLabel :: TextLabel).Text = `TEAM 0 / {TEAM_PADS}`
+
+	--------------------------------------------------------------------
+	-- The yard it is all standing in
+	--------------------------------------------------------------------
+
+	--[[
+		A lawn-care depot, not a lawn with signs on it.
+
+		The room had a floor, a fence, some trees and its lettering, and that
+		was the whole of it — which is exactly what it looked like. The game
+		ships seventy-three props and the lobby used two of them.
+
+		Everything below is built from those: the shed the tools are kept in,
+		the trailer and the mowers parked beside it, the lamps down the path,
+		crates and barrels and a dog. Nothing is imported for it. A free model
+		off the marketplace is the usual way a published Roblox game acquires
+		a backdoor, and there is nothing here that needs one.
+	]]
+	local yard = Build.folder("Yard", root)
+
+	-- The way in: a gate you walk under, with the name over it.
+	for _, side in { -1, 1 } do
+		Build.mesh({
+			prop = "Column",
+			name = "ArchColumn",
+			size = Vector3.new(4, 20, 4),
+			cframe = CFrame.new(CENTRE + Vector3.new(side * 20, 10, 96)),
+			parent = yard,
+		})
+	end
+	local archBoard = Build.part({
+		name = "ArchSign",
+		size = Vector3.new(48, 8, 1.4),
+		cframe = CFrame.lookAt(
+			CENTRE + Vector3.new(0, 22, 96),
+			CENTRE + Vector3.new(0, 22, 97)
+		),
+		color = Palette.color(Palette.house.trim),
+		material = Enum.Material.SmoothPlastic,
+		parent = yard,
+	})
+	surface(archBoard, Enum.NormalId.Front, 0.72).Text = GameConfig.GAME_NAME
+
+	--[[
+		Lamps down both sides of the path.
+
+		Placed off the walked line rather than on it: the path is the one part
+		of this room every player crosses, and a lamp post in the middle of it
+		is a thing to get stuck on.
+	]]
+	for _, z in { 86, 58, 14, -22, -70 } do
 		for _, side in { -1, 1 } do
 			Build.part({
-				name = "SignPost",
-				size = Vector3.new(1.6, 12, 1.6),
-				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 24, 6, -70)),
+				name = "LampPost",
+				size = Vector3.new(0.9, 11, 0.9),
+				cframe = CFrame.new(CENTRE + Vector3.new(side * 26, 5.5, z)),
 				color = Palette.color(Palette.fence.rail),
 				material = Enum.Material.SmoothPlastic,
-				parent = root,
+				parent = yard,
 			})
+			local lamp = Build.mesh({
+				prop = "Lantern",
+				name = "Lantern",
+				size = Vector3.new(2.6, 3.9, 2.4),
+				cframe = CFrame.new(CENTRE + Vector3.new(side * 26, 12.6, z)),
+				canCollide = false,
+				parent = yard,
+			})
+			local glow = Instance.new("PointLight")
+			glow.Color = Color3.fromRGB(255, 226, 158)
+			glow.Range = 34
+			glow.Brightness = 1.1
+			glow.Parent = lamp
 		end
-		levelPads[world.id] = part
-		levelLabels[world.id] = surface(post, Enum.NormalId.Front, 0.86)
-		levelLabels[world.id].Text = world.name
+	end
+
+	-- The shed the whole business runs out of, off the left of the path.
+	local shedAt = CENTRE + Vector3.new(-92, 0, 8)
+	Build.mesh({
+		prop = "Shed",
+		name = "Shed",
+		size = Vector3.new(32, 36, 32),
+		cframe = CFrame.new(shedAt + Vector3.new(0, 18, 0)) * CFrame.Angles(0, math.rad(90), 0),
+		collisionSize = Vector3.new(30, 34, 30),
+		parent = yard,
+	})
+	Build.flagstone(yard, shedAt + Vector3.new(20, 1.15, 0), Vector2.new(26, 34), 5, rng)
+	for index, spec in {
+		{ prop = "Crate", size = Vector3.new(5, 3, 4), at = Vector3.new(22, 1.5, 18) },
+		{ prop = "Crate", size = Vector3.new(5, 3, 4), at = Vector3.new(27, 1.5, 15) },
+		{ prop = "Barrel", size = Vector3.new(4, 4.2, 4), at = Vector3.new(21, 2.1, -14) },
+		{ prop = "Sack", size = Vector3.new(3, 4, 3.3), at = Vector3.new(26, 2, -18) },
+		{ prop = "Toolbox", size = Vector3.new(3, 2.4, 1.8), at = Vector3.new(18, 1.2, -6) },
+	} do
+		Build.mesh({
+			prop = spec.prop,
+			name = spec.prop,
+			size = spec.size,
+			cframe = CFrame.new(shedAt + spec.at) * CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0),
+			canCollide = false,
+			parent = yard,
+		})
+		local _ = index
+	end
+
+	-- The kit, parked on the right where you can see what you are working for.
+	local parkAt = CENTRE + Vector3.new(92, 0, 8)
+	Build.flagstone(yard, parkAt, Vector2.new(46, 60), 6, rng)
+	Build.mesh({
+		prop = "Trailer",
+		name = "Trailer",
+		size = Vector3.new(10, 6.1, 15),
+		cframe = CFrame.new(parkAt + Vector3.new(4, 3, -20)) * CFrame.Angles(0, math.rad(90), 0),
+		collisionSize = Vector3.new(7, 4, 14),
+		parent = yard,
+	})
+	for index, z in { 6, 20 } do
+		Build.mesh({
+			prop = "RidingMower",
+			name = "RidingMower",
+			size = Vector3.new(6.6, 7.2, 11.2),
+			cframe = CFrame.new(parkAt + Vector3.new(index * 2 - 3, 3.6, z))
+				* CFrame.Angles(0, math.rad(if index == 1 then 96 else 84), 0),
+			collisionSize = Vector3.new(5, 5, 9),
+			parent = yard,
+		})
+	end
+	Build.mesh({
+		prop = "Dog",
+		name = "Dog",
+		size = Vector3.new(2.4, 5.6, 4.6),
+		cframe = CFrame.new(parkAt + Vector3.new(-16, 2.8, -6)) * CFrame.Angles(0, math.rad(-40), 0),
+		canCollide = false,
+		parent = yard,
+	})
+
+	-- Hedges framing the depot, so the middle of the yard reads as a place
+	-- rather than as the gap between two piles of props.
+	for _, side in { -1, 1 } do
+		Build.hedge(
+			yard,
+			CENTRE + Vector3.new(side * 58, 0, 40),
+			CENTRE + Vector3.new(side * 58, 0, -28),
+			5,
+			4
+		)
 	end
 
 	--------------------------------------------------------------------
@@ -250,9 +477,15 @@ local function build()
 	local statusPost = Build.part({
 		name = "StatusBoard",
 		size = Vector3.new(120, 30, 1.5),
+		--[[
+			Raised, so the lawn signs at the near end cannot stand in front of
+			it. A six-stud board thirty studs from the gate subtends more of
+			the view than a thirty-stud board two hundred studs away, which is
+			how the old arrangement managed to hide its own marquee.
+		]]
 		cframe = CFrame.lookAt(
-			CENTRE + Vector3.new(0, 34, -112),
-			CENTRE + Vector3.new(0, 34, -111)
+			CENTRE + Vector3.new(0, 40, -112),
+			CENTRE + Vector3.new(0, 40, -111)
 		),
 		color = Palette.color(Palette.house.trim),
 		material = Enum.Material.SmoothPlastic,
@@ -261,8 +494,8 @@ local function build()
 	for _, side in { -1, 1 } do
 		Build.part({
 			name = "BoardPost",
-			size = Vector3.new(3, 34, 3),
-			cframe = CFrame.new(CENTRE + Vector3.new(side * 56, 17, -112)),
+			size = Vector3.new(3, 55, 3),
+			cframe = CFrame.new(CENTRE + Vector3.new(side * 56, 27.5, -112)),
 			color = Palette.color(Palette.fence.rail),
 			material = Enum.Material.SmoothPlastic,
 			parent = root,
@@ -484,6 +717,17 @@ local function step(delta: number)
 				]]
 				label.Text = "…"
 				part.Color = Palette.color(Palette.ground.stoneDark)
+			elseif occupant and party >= partyCap then
+				--[[
+					Past the size this game was set to.
+
+					MAX PLAYERS is a ceiling, not a quorum: a player who set it
+					to one and stands alone leaves immediately, and the fifth
+					person onto a four-pad game is told they are one too many
+					rather than silently added to it.
+				]]
+				label.Text = "FULL"
+				part.Color = Palette.color(Palette.ground.stoneDark)
 			elseif occupant then
 				party += 1
 				table.insert(team, occupant)
@@ -494,6 +738,10 @@ local function step(delta: number)
 				part.Color = Palette.color(Palette.ground.stone)
 			end
 		end
+	end
+
+	if teamCountLabel then
+		teamCountLabel.Text = `TEAM {party} / {partyCap}`
 	end
 
 	--[[
@@ -579,8 +827,53 @@ local function step(delta: number)
 	end
 end
 
+--[[
+	The settings panel, confirmed.
+
+	Sets the property and the party size in one go, from the player who pressed
+	the button — checked against their own record, the same way the plaques
+	are, so confirming a map you have not unlocked is refused here as well as
+	there.
+]]
+local function onConfirm(player: Player, payload: any)
+	if MowRunService.phase() ~= "lobby" or type(payload) ~= "table" or locked() then
+		return
+	end
+	local worldId = (payload :: any).worldId
+	local wanted = tonumber((payload :: any).maxPlayers)
+	if type(worldId) ~= "string" or not Worlds.get(worldId) or not wanted then
+		return
+	end
+
+	local world = Worlds.expect(worldId)
+	local profile = DataService.get(player)
+	local beaten = if profile then profile.worldsBeaten else nil
+	local allowed = not world.requiresWorld
+		or (beaten ~= nil and beaten[world.requiresWorld] == true)
+	if not allowed then
+		MowEconomyService.notify(
+			player,
+			"denied",
+			`{world.name} needs {Worlds.expect(world.requiresWorld :: string).name} first`,
+			nil
+		)
+		return
+	end
+
+	chosenWorld = worldId
+	partyCap = math.clamp(math.floor(wanted), 1, TEAM_PADS)
+	MowEconomyService.notify(
+		player,
+		"quest",
+		`{world.name} — up to {partyCap} player{if partyCap == 1 then "" else "s"}`,
+		nil
+	)
+end
+
 function LobbyService.start()
 	build()
+
+	Remotes.event(Remotes.LOBBY_CONFIRM).OnServerEvent:Connect(onConfirm)
 
 	--[[
 		The lobby is entered by watching the phase rather than by being told.

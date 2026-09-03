@@ -42,6 +42,14 @@ Remotes.VEHICLE = "Vehicle"
 Remotes.QUESTS = "Quests"
 --- Client -> server: pick the world to play next, from the level select.
 Remotes.SELECT_WORLD = "SelectWorld"
+--[[
+	Client -> server: the lobby's game settings, confirmed.
+
+	Carries the map and the party size the player set on the pad, which is the
+	thing the room never had a way to say — four pads told you how many were
+	standing on them, and nothing let you say how many you were waiting for.
+]]
+Remotes.LOBBY_CONFIRM = "LobbyConfirm"
 
 local UNRELIABLE: { [string]: boolean } = {
 	[Remotes.MOW_INTENT] = true,
@@ -62,6 +70,7 @@ local EVENTS = {
 	Remotes.VEHICLE,
 	Remotes.QUESTS,
 	Remotes.SELECT_WORLD,
+	Remotes.LOBBY_CONFIRM,
 }
 
 local folder: Folder? = nil
