@@ -23,9 +23,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
 local Palette = require(Shared.Config.Palette)
+local Remotes = require(Shared.Remotes)
 local Worlds = require(Shared.Config.Worlds)
 local Build = require(script.Parent.Parent.Lib.Build)
 local DataService = require(script.Parent.DataService)
+local MowEconomyService = require(script.Parent.EconomyService)
 local MowRunService = require(script.Parent.RunService)
 local MatchmakingService = require(script.Parent.MatchmakingService)
 
@@ -50,6 +52,15 @@ local outcomeLabel: TextLabel? = nil
 
 local chosenWorld: string? = nil
 local countdownLeft: number? = nil
+--[[
+	The party size the pads were set to, from the settings panel.
+
+	The room could only ever count how many people were standing on pads. It
+	had no way to say how many you were *waiting* for, which is why a lone
+	player had nothing telling them one was a valid answer. Defaults to the
+	full four, so the behaviour without the panel is what it always was.
+]]
+local partyCap = TEAM_PADS
 --- What the last run did, so the lobby can say so rather than a panel.
 local lastOutcome: string? = nil
 local lastWorldName: string? = nil
@@ -706,6 +717,17 @@ local function step(delta: number)
 				]]
 				label.Text = "…"
 				part.Color = Palette.color(Palette.ground.stoneDark)
+			elseif occupant and party >= partyCap then
+				--[[
+					Past the size this game was set to.
+
+					MAX PLAYERS is a ceiling, not a quorum: a player who set it
+					to one and stands alone leaves immediately, and the fifth
+					person onto a four-pad game is told they are one too many
+					rather than silently added to it.
+				]]
+				label.Text = "FULL"
+				part.Color = Palette.color(Palette.ground.stoneDark)
 			elseif occupant then
 				party += 1
 				table.insert(team, occupant)
@@ -719,7 +741,7 @@ local function step(delta: number)
 	end
 
 	if teamCountLabel then
-		teamCountLabel.Text = `TEAM {party} / {TEAM_PADS}`
+		teamCountLabel.Text = `TEAM {party} / {partyCap}`
 	end
 
 	--[[
@@ -805,8 +827,53 @@ local function step(delta: number)
 	end
 end
 
+--[[
+	The settings panel, confirmed.
+
+	Sets the property and the party size in one go, from the player who pressed
+	the button — checked against their own record, the same way the plaques
+	are, so confirming a map you have not unlocked is refused here as well as
+	there.
+]]
+local function onConfirm(player: Player, payload: any)
+	if MowRunService.phase() ~= "lobby" or type(payload) ~= "table" or locked() then
+		return
+	end
+	local worldId = (payload :: any).worldId
+	local wanted = tonumber((payload :: any).maxPlayers)
+	if type(worldId) ~= "string" or not Worlds.get(worldId) or not wanted then
+		return
+	end
+
+	local world = Worlds.expect(worldId)
+	local profile = DataService.get(player)
+	local beaten = if profile then profile.worldsBeaten else nil
+	local allowed = not world.requiresWorld
+		or (beaten ~= nil and beaten[world.requiresWorld] == true)
+	if not allowed then
+		MowEconomyService.notify(
+			player,
+			"denied",
+			`{world.name} needs {Worlds.expect(world.requiresWorld :: string).name} first`,
+			nil
+		)
+		return
+	end
+
+	chosenWorld = worldId
+	partyCap = math.clamp(math.floor(wanted), 1, TEAM_PADS)
+	MowEconomyService.notify(
+		player,
+		"quest",
+		`{world.name} — up to {partyCap} player{if partyCap == 1 then "" else "s"}`,
+		nil
+	)
+end
+
 function LobbyService.start()
 	build()
+
+	Remotes.event(Remotes.LOBBY_CONFIRM).OnServerEvent:Connect(onConfirm)
 
 	--[[
 		The lobby is entered by watching the phase rather than by being told.
