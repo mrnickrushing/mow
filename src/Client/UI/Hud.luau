@@ -456,7 +456,15 @@ local function buildMiddle(gui: ScreenGui)
 		name = "Rate",
 		text = "",
 		size = UDim2.fromOffset(340, 34),
-		position = UDim2.fromScale(0.55, 0.05),
+		--[[
+			A fixed drop from the top, not a twentieth of the height.
+
+			At 0.05 of a portrait iPad that is fifty pixels down, which is
+			inside the objective panel below it — the taller the screen, the
+			further this slid into something that had not moved. Pinned to the
+			edge it clears the panel at every height.
+		]]
+		position = UDim2.new(0.55, 0, 0, 14),
 		anchor = Vector2.new(0.5, 0),
 		parent = gui,
 		align = Enum.TextXAlignment.Center,

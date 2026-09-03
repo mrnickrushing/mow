@@ -186,7 +186,25 @@ end
 	it — so a column that starts part way down the screen is measured against
 	what is actually left rather than the whole of it.
 ]]
-function Theme.fitToViewport(panel: GuiObject, width: number, height: number, reservedY: number?): UIScale
+--[[
+	`reservedX` keeps room clear either side rather than only above.
+
+	A panel centred along an edge does not run out of room when it reaches the
+	screen edge — it runs out when it reaches whatever else lives in that
+	corner. The hotbar is the case: eight slots across the bottom, with the bag
+	210 pixels in from the left and the clock 262 in from the right, and on a
+	portrait iPad the bar met both of them long before it met the edge.
+	Fitting against the width less both corners is the same sum a person does
+	by eye, and it leaves the bar full size wherever there is room for all
+	three.
+]]
+function Theme.fitToViewport(
+	panel: GuiObject,
+	width: number,
+	height: number,
+	reservedY: number?,
+	reservedX: number?
+): UIScale
 	local scale = Instance.new("UIScale")
 	scale.Parent = panel
 
@@ -208,7 +226,8 @@ function Theme.fitToViewport(panel: GuiObject, width: number, height: number, re
 			return
 		end
 		local usableY = math.max(area.Y - (reservedY or 0), 1)
-		scale.Scale = math.clamp(math.min(area.X / width, usableY / height), 0.35, 1)
+		local usableX = math.max(area.X - (reservedX or 0) * 2, 1)
+		scale.Scale = math.clamp(math.min(usableX / width, usableY / height), 0.35, 1)
 	end
 
 	fit()
