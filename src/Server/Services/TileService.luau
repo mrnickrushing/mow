@@ -256,7 +256,14 @@ local function onMowIntent(player: Player, payload: any)
 		return
 	end
 
-	local rate = Balance.effectiveCutRate(tool, run.upgrades, false)
+	-- The tile underfoot decides the rate: a sprinkler that has just passed
+	-- over you stalls a cheap tool and halves a good one.
+	local worldGrid = WorldService.grid
+	local worldTiles = WorldService.tiles
+	local wet = worldGrid ~= nil
+		and worldTiles ~= nil
+		and Cutting.isWetAt(worldGrid, worldTiles, actual.X, actual.Z)
+	local rate = Balance.effectiveCutRate(tool, run.upgrades, wet)
 	if rate <= 0 then
 		return
 	end

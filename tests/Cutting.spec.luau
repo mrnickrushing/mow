@@ -271,4 +271,49 @@ return function()
 			h.expectClose(Cutting.unitsOnTile(ChunkCodec.pack(Debris.Empty, 3, false)), 0)
 		end)
 	end)
+
+	h.describe("Cutting — the ground underfoot", function()
+		--[[
+			`Balance.effectiveCutRate` has always taken a `wet` flag that stalls
+			the bottom three tiers and halves everyone else, and both places in
+			the game that ask for a cut rate passed `false` — so the halving
+			never once happened. A sprinkler was a wall for cheap tools, through
+			the separate per-tile check in `evaluate`, and nothing whatever for
+			good ones. This is what both sides read now.
+		]]
+		local function standing(wet: boolean): (any, buffer)
+			local grid, tiles = lawn(8, 8)
+			put(grid, tiles, 4, 4, grassTile(2, wet))
+			return grid, tiles
+		end
+
+		h.it("reads the tile the player is standing on", function()
+			local grid, tiles = standing(true)
+			local x, z = Grid.tileToWorld(grid, 4, 4)
+			h.expectTrue(Cutting.isWetAt(grid, tiles, x, z), "a wet tile underfoot reads wet")
+
+			local dryGrid, dryTiles = standing(false)
+			h.expectTrue(
+				not Cutting.isWetAt(dryGrid, dryTiles, x, z),
+				"the same tile, dry, reads dry"
+			)
+		end)
+
+		h.it("reads dry off the edge of the property rather than failing", function()
+			local grid, tiles = standing(true)
+			h.expectTrue(
+				not Cutting.isWetAt(grid, tiles, -500, -500),
+				"somewhere off the grid is not wet"
+			)
+		end)
+
+		h.it("only reports the tile asked about", function()
+			local grid, tiles = standing(true)
+			local x, z = Grid.tileToWorld(grid, 1, 1)
+			h.expectTrue(
+				not Cutting.isWetAt(grid, tiles, x, z),
+				"a dry tile beside a wet one is still dry"
+			)
+		end)
+	end)
 end
