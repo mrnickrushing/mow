@@ -21,6 +21,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
+local Palette = require(Shared.Config.Palette)
 local Loop = require(Shared.Util.Loop)
 local GameConfig = require(Shared.Config.GameConfig)
 local LobbyPad = require(Shared.LobbyPad)
@@ -42,6 +43,7 @@ local mapHolder: ScrollingFrame
 local partyValue: TextLabel
 local difficultyValue: TextLabel
 local clockValue: TextLabel
+local payoutValue: TextLabel
 local isOpen = false
 --- Set when the player closes the panel while still standing on the pad, so
 --- it does not spring straight back up at them.
@@ -203,77 +205,134 @@ local function refreshSettings()
 	local world = if chosen then Worlds.get(chosen) else nil
 	difficultyValue.Text = if world then string.upper(world.difficulty) else "—"
 	clockValue.Text = if world then `{math.floor(world.runSeconds / 60)}m` else "—"
+	payoutValue.Text = if world then `{world.payoutMultiplier}x cash` else "—"
 end
 
 local function drawCard(world: Types.WorldDef, order: number)
 	local open = isUnlocked(world)
 	local state = PlayerState.get()
 
+	--[[
+		A banner card, the way the reference draws one.
+
+		Its cards are photographs of the property with the best time in green
+		across the top, the name across the bottom and a green tick in the
+		corner of the one you have picked. A photograph is not something this
+		can produce, so the banner is the property's own ground colour — the
+		three of them are a lawn, a gravel drive and a forecourt, which is
+		enough to tell the three cards apart at a glance the way the photos
+		do. Everything else about the card is the reference's.
+	]]
 	local card = Instance.new("TextButton")
 	card.Name = world.id
 	card.Text = ""
-	card.Size = UDim2.new(1, -14, 0, 96)
-	card.BackgroundColor3 = if open then Color3.fromRGB(70, 80, 100) else Color3.fromRGB(56, 60, 70)
+	card.Size = UDim2.new(1, -14, 0, 118)
+	card.BackgroundColor3 = Color3.fromRGB(44, 47, 56)
 	card.BorderSizePixel = 0
 	card.AutoButtonColor = open
 	card.LayoutOrder = order
+	card.ClipsDescendants = true
 	card.Parent = mapHolder
 	Theme.corner(card, 10)
-	Theme.stroke(card, 3, if chosen == world.id then GREEN else INK, if chosen == world.id then 0 else 0.4)
+	-- Gold on the one that is picked, the way the reference rings its choice.
+	Theme.stroke(card, 3, if chosen == world.id then Color3.fromRGB(252, 206, 74) else INK, if chosen == world.id then 0 else 0.4)
 
-	Theme.text({
-		name = "Name",
-		text = world.name,
-		size = UDim2.new(1, -24, 0, 32),
-		position = UDim2.fromOffset(14, 44),
-		parent = card,
-		align = Enum.TextXAlignment.Left,
-		color = if open then Color3.fromRGB(252, 250, 244) else LOCKED,
-		textSize = 25,
-	})
+	local banner = Instance.new("Frame")
+	banner.Name = "Banner"
+	banner.Size = UDim2.fromScale(1, 1)
+	banner.BackgroundColor3 = Palette.color(world.baseGround)
+	banner.BorderSizePixel = 0
+	banner.Parent = card
+	Theme.corner(banner, 10)
+
+	-- Darkened towards the bottom so white text sits on it and stays readable,
+	-- which is what the reference's photographs do naturally.
+	local shade = Instance.new("UIGradient")
+	shade.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(70, 70, 70))
+	shade.Rotation = 90
+	shade.Parent = banner
+
+	if not open then
+		-- A property you have not earned is greyed rather than coloured.
+		local grey = Instance.new("UIGradient")
+		grey.Color = ColorSequence.new(Color3.fromRGB(120, 120, 120), Color3.fromRGB(60, 60, 60))
+		grey.Rotation = 90
+		grey.Parent = banner
+		shade:Destroy()
+	end
 
 	--[[
-		The personal best, in green above the name.
+		The personal best, in green on a dark pill along the top.
 
-		The reference puts it there and it is the one number that makes a map
-		card worth looking at twice: it is the only thing on this screen that
-		says you have been here before.
+		It is the one number that makes a map card worth looking at twice: the
+		only thing on this screen that says you have been here before.
 	]]
 	local best = state.bestTimes[world.id]
+	local pill = Instance.new("Frame")
+	pill.Name = "BestPill"
+	pill.Size = UDim2.new(0, 168, 0, 26)
+	pill.Position = UDim2.fromOffset(10, 10)
+	pill.BackgroundColor3 = Color3.fromRGB(24, 26, 32)
+	pill.BackgroundTransparency = 0.15
+	pill.BorderSizePixel = 0
+	pill.Parent = card
+	Theme.corner(pill, 6)
+
 	Theme.text({
 		name = "Best",
 		text = if not open
 			then `Needs {Worlds.expect(world.requiresWorld :: string).name}`
 			elseif best then `Best : {Format.clock(best)}`
 			else "Best : —",
-		size = UDim2.new(1, -24, 0, 24),
-		position = UDim2.fromOffset(14, 14),
-		parent = card,
+		size = UDim2.new(1, -12, 1, 0),
+		position = UDim2.fromOffset(8, 0),
+		parent = pill,
 		align = Enum.TextXAlignment.Left,
 		color = if not open then LOCKED else GREEN,
-		textSize = 19,
+		textSize = 18,
+	})
+
+	Theme.text({
+		name = "Name",
+		text = world.name,
+		size = UDim2.new(1, -24, 0, 34),
+		position = UDim2.new(0, 14, 1, -42),
+		parent = card,
+		align = Enum.TextXAlignment.Left,
+		color = if open then Color3.fromRGB(252, 250, 244) else LOCKED,
+		textSize = 27,
 	})
 
 	Theme.text({
 		name = "Difficulty",
 		text = string.upper(world.difficulty),
-		size = UDim2.new(0, 120, 0, 24),
-		position = UDim2.new(1, -134, 0, 44),
+		size = UDim2.new(0, 120, 0, 26),
+		position = UDim2.new(1, -134, 1, -38),
 		parent = card,
 		align = Enum.TextXAlignment.Right,
-		color = if open then Color3.fromRGB(214, 218, 228) else LOCKED,
+		color = if open then Color3.fromRGB(236, 238, 244) else LOCKED,
 		textSize = 19,
 	})
 
 	if chosen == world.id then
+		-- A green disc with a white tick, not a bare character.
+		local badge = Instance.new("Frame")
+		badge.Name = "Tick"
+		badge.Size = UDim2.fromOffset(40, 40)
+		badge.Position = UDim2.new(1, -50, 0, 8)
+		badge.BackgroundColor3 = Color3.fromRGB(74, 190, 92)
+		badge.BorderSizePixel = 0
+		badge.Parent = card
+		Theme.corner(badge, 20)
+		Theme.stroke(badge, 2, Color3.fromRGB(252, 250, 244), 0.15)
 		Theme.text({
-			name = "Tick",
+			name = "Mark",
 			text = "✓",
-			size = UDim2.fromOffset(40, 40),
-			position = UDim2.new(1, -46, 0, 8),
-			parent = card,
-			color = GREEN,
-			textSize = 34,
+			size = UDim2.fromScale(1, 1),
+			position = UDim2.fromScale(0, 0),
+			parent = badge,
+			color = Color3.fromRGB(255, 255, 255),
+			textSize = 28,
 		})
 	end
 
@@ -297,7 +356,7 @@ function LevelSelect.refresh()
 	for order, world in Worlds.list do
 		drawCard(world, order)
 	end
-	mapHolder.CanvasSize = UDim2.fromOffset(0, #Worlds.list * 104)
+	mapHolder.CanvasSize = UDim2.fromOffset(0, #Worlds.list * 126)
 	refreshSettings()
 end
 
@@ -372,8 +431,18 @@ local function build()
 		refreshSettings()
 	end)
 
-	difficultyValue = field(body, 106, "DIFFICULTY")
-	clockValue = field(body, 202, "TIME ON THE CLOCK")
+	difficultyValue = field(body, 86, "DIFFICULTY")
+	clockValue = field(body, 162, "TIME ON THE CLOCK")
+	--[[
+		What the property pays, beside what it gives you to do it in.
+
+		The reference pairs its clock with a gem multiplier on the same row,
+		which is most of what stops its settings panel reading half-empty.
+		This game has no gems, but every property does multiply what the work
+		is worth, and that is the number a player choosing between three maps
+		actually wants next to the clock.
+	]]
+	payoutValue = field(body, 238, "PAYOUT")
 
 	--[[
 		Confirm is green and says what it does.
@@ -392,7 +461,22 @@ local function build()
 		end
 	end)
 
-	local close = button(settings, "✕", UDim2.fromOffset(38, 38), UDim2.new(1, -46, 0, 3), RED)
+	--[[
+		A round red button with a white cross, on the title bar.
+
+		The reference's is a disc, and a square one on a rounded bar reads as
+		a placeholder next to it — this is the only control on the panel that
+		is pure furniture, so it is the one where matching the shape is most
+		of the work.
+	]]
+	local close = button(settings, "✕", UDim2.fromOffset(40, 40), UDim2.new(1, -48, 0, 2), RED)
+	-- `button` already put a UICorner on it, and Roblox honours the first one
+	-- it finds — a second is ignored, so the radius is set on the one there.
+	local closeCorner = close:FindFirstChildOfClass("UICorner")
+	if closeCorner then
+		closeCorner.CornerRadius = UDim.new(0.5, 0)
+	end
+	Theme.stroke(close, 2.5, Color3.fromRGB(252, 250, 244), 0.2)
 	close.Activated:Connect(function()
 		dismissedOnPad = true
 		LevelSelect.setOpen(false)
