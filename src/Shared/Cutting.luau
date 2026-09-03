@@ -59,6 +59,29 @@ end
 	afterwards would let a player bank units for a cut that never landed, which is
 	free money.
 ]]
+--[[
+	Whether the ground a player is standing on is wet.
+
+	`Balance.effectiveCutRate` has always taken a `wet` flag: it stalls the
+	bottom three tiers outright and halves everyone else. Both of the two
+	places in the game that ask for a cut rate — the server's mow tick and the
+	client's prediction of it — passed `false`, so the halving never once
+	happened and a sprinkler was a wall for cheap tools and nothing at all for
+	good ones. `Cutting.evaluate` refuses wet *tiles* for the cheap tools
+	independently, which is why the stall half looked like it worked.
+
+	The rate is charged per tick rather than per tile, so it is the tile under
+	the player that decides it. Shared, because a client predicting a different
+	rate from the server is grass that moves and comes back.
+]]
+function Cutting.isWetAt(grid: Grid.Grid, tiles: buffer, worldX: number, worldZ: number): boolean
+	local tx, tz = Grid.worldToTile(grid, worldX, worldZ)
+	if not Grid.inBounds(grid, tx, tz) then
+		return false
+	end
+	return ChunkCodec.isWet(buffer.readu8(tiles, Grid.toIndex(grid, tx, tz) - 1))
+end
+
 function Cutting.evaluate(
 	byte: number,
 	tool: Types.ToolDef,

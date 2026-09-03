@@ -18,6 +18,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Balance = require(Shared.Config.Balance)
 local Format = require(Shared.Util.Format)
 local GameConfig = require(Shared.Config.GameConfig)
 local Remotes = require(Shared.Remotes)
@@ -43,6 +44,24 @@ local phase: Phase = "lobby"
 local worldId = Worlds.STARTER_ID
 local endsAt = 0
 local startedAt = 0
+--[[
+	Whether this server is the public one with the physical lobby in it.
+
+	Not the same question as `autoStart`, which is false on both kinds: a run
+	server must not start a second run around a team, and a lobby server must
+	not drop everyone into The House while they are reading the plaques.
+
+	This one exists because the `SelectWorld` remote is still live. The panel
+	that used to fire it is deliberately never shown any more — the choice is
+	made with your feet, on the plaques — but the remote still reaches
+	`onWorldSelected`, which calls `beginRun` whenever the phase is "lobby",
+	and "lobby" is the permanent state of a lobby server. So a hand-written
+	client could start a run inside the room everyone else was choosing in and
+	take them all with it, which is the exact thing MatchmakingService refuses
+	to do when a reservation fails.
+]]
+local hostsLobby = false
+
 --- When the current run began, so wave counts are not relaxed before the team
 --- that justified them has finished teleporting in.
 local runStartedAt = 0
@@ -363,6 +382,27 @@ local function winRun()
 
 	EconomyService.notifyAll("round", `Beaten in {Format.clock(elapsed)}`, nil)
 
+	--[[
+		The contribution split, which nothing ever paid.
+
+		`run.contribution` counts what each player has cut and describes itself
+		as being "for the contribution split and the scoreboard";
+		`ROUND_COMPLETION_BONUS` is the size of the pool. Neither was read by
+		anything, so finishing a property paid nothing at all and a team of
+		four rewarded whoever stood still exactly as well as the three who
+		mowed.
+
+		The pool scales with the number of people in the run and is divided by
+		share of the work, so finishing solo pays the whole of it and a team
+		pulling evenly pays it to each of them.
+	]]
+	local totalContribution = 0
+	local runners = 0
+	for _, state in RunState.all() do
+		totalContribution += state.contribution
+		runners += 1
+	end
+
 	for _, player in Players:GetPlayers() do
 		DataService.withProfile(player, function(profile)
 			profile.worldsBeaten[worldId] = true
@@ -384,6 +424,20 @@ local function winRun()
 			paid, and this is that moment.
 		]]
 		RewardService.awardFirstCompletion(player)
+
+		local run = RunState.find(player)
+		if run then
+			local earned = Balance.completionTips(run.contribution, totalContribution, runners)
+			if earned > 0 then
+				EconomyService.awardTips(player, earned)
+				EconomyService.notify(
+					player,
+					"reward",
+					`Your share of {Worlds.expect(worldId).name} — {earned} tips`,
+					nil
+				)
+			end
+		end
 
 		-- The world just beaten is what unlocks the next one, and the level
 		-- select is about to be shown, so the client needs to hear about it
@@ -489,6 +543,17 @@ local function onWorldSelected(player: Player, worldId: any)
 		return
 	end
 
+	-- On the server that holds the lobby, the pads are the only way in.
+	if hostsLobby then
+		EconomyService.notify(
+			player,
+			"denied",
+			"Stand on a plaque to pick a property, then on a team pad",
+			nil
+		)
+		return
+	end
+
 	local profile = DataService.get(player)
 	local beaten = if profile then profile.worldsBeaten else {}
 	local allowed = false
@@ -527,6 +592,11 @@ local autoStart = true
 
 function RunService.setAutoStart(on: boolean)
 	autoStart = on
+end
+
+
+function RunService.setHostsLobby(on: boolean)
+	hostsLobby = on
 end
 
 function RunService.startFromLobby(worldId: string, partySize: number)

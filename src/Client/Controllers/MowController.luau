@@ -375,7 +375,15 @@ local function step(delta: number)
 	]]
 	local tool = Tools.get(state.equippedTool)
 	if tool then
-		predictCarry += Balance.effectiveCutRate(tool, state.upgrades, false) * elapsed
+		-- The same tile the server reads, through the same helper: predicting a
+		-- dry rate on wet ground would cut grass here and have the server put
+		-- it straight back.
+		local grid = GrassRenderer.grid()
+		local tiles = GrassRenderer.tiles()
+		local wet = grid ~= nil
+			and tiles ~= nil
+			and Cutting.isWetAt(grid, tiles, root.Position.X, root.Position.Z)
+		predictCarry += Balance.effectiveCutRate(tool, state.upgrades, wet) * elapsed
 		local passes = math.floor(predictCarry)
 		if passes > 0 then
 			predictCarry -= passes

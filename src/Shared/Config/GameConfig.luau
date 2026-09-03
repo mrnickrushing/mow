@@ -87,8 +87,9 @@ local GameConfig = {
 	--------------------------------------------------------------------
 	-- Economy
 	--------------------------------------------------------------------
+	--- What a run opens with. Read by `RunState.fresh`, which used to hard-code
+	--- a zero beside it and leave this saying nothing.
 	STARTING_CASH = 0,
-	STARTING_TIPS = 0,
 	--- Bag units a fresh account can carry.
 	BASE_BAG_CAPACITY = 25,
 	BASE_WALK_SPEED = 16,
@@ -100,8 +101,28 @@ local GameConfig = {
 	-- paycheck moment — one gold number counting up as the clippings stream in
 	-- — so it is deliberately not instant, whatever the bag's size.
 	BAG_EMPTY_SECONDS = 2.5,
-	--- Fraction of the round payout pool a player earns per 1% contributed.
-	ROUND_COMPLETION_BONUS = 60,
+	--[[
+		Tips a player earns for finishing a property, at a full share of the
+		work.
+
+		`run.contribution` counts the levels each player has cut and says in
+		its own declaration that it is "for the contribution split and the
+		scoreboard". Nothing read either it or this number: winning paid
+		exactly nothing beyond unlocking the next property, so a four-player
+		team rewarded the one who stood still exactly as well as the three who
+		mowed.
+
+		The pool is this many tips per player in the run, divided by share of
+		the work — so a solo player who finishes earns the whole of it, a team
+		of four pulling evenly earn it each, and somebody who cut a tenth of
+		what the others did earns a tenth. Tips rather than cash, because cash
+		granted at the end of a run is wiped by the start of the next one.
+
+		Sized against a run that already pays roughly eighty tips: enough that
+		finishing is plainly worth more than mowing about for the same time,
+		not so much that it moves the permanent tools within easy reach.
+	]]
+	ROUND_COMPLETION_BONUS = 25,
 
 	--------------------------------------------------------------------
 	-- Round flow

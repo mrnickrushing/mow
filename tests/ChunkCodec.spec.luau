@@ -4,6 +4,7 @@
 local ChunkCodec = require("./.build/Shared/ChunkCodec")
 local Grid = require("./.build/Shared/Grid")
 local Debris = require("./.build/Shared/Config/Debris")
+local GameConfig = require("./.build/Shared/Config/GameConfig")
 local h = require("./harness")
 
 --- Fills a tile buffer with a deterministic but varied pattern.
@@ -18,6 +19,32 @@ local function seed(grid: Grid.Grid): buffer
 end
 
 return function()
+	h.describe("ChunkCodec — what still fits in the byte", function()
+		--[[
+			A tile is one byte: two bits of height, three of debris id, one wet
+			flag. Both numbered fields are packed to exactly their capacity, so
+			the next thing added to either list corrupts every tile that carries
+			it rather than failing anywhere a person would notice.
+
+			The debris side is covered: `MAX_ID` is derived from the table now,
+			and Config.spec holds it to three bits. This is the other side —
+			every other test in this file walks a hard-coded `0..3`, so raising
+			MAX_HEIGHT is the one change nothing would catch.
+		]]
+		h.it("round-trips every height the game allows", function()
+			h.expectTrue(
+				GameConfig.MAX_HEIGHT <= 3,
+				`MAX_HEIGHT {GameConfig.MAX_HEIGHT} will not fit in the two-bit height field`
+			)
+			for height = 0, GameConfig.MAX_HEIGHT do
+				local byte = ChunkCodec.pack(Debris.MAX_ID, height, true)
+				h.expectEqual(ChunkCodec.height(byte), height, `height {height} does not survive packing`)
+				h.expectEqual(ChunkCodec.debris(byte), Debris.MAX_ID, `height {height} corrupted the debris id`)
+				h.expectTrue(ChunkCodec.isWet(byte), `height {height} lost the wet flag`)
+			end
+		end)
+	end)
+
 	h.describe("ChunkCodec — tile byte", function()
 		h.it("round-trips every debris/height/wet combination", function()
 			for debris = 0, Debris.MAX_ID do

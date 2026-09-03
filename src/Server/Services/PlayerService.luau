@@ -23,7 +23,6 @@ local EconomyService = require(script.Parent.EconomyService)
 local PlayerService = {}
 
 local playerState: RemoteEvent
-local dumpRemote: RemoteEvent
 local equipRemote: RemoteEvent
 local trailerRemote: RemoteEvent
 
@@ -202,20 +201,19 @@ local function stepPour(elapsed: number)
 	end
 end
 
---- The DUMP remote is only the Empty Bag product's path now; the trailer
---- pours on its own.
-local function onDump(player: Player)
-	if BagService.weight(player) <= 0 then
-		return
-	end
-	if not PlayerService.canDump(player) then
-		EconomyService.notify(player, "tooFar", "Empty your bag at the trailer", nil)
-		return
-	end
-	BagService.dump(player)
-	PlayerService.push(player)
-end
+--[[
+	There is no dump remote any more.
 
+	It was described as "the Empty Bag product's path", and the product does
+	not use it: `MonetizationService` calls `BagService.dump` directly on the
+	server when the receipt clears. Nothing on the client fired it either — the
+	only reference left was the server connecting a handler to it.
+
+	What it did do was sell a whole bag the instant it was called, which skips
+	the pour. That pause is deliberate: "the pause while it pours is the moment
+	the trip was for". So the only thing this remote could still be used for
+	was a hand-written client skipping it.
+]]
 --------------------------------------------------------------------
 -- Equipping
 --------------------------------------------------------------------
@@ -312,11 +310,9 @@ end
 
 function PlayerService.start()
 	playerState = Remotes.event(Remotes.PLAYER_STATE)
-	dumpRemote = Remotes.event(Remotes.DUMP)
 	equipRemote = Remotes.event(Remotes.EQUIP)
 	trailerRemote = Remotes.event(Remotes.PLACE_TRAILER)
 
-	dumpRemote.OnServerEvent:Connect(onDump)
 	equipRemote.OnServerEvent:Connect(onEquip)
 	trailerRemote.OnServerEvent:Connect(onPlaceTrailer)
 

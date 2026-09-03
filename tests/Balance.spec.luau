@@ -207,6 +207,54 @@ return function()
 		end)
 	end)
 
+	h.describe("Balance — the contribution split", function()
+		--[[
+			`run.contribution` was counted on every cut and read by nothing,
+			and `ROUND_COMPLETION_BONUS` was read by nothing either, so
+			finishing a property paid exactly nothing and a team of four
+			rewarded whoever stood still as well as the three who mowed.
+		]]
+		local FULL = GameConfig.ROUND_COMPLETION_BONUS
+
+		h.it("pays a solo finisher the whole pool", function()
+			h.expectEqual(Balance.completionTips(500, 500, 1), FULL)
+		end)
+
+		h.it("pays a team pulling evenly the same each", function()
+			for _, runners in { 2, 3, 4 } do
+				local each = 100
+				h.expectEqual(
+					Balance.completionTips(each, each * runners, runners),
+					FULL,
+					`a fair share of {runners} should still be a full share`
+				)
+			end
+		end)
+
+		h.it("pays a passenger their share and no more", function()
+			-- One player cut a tenth of what the other three did between them.
+			local leech, rest = 10, 90
+			local total = leech + rest
+			h.expectEqual(Balance.completionTips(leech, total, 4), math.floor(FULL * 4 * 0.1 + 0.5))
+			h.expectTrue(
+				Balance.completionTips(leech, total, 4) < FULL,
+				"standing still should not pay a full share"
+			)
+		end)
+
+		h.it("pays nothing for nothing, and never divides by zero", function()
+			h.expectEqual(Balance.completionTips(0, 100, 4), 0)
+			h.expectEqual(Balance.completionTips(50, 0, 4), 0)
+			h.expectEqual(Balance.completionTips(50, 100, 0), 0)
+		end)
+
+		h.it("never pays more than a full share to one player", function()
+			-- Contribution can only exceed the total if the totals drifted; the
+			-- split should clamp rather than hand out a multiple.
+			h.expectEqual(Balance.completionTips(500, 100, 1), FULL)
+		end)
+	end)
+
 	h.describe("Balance — stripe bonus", function()
 		h.it("scales with tiles and the cash multiplier", function()
 			local plain = Balance.stripeBonus(20, levels())
