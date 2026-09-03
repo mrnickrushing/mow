@@ -433,7 +433,9 @@ local function slotCard(parent: Instance, order: number, slot: any, owned: boole
 	tile.Size = UDim2.fromOffset(88, 84)
 	tile.Position = UDim2.new(0.5, 0, 0, 40)
 	tile.AnchorPoint = Vector2.new(0.5, 0)
-	tile.BackgroundColor3 = if owned then Color3.fromRGB(214, 210, 200) else Color3.fromRGB(96, 92, 88)
+	-- White for a slot you own, as the reference has it. Paper-grey read as
+	-- another shade of page and the tiles stopped being tiles.
+	tile.BackgroundColor3 = if owned then Color3.fromRGB(252, 250, 246) else Color3.fromRGB(96, 92, 88)
 	tile.BorderSizePixel = 0
 	tile.Parent = card
 	Theme.corner(tile, 9)
@@ -1237,7 +1239,7 @@ local function render()
 		return
 	end
 
-	moneyLabel.Text = `your money :  {Format.cash(PlayerState.get().cash)}    `
+	moneyLabel.Text = `your money :  {Format.cash(PlayerState.get().cash)}`
 
 	local now = signature()
 	if now == lastSignature then
@@ -1470,7 +1472,8 @@ local function build()
 	moneyLabel.Name = "Money"
 	moneyLabel.Text = "your money :  $0.00"
 	moneyLabel.Size = UDim2.new(0.5, -30, 0, 32)
-	moneyLabel.Position = UDim2.new(1, -18, 1, -14)
+	-- Stops short of the right edge, because a coin sits there.
+	moneyLabel.Position = UDim2.new(1, -50, 1, -14)
 	moneyLabel.AnchorPoint = Vector2.new(1, 1)
 	moneyLabel.BackgroundTransparency = 1
 	moneyLabel.Font = Theme.font
@@ -1478,6 +1481,24 @@ local function build()
 	moneyLabel.TextSize = 21
 	moneyLabel.TextXAlignment = Enum.TextXAlignment.Right
 	moneyLabel.Parent = spread
+
+	--[[
+		A coin after the number, which is how the reference writes it.
+
+		"your money : $0.00" on its own is a line of type at the bottom of a
+		page. The coin is what makes it the running total rather than another
+		price, and it is the same coin the run pays you in.
+	]]
+	local moneyCoin = Instance.new("ImageLabel")
+	moneyCoin.Name = "MoneyCoin"
+	moneyCoin.Size = UDim2.fromOffset(28, 28)
+	moneyCoin.Position = UDim2.new(1, -16, 1, -16)
+	moneyCoin.AnchorPoint = Vector2.new(1, 1)
+	moneyCoin.BackgroundTransparency = 1
+	local coinProp = Props.get("Coin")
+	moneyCoin.Image = if coinProp then coinProp.icon or "" else ""
+	moneyCoin.ScaleType = Enum.ScaleType.Fit
+	moneyCoin.Parent = spread
 
 	-- Tabs hang off the left edge, behind the cover.
 	local rail = Instance.new("Frame")
@@ -1569,11 +1590,19 @@ local function build()
 
 	local close = Instance.new("TextButton")
 	close.Name = "Close"
-	close.Size = UDim2.fromOffset(56, 56)
+	--[[
+		Big, and sitting on the corner rather than inside it.
+
+		At fifty-six pixels inset from the edge it was a full head smaller
+		than the reference's and a long way from the corner your thumb goes
+		to. This is the one control on the panel every player uses every
+		time they open it.
+	]]
+	close.Size = UDim2.fromOffset(88, 88)
 	-- Tucked inside the cover rather than overhanging its top-right corner:
 	-- overhung, it was the first thing to leave the screen on a short viewport,
 	-- which left the journal with no visible way to shut it.
-	close.Position = UDim2.new(1, -14, 0, 14)
+	close.Position = UDim2.new(1, 10, 0, -10)
 	close.AnchorPoint = Vector2.new(1, 0)
 	close.Text = ""
 	Theme.icon({
