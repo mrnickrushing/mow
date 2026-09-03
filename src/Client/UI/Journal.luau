@@ -17,6 +17,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
+local GameConfig = require(Shared.Config.GameConfig)
 local Worlds = require(Shared.Config.Worlds)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
@@ -251,7 +252,7 @@ local function renderPlayers()
 	local scroll = body(rightPage)
 
 	local others = Players:GetPlayers()
-	for order = 1, 4 do
+	for order = 1, GameConfig.MAX_PARTY do
 		local subject = others[order]
 
 		local row = Instance.new("Frame")

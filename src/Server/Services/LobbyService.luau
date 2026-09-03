@@ -48,7 +48,9 @@ local CENTRE = Vector3.new(-600, 0, -600)
 local FLOOR_W, FLOOR_D = 160, 160
 --- Games that can be set up side by side in the yard, and the most people
 --- any one of them can take.
-local GAME_SLOTS = 4
+-- The largest team one pad has to plan for; shared so a change here cannot
+-- drift out of step with the level select panel or the journal.
+local GAME_SLOTS = GameConfig.MAX_PARTY
 --- Seconds between a team being ready and the property loading.
 local COUNTDOWN = 6
 --- Seconds a set-up game may stand empty before it goes back to being an offer.
