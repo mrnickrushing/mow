@@ -1584,6 +1584,57 @@ local function buildUpgradeStations(world: Types.WorldDef, parent: Folder)
 		})
 		board:SetAttribute("UpgradeId", def.id)
 
+		--[[
+			A badge on the board, because the boards are otherwise identical.
+
+			Every station is the same `ShopBoard` mesh, which carries a raised
+			blue hammer on a shield. Five of them stand a pace apart in front
+			of the shed, so the row read as one sign repeated five times: the
+			only thing telling Reserve from Fortune was the words floating
+			above them, which you cannot see at all from the side.
+
+			The badge is a disc rather than a patch. Matching the shield's
+			orange would need to be exact or it reads as a repair, and a
+			cream roundel with the line's own icon on it reads as something
+			pinned to the board on purpose. It stands a little clear of the
+			mesh so the hammer behind it is covered rather than poking out.
+		]]
+		if def.icon then
+			local badge = Build.part({
+				name = "Badge",
+				size = Vector3.new(3.4, 3.4, 0.2),
+				cframe = CFrame.new(at + Vector3.new(0, 7, -0.85)),
+				color = Color3.fromRGB(246, 236, 210),
+				material = Enum.Material.SmoothPlastic,
+				canCollide = false,
+				parent = folder,
+			})
+			badge.Shape = Enum.PartType.Cylinder
+			-- A cylinder's flat ends face along its X, so it is turned to
+			-- look at the lawn the way the boards do.
+			badge.CFrame = CFrame.new(at + Vector3.new(0, 7, -0.85))
+				* CFrame.Angles(0, math.rad(90), 0)
+			badge.Size = Vector3.new(0.2, 3.4, 3.4)
+
+			local face = Instance.new("SurfaceGui")
+			-- Turned by ninety degrees, the cylinder's flat end that looks at
+			-- the lawn is its Right. On Left the badge came out blank.
+			face.Face = Enum.NormalId.Right
+			face.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+			face.PixelsPerStud = 64
+			face.LightInfluence = 0
+			face.Parent = badge
+
+			local picture = Instance.new("ImageLabel")
+			picture.Size = UDim2.fromScale(0.78, 0.78)
+			picture.Position = UDim2.fromScale(0.5, 0.5)
+			picture.AnchorPoint = Vector2.new(0.5, 0.5)
+			picture.BackgroundTransparency = 1
+			picture.Image = def.icon
+			picture.ScaleType = Enum.ScaleType.Fit
+			picture.Parent = face
+		end
+
 		local prompt = Build.prompt(board, "Buy", def.name, 9)
 		prompt.Triggered:Connect(function(player: Player)
 			stationSignal:Fire(player, def.id)
