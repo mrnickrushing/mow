@@ -526,6 +526,31 @@ return function()
 			h.expectTrue(type(corrupt.receipts) == "table", "a corrupt receipts field survived migration")
 		end)
 
+		h.it("survives every template field arriving as the wrong type", function()
+			--[[
+				`stats` was the one that bit: migrate indexed it directly, so a
+				save holding anything but a table threw part-way through the
+				load. A profile that throws while loading never loads, and a
+				player without a profile waits on a lobby pad that will never
+				start, with nothing on screen saying why.
+			]]
+			local corrupt = DefaultData.migrate({
+				version = 1,
+				stats = "not a table",
+				worldsBeaten = 7,
+				bestTimes = false,
+				questProgress = "nope",
+				questsDone = 0,
+				permanentTools = "no",
+				tips = "lots",
+			})
+			for _, key in { "stats", "worldsBeaten", "bestTimes", "questProgress", "questsDone", "permanentTools" } do
+				h.expectTrue(type((corrupt :: any)[key]) == "table", `a corrupt {key} survived migration`)
+			end
+			h.expectTrue(type(corrupt.tips) == "number", "a corrupt tips field survived migration")
+			h.expectTrue(corrupt.version == DefaultData.VERSION, "a repaired profile kept its old version")
+		end)
+
 		h.it("remembers enough receipts to outlast Roblox's retries", function()
 			-- Roblox stops retrying a receipt within a day. The cap only exists
 			-- so a profile cannot grow without bound, and has to sit well above

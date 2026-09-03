@@ -130,8 +130,20 @@ function DefaultData.migrate(data: any): Profile
 		return fresh
 	end
 
+	--[[
+		Backfill anything missing, and replace anything of the wrong shape.
+
+		A missing field was the only case this handled, which is the common
+		one — a save written before a field existed. The dangerous one is a
+		field that is present and wrong: `stats` arriving as anything but a
+		table makes the loop below index a non-table and throw, and a profile
+		that throws while loading is a profile that never loads. In the lobby
+		that player is `waiting` forever, standing on a pad that will not
+		start, with no way to tell why. Matching the template's type costs one
+		comparison and takes the whole class off the table.
+	]]
 	for key, value in fresh :: any do
-		if data[key] == nil then
+		if typeof(data[key]) ~= typeof(value) then
 			data[key] = value
 		end
 	end
