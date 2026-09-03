@@ -63,7 +63,7 @@ local LOCKED = Color3.fromRGB(116, 122, 136)
 --------------------------------------------------------------------
 
 --- A panel with a blue title bar across the top, like the reference's.
-local function titled(name: string, title: string, size: UDim2, position: UDim2): (Frame, Frame)
+local function titled(parent: Instance, name: string, title: string, size: UDim2, position: UDim2): (Frame, Frame)
 	local frame = Instance.new("Frame")
 	frame.Name = name
 	frame.Size = size
@@ -71,7 +71,7 @@ local function titled(name: string, title: string, size: UDim2, position: UDim2)
 	frame.AnchorPoint = Vector2.new(0.5, 0.5)
 	frame.BackgroundColor3 = PANEL
 	frame.BorderSizePixel = 0
-	frame.Parent = gui
+	frame.Parent = parent
 	Theme.corner(frame, 12)
 	Theme.stroke(frame, 3, INK, 0.15)
 
@@ -319,16 +319,46 @@ local function build()
 	shade.BorderSizePixel = 0
 	shade.Parent = gui
 
+	--[[
+		Both panels live in one frame, and that frame is what gets scaled.
+
+		They used to be parented to the screen and scaled separately, each
+		fitted against the full width. A `UIScale` shrinks a panel but leaves
+		its position offset alone, and the two sat at a fixed 232 pixels either
+		side of centre — so as the screen narrowed the panels got smaller while
+		the gulf between them grew, and the pair got wider relative to the room
+		it had. Measured on the real thing:
+
+		    scale 1.00   panels 440 wide   gap  24   pair 904
+		    scale 0.65   panels 287 wide   gap 177   pair 751
+		    scale 0.35   panels 154 wide   gap 310   pair 618
+
+		At the 0.653 a portrait phone lands on, that is 751 pixels of panel on
+		a 640 pixel screen: 55 cut off either side, and shrinking it further
+		made it worse rather than better.
+
+		One frame, one scale, and the gap shrinks with everything else.
+	]]
+	local PAIR_W, PAIR_H = 904, 430
+	local holder = Instance.new("Frame")
+	holder.Name = "Panels"
+	holder.Size = UDim2.fromOffset(PAIR_W, PAIR_H)
+	holder.Position = UDim2.fromScale(0.5, 0.5)
+	holder.AnchorPoint = Vector2.new(0.5, 0.5)
+	holder.BackgroundTransparency = 1
+	holder.Parent = gui
+	Theme.fitToViewport(holder, PAIR_W + 40, PAIR_H + 60)
+
 	----------------------------------------------------------------
 	-- Left: the settings, and the number that started all this
 	----------------------------------------------------------------
 	local settings, body = titled(
+		holder,
 		"GameSettings",
 		"⚙  GAME SETTINGS",
 		UDim2.fromOffset(440, 430),
 		UDim2.new(0.5, -232, 0.5, 0)
 	)
-	Theme.fitToViewport(settings, 980, 500)
 
 	partyValue = field(body, 10, "MAX PLAYERS")
 	button(body, "−", UDim2.fromOffset(46, 40), UDim2.new(0.5, -120, 0, 40), HEAD).Activated:Connect(function()
@@ -370,12 +400,12 @@ local function build()
 	-- Right: the maps
 	----------------------------------------------------------------
 	local maps, mapBody = titled(
+		holder,
 		"SelectMap",
 		"🗺  SELECT MAP",
 		UDim2.fromOffset(440, 430),
 		UDim2.new(0.5, 232, 0.5, 0)
 	)
-	Theme.fitToViewport(maps, 980, 500)
 
 	mapHolder = Instance.new("ScrollingFrame")
 	mapHolder.Name = "Maps"
