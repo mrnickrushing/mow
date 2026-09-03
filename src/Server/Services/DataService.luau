@@ -12,6 +12,7 @@ local RunService = game:GetService("RunService")
 
 local GameConfig = require(game:GetService("ReplicatedStorage").Shared.Config.GameConfig)
 local DefaultData = require(script.Parent.Parent.Lib.DefaultData)
+local Loop = require(script.Parent.Parent.Lib.Loop)
 local Store = require(script.Parent.Parent.Lib.Store)
 
 local DataService = {}
@@ -144,21 +145,19 @@ function DataService.start()
 
 	-- Autosave spreads writes across the interval rather than saving everyone on
 	-- the same frame, which would spike request throughput on a full server.
-	task.spawn(function()
-		while true do
-			local players = Players:GetPlayers()
-			local count = #players
-			if count == 0 then
-				task.wait(5)
-				continue
-			end
+	Loop.forever("DataService.autosave", function()
+		local players = Players:GetPlayers()
+		local count = #players
+		if count == 0 then
+			task.wait(5)
+			return
+		end
 
-			local spacing = GameConfig.AUTOSAVE_SECONDS / count
-			for _, player in players do
-				task.wait(spacing)
-				if profiles[player] then
-					DataService.save(player)
-				end
+		local spacing = GameConfig.AUTOSAVE_SECONDS / count
+		for _, player in players do
+			task.wait(spacing)
+			if profiles[player] then
+				DataService.save(player)
 			end
 		end
 	end)

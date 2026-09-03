@@ -25,6 +25,7 @@ local Remotes = require(Shared.Remotes)
 local Types = require(Shared.Types)
 local Worlds = require(Shared.Config.Worlds)
 local BagService = require(script.Parent.BagService)
+local Loop = require(script.Parent.Parent.Lib.Loop)
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
@@ -667,69 +668,67 @@ function RunService.start()
 	endsAt = os.clock() + LOBBY_SECONDS
 	broadcast()
 
-	task.spawn(function()
-		while true do
-			task.wait(1 / BROADCAST_HZ)
+	Loop.forever("RunService.tick", function()
+		task.wait(1 / BROADCAST_HZ)
 
-			local world = WorldService.world
-			if phase == "running" and world then
-				-- A section can also be emptied by a Clean Sweep or by someone
-				-- else, so this is checked on a tick rather than driven off the
-				-- cut signal alone.
-				for _, section in world.sections do
-					if
-						WorldService.isSectionOpen(section.id)
-						and (wavesCleared[section.id] or 0) < (wavesNeeded[section.id] or 1)
-						and isSectionClear(section.id)
-					then
-						onSectionCleared(world, section)
-					end
+		local world = WorldService.world
+		if phase == "running" and world then
+			-- A section can also be emptied by a Clean Sweep or by someone
+			-- else, so this is checked on a tick rather than driven off the
+			-- cut signal alone.
+			for _, section in world.sections do
+				if
+					WorldService.isSectionOpen(section.id)
+					and (wavesCleared[section.id] or 0) < (wavesNeeded[section.id] or 1)
+					and isSectionClear(section.id)
+				then
+					onSectionCleared(world, section)
 				end
+			end
 
-				--[[
-					Waves came down only when somebody left, and a player who
-					never arrives never leaves.
+			--[[
+				Waves came down only when somebody left, and a player who
+				never arrives never leaves.
 
-					A run server takes its party size from the first player's
-					teleport data, so four pads means four waves of every
-					section from the first moment — before the other three have
-					finished teleporting in, and whether or not they ever do. If
-					one of them falls out on the way, the three who made it owe
-					a fourth player's work against a clock that never moved, and
-					nothing was ever going to tell the run otherwise.
+				A run server takes its party size from the first player's
+				teleport data, so four pads means four waves of every
+				section from the first moment — before the other three have
+				finished teleporting in, and whether or not they ever do. If
+				one of them falls out on the way, the three who made it owe
+				a fourth player's work against a clock that never moved, and
+				nothing was ever going to tell the run otherwise.
 
-					After a grace long enough for the whole team to land, the
-					live count is the honest one. `relaxWaves` only ever lowers,
-					and never below the wave being cut, so running it on a tick
-					cannot finish a section or move a goalpost upward.
-				]]
-				if os.clock() - runStartedAt > WAVE_RELAX_GRACE then
-					relaxWaves()
-				end
+				After a grace long enough for the whole team to land, the
+				live count is the honest one. `relaxWaves` only ever lowers,
+				and never below the wave being cut, so running it on a tick
+				cannot finish a section or move a goalpost upward.
+			]]
+			if os.clock() - runStartedAt > WAVE_RELAX_GRACE then
+				relaxWaves()
+			end
 
-				if RunService.secondsLeft() <= 0 then
-					loseRun()
-				else
-					broadcast()
-				end
-			elseif phase == "won" or phase == "lost" then
-				if RunService.secondsLeft() <= 0 then
-					phase = "lobby"
-					endsAt = os.clock() + LOBBY_SECONDS
-					broadcast()
-				else
-					broadcast()
-				end
+			if RunService.secondsLeft() <= 0 then
+				loseRun()
 			else
-				-- The lobby is the level select, so it waits to be told what to
-				-- play. The timer is only a backstop for an empty server, or
-				-- one where nobody picks: it drops back to the starter world
-				-- rather than sitting on a menu forever.
-				if autoStart and RunService.secondsLeft() <= -LOBBY_IDLE_RESTART then
-					beginRun(Worlds.STARTER_ID)
-				else
-					broadcast()
-				end
+				broadcast()
+			end
+		elseif phase == "won" or phase == "lost" then
+			if RunService.secondsLeft() <= 0 then
+				phase = "lobby"
+				endsAt = os.clock() + LOBBY_SECONDS
+				broadcast()
+			else
+				broadcast()
+			end
+		else
+			-- The lobby is the level select, so it waits to be told what to
+			-- play. The timer is only a backstop for an empty server, or
+			-- one where nobody picks: it drops back to the starter world
+			-- rather than sitting on a menu forever.
+			if autoStart and RunService.secondsLeft() <= -LOBBY_IDLE_RESTART then
+				beginRun(Worlds.STARTER_ID)
+			else
+				broadcast()
 			end
 		end
 	end)

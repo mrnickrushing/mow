@@ -15,6 +15,7 @@ local Grid = require(Shared.Grid)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local BagService = require(script.Parent.BagService)
+local Loop = require(script.Parent.Parent.Lib.Loop)
 local WorldService = require(script.Parent.WorldService)
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
@@ -414,13 +415,11 @@ function PlayerService.start()
 
 	-- Numbers that move constantly go out often and cheaply; the heavy tables
 	-- (owned tools, upgrade levels, unlocked zones) only go out when they change.
-	task.spawn(function()
-		while true do
-			local elapsed = task.wait(1 / PUSH_HZ)
-			stepPour(elapsed)
-			for _, player in Players:GetPlayers() do
-				PlayerService.pushLive(player)
-			end
+	Loop.forever("PlayerService.pour", function()
+		local elapsed = task.wait(1 / PUSH_HZ)
+		stepPour(elapsed)
+		for _, player in Players:GetPlayers() do
+			PlayerService.pushLive(player)
 		end
 	end)
 end
