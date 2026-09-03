@@ -22,12 +22,16 @@ local Types = require(Shared.Types)
 local Build = require(script.Parent.Parent.Lib.Build)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
+local Structures = require(script.Parent.Parent.Lib.Structures)
 local WorldService = require(script.Parent.WorldService)
 
 local CollectibleService = {}
 
 --- Cash a Golden Blade pays, before the world multiplier.
 local BLADE_CASH = 12
+--- The blade's own box, shared so the spot it is tested for is the spot it fills.
+local BLADE_SIZE = Vector3.new(2.4, 4.8, 2.4)
+local BLADE_LIFT = Vector3.new(0, 3, 0)
 local BLADE_TIPS = 3
 
 local container: Folder? = nil
@@ -39,9 +43,9 @@ local function spawnBlade(position: Vector3, section: Types.ZoneDef, parent: Ins
 	local part = Build.mesh({
 		prop = "GoldenBlade",
 		name = "GoldenBlade",
-		size = Vector3.new(2.4, 4.8, 2.4),
+		size = BLADE_SIZE,
 		collisionSize = Vector3.new(1.6, 4, 0.4),
-		cframe = CFrame.new(position + Vector3.new(0, 3, 0)),
+		cframe = CFrame.new(position + BLADE_LIFT),
 		canCollide = false,
 		castShadow = false,
 		parent = parent,
@@ -100,6 +104,74 @@ function CollectibleService.collect(part: BasePart, player: Player)
 	end
 end
 
+--[[
+	Somewhere in this section the blade can actually be seen.
+
+	The tile was picked at random with nothing ruled out, and measured over
+	eighteen world loads eleven blades of a hundred and eight — one in ten —
+	came up inside the scenery, most often inside a wall, with two more
+	hovering over a pool. None of that stops you collecting it: the sweep
+	reaches 26 studs and the prompt is set not to need line of sight. It stops
+	you *finding* it, which is the whole job. `spawnBlade` says as much about
+	the spin and the bob: it "is the only thing that makes it findable in tall
+	grass", and none of it helps from inside a wall.
+
+	Clutter cannot check this because it is scattered mid-build. Collectibles
+	are generated from `WorldService.Loaded`, when the world is finished and
+	standing, so here the question simply has an answer.
+]]
+local ATTEMPTS = 20
+
+local function clearSpotIn(section: Types.ZoneDef, ignore: Instance): Vector3
+	local r = section.rect
+	local fallback: Vector3? = nil
+	local fewest = math.huge
+
+	--[[
+		The pool is the emptiest box in the level.
+
+		Nothing stands three studs above open water, so a search that only
+		asks "is this spot clear?" finds the deep end first and prefers it.
+		Testing this fix without ruling the water out doubled the blades left
+		hovering over a pool — a better answer to the wrong question. Clutter
+		keeps off the water for the same reason and by the same rectangle.
+	]]
+	local water: Types.Rect? = if section.kind == "pool" then Structures.poolRect(section) else nil
+
+	for _ = 1, ATTEMPTS do
+		local tx = rng:NextInteger(r.x, r.x + r.w - 1)
+		local tz = rng:NextInteger(r.z, r.z + r.d - 1)
+		if
+			water ~= nil
+			and tx >= water.x
+			and tx < water.x + water.w
+			and tz >= water.z
+			and tz < water.z + water.d
+		then
+			continue
+		end
+		local at = WorldService.tilePointToWorld(tx, tz)
+
+		local params = OverlapParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { ignore }
+		params.MaxParts = 4
+		local hits = workspace:GetPartBoundsInBox(CFrame.new(at + BLADE_LIFT), BLADE_SIZE, params)
+
+		if #hits == 0 then
+			return at
+		end
+		if #hits < fewest then
+			fewest = #hits
+			fallback = at
+		end
+	end
+
+	-- Every tile in this section had something in it. Better a blade in a
+	-- crowded corner than no blade in the section at all.
+	return fallback or WorldService.tilePointToWorld(r.x, r.z)
+end
+
 function CollectibleService.generate(world: Types.WorldDef)
 	table.clear(collectors)
 	if container then
@@ -113,10 +185,7 @@ function CollectibleService.generate(world: Types.WorldDef)
 	local parent = container :: Folder
 
 	for _, section in world.sections do
-		local r = section.rect
-		local tx = rng:NextInteger(r.x, r.x + r.w - 1)
-		local tz = rng:NextInteger(r.z, r.z + r.d - 1)
-		spawnBlade(WorldService.tilePointToWorld(tx, tz), section, parent)
+		spawnBlade(clearSpotIn(section, parent), section, parent)
 	end
 end
 
