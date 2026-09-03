@@ -24,6 +24,7 @@ local Remotes = require(Shared.Remotes)
 local Types = require(Shared.Types)
 local Worlds = require(Shared.Config.Worlds)
 local BagService = require(script.Parent.BagService)
+local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local PlayerService = require(script.Parent.PlayerService)
@@ -335,8 +336,10 @@ local function beginRun(id: string, partySize: number?)
 		end
 	end
 
-	-- Everyone starts from nothing. That is the whole shape of a run.
+	-- Everyone starts from nothing. That is the whole shape of a run — except
+	-- for a rental, which was sold as minutes rather than as a lawn.
 	RunState.resetAll()
+	BoostService.carryRentals()
 	BagService.clearAll()
 
 	phase = "running"

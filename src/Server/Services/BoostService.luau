@@ -189,6 +189,42 @@ local function expireRental(player: Player)
 	changedSignal:Fire(player)
 end
 
+--[[
+	Carries a live rental across a round rotation.
+
+	`beginRun` calls `RunState.resetAll()`, and that is right for everything
+	bought with run cash: a run starts from nothing. A rental is not that. It
+	was bought with Robux and sold as a span of time — "Two minutes on the
+	mower everybody wants" — so a round that rotates thirty seconds into it was
+	quietly taking ninety seconds of paid-for time away.
+
+	Worse than losing it silently: `rentals` kept ticking against a state that
+	no longer had the tool, so the HUD counted down a rental the player did not
+	have, and `expireRental` then wrote back a `previousToolId` belonging to a
+	run that no longer existed — a tool they do not own, cannot cut with, and
+	were never told about.
+
+	The clock is not restarted. They get the time that is left.
+]]
+function BoostService.carryRentals()
+	local now = os.clock()
+	for player, rental in rentals do
+		local run = RunState.find(player)
+		if not run then
+			rentals[player] = nil
+		elseif rental.expiresAt <= now then
+			rentals[player] = nil
+		else
+			-- What the fresh state starts them with is what the rental hands
+			-- back when it runs out; the old run's tool is gone with the run.
+			rental.previousToolId = run.equippedTool
+			run.ownedTools[rental.toolId] = true
+			run.equippedTool = rental.toolId
+			changedSignal:Fire(player)
+		end
+	end
+end
+
 function BoostService.start()
 	Players.PlayerRemoving:Connect(function(player)
 		rentals[player] = nil
