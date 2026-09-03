@@ -183,21 +183,36 @@ function Structures.clutter(context: Context, zone: Types.ZoneDef, count: number
 	local insetZ = if walled and r.d > 2 then 1 else 0
 
 	--[[
-		One bin per section.
+		No prop piles up in one section.
 
-		The bin is one of four props in the room set and one of seven in the
-		yard set, drawn uniformly for every clutter item — so a workshop with
-		22 items got five or six of them, and every section on the property
-		had bins standing about in the grass like a collection. A single one
-		reads as the place the clippings go; a fifth reads as litter. Once a
-		section has its bin the pick continues from the rest of the set.
+		Every clutter item was drawn uniformly from a set of four (rooms) or
+		seven (yards), so a section with twenty items got a handful of each:
+		measured over 72 section loads, one workshop had ten barrels, a
+		basement eight crates, a back lot eight chairs and seven planters.
+		Every section on the property had bins and boxes standing about in
+		the grass like a collection. One bin reads as where the clippings
+		go; the fifth reads as litter, and the eighth chair as a showroom.
+
+		So each prop has a ceiling per section. Containers — bin, crate,
+		barrel — and chairs are one each; a planter can pair up; bushes and
+		rocks are natural in threes. A room never repeats anything, because
+		rooms are small and hold four things well. When a prop reaches its
+		ceiling it leaves the pool; when the pool is empty the scatter
+		stops, which is what quietly retires the twenty-item counts.
 	]]
+	local YARD_CAP: { [string]: number } = { Bin = 1, Crate = 1, Barrel = 1, Chair = 1, Planter = 2, Bush = 3, Rock = 3 }
 	local pool: { PropSpec } = table.clone(set)
+	local placed: { [string]: number } = {}
 	for _ = 1, count do
+		if #pool == 0 then
+			break
+		end
 		local spec = pool[context.rng:NextInteger(1, #pool)]
-		if spec.prop == "Bin" then
+		placed[spec.prop] = (placed[spec.prop] or 0) + 1
+		local cap = if walled then 1 else (YARD_CAP[spec.prop] or 1)
+		if placed[spec.prop] >= cap then
 			for k, entry in pool do
-				if entry.prop == "Bin" then
+				if entry.prop == spec.prop then
 					table.remove(pool, k)
 					break
 				end

@@ -2079,9 +2079,41 @@ local function clearBuriedTiles(world: Types.WorldDef, grid: Grid.Grid, tiles: b
 	if not root then
 		return
 	end
-	local params = RaycastParams.new()
+	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = { root }
+	params.MaxParts = 6
+
+	--[[
+		Something standing on this tile, or close enough to it that a tuft
+		drawn here would come out through its side.
+
+		This was a ray fired upward from a stud and a half above the floor. A
+		ray does not hit the part it starts inside, and a wall or a bin
+		standing on a tile is exactly that — so a tile under a wall was never
+		found, and its tuft was drawn straight through the brick. It also only
+		counted a hit that could be collided with, and clutter cannot, so the
+		grass under every bin and barrel stayed sown and stayed hidden, which
+		is a tile you have to clear and cannot see.
+
+		A box asked over the tile's footprint has neither blind spot. It is
+		a touch narrower than the tile, so a wall has to actually stand on
+		the tile to claim it rather than merely border it.
+	]]
+	local COVER_FOOTPRINT = Vector3.new(3.2, 2.6, 3.2)
+	local function covered(x: number, y: number, z: number): boolean
+		for _, part in workspace:GetPartBoundsInBox(CFrame.new(x, y + 1.5, z), COVER_FOOTPRINT, params) do
+			if BURIES_NOTHING[part.Name] then
+				continue
+			end
+			local folder = part.Parent
+			local clutter = folder ~= nil and string.sub(folder.Name, 1, 8) == "Clutter_"
+			if part.CanCollide or clutter then
+				return true
+			end
+		end
+		return false
+	end
 
 	for _, section in world.sections do
 		local state = WorldService.sections[section.id]
@@ -2105,16 +2137,7 @@ local function clearBuriedTiles(world: Types.WorldDef, grid: Grid.Grid, tiles: b
 							stop a section reaching zero.
 						]]
 						local x, z = Grid.tileToWorld(grid, tx, tz)
-						local above = workspace:Raycast(
-							Vector3.new(x, elevation + 1.5, z),
-							Vector3.new(0, 60, 0),
-							params
-						)
-						if
-							above
-							and above.Instance.CanCollide
-							and not BURIES_NOTHING[above.Instance.Name]
-						then
+						if covered(x, elevation, z) then
 							WorldService.buriedTiles[index] = true
 							local byte = buffer.readu8(tiles, index - 1)
 							if ChunkCodec.height(byte) > 0 then

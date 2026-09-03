@@ -74,10 +74,20 @@ local function held(tool: Types.ToolDef): Held
 	if category == "Hand" then
 		return { prop = "Gloves", size = Vector3.new(1.1, 0.5, 0.9), at = CFrame.new(0, -0.06, 0.1) }
 	elseif category == "Rake" then
+		--[[
+			Tines down.
+
+			The mesh is authored with its tines on its +Y side, and it was
+			hung under the camera the same way up as everything else — so the
+			one tool whose whole shape is a hook was carried with the hook
+			curling at the sky. A half-turn about its own handle puts the
+			tines on the ground side, which is the only way anyone has ever
+			held a rake.
+		]]
 		return {
 			prop = "RakeTool",
 			size = Vector3.new(1.0, 0.5, 3.0),
-			at = CFrame.new(0, -0.1, -0.5) * CFrame.Angles(math.rad(-8), 0, 0),
+			at = CFrame.new(0, -0.1, -0.5) * CFrame.Angles(math.rad(-8), 0, math.pi),
 		}
 	elseif category == "Blower" then
 		return {

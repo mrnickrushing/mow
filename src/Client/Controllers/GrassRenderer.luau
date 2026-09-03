@@ -497,19 +497,29 @@ local function drawBlock(index: number, wx: number, wz: number, floor: number, h
 
 	local def = CLUMP_FOR[debrisId] or CLUMP_FOR[DebrisConfig.Grass]
 	local width = CLUMP_WIDTH[debrisId] or 2.5
-	-- One clump stands in the middle of its tile; several spread out far
-	-- enough to reach the edges without leaving the tile they belong to.
+	--[[
+		One clump stands in the middle of its tile; several spread out to the
+		edges — and no further.
+
+		The spread carried an extra 0.55 studs so a tile did not look sparse,
+		and a clump swayed up to a quarter wider than nominal on top of that,
+		so the edge of a clump could sit more than half a stud past the edge
+		of its own square. Against a wall on the next tile that is a tuft
+		coming out of the brick. The reach is worked out per clump from its
+		own width, so the widest one still stops at the line.
+	]]
 	local spread = if count == 1 then 0 else (TILE - width) * 0.5 + 0.55
 
 	for slot, part in parts do
-		local offsetX = (hash01(index, slot * 3 + 1) - 0.5) * 2 * spread
-		local offsetZ = (hash01(index, slot * 3 + 2) - 0.5) * 2 * spread
 		local yaw = hash01(index, slot * 3 + 3) * math.pi * 2
 		-- Vary the size around the nominal one rather than below it, so a
 		-- thinned tile is not also a uniformly smaller one.
 		local sway = if count == 1 then 1 else 0.78 + hash01(index, slot * 7 + 1) * 0.46
 		local wide = width * sway
 		local tall = math.max(studs * sway, 0.2)
+		local reach = math.min(spread, math.max(TILE * 0.5 - wide * 0.5, 0))
+		local offsetX = (hash01(index, slot * 3 + 1) - 0.5) * 2 * reach
+		local offsetZ = (hash01(index, slot * 3 + 2) - 0.5) * 2 * reach
 
 		part.Size = Vector3.new(wide, tall, wide)
 		part.CFrame = CFrame.new(wx + offsetX, floor + tall * 0.5, wz + offsetZ) * CFrame.Angles(0, yaw, 0)
