@@ -38,8 +38,29 @@ local STING_SECONDS = 3
 
 --- Players still shaking off a sting, mapped to when it wears off.
 local stung: { [Player]: number } = {}
+--[[
+	The neighbour's dog.
+
+	It used to come around every 18 to 34 seconds and take 15% of your bag
+	each time, from anywhere within 220 studs — most of the property. Over a
+	forty minute run that is about ninety visits, and because it tweens to
+	where you were standing and then takes the cut whether or not you are
+	still there, there was nothing you could do about any of them. A hazard
+	you cannot answer is not a hazard, it is a tax with an animation.
+
+	So: it comes around a quarter as often, takes about half as much, only
+	notices you inside its own end of the property, and above all you can now
+	get away from it. Walk off while it is running at you and it goes home
+	with nothing.
+]]
 --- Fraction of the bag the dog makes off with.
-local DOG_THEFT = 0.15
+local DOG_THEFT = 0.08
+--- Seconds between the dog looking for someone worth robbing.
+local DOG_MIN_GAP, DOG_MAX_GAP = 75, 130
+--- How far from its own patch the dog will bother going.
+local DOG_RANGE = 120
+--- Close enough on arrival to actually get at your bag.
+local DOG_REACH = 16
 
 local container: Folder? = nil
 local rng = Random.new()
@@ -199,7 +220,7 @@ local function makeDog(tx: number, tz: number, parent: Instance)
 
 	task.spawn(function()
 		while running and dog.Parent do
-			task.wait(rng:NextNumber(18, 34))
+			task.wait(rng:NextNumber(DOG_MIN_GAP, DOG_MAX_GAP))
 
 			-- Find someone carrying enough to be worth stealing.
 			local target: Player? = nil
@@ -207,7 +228,7 @@ local function makeDog(tx: number, tz: number, parent: Instance)
 				if BagService.weight(player) > 40 then
 					local character = player.Character
 					local root = character and character:FindFirstChild("HumanoidRootPart")
-					if root and root:IsA("BasePart") and (root.Position - home).Magnitude < 220 then
+					if root and root:IsA("BasePart") and (root.Position - home).Magnitude < DOG_RANGE then
 						target = player
 						break
 					end
@@ -223,6 +244,24 @@ local function makeDog(tx: number, tz: number, parent: Instance)
 					})
 					run:Play()
 					run.Completed:Wait()
+
+					--[[
+						Still there? It ran at where you were standing, and it
+						took the cut on arrival whether or not you were still
+						standing there — so backing away did nothing and the
+						1.6 seconds of it running at you were for show.
+					]]
+					local nowRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+					local escaped = not (nowRoot and nowRoot:IsA("BasePart"))
+						or (nowRoot.Position - dog.Position).Magnitude > DOG_REACH
+					if escaped then
+						if dog.Parent then
+							TweenService:Create(dog, TweenInfo.new(2, Enum.EasingStyle.Sine), {
+								CFrame = CFrame.new(home),
+							}):Play()
+						end
+						continue
+					end
 
 					local bag = BagService.get(target)
 					local stolen = 0
