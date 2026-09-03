@@ -129,7 +129,30 @@ end
 	to flip it again — and because the chain is a queue, every objective behind
 	it stalled for the rest of the run too. Anything already true when you
 	arrive at it is credited on arrival instead.
+
+	The other half of the same problem is an objective that names a place this
+	property does not have. Two of them do: "Find the switch and open the
+	garage" and "Clear the Front Yard completely", and both name sections that
+	exist only in The House. The garage is optional and hidden behind a switch,
+	so a player can beat The House without ever opening it — and then unlock
+	The Mansion, arrive somewhere with no garage in it, and be held on that
+	objective permanently, with the six behind it held too. Progress that
+	cannot be made here is stepped over rather than waited on.
 ]]
+--- True when the property currently loaded contains a section by this id.
+local function worldHasSection(sectionId: string): boolean
+	local world = WorldService.world
+	if not world then
+		return false
+	end
+	for _, section in world.sections do
+		if section.id == sectionId then
+			return true
+		end
+	end
+	return false
+end
+
 function QuestService.catchUp(player: Player)
 	if catchingUp[player] or not WorldService.isLoaded() then
 		return
@@ -140,15 +163,23 @@ function QuestService.catchUp(player: Player)
 	-- current objective and moves on, or stops.
 	for _ = 1, #Quests.list do
 		local quest = QuestService.current(player)
-		if not quest or quest.kind ~= "section" or not quest.subject then
+		local subject = quest and quest.subject
+		local aboutASection = quest ~= nil
+			and (quest.kind == "section" or quest.kind == "clearSection")
+		if not quest or not aboutASection or not subject then
 			break
 		end
-		if not WorldService.isSectionOpen(quest.subject) then
+
+		local here = worldHasSection(subject)
+		local satisfied = quest.kind == "section" and here and WorldService.isSectionOpen(subject)
+		if here and not satisfied then
+			-- It is a place on this property, and the work is still to do.
 			break
 		end
+
 		-- The guard stays set across this call, so the `catchUp` at the end of
 		-- `advance` is a no-op and this loop stays the only thing iterating.
-		QuestService.advance(player, "section", quest.target, quest.subject)
+		QuestService.advance(player, quest.kind, quest.target, subject)
 	end
 
 	catchingUp[player] = nil
@@ -164,6 +195,17 @@ function QuestService.start()
 	DataService.ProfileLoaded:Connect(function(player: Player)
 		QuestService.catchUp(player)
 		QuestService.push(player)
+	end)
+
+	-- And again whenever the property changes, because the objective in hand
+	-- may already be satisfied by the new one, or may name somewhere it does
+	-- not have. Arriving on a run server races the profile load against the
+	-- world build; this side does not care which won.
+	WorldService.Loaded:Connect(function()
+		for _, player in Players:GetPlayers() do
+			QuestService.catchUp(player)
+			QuestService.push(player)
+		end
 	end)
 
 	-- Opening the journal is itself an objective, so the client tells us.
