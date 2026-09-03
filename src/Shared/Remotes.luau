@@ -28,8 +28,6 @@ Remotes.PLAYER_STATE = "PlayerState"
 Remotes.PURCHASE = "Purchase"
 --- Client -> server: equip a tool the player owns.
 Remotes.EQUIP = "Equip"
---- Client -> server: dump the bag at a nearby trailer.
-Remotes.DUMP = "Dump"
 --- Server -> client: round timer, completion percentage and scoreboard.
 Remotes.ROUND_STATE = "RoundState"
 --- Server -> client: transient feedback (stripe banked, tool stalled, sale made).
@@ -57,7 +55,6 @@ local EVENTS = {
 	Remotes.PLAYER_STATE,
 	Remotes.PURCHASE,
 	Remotes.EQUIP,
-	Remotes.DUMP,
 	Remotes.ROUND_STATE,
 	Remotes.NOTIFY,
 	Remotes.PROMPT_PURCHASE,
