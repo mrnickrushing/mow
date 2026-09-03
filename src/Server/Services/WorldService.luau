@@ -2092,25 +2092,34 @@ local function clearBuriedTiles(world: Types.WorldDef, grid: Grid.Grid, tiles: b
 				for tx = r.x, math.min(r.x + r.w - 1, grid.width - 1) do
 					local index = Grid.toIndex(grid, tx, tz)
 					if WorldService.tileSection and WorldService.tileSection[index] == section.id then
-						local byte = buffer.readu8(tiles, index - 1)
-						if ChunkCodec.height(byte) > 0 then
-							local x, z = Grid.tileToWorld(grid, tx, tz)
-							local above = workspace:Raycast(
-								Vector3.new(x, elevation + 1.5, z),
-								Vector3.new(0, 60, 0),
-								params
-							)
-							if
-								above
-								and above.Instance.CanCollide
-								and not BURIES_NOTHING[above.Instance.Name]
-							then
+						--[[
+							Every tile is asked, not only the sown ones.
+
+							Clearing only needs to touch a tile that has
+							something on it, so this used to skip the rest. But
+							the answer is also the record a wave refill reads,
+							and at a density of 0.94 roughly one tile in
+							sixteen under the porch was simply never sown — so
+							it was never asked, never remembered, and came
+							straight back on the next wave. One is enough to
+							stop a section reaching zero.
+						]]
+						local x, z = Grid.tileToWorld(grid, tx, tz)
+						local above = workspace:Raycast(
+							Vector3.new(x, elevation + 1.5, z),
+							Vector3.new(0, 60, 0),
+							params
+						)
+						if
+							above
+							and above.Instance.CanCollide
+							and not BURIES_NOTHING[above.Instance.Name]
+						then
+							WorldService.buriedTiles[index] = true
+							local byte = buffer.readu8(tiles, index - 1)
+							if ChunkCodec.height(byte) > 0 then
 								local units = Cutting.unitsOnTile(byte)
 								buffer.writeu8(tiles, index - 1, 0)
-								-- Remembered, because a wave refills the whole
-								-- rect and would otherwise put every one of
-								-- these straight back under the porch.
-								WorldService.buriedTiles[index] = true
 								state.totalUnits -= units
 								state.remainingUnits -= units
 								WorldService.totalUnits -= units
