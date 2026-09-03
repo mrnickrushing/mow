@@ -385,7 +385,32 @@ local function ready(): boolean
 	return character ~= nil and character.PrimaryPart ~= nil
 end
 
+--[[
+	Waits for the character, then for the rest.
+
+	`ready()` asks for two things: a property to point a camera at, and a
+	character. The property is there the moment the lobby server is up. The
+	character is not, and on a cold server it is a long way off — measured
+	from the first client frame in Studio, the world and the house were both
+	present at zero and the character did not exist until eighteen and a half
+	seconds later.
+
+	That was being counted against a twenty second budget which started when
+	the profile arrived, about half a second in. The opening played, at the
+	very end of the run, with about a second and a half to spare — and if the
+	spawn had taken any longer the loop would simply have given up, the
+	connection that spawned it was already disconnected, and the story that
+	explains the whole game would never have been shown at all. Nothing would
+	have looked broken; there would just have been no opening.
+
+	So the character is waited for rather than counted at. The budget still
+	exists, but it now covers only the part that should be quick: everything
+	after a character exists.
+]]
 local function waitThenPlay()
+	if not player.Character then
+		player.CharacterAdded:Wait()
+	end
 	local deadline = os.clock() + READY_TIMEOUT
 	while os.clock() < deadline do
 		if finished or playing then
