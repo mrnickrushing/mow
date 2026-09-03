@@ -231,7 +231,22 @@ function Hotbar.start()
 		it sits along the bottom edge, so it is the one that could least afford
 		to be fixed.
 	]]
-	Theme.fitToViewport(holder, MAX_SLOTS * 74 + 40, 120)
+	--[[
+		Wide enough to reach the corners, so it has to give way to them.
+
+		Eight slots is 592 pixels of bar across the middle of the bottom edge,
+		and it only shrank once the screen was narrower than that. But the bag
+		sits 210 pixels in from the left and the clock 262 in from the right,
+		and a centred 592-wide bar reaches them long before it reaches the edge
+		— measured at 1024x576, the clock was sitting on the last two slots.
+
+		Fitting against the bar plus both corners plus a margin makes it stand
+		down while there is still room for all three. A screen wide enough for
+		everything is unaffected: the scale clamps at 1 above 1212 pixels, so
+		nothing changes on a desktop.
+	]]
+	local CORNER_RESERVE = 262
+	Theme.fitToViewport(holder, MAX_SLOTS * 74 + 2 * CORNER_RESERVE + 96, 120)
 
 	local layoutOrder = Instance.new("UIListLayout")
 	layoutOrder.FillDirection = Enum.FillDirection.Horizontal
