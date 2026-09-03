@@ -207,10 +207,6 @@ local function onSectionCleared(world: Types.WorldDef, section: Types.ZoneDef)
 	wavesCleared[section.id] = cleared
 	local needed = wavesNeeded[section.id] or 1
 
-	for _, player in Players:GetPlayers() do
-		QuestService.advance(player, "clearSection", 1, section.id)
-	end
-
 	if cleared < needed then
 		-- More hands, more passes. Fill it again and say so plainly.
 		WorldService.refillSection(section.id)
@@ -221,6 +217,16 @@ local function onSectionCleared(world: Types.WorldDef, section: Types.ZoneDef)
 		)
 		broadcast()
 		return
+	end
+
+	--[[
+		Every wave used to tick this, and the quest reads "Clear the Front Yard
+		completely" — so on a four-player server, where every section owes four
+		waves, the objective completed at a quarter of the section. Below the
+		early return now, where the section really is finished.
+	]]
+	for _, player in Players:GetPlayers() do
+		QuestService.advance(player, "clearSection", 1, section.id)
 	end
 
 	-- Its own notice kind, because finishing a whole section is the one moment
