@@ -223,6 +223,71 @@ local function build()
 	folder = root
 	local rng = Random.new(20260902)
 
+	--[[
+		Where the dressing may not stand.
+
+		Lamp posts, trees and bushes are laid out to a pattern — a row down
+		each flank, a scatter across the grass — and a pattern does not know
+		what is already there. A lamp post came out standing inside the shed
+		and a tree grew up through the trailer, because both rows ran straight
+		through the yard's furniture at exactly the wrong offset, and two
+		bushes landed two studs apart and merged into one lumpy blob.
+
+		Every solid piece registers its footprint here, and anything
+		decorative asks before it stands anywhere. Move the shed tomorrow and
+		the lamp beside it steps aside on its own.
+	]]
+	local reserved: { { min: Vector2, max: Vector2 } } = {}
+	local function reserve(at: Vector3, width: number, depth: number)
+		local half = Vector2.new(width, depth) * 0.5
+		local centre = Vector2.new(at.X, at.Z)
+		table.insert(reserved, { min = centre - half, max = centre + half })
+	end
+
+	--[[
+		Whether a piece `radius` studs across can stand at `at`.
+
+		Two studs of daylight either side, so nothing merely grazes a wall —
+		touching reads as badly as overlapping from a few paces away.
+	]]
+	local function clearAt(at: Vector3, radius: number): boolean
+		local reach = radius + 2
+		for _, area in reserved do
+			if
+				at.X + reach > area.min.X
+				and at.X - reach < area.max.X
+				and at.Z + reach > area.min.Y
+				and at.Z - reach < area.max.Y
+			then
+				return false
+			end
+		end
+		return true
+	end
+
+	--[[
+		The nearest clear spot to `at` along the row, searched outward.
+
+		A row with a gap in it looks like a mistake; a row that bends around
+		the shed looks like somebody put it there. Returns nil only if there
+		is no room within a couple of spacings, and then the caller does leave
+		the gap, because at that point the spot really is taken.
+	]]
+	local function nudgeAlongZ(at: Vector3, radius: number): Vector3?
+		for step = 0, 21, 3 do
+			for _, direction in { 1, -1 } do
+				local try = at + Vector3.new(0, 0, step * direction)
+				if clearAt(try, radius) then
+					return try
+				end
+				if step == 0 then
+					break
+				end
+			end
+		end
+		return nil
+	end
+
 	Build.part({
 		name = "Lawn",
 		size = Vector3.new(FLOOR_W, 2, FLOOR_D),
@@ -438,40 +503,61 @@ local function build()
 	surface(archBoard, Enum.NormalId.Front, 0.72).Text = GameConfig.GAME_NAME
 
 	--[[
+		The two big pieces are sited before anything is laid out around them.
+
+		They are built further down, where the rest of their dressing is; what
+		happens here is only that the yard learns their footprints, in time
+		for the lamp row below to route around them.
+	]]
+	local shedAt = CENTRE + Vector3.new(-56, 0, 34)
+	local parkAt = CENTRE + Vector3.new(56, 0, 34)
+	reserve(shedAt, 24, 24)
+	-- The trailer is parked across the drive, so it is wide, not deep.
+	reserve(parkAt + Vector3.new(4, 0, -20), 15, 8)
+	for index, z in { 6, 20 } do
+		reserve(parkAt + Vector3.new(index * 2 - 3, 0, z), 10, 6)
+	end
+
+	--[[
 		Lamps down both sides of the path.
 
 		Placed off the walked line rather than on it: the path is the one part
 		of this room every player crosses, and a lamp post in the middle of it
-		is a thing to get stuck on.
+		is a thing to get stuck on. Off the line is not the same as clear of
+		everything, though — the left-hand row ran through the shed — so each
+		one takes the nearest spot to its slot that is actually free.
 	]]
 	for _, z in { 50, 24, -2, -28 } do
 		for _, side in { -1, 1 } do
-			Build.part({
-				name = "LampPost",
-				size = Vector3.new(0.9, 11, 0.9),
-				cframe = CFrame.new(CENTRE + Vector3.new(side * 62, 5.5, z)),
-				color = Palette.color(Palette.fence.rail),
-				material = Enum.Material.SmoothPlastic,
-				parent = yard,
-			})
-			local lamp = Build.mesh({
-				prop = "Lantern",
-				name = "Lantern",
-				size = Vector3.new(2.6, 3.9, 2.4),
-				cframe = CFrame.new(CENTRE + Vector3.new(side * 62, 12.6, z)),
-				canCollide = false,
-				parent = yard,
-			})
-			local glow = Instance.new("PointLight")
-			glow.Color = Color3.fromRGB(255, 226, 158)
-			glow.Range = 34
-			glow.Brightness = 1.1
-			glow.Parent = lamp
+			local at = nudgeAlongZ(CENTRE + Vector3.new(side * 62, 0, z), 1)
+			if at then
+				Build.part({
+					name = "LampPost",
+					size = Vector3.new(0.9, 11, 0.9),
+					cframe = CFrame.new(at + Vector3.new(0, 5.5, 0)),
+					color = Palette.color(Palette.fence.rail),
+					material = Enum.Material.SmoothPlastic,
+					parent = yard,
+				})
+				local lamp = Build.mesh({
+					prop = "Lantern",
+					name = "Lantern",
+					size = Vector3.new(2.6, 3.9, 2.4),
+					cframe = CFrame.new(at + Vector3.new(0, 12.6, 0)),
+					canCollide = false,
+					parent = yard,
+				})
+				local glow = Instance.new("PointLight")
+				glow.Color = Color3.fromRGB(255, 226, 158)
+				glow.Range = 34
+				glow.Brightness = 1.1
+				glow.Parent = lamp
+				reserve(at, 3, 3)
+			end
 		end
 	end
 
 	-- The shed the whole business runs out of, off the left of the path.
-	local shedAt = CENTRE + Vector3.new(-56, 0, 34)
 	Build.mesh({
 		prop = "Shed",
 		name = "Shed",
@@ -496,11 +582,14 @@ local function build()
 			canCollide = false,
 			parent = yard,
 		})
+		-- The stock outside the shed is furniture too: a bush landed on the
+		-- barrel before these were on the map the scatter checks against.
+		reserve(shedAt + spec.at, spec.size.X + 3, spec.size.Z + 3)
 		local _ = index
 	end
 
 	-- The kit, parked on the right where you can see what you are working for.
-	local parkAt = CENTRE + Vector3.new(56, 0, 34)
+	-- (sited above, with the shed.)
 	Build.flagstone(yard, parkAt, Vector2.new(46, 60), 6, rng)
 	Build.mesh({
 		prop = "Trailer",
@@ -627,12 +716,21 @@ local function build()
 		end
 	end
 
-	-- A hedge line along the back, so the houses sit behind something rather
-	-- than floating on the same grass the pads are on.
+	--[[
+		A hedge line along the back, so the houses sit behind something rather
+		than floating on the same grass the pads are on.
+
+		It stops where the flank hedges are rather than running past them. At
+		seventy-eight it overran both by eight studs and the two runs crossed,
+		which from inside the yard is a bush growing sideways out of a hedge.
+		Ending it just short of the flank's own thickness turns the crossing
+		into the corner it was always meant to be.
+	]]
+	local backX = LobbyPad.flankX(GAME_SLOTS) - 4
 	Build.hedge(
 		street,
-		CENTRE + Vector3.new(-78, 0, -74),
-		CENTRE + Vector3.new(78, 0, -74),
+		CENTRE + Vector3.new(-backX, 0, -74),
+		CENTRE + Vector3.new(backX, 0, -74),
 		7,
 		5
 	)
@@ -691,18 +789,29 @@ local function build()
 	-- Dressing
 	--------------------------------------------------------------------
 
-	-- Trees down both flanks, well clear of anything anybody has to read.
+	--[[
+		Trees down both flanks, well clear of anything anybody has to read.
+
+		Clearance is measured on the trunk, not the canopy. A branch reaching
+		over a shed roof is what a tree beside a shed looks like; a trunk
+		coming up through the trailer is not, and that is exactly what the
+		right-hand row used to do at the second slot down.
+	]]
 	for _, side in { -1, 1 } do
 		for _, z in { 56, 20, -18, -50 } do
-			Build.mesh({
-				prop = "Tree",
-				name = "Tree",
-				size = Vector3.new(24, 34, 24),
-				collisionSize = Vector3.new(4, 30, 4),
-				cframe = CFrame.new(CENTRE + Vector3.new(side * (halfW - 20), 17, z))
-					* CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0),
-				parent = root,
-			})
+			local at = nudgeAlongZ(CENTRE + Vector3.new(side * (halfW - 20), 0, z), 2)
+			if at then
+				Build.mesh({
+					prop = "Tree",
+					name = "Tree",
+					size = Vector3.new(24, 34, 24),
+					collisionSize = Vector3.new(4, 30, 4),
+					cframe = CFrame.new(at + Vector3.new(0, 17, 0))
+						* CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0),
+					parent = root,
+				})
+				reserve(at, 6, 6)
+			end
 		end
 	end
 
@@ -717,19 +826,34 @@ local function build()
 			7
 		)
 	end
+	--[[
+		A scatter is only a scatter if the pieces are apart.
+
+		Fourteen throws at the grass with nothing checking where the last one
+		landed put two seven-stud bushes two studs apart, which from any angle
+		is one lumpy bush with a seam down it. Each throw now has a few
+		attempts to find somewhere free — of the other bushes, of the trees,
+		and of the yard's furniture — and gives up quietly rather than piling
+		on top of something.
+	]]
 	for _ = 1, 14 do
-		local x = rng:NextNumber(-halfW + 30, halfW - 30)
-		local z = rng:NextNumber(-halfD + 24, halfD - 24)
-		if math.abs(x) > 34 then
-			Build.mesh({
-				prop = "Bush",
-				name = "Bush",
-				size = Vector3.new(7, 7, 7),
-				cframe = CFrame.new(CENTRE + Vector3.new(x, 3.5, z))
-					* CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0),
-				canCollide = false,
-				parent = root,
-			})
+		for _ = 1, 8 do
+			local x = rng:NextNumber(-halfW + 30, halfW - 30)
+			local z = rng:NextNumber(-halfD + 24, halfD - 24)
+			local at = CENTRE + Vector3.new(x, 0, z)
+			if math.abs(x) > 34 and clearAt(at, 3.5) then
+				Build.mesh({
+					prop = "Bush",
+					name = "Bush",
+					size = Vector3.new(7, 7, 7),
+					cframe = CFrame.new(at + Vector3.new(0, 3.5, 0))
+						* CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0),
+					canCollide = false,
+					parent = root,
+				})
+				reserve(at, 7, 7)
+				break
+			end
 		end
 	end
 end
