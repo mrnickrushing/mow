@@ -30,11 +30,56 @@ export type Prop = {
 	native: Vector3,
 	--- Tint applied to the part under the mesh. Untextured meshes need it.
 	color: Color3?,
+	--[[
+		A drawn icon for the interface, where one exists.
+
+		A mesh spun round in a viewport is the thing itself, which is right in
+		the world and wrong on a page: it is lit, it is angled, and at the size
+		a slot in the book gives it, a rake and a hedge trimmer are two grey
+		smudges. The reference draws its icons flat, with a heavy outline and
+		one flat colour each, and that is why its shelf of upgrades can be read
+		at a glance. Optional on purpose — a prop with none still renders as
+		its mesh, so adding a tool cannot leave a blank slot.
+	]]
+	icon: string?,
 }
 
 local function prop(mesh: string, texture: string?, x: number, y: number, z: number, color: Color3?): Prop
 	return { mesh = mesh, texture = texture, native = Vector3.new(x, y, z), color = color }
 end
+
+--[[
+	The drawn interface icons, by prop name.
+
+	Kept as a table beside the catalogue rather than an extra argument on
+	`prop`, so the sixty-odd entries that have no icon stay exactly as they
+	were and adding one is a single line here.
+]]
+local ICONS: { [string]: string } = {
+	Gloves = "rbxassetid://140629656625564",
+	Shears = "rbxassetid://111943428221802",
+	RakeTool = "rbxassetid://89240567943817",
+	RidingMower = "rbxassetid://121527324931228",
+	TrimmerTool = "rbxassetid://126414811646800",
+	LeafBlower = "rbxassetid://91343389903451",
+	HedgeTool = "rbxassetid://121490016363254",
+	SawTool = "rbxassetid://123940104522784",
+	GrinderTool = "rbxassetid://129203867260688",
+	ChipperTool = "rbxassetid://96032321054507",
+	Toolbox = "rbxassetid://136044744276005",
+	Coin = "rbxassetid://106204891171287",
+	Cross = "rbxassetid://121723463170997",
+	Tick = "rbxassetid://114338735322506",
+	GoldenBlade = "rbxassetid://117395081872373",
+	Journal = "rbxassetid://104578836287968",
+	Scroll = "rbxassetid://95949298201999",
+	Sack = "rbxassetid://134964019879295",
+	LeafMaple = "rbxassetid://108471706964880",
+	LeafOak = "rbxassetid://95494099936327",
+	MapPin = "rbxassetid://83367868199114",
+	Padlock = "rbxassetid://115329195013177",
+	QuestionSign = "rbxassetid://129951048089441",
+}
 
 local catalogue: { [string]: Prop } = {
 	-- Yard clutter, the things debris hides against.
@@ -232,6 +277,15 @@ Props.FALLBACK_TOOL_ICON = "Toolbox"
 --- The catalogue name of the model for a tool category.
 function Props.forToolCategory(category: string): string
 	return TOOL_ICON[category] or Props.FALLBACK_TOOL_ICON
+end
+
+-- Attached once, here, rather than on every read: a getter that quietly writes
+-- to the table it is reading from is a surprise nobody needs.
+for name, asset in ICONS do
+	local entry = catalogue[name]
+	if entry then
+		entry.icon = asset
+	end
 end
 
 --- The prop by name, or nil when nothing in the catalogue answers to it.

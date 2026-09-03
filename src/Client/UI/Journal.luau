@@ -370,7 +370,7 @@ local function pips(parent: Instance, level: number, maxLevel: number)
 			position = UDim2.fromScale(0, 0),
 			parent = row,
 		})
-		pip.ImageTransparency = if index <= level then 0 else 0.75
+		Theme.setIconTransparency(pip, if index <= level then 0 else 0.75)
 		pip.LayoutOrder = index
 		pip.Parent = row
 	end
