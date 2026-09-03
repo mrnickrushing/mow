@@ -334,10 +334,33 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 	local beltRng = Random.new(grid.width * 7919 + grid.depth)
 	local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)
 
+	--[[
+		Where a trunk already stands.
+
+		The belt is four rows of two, each laid out without reference to the
+		others, and at the corners the north row's far end and the west row's
+		far end are describing the same patch of ground. Two of them came out
+		close enough to share a trunk — one tree with two crowns, from any
+		angle a mistake.
+
+		Canopies are supposed to overlap; that is what makes it a belt rather
+		than an avenue. Trunks are not, so the test is on the trunk and a
+		tree with no room simply is not planted. There are hundreds.
+	]]
+	local planted: { Vector2 } = {}
+	local TRUNK_APART = 14
+
 	local function plant(x: number, z: number)
 		if (Vector2.new(x, z) - Vector2.new(spawnAt.X, spawnAt.Z)).Magnitude < 80 then
 			return
 		end
+		local at = Vector2.new(x, z)
+		for _, other in planted do
+			if (at - other).Magnitude < TRUNK_APART then
+				return
+			end
+		end
+		table.insert(planted, at)
 		local height = beltRng:NextNumber(24, 38)
 		Build.mesh({
 			prop = "Tree",
