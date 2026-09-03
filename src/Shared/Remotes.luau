@@ -50,6 +50,9 @@ Remotes.SELECT_WORLD = "SelectWorld"
 	standing on them, and nothing let you say how many you were waiting for.
 ]]
 Remotes.LOBBY_CONFIRM = "LobbyConfirm"
+--- Client -> server: the opening has been watched or skipped; do not show it
+--- again.
+Remotes.INTRO_DONE = "IntroDone"
 
 local UNRELIABLE: { [string]: boolean } = {
 	[Remotes.MOW_INTENT] = true,
@@ -71,6 +74,7 @@ local EVENTS = {
 	Remotes.QUESTS,
 	Remotes.SELECT_WORLD,
 	Remotes.LOBBY_CONFIRM,
+	Remotes.INTRO_DONE,
 }
 
 local folder: Folder? = nil

@@ -53,6 +53,7 @@ export type StatePayload = {
 	--- Worlds this player has finished, which is what the level select locks on.
 	worldsBeaten: { [string]: boolean },
 	bestTimes: { [string]: number },
+	showIntro: boolean,
 }
 
 function PlayerService.buildState(player: Player): StatePayload?
@@ -68,6 +69,8 @@ function PlayerService.buildState(player: Player): StatePayload?
 		worldsBeaten = if profile then profile.worldsBeaten else {},
 		--- Per world, in seconds. The map cards show it as a personal best.
 		bestTimes = if profile then profile.bestTimes else {},
+		--- True until the opening has been watched once.
+		showIntro = profile ~= nil and not profile.introSeen,
 		cash = run.cash,
 		tips = EconomyService.tips(player),
 		earned = run.earned,
@@ -315,6 +318,20 @@ function PlayerService.start()
 	playerState = Remotes.event(Remotes.PLAYER_STATE)
 	equipRemote = Remotes.event(Remotes.EQUIP)
 	trailerRemote = Remotes.event(Remotes.PLACE_TRAILER)
+
+	--[[
+		The opening is watched once and then never again.
+
+		Marked from the client rather than on arrival, because a player who
+		joins and leaves inside the first four seconds has not seen it, and
+		nothing about that should cost them the story.
+	]]
+	Remotes.event(Remotes.INTRO_DONE).OnServerEvent:Connect(function(player: Player)
+		DataService.withProfile(player, function(profile)
+			profile.introSeen = true
+		end)
+		PlayerService.push(player)
+	end)
 
 	equipRemote.OnServerEvent:Connect(onEquip)
 	trailerRemote.OnServerEvent:Connect(onPlaceTrailer)
