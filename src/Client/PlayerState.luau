@@ -22,6 +22,26 @@ local PlayerState = {}
 local WORLD_INFO_ASK_INTERVAL = 1
 local WORLD_INFO_ASK_TRIES = 30
 
+--[[
+	The same again for the state itself, and for the same reason.
+
+	The full state — owned tools, upgrade levels, best times, which world you
+	have beaten, and whether the opening has been watched — is pushed when the
+	profile finishes loading. With a memory-only store that is instant, and in
+	a solo test it lands before this module has connected its handler, so the
+	push is sent to nobody and no other full push is scheduled: the session
+	then runs on the partial pushes alone, which carry cash and bag weight and
+	nothing else.
+
+	Measured on a client in that state: `equippedTool` empty, `ownedTools`
+	empty, `showIntro` false. So the hotbar has nothing in it, the journal
+	shows no tools and every upgrade at level zero, the map cards show no best
+	times — and the opening story never plays at all. It is racy, which is why
+	it happens on some joins and not others.
+]]
+local STATE_ASK_INTERVAL = 0.5
+local STATE_ASK_TRIES = 20
+
 export type State = {
 	cash: number,
 	tips: number,
@@ -160,9 +180,15 @@ function PlayerState.bagFraction(): number
 	return math.clamp(state.bagWeight / state.bagCapacity, 0, 1)
 end
 
+--- True once a full push has actually arrived, so the asking can stop.
+local hasFullState = false
+
 local function applyPayload(payload: any)
 	if type(payload) ~= "table" then
 		return
+	end
+	if not payload.partial then
+		hasFullState = true
 	end
 
 	-- A partial push carries only the fast-moving numbers; everything else on
@@ -250,6 +276,18 @@ function PlayerState.start()
 			end
 			worldInfo:FireServer()
 			task.wait(WORLD_INFO_ASK_INTERVAL)
+		end
+	end)
+
+	-- And the state, for the same reason: the first full push is sent while
+	-- this handler may not exist yet, and nothing schedules another.
+	task.spawn(function()
+		for _ = 1, STATE_ASK_TRIES do
+			if hasFullState then
+				return
+			end
+			playerState:FireServer()
+			task.wait(STATE_ASK_INTERVAL)
 		end
 	end)
 end
