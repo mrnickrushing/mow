@@ -36,7 +36,23 @@ local MatchmakingService = require(script.Parent.MatchmakingService)
 local LobbyService = {}
 
 --- Far enough from every lot that nothing can ever overlap it.
-local CENTRE = Vector3.new(-600, 0, -600)
+--[[
+	Where the yard stands, and why it stands so far out.
+
+	The lobby is its own server — a public one, which never starts a run by
+	itself; confirming a pad reserves a server and teleports that team to it.
+	But a lobby server still loads a property, because the opening story needs
+	something to point a camera at and a player has to have somewhere to
+	stand before one is chosen.
+
+	At 600 out, that property was 490 studs from the edge of the yard and the
+	fog does not close until 1400, so the lot you had not chosen yet sat on
+	the horizon behind the fence: a line of autumn trees over the pads,
+	which makes the lobby look like a corner of the map rather than a place of
+	its own. Far enough out that the nearest property is past the fog, and the
+	lobby is the only thing there is to see.
+]]
+local CENTRE = Vector3.new(-2600, 0, -2600)
 --[[
 	A yard, not a field.
 

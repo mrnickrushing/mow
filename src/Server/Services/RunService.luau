@@ -716,6 +716,24 @@ function RunService.start()
 			if RunService.secondsLeft() <= 0 then
 				phase = "lobby"
 				endsAt = os.clock() + LOBBY_SECONDS
+				--[[
+					The run is over, so the numbers from it go.
+
+					A run resets when the next one begins, which is correct and
+					is where it has to happen — but it left the gap in between
+					showing the finished run's cash, tools and bag to anybody
+					standing in the lobby. On the live game the team is
+					teleported home to a fresh server and never sees it; play
+					it out in one server, as Studio does and as a failed
+					teleport would, and the lobby reads as though the last game
+					had been saved. The payout is settled by now: `winRun` has
+					already read every contribution it needed.
+				]]
+				RunState.resetAll()
+				BagService.clearAll()
+				for _, player in Players:GetPlayers() do
+					PlayerService.push(player)
+				end
 				broadcast()
 			else
 				broadcast()
