@@ -163,12 +163,31 @@ function Structures.clutter(context: Context, zone: Types.ZoneDef, count: number
 	]]
 	local water: Types.Rect? = if zone.kind == "pool" then Structures.poolRect(zone) else nil
 
+	--[[
+		A room's walls stand on the edge tiles of its rect.
+
+		The scatter picked any tile in the rect, edges included, so a crate
+		could be built standing inside a wall — measured across the three
+		worlds, six of two hundred props were, every one of them in a `room`
+		zone and every one on a boundary tile. They read as half a barrel
+		poking out of a cellar wall.
+
+		Trees solve this by asking the world what is already there, which they
+		can do because they are planted after it is built. Clutter goes up
+		during the build, when the wall beside it may not exist yet, so it
+		keeps a tile clear instead — wherever the room is big enough to spare
+		one.
+	]]
+	local walled = zone.kind == "room"
+	local insetX = if walled and r.w > 2 then 1 else 0
+	local insetZ = if walled and r.d > 2 then 1 else 0
+
 	for _ = 1, count do
 		local spec = set[context.rng:NextInteger(1, #set)]
 		local tx, tz
 		for _ = 1, 20 do
-			tx = context.rng:NextInteger(r.x, r.x + r.w - 1)
-			tz = context.rng:NextInteger(r.z, r.z + r.d - 1)
+			tx = context.rng:NextInteger(r.x + insetX, r.x + r.w - 1 - insetX)
+			tz = context.rng:NextInteger(r.z + insetZ, r.z + r.d - 1 - insetZ)
 			local onWater = water ~= nil
 				and tx >= water.x
 				and tx < water.x + water.w

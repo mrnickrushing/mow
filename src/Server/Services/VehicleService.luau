@@ -351,12 +351,25 @@ function VehicleService.start()
 		VehicleService.dismount(player)
 	end)
 
-	-- A respawn leaves the old mower orphaned; clear it.
-	Players.PlayerAdded:Connect(function(player)
+	--[[
+		A respawn leaves the old mower orphaned; clear it.
+
+		Hooked for players already here as well as ones who arrive later. Every
+		other service that watches a character does both — PlayerService walks
+		`GetPlayers()` before connecting `PlayerAdded` — and this one only
+		connected the event, so anybody who got in before the service started
+		would litter a mower on the lawn every time they respawned.
+	]]
+	local function watchRespawn(player: Player)
 		player.CharacterRemoving:Connect(function()
 			VehicleService.dismount(player)
 		end)
-	end)
+	end
+
+	for _, player in Players:GetPlayers() do
+		watchRespawn(player)
+	end
+	Players.PlayerAdded:Connect(watchRespawn)
 
 	WorldService.Loaded:Connect(function()
 		for player in rides do
