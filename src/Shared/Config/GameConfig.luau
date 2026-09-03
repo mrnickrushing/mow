@@ -185,6 +185,19 @@ local GameConfig = {
 	]]
 	LOBBY_PAD_PREFIX = "GamePad",
 
+	--[[
+		The largest team one pad, one lobby, or one journal page has to plan
+		for.
+
+		Written independently as `LobbyService.GAME_SLOTS`,
+		`LevelSelect.MAX_PARTY` and a bare `for order = 1, 4` in the journal's
+		player list, which is the same shape of duplication that made the
+		`GamePad` rename above break the level select panel: three unlinked
+		copies of one number, agreeing today only because nobody has changed
+		one of them yet.
+	]]
+	MAX_PARTY = 4,
+
 	DATASTORE_NAME = "MowAllTheLawns_PlayerData_v1",
 	--[[
 		How often a profile is written back — which is also, and this is the

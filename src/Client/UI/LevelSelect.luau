@@ -21,6 +21,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
+local GameConfig = require(Shared.Config.GameConfig)
 local LobbyPad = require(Shared.LobbyPad)
 local Remotes = require(Shared.Remotes)
 local Types = require(Shared.Types)
@@ -31,7 +32,7 @@ local PlayerState = require(script.Parent.Parent.PlayerState)
 
 local LevelSelect = {}
 
-local MAX_PARTY = 4
+local MAX_PARTY = GameConfig.MAX_PARTY
 
 local player = Players.LocalPlayer
 local confirmRemote: RemoteEvent
