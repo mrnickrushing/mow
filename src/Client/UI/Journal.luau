@@ -67,7 +67,15 @@ local TABS = {
 	{ id = "stats", label = "Upgrades", icon = "Sack", color = Color3.fromRGB(178, 214, 168) },
 	{ id = "upgrades", label = "Tools", icon = "Toolbox", color = Color3.fromRGB(190, 210, 226) },
 	{ id = "collection", label = "Collection", icon = "LeafMaple", color = Color3.fromRGB(232, 196, 156) },
-	{ id = "tips", label = "Tips", icon = "QuestionSign", color = Color3.fromRGB(200, 200, 216) },
+	--[[
+		"Help", not "Tips".
+
+		Tips are a currency — the number in the corner of the screen — and
+		this tab was hints and key bindings under the same word. One of the
+		two had to give, and the currency cannot: it is printed on every
+		price in the Tools page.
+	]]
+	{ id = "tips", label = "Help", icon = "QuestionSign", color = Color3.fromRGB(200, 200, 216) },
 }
 
 --------------------------------------------------------------------
@@ -982,32 +990,63 @@ local function renderCollection()
 	end
 end
 
+--[[
+	The help spread, which leads with what tips are.
+
+	Cash resets with every run and tips do not, and nothing in the game said
+	so — a player could finish a property without ever learning what the
+	number in the corner was for. It is the first thing on this page now,
+	with where they come from and the only thing they buy, because a currency
+	nobody can explain is a currency nobody spends.
+]]
 local function renderTips()
 	heading(leftPage, "Tips")
 	local scroll = body(leftPage)
 
-	local tips = {
-		"Hold to work. Your deck cuts a swath as wide as the tool.",
-		"The bag is the bottleneck early. Buy it on the Upgrades tab, first.",
-		"Walk into the trailer to sell — there is no button to press.",
-		"Grass too thick for your tool will bog it down. That means buy better.",
-		"Cut in long straight lines to bank a Clean Stripe bonus.",
-		"Some sections are not for sale. Clear a yard, or find the switch.",
-	}
-	for order, tip in tips do
+	local function paragraph(parent: Instance, text: string, order: number, height: number, size: number, colour: Color3)
 		local label = Instance.new("TextLabel")
-		label.Text = `• {tip}`
-		label.Size = UDim2.new(1, -12, 0, 56)
+		label.Text = text
+		label.Size = UDim2.new(1, -12, 0, height)
 		label.BackgroundTransparency = 1
 		label.Font = Theme.fontRegular
-		label.TextColor3 = Color3.fromRGB(52, 44, 36)
-		label.TextSize = 17
+		label.TextColor3 = colour
+		label.TextSize = size
 		label.TextXAlignment = Enum.TextXAlignment.Left
 		label.TextYAlignment = Enum.TextYAlignment.Top
 		label.TextWrapped = true
 		label.LayoutOrder = order
-		label.Parent = scroll
+		label.Parent = parent
+		return label
 	end
+
+	paragraph(
+		scroll,
+		"Cash is for this run and goes when it ends. Tips are yours to keep — a run never takes them back.",
+		1,
+		56,
+		18,
+		INK
+	)
+	paragraph(scroll, "You earn them by:", 2, 24, 17, Color3.fromRGB(52, 44, 36))
+	local earned = {
+		"logging in — more each day in a row",
+		"every eight minutes of work",
+		"cutting a long straight Clean Stripe",
+		"finding the Golden Blade hidden in a section",
+		"clearing a wasp nest",
+		"finishing a property, by your share of the work",
+	}
+	for order, line in earned do
+		paragraph(scroll, `• {line}`, 2 + order, 26, 16, Color3.fromRGB(72, 62, 52))
+	end
+	paragraph(
+		scroll,
+		"Spend them on the Tools page: a tool bought with tips is yours for good, and you start every run already holding it.",
+		20,
+		60,
+		17,
+		Color3.fromRGB(52, 44, 36)
+	)
 
 	heading(rightPage, "Controls")
 	local right = body(rightPage)
@@ -1022,16 +1061,35 @@ local function renderTips()
 		"",
 		"Upgrades and tools are bought in this book,",
 		"or at the boards outside the shed.",
+		"",
+		"• Hold to work. Your deck cuts a swath as wide as the tool.",
+		"• The bag is the bottleneck early. Buy it on Upgrades, first.",
+		"• Walk into the trailer to sell — there is no button to press.",
+		"• Grass too thick for your tool will bog it down. Buy better.",
+		"• Cut in long straight lines to bank a Clean Stripe bonus.",
+		"• Some sections are not for sale. Clear a yard, or find the switch.",
 	}
+	--[[
+		These wrap and size themselves to what they hold.
+
+		The list was key bindings, all of them short, on fixed 34-pixel rows —
+		so the hints that moved here off the tips page ran straight off the
+		edge of the paper: "Hold to work. Your deck cuts a swath as wide as
+		the to". Letting a row be as tall as its own text costs nothing for a
+		binding and is the whole difference for a sentence.
+	]]
 	for order, line in controls do
 		local label = Instance.new("TextLabel")
 		label.Text = line
-		label.Size = UDim2.new(1, -12, 0, 34)
+		label.Size = UDim2.new(1, -12, 0, if line == "" then 12 else 30)
+		label.AutomaticSize = Enum.AutomaticSize.Y
+		label.TextWrapped = true
 		label.BackgroundTransparency = 1
 		label.Font = Theme.fontRegular
 		label.TextColor3 = Color3.fromRGB(52, 44, 36)
 		label.TextSize = 18
 		label.TextXAlignment = Enum.TextXAlignment.Left
+		label.TextYAlignment = Enum.TextYAlignment.Top
 		label.LayoutOrder = order
 		label.Parent = right
 	end
@@ -1290,6 +1348,29 @@ local function build()
 	-- The tab strip hangs 164 pixels off the book's left edge, so the room the
 	-- journal really needs is wider than the book itself.
 	Theme.fitToViewport(book, 940 + 220, 560 + 60)
+
+	--[[
+		The book says what it is for.
+
+		It had no title anywhere — five tabs down the spine and nothing to say
+		what the thing they hang off actually was. Most of what a player comes
+		in here to do is buy: the upgrade lines, the tool trees, and the tips
+		that make a tool permanent. Naming it that is the difference between
+		a book you open when you are stuck and one you open when you have
+		money.
+	]]
+	local bookTitle = Instance.new("TextLabel")
+	bookTitle.Name = "BookTitle"
+	bookTitle.Text = "UPGRADE JOURNAL"
+	bookTitle.Size = UDim2.new(1, -40, 0, 34)
+	bookTitle.Position = UDim2.new(0.5, 0, 0, -38)
+	bookTitle.AnchorPoint = Vector2.new(0.5, 0)
+	bookTitle.BackgroundTransparency = 1
+	bookTitle.Font = Theme.font
+	bookTitle.TextColor3 = Color3.fromRGB(252, 250, 244)
+	bookTitle.TextSize = 30
+	bookTitle.Parent = book
+	Theme.outline(bookTitle, 3)
 
 	local spread = Instance.new("Frame")
 	spread.Name = "Pages"
