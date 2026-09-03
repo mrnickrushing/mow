@@ -28,8 +28,6 @@ Debris.Sticks = 5
 Debris.Log = 6
 Debris.Chips = 7
 
-Debris.MAX_ID = 7
-
 local defs: { [number]: Types.DebrisDef } = {
 	[Debris.Empty] = {
 		id = Debris.Empty,
@@ -122,6 +120,22 @@ local defs: { [number]: Types.DebrisDef } = {
 }
 
 Debris.defs = defs
+
+--[[
+	The highest debris id there is.
+
+	Derived rather than written down. It decides how many bits a tile byte
+	needs for the debris field, that field is three bits and already exactly
+	full at seven, and every test that walks the debris types walks `0..MAX_ID`
+	— so a hand-maintained copy left behind by a new type would have those
+	tests still passing while the new type packed itself into the wet bit and
+	read back as bare ground.
+]]
+local maxId = 0
+for id in defs do
+	maxId = math.max(maxId, id)
+end
+Debris.MAX_ID = maxId
 
 function Debris.get(id: number): Types.DebrisDef
 	local def = defs[id]
