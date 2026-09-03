@@ -42,6 +42,9 @@ local phase: Phase = "lobby"
 local worldId = Worlds.STARTER_ID
 local endsAt = 0
 local startedAt = 0
+--- When the current run began, so wave counts are not relaxed before the team
+--- that justified them has finished teleporting in.
+local runStartedAt = 0
 --- Waves already cleared, per section.
 local wavesCleared: { [string]: number } = {}
 --- Waves needed, fixed when the run starts so a late joiner cannot inflate it.
@@ -54,6 +57,9 @@ local sectionsFinished = 0
 local roundState: RemoteEvent
 --- How often run state is broadcast, in Hz. The client interpolates the clock.
 local BROADCAST_HZ = 2
+--- Seconds after a run begins before the live player count is trusted over the
+--- party size the lobby sent. Long enough for four teleports to land.
+local WAVE_RELAX_GRACE = 45
 local LOBBY_SECONDS = 20
 --- How long past the lobby's clock to wait for a pick before giving up and
 --- loading the starter world, so an empty server never sits on the menu.
@@ -276,6 +282,7 @@ end
 
 local function beginRun(id: string, partySize: number?)
 	worldId = id
+	runStartedAt = os.clock()
 	local world = Worlds.expect(id)
 
 	ReplicationService.reset()
@@ -660,6 +667,27 @@ function RunService.start()
 					then
 						onSectionCleared(world, section)
 					end
+				end
+
+				--[[
+					Waves came down only when somebody left, and a player who
+					never arrives never leaves.
+
+					A run server takes its party size from the first player's
+					teleport data, so four pads means four waves of every
+					section from the first moment — before the other three have
+					finished teleporting in, and whether or not they ever do. If
+					one of them falls out on the way, the three who made it owe
+					a fourth player's work against a clock that never moved, and
+					nothing was ever going to tell the run otherwise.
+
+					After a grace long enough for the whole team to land, the
+					live count is the honest one. `relaxWaves` only ever lowers,
+					and never below the wave being cut, so running it on a tick
+					cannot finish a section or move a goalpost upward.
+				]]
+				if os.clock() - runStartedAt > WAVE_RELAX_GRACE then
+					relaxWaves()
 				end
 
 				if RunService.secondsLeft() <= 0 then
