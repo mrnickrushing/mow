@@ -34,6 +34,18 @@ local function apply()
 	end
 end
 
+--[[
+	Whether a run is under way.
+
+	For the elements that cannot simply be registered because something else
+	already owns their `Visible` — the tool button is shown or hidden by the
+	HUD's refresh according to what you are holding, five times a second, and
+	would win every argument. Those ask instead.
+]]
+function RunOnly.isRunning(): boolean
+	return running
+end
+
 --- Hides this element until a run is actually under way.
 function RunOnly.add(object: GuiObject)
 	table.insert(watched, object)

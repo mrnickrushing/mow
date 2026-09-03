@@ -350,6 +350,9 @@ local function buildRightColumn(gui: ScreenGui)
 	toolButton.BorderSizePixel = 0
 	toolButton.Text = ""
 	toolButton.AutoButtonColor = false
+	-- Off until the first refresh says otherwise, so it cannot flash up in
+	-- the lobby on the frame between being built and being told.
+	toolButton.Visible = false
 	toolButton.Parent = column
 
 	local round = Instance.new("UICorner")
@@ -808,7 +811,17 @@ local function refresh()
 	Theme.setIcon(toolIcon, if tool then Props.forToolCategory(tool.category) else Props.FALLBACK_TOOL_ICON)
 	toolStateLabel.Text = MowController.actionLabel()
 	toolStateLabel.TextColor3 = if MowController.isMowing() then Theme.colors.cash else Theme.colors.subtext
-	toolButton.Visible = tool ~= nil
+	--[[
+		A tool to show, and somewhere to use it.
+
+		`State` — the word under the button that says PICK UP or MOWING — was
+		registered with `RunOnly` and the eighty-six pixel button it belongs
+		to was not, so the lobby carried a big round control with a glove on
+		it that did nothing at all when pressed. Registering the button too
+		does not work: this line runs five times a second and would turn it
+		straight back on. So it asks.
+	]]
+	toolButton.Visible = tool ~= nil and RunOnly.isRunning()
 
 	local burnsFuel = tool ~= nil and tool.fuelBurn > 0
 	fuelPanel.Visible = burnsFuel and state.fuelCapacity > 0
