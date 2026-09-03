@@ -174,10 +174,15 @@ export type ToolDef = {
 		Tips to keep it across every future run — the free, slow path to the
 		same thing `robuxPermanent` sells.
 
-		Only the bottom of the ladder carries one. Owning all four from the
-		start is worth $240 of run cash, which is real on The House and nothing
-		on The Gas Station, so it reads as a head start for regulars rather
-		than a way past the game.
+		Only the bottom of the ladder carries one, and the prices climb much
+		faster than the cash ones do. Owning all four from the start is worth
+		$240 of run cash — real on The House, nothing on The Gas Station — but
+		what actually matters is the cutting rate: bare hands manage 0.7 passes
+		a second over one tile, a Gas Push Mower 3.0 over two, so starting with
+		the mower takes minutes off the opening section rather than dollars off
+		the shopping. Priced against roughly 80 tips a run, that is about
+		fifteen runs for the mower and thirty for the trimmer: a head start
+		somebody played a working week for, not one they were handed.
 	]]
 	tipsPermanent: number?,
 	--- Struck-through "was" price shown beside the permanent option.

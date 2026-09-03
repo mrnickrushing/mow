@@ -38,6 +38,7 @@ local player = Players.LocalPlayer
 
 local cashLabel: TextLabel
 local multiplierLabel: TextLabel
+local tipsLabel: TextLabel
 local bagCountLabel: TextLabel
 local bagCapacityLabel: TextLabel
 local rateLabel: TextLabel
@@ -144,6 +145,27 @@ local function buildRightColumn(gui: ScreenGui)
 		anchor = Vector2.new(1, 0),
 		parent = column,
 		align = Enum.TextXAlignment.Right,
+		color = Theme.colors.tips,
+		textSize = 18,
+	})
+
+	--[[
+		Tips, opposite the multiplier on a row that is usually empty.
+
+		They were shown nowhere on the HUD at all — only as a line buried in
+		the journal's stats — which was survivable while they bought nothing.
+		Now that they buy tools outright, a currency you cannot see is a
+		currency nobody spends. It shares the top row with the multiplier
+		because that one is blank until something raises it, and both are short
+		and pinned to opposite ends.
+	]]
+	tipsLabel = Theme.text({
+		name = "Tips",
+		text = "",
+		size = UDim2.fromOffset(120, 22),
+		position = UDim2.fromOffset(4, 0),
+		parent = column,
+		align = Enum.TextXAlignment.Left,
 		color = Theme.colors.tips,
 		textSize = 18,
 	})
@@ -714,6 +736,10 @@ local function refresh()
 	multiplierLabel.Text = if state.cashMultiplier > 1.001
 		then `(×{string.format("%.2f", state.cashMultiplier)})`
 		else ""
+
+	-- Hidden at zero, like the multiplier: a new player has none and does not
+	-- need a counter telling them so.
+	tipsLabel.Text = if state.tips > 0 then `{Format.count(state.tips)} tips` else ""
 
 	bagCountLabel.Text = Format.count(state.bagWeight)
 	bagCapacityLabel.Text = Format.count(state.bagCapacity)

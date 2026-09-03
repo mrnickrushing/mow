@@ -479,10 +479,9 @@ local function toolPanel(parent: Instance, order: number, tool: Types.ToolDef, o
 		one row so the panel keeps its height — centred when only one applies,
 		side by side when both do.
 	]]
-	local state2 = PlayerState.get()
 	local tipsPrice = tool.tipsPermanent
 	local sellsForCash = not owned and tool.cost > 0
-	local sellsForTips = tipsPrice ~= nil and not state2.permanentTools[tool.id]
+	local sellsForTips = tipsPrice ~= nil and not state.permanentTools[tool.id]
 
 	local function offer(text: string, x: number, width: number, affordable: () -> boolean, onBuy: () -> ())
 		local buy = Instance.new("TextButton")

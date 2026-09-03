@@ -914,6 +914,46 @@ return function()
 			end
 		end)
 
+		h.it("gives tips something to buy, and keeps it to the bottom of the ladder", function()
+			--[[
+				Tips were paid out by five different systems — clean stripes,
+				wasp nests, Golden Blades, the daily login streak and a trickle
+				for time played — and nothing in the game had a price in them.
+				A currency with no sink is a reward loop that pays into
+				nothing, so the first half of this is simply that one exists.
+
+				The second half is the cap. A permanent tool is a head start on
+				every future run, and the thing that makes it one is cutting
+				rate, not price: bare hands manage 0.7 passes a second over a
+				single tile. Keeping tips to the low tiers is what stops a
+				season of daily logins turning into a Zero-Turn Mower on the
+				first lawn.
+			]]
+			local sold = 0
+			local previousTier, previousPrice = 0, 0
+			for _, tool in Tools.list do
+				local price = tool.tipsPermanent
+				if price then
+					sold += 1
+					h.expectTrue(price > 0, `{tool.id} is sold for nothing at all`)
+					h.expectTrue(
+						tool.tier <= 4,
+						`{tool.id} is tier {tool.tier}; tips do not reach past the fourth rung`
+					)
+					h.expectTrue(
+						tool.tier > previousTier,
+						`{tool.id} breaks the tier order of the tips ladder`
+					)
+					h.expectTrue(
+						price > previousPrice,
+						`{tool.id} costs fewer tips than a tool below it`
+					)
+					previousTier, previousPrice = tool.tier, price
+				end
+			end
+			h.expectTrue(sold > 0, "nothing in the game has a price in tips, so nothing earns them a purpose")
+		end)
+
 		h.it("keeps the free reward loops meaningful", function()
 			local rewards = Monetization.rewards
 			h.expectTrue(#rewards.dailyStreak >= 7, "a daily streak should run at least a week")
