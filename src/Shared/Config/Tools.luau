@@ -402,4 +402,28 @@ function Tools.canCut(tool: Types.ToolDef, debrisId: number, height: number): bo
 	return false
 end
 
+--[[
+	The cheapest proper tool for this debris — the starter does not count.
+
+	Used to answer "why did nothing happen" with something a player can act
+	on. Bare hands clear everything, so the honest cheapest answer is always
+	"your hands", and a message that only ever says that is no use to somebody
+	who has just bought a mower. This names the thing the job actually wants;
+	the caller is expected to mention the hands as well, because they are free
+	and already in the player's pocket.
+]]
+function Tools.cheapestFor(debrisId: number): Types.ToolDef?
+	local best: Types.ToolDef? = nil
+	for _, tool in list do
+		if tool.currency == "Cash" and tool.id ~= Tools.STARTER_ID then
+			for _, id in tool.clears do
+				if id == debrisId and (best == nil or tool.cost < best.cost) then
+					best = tool
+				end
+			end
+		end
+	end
+	return best
+end
+
 return Tools

@@ -36,22 +36,34 @@ local LobbyService = {}
 --- Far enough from every lot that nothing can ever overlap it.
 local CENTRE = Vector3.new(-600, 0, -600)
 local FLOOR_W, FLOOR_D = 260, 260
-local TEAM_PADS = 4
+--- Games that can be set up side by side in the yard, and the most people
+--- any one of them can take.
+local GAME_SLOTS = 4
 --- Seconds between a team being ready and the property loading.
 local COUNTDOWN = 6
 
 local folder: Folder? = nil
-local teamPads: { BasePart } = {}
-local teamLabels: { TextLabel } = {}
-local levelPads: { [string]: BasePart } = {}
-local levelLabels: { [string]: TextLabel } = {}
+--[[
+	A game somebody can join, of which there are `GAME_SLOTS`.
+
+	Each carries its own map, party size and countdown, so two groups in the
+	yard are setting up two runs rather than fighting over one.
+]]
+export type Slot = {
+	index: number,
+	pad: BasePart,
+	padLabel: TextLabel,
+	boardLabel: TextLabel,
+	worldId: string?,
+	cap: number,
+	countdown: number?,
+}
+
+local slots: { Slot } = {}
 local statusLabel: TextLabel? = nil
 --- The board over the pads that says how many of you are going.
-local teamCountLabel: TextLabel? = nil
 local outcomeLabel: TextLabel? = nil
 
-local chosenWorld: string? = nil
-local countdownLeft: number? = nil
 --[[
 	The party size the pads were set to, from the settings panel.
 
@@ -60,7 +72,6 @@ local countdownLeft: number? = nil
 	player had nothing telling them one was a valid answer. Defaults to the
 	full four, so the behaviour without the panel is what it always was.
 ]]
-local partyCap = TEAM_PADS
 --- What the last run did, so the lobby can say so rather than a panel.
 local lastOutcome: string? = nil
 local lastWorldName: string? = nil
@@ -200,128 +211,72 @@ local function build()
 	)
 
 	--------------------------------------------------------------------
-	-- One: the property plaques
+	-- The games on offer
 	--------------------------------------------------------------------
 
 	--[[
-		The room is walked in the order it works in.
+		One pad, one game.
 
-		Players are placed at the south end facing north, and the two halves
-		used to be the other way round: you crossed the team pads first, stood
-		on one, and were told to pick a property while already standing on a
-		pad. The plaques were another ninety studs on, and since the choice is
-		sticky you then had to walk all the way back to the pad you had already
-		used. Nothing about that said "this is how you get in".
+		The room used to have a single property choice shared by everybody in
+		it: three plaques you stood on, four pads you stood on afterwards, and
+		one `chosenWorld` between the lot. With one group in the yard that
+		works. With two it is a fight — whoever last touched a plaque decides
+		where the other four are about to be sent — and on a fifty-player
+		server it is chaos.
 
-		Plaques first, pads second. Pick a property, keep walking, stand on a
-		pad, and it counts you down.
+		A pad is a game now. It carries its own map, its own party size and its
+		own countdown, so four groups can be setting up four different runs
+		side by side without touching each other. Standing on one opens the
+		settings for that game; the board behind it says what it is.
 	]]
-	local pickHeading = floorHeading("PickSign", 78, CENTRE + Vector3.new(0, 1.9, 74), root)
-	pickHeading.Text = "1. PICK A PROPERTY — STAND ON ONE"
+	for index = 1, GAME_SLOTS do
+		local x = (index - (GAME_SLOTS + 1) * 0.5) * 62
+		local at = CENTRE + Vector3.new(x, 1.5, 22)
+		local padPart, padLabel = pad(
+			`GamePad{index}`,
+			at,
+			Palette.color(Palette.ground.stone),
+			root,
+			24
+		)
 
-	local list = Worlds.list
-	for index, world in list do
-		local x = (index - (#list + 1) * 0.5) * 74
-		local at = CENTRE + Vector3.new(x, 1.5, 46)
-		local part, padLabel = pad(`LevelPad_{world.id}`, at, Palette.color(Palette.ground.stoneDark), root, 26)
-		padLabel.Text = world.difficulty
-
-		--[[
-			A lawn sign, not a billboard.
-
-			These used to be eighteen studs of board on twelve-stud posts. Down
-			at this end of the yard that is tall enough to stand squarely in
-			front of the status board at the far end — the one thing in the
-			room that says what is happening — so the sign that tells you the
-			property would have hidden the sign that tells you the game. Low
-			and wide, staked in the grass like the board outside a house that
-			is up for sale, which is also the right thing for a lawn business
-			to have in its yard.
-		]]
-		for _, side in { -1, 1 } do
-			Build.part({
-				name = "SignStake",
-				size = Vector3.new(0.7, 6, 0.7),
-				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 9, 3, 30)),
-				color = Palette.color(Palette.fence.rail),
-				material = Enum.Material.SmoothPlastic,
-				parent = root,
-			})
-		end
+		-- The board behind it, at head height and low enough that four of them
+		-- in a row do not wall the yard off from its own marquee.
 		local board = Build.part({
-			name = `LevelSign_{world.id}`,
-			size = Vector3.new(24, 6, 0.8),
+			name = `GameBoard{index}`,
+			size = Vector3.new(40, 11, 1),
 			cframe = CFrame.lookAt(
-				CENTRE + Vector3.new(x, 8, 30),
-				CENTRE + Vector3.new(x, 8, 31)
+				CENTRE + Vector3.new(x, 10, 2),
+				CENTRE + Vector3.new(x, 10, 3)
 			),
 			color = Palette.color(Palette.house.trim),
 			material = Enum.Material.SmoothPlastic,
 			parent = root,
 		})
-		levelPads[world.id] = part
-		levelLabels[world.id] = surface(board, Enum.NormalId.Front, 0.86)
-		levelLabels[world.id].Text = world.name
-
-		-- A planter either side, because a sign in bare grass is a placeholder.
 		for _, side in { -1, 1 } do
-			Build.mesh({
-				prop = "Planter",
-				name = "Planter",
-				size = Vector3.new(5, 7.6, 5),
-				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 17, 3.8, 30)),
+			Build.part({
+				name = "BoardLeg",
+				size = Vector3.new(1, 10, 1),
+				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 17, 5, 2)),
+				color = Palette.color(Palette.fence.rail),
+				material = Enum.Material.SmoothPlastic,
 				parent = root,
 			})
 		end
+
+		slots[index] = {
+			index = index,
+			pad = padPart,
+			padLabel = padLabel,
+			boardLabel = surface(board, Enum.NormalId.Front, 0.8),
+			worldId = nil,
+			cap = GAME_SLOTS,
+			countdown = nil,
+		}
 	end
 
-	--------------------------------------------------------------------
-	-- Two: the team pads, and how many of you there are
-	--------------------------------------------------------------------
-
-	local teamHeading = floorHeading("TeamSign", 72, CENTRE + Vector3.new(0, 1.9, -2), root)
-	teamHeading.Text = "2. STAND ON A PAD — ONE EACH"
-
-	for index = 1, TEAM_PADS do
-		local at = CENTRE + Vector3.new((index - (TEAM_PADS + 1) * 0.5) * 26, 1.5, -46)
-		local part, label = pad(`TeamPad{index}`, at, Palette.color(Palette.ground.stone), root, 18)
-		label.Text = `{index}`
-		teamPads[index] = part
-		teamLabels[index] = label
-	end
-
-	--[[
-		How many of you are going, said out loud.
-
-		Four pads and a name written on whichever ones are occupied is a team
-		size, but it is not a *number*, and the first thing anybody asked was
-		where the box is that picks how many players. This is the box: it
-		counts the pads that are stood on, over the pads themselves, at the
-		height you are already looking.
-	]]
-	local counterPost = Build.part({
-		name = "TeamCounter",
-		size = Vector3.new(46, 11, 1.2),
-		cframe = CFrame.lookAt(
-			CENTRE + Vector3.new(0, 15, -64),
-			CENTRE + Vector3.new(0, 15, -63)
-		),
-		color = Palette.color(Palette.house.trim),
-		material = Enum.Material.SmoothPlastic,
-		parent = root,
-	})
-	for _, side in { -1, 1 } do
-		Build.part({
-			name = "CounterPost",
-			size = Vector3.new(1.4, 15, 1.4),
-			cframe = CFrame.new(CENTRE + Vector3.new(side * 21, 7.5, -64)),
-			color = Palette.color(Palette.fence.rail),
-			material = Enum.Material.SmoothPlastic,
-			parent = root,
-		})
-	end
-	teamCountLabel = surface(counterPost, Enum.NormalId.Front, 0.7)
-	;(teamCountLabel :: TextLabel).Text = `TEAM 0 / {TEAM_PADS}`
+	local heading = floorHeading("PickSign", 96, CENTRE + Vector3.new(0, 1.9, 58), root)
+	heading.Text = "STAND ON A PAD TO START A GAME"
 
 	--------------------------------------------------------------------
 	-- The yard it is all standing in
@@ -615,15 +570,24 @@ end
 --------------------------------------------------------------------
 
 --[[
-	Whether the destination is settled.
+	The game a player is standing on, if any.
 
-	Anybody stood on a plaque used to be able to change where the team was
-	going, right up to the last tick of the countdown — including somebody who
-	was not on a pad and was not going. Once the count starts, the choice
-	holds; stepping off the pads clears it and the room is open again.
+	Settings are confirmed against a pad rather than against the room, which
+	is the whole point of there being four of them: two groups setting up at
+	once are setting up two games, not overwriting one.
 ]]
-local function locked(): boolean
-	return countdownLeft ~= nil
+local function slotUnder(player: Player): Slot?
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") then
+		return nil
+	end
+	for _, slot in slots do
+		if standingOn(slot.pad, root.Position) then
+			return slot
+		end
+	end
+	return nil
 end
 
 --[[
@@ -633,20 +597,6 @@ end
 	player their own progress — it names the requirement instead, and whether
 	the person standing on it has met that is settled when they stand on it.
 ]]
-local function refreshLevelLabels()
-	for _, world in Worlds.list do
-		local label = levelLabels[world.id]
-		if label then
-			local mark = if chosenWorld == world.id then "▶ " else ""
-			label.Text = if world.requiresWorld
-				then `{mark}{world.name}\nNeeds {Worlds.expect(world.requiresWorld).name}`
-				else `{mark}{world.name}\n{world.difficulty}`
-			label.TextColor3 = if chosenWorld == world.id
-				then Color3.fromRGB(255, 244, 180)
-				else Color3.fromRGB(255, 255, 255)
-		end
-	end
-end
 
 --[[
 	One tick of the lobby.
@@ -687,27 +637,42 @@ local function teamAllows(team: { Player }, worldId: string): boolean
 	return false
 end
 
+--[[
+	One tick of the lobby: every game on offer, considered on its own.
+
+	Occupancy is measured rather than touched: a `Touched` event fires on a
+	brushed elbow and never fires again while you stand still, which is the
+	opposite of what a pad wants to know.
+]]
 local function step(delta: number)
 	if MowRunService.phase() ~= "lobby" then
 		return
 	end
 	local where = positions()
+	local anyReady = false
 
-	-- Who is on a team pad.
-	local party = 0
-	local team: { Player } = {}
-	for index = 1, TEAM_PADS do
-		local part = teamPads[index]
-		local label = teamLabels[index]
-		if part and label then
-			local occupant: Player? = nil
-			for player, position in where do
-				if standingOn(part, position) then
-					occupant = player
-					break
-				end
+	for _, slot in slots do
+		--[[
+			Who is standing on this pad, in a stable order.
+
+			`positions()` is a map keyed by player, and iterating one of those
+			gives no order at all — so without sorting, the party that gets cut
+			at the cap would be a different four every tick.
+		]]
+		local here: { Player } = {}
+		for player, position in where do
+			if standingOn(slot.pad, position) then
+				table.insert(here, player)
 			end
-			if occupant and DataService.get(occupant) == nil then
+		end
+		table.sort(here, function(a, b)
+			return a.UserId < b.UserId
+		end)
+
+		local team: { Player } = {}
+		local waiting = false
+		for _, player in here do
+			if DataService.get(player) == nil then
 				--[[
 					Stood on the pad, but their save has not landed yet.
 
@@ -715,115 +680,66 @@ local function step(delta: number)
 					tools they paid Robux for, so the pad waits rather than
 					sending them into one.
 				]]
-				label.Text = "…"
-				part.Color = Palette.color(Palette.ground.stoneDark)
-			elseif occupant and party >= partyCap then
-				--[[
-					Past the size this game was set to.
+				waiting = true
+			elseif #team < slot.cap then
+				table.insert(team, player)
+			end
+		end
 
-					MAX PLAYERS is a ceiling, not a quorum: a player who set it
-					to one and stands alone leaves immediately, and the fifth
-					person onto a four-pad game is told they are one too many
-					rather than silently added to it.
+		local world = if slot.worldId then Worlds.get(slot.worldId) else nil
+		local ready = #team > 0
+			and world ~= nil
+			and teamAllows(team, slot.worldId :: string)
+
+		if ready then
+			anyReady = true
+			slot.countdown = (slot.countdown or COUNTDOWN) - delta
+			local left = math.max(math.ceil(slot.countdown or 0), 0)
+			slot.padLabel.Text = `{#team}/{slot.cap}\nStarting in {left}`
+			slot.pad.Color = Palette.color(Palette.ground.lawn)
+
+			if (slot.countdown or 0) <= 0 then
+				local id = slot.worldId :: string
+				slot.countdown = nil
+				slot.worldId = nil
+				slot.cap = GAME_SLOTS
+				--[[
+					This game leaves; the yard does not.
+
+					Only the players on this pad are sent, so the three games
+					beside it carry on being set up rather than being dragged
+					into somebody else's lawn.
 				]]
-				label.Text = "FULL"
-				part.Color = Palette.color(Palette.ground.stoneDark)
-			elseif occupant then
-				party += 1
-				table.insert(team, occupant)
-				label.Text = occupant.DisplayName
-				part.Color = Palette.color(Palette.ground.lawn)
+				MatchmakingService.send(team, id, #team)
+			end
+		else
+			slot.countdown = nil
+			if waiting then
+				slot.padLabel.Text = "…"
+				slot.pad.Color = Palette.color(Palette.ground.stoneDark)
+			elseif world and #team > 0 then
+				-- Somebody is on it with a map set that none of them has earned.
+				slot.padLabel.Text = `{#team}/{slot.cap}\nNeeds {Worlds.expect((world :: any).requiresWorld).name}`
+				slot.pad.Color = Palette.color(Palette.ground.stoneDark)
+			elseif world then
+				slot.padLabel.Text = `0/{slot.cap}\nStand here`
+				slot.pad.Color = Palette.color(Palette.ground.stone)
 			else
-				label.Text = `{index}`
-				part.Color = Palette.color(Palette.ground.stone)
+				slot.padLabel.Text = "Create a game!"
+				slot.pad.Color = Palette.color(Palette.ground.stone)
 			end
 		end
+
+		slot.boardLabel.Text = if world
+			then `{(world :: any).name}\n{string.upper((world :: any).difficulty)}`
+			else "Select a map!"
 	end
 
-	if teamCountLabel then
-		teamCountLabel.Text = `TEAM {party} / {partyCap}`
-	end
-
-	--[[
-		A property is unlocked by the player standing on it, and nobody else.
-
-		The unlocks used to be pooled: every profile in the lobby was rolled
-		into one set and the plaque was tested against that. So a first-time
-		player could stand on The Gas Station and take it, provided somebody
-		who had beaten The Mansion happened to be in the room — progression
-		you could walk past rather than earn. It is the stepper's own record
-		that decides now.
-	]]
-	for id, part in levelPads do
-		for player, position in where do
-			if standingOn(part, position) and not locked() then
-				local world = Worlds.expect(id)
-				local profile = DataService.get(player)
-				local beaten = if profile then profile.worldsBeaten else nil
-				local allowed = not world.requiresWorld
-					or (beaten ~= nil and beaten[world.requiresWorld] == true)
-				if allowed then
-					chosenWorld = id
-				end
-			end
-		end
-	end
-
-	refreshLevelLabels()
-
-	-- Ready when somebody is on a pad, a property is picked, and somebody
-	-- leaving has actually earned it.
 	local status = statusLabel
-	local allowed = chosenWorld ~= nil and teamAllows(team, chosenWorld :: string)
-	if party > 0 and chosenWorld and allowed then
-		countdownLeft = (countdownLeft or COUNTDOWN) - delta
-		local left = math.max(math.ceil(countdownLeft or 0), 0)
-		if status then
-			status.Text = `{Worlds.expect(chosenWorld).name} — team of {party} — starting in {left}`
-		end
-		if (countdownLeft or 0) <= 0 then
-			local id = chosenWorld
-			countdownLeft = nil
-			chosenWorld = nil
-			if status then
-				--[[
-					The team leaves; the lobby does not.
-
-					Only the players on the pads are sent, so anybody still
-					choosing keeps a working room around them rather than
-					being dragged into somebody else's lawn.
-				]]
-				status.Text = "Finding you a lawn…"
-			end
-			MatchmakingService.send(team, id, party)
-		end
-	else
-		countdownLeft = nil
-		if status then
-			--[[
-				What to say to somebody who is already standing on a pad.
-
-				Players are placed at the south end and walk north, which takes
-				them over the team pads before the property plaques — so the
-				first thing a new player does is stand on a pad and get told
-				"Stand on a pad and pick a property", while standing on a pad.
-				`chosenWorld` is sticky and survives the walk, so the room does
-				work in that order; it just never said which half was missing.
-
-				The plaques cannot simply be moved in front of the pads: their
-				boards are eighteen studs tall and would sit close enough to the
-				entrance to hide the status board behind them, which is the one
-				thing in the room that explains what is happening.
-			]]
-			status.Text = if chosenWorld and party > 0 and not allowed
-				then `{Worlds.expect(chosenWorld).name} — somebody on the pads has to have cleared `
-					.. Worlds.expect((Worlds.expect(chosenWorld).requiresWorld :: any)).name
-				elseif chosenWorld
-					then `{Worlds.expect(chosenWorld).name} — stand on a team pad to start`
-				elseif party > 0
-					then "Now pick a property — the plaques are further in"
-				else "Stand on a team pad, and pick a property on the plaques"
-		end
+	if status then
+		status.Text = if anyReady
+			then "Off you go — good luck out there"
+			else "Stand on a pad to set a game up"
 	end
 end
 
@@ -836,7 +752,7 @@ end
 	there.
 ]]
 local function onConfirm(player: Player, payload: any)
-	if MowRunService.phase() ~= "lobby" or type(payload) ~= "table" or locked() then
+	if MowRunService.phase() ~= "lobby" or type(payload) ~= "table" then
 		return
 	end
 	local worldId = (payload :: any).worldId
@@ -860,12 +776,22 @@ local function onConfirm(player: Player, payload: any)
 		return
 	end
 
-	chosenWorld = worldId
-	partyCap = math.clamp(math.floor(wanted), 1, TEAM_PADS)
+	local slot = slotUnder(player)
+	if not slot then
+		MowEconomyService.notify(player, "denied", "Stand on a pad to set a game up", nil)
+		return
+	end
+	if slot.countdown then
+		-- Already counting down; the settings are settled.
+		return
+	end
+
+	slot.worldId = worldId
+	slot.cap = math.clamp(math.floor(wanted), 1, GAME_SLOTS)
 	MowEconomyService.notify(
 		player,
 		"quest",
-		`{world.name} — up to {partyCap} player{if partyCap == 1 then "" else "s"}`,
+		`{world.name} — up to {slot.cap} player{if slot.cap == 1 then "" else "s"}`,
 		nil
 	)
 end
@@ -905,8 +831,11 @@ function LobbyService.start()
 								then `The clock beat you on {lastWorldName}.`
 							else GameConfig.GAME_NAME
 					end
-					chosenWorld = nil
-					countdownLeft = nil
+					for _, slot in slots do
+						slot.worldId = nil
+						slot.cap = GAME_SLOTS
+						slot.countdown = nil
+					end
 					placeEveryone()
 				end
 				lastPhase = phase

@@ -107,11 +107,33 @@ local function announce(tool: Types.ToolDef, units: number)
 end
 
 --[[
+	Weight this client believes it has cut since the server last told it.
+
+	`PlayerState` carries the authoritative bag, and it arrives five times a
+	second. That is fine for bare hands, which take about a second and a half
+	to fill a starting bag. A Riding Mower fills the same bag in four
+	hundredths of a second — eighteen tiles a pass, six passes a second — so
+	between two updates the client would predict two hundred milliseconds of
+	cutting against a bag the server had already declared full, the grass would
+	vanish, and the server would refuse every bit of it.
+
+	Reported exactly as it behaves: "the riding mower cuts the grass but it
+	doesn't stay cut and it doesn't count towards the percentage nor money".
+	The money and the percentage were right the whole time; only the picture
+	lied.
+
+	Reset whenever the server speaks, because whatever it just said already
+	accounts for everything it accepted.
+]]
+local predictedWeight = 0
+
+--[[
 	Applies the same swath the server will, so the grass reacts immediately.
 
 	Only the visual height moves; the bag, cash and completion bar all wait for
 	the server, so a prediction that turns out wrong costs nothing but a frame of
-	grass that pops back up.
+	grass that pops back up — provided the prediction is made against a bag the
+	server would recognise, which is what `predictedWeight` is for.
 ]]
 local function predict(root: BasePart, look: Vector3, toolId: string, passes: number)
 	local tool = Tools.get(toolId)
@@ -127,7 +149,7 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 		return
 	end
 
-	local space = math.max(state.bagCapacity - state.bagWeight, 0)
+	local space = math.max(state.bagCapacity - state.bagWeight - predictedWeight, 0)
 	local yieldMultiplier = Balance.yieldMultiplier(state.upgrades, toolId)
 
 	-- Same branch the server takes: one tile for a pickup tool, a rectangle for
@@ -195,6 +217,7 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 
 			GrassRenderer.predictCut(index, outcome.levels)
 			space -= outcome.weight
+			predictedWeight += outcome.weight
 			bagged += outcome.units
 		end
 	end
@@ -394,6 +417,11 @@ end
 
 function MowController.start()
 	intentRemote = Remotes.unreliable(Remotes.MOW_INTENT)
+
+	-- The server's bag is the real one; drop the guess whenever it arrives.
+	PlayerState.Changed:Connect(function()
+		predictedWeight = 0
+	end)
 
 	-- Bound through ContextActionService so it works on touch and gamepad too,
 	-- and so the mobile button is created for us.

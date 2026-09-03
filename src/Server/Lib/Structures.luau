@@ -342,10 +342,25 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 		enormous smeared slab, because a mesh texture stretches rather than
 		repeating. Roblox's concrete tiles at any size.
 	]]
+	--[[
+		Lifted a hair, because two floors at the same height is not a floor.
+
+		A room at ground level laid its slab with a top face at exactly y = 0,
+		and the ground plates under it end at exactly y = 0 as well. Two
+		coplanar surfaces give the renderer no way to decide which is in front,
+		so it picks differently from one frame to the next and the garage floor
+		visibly shimmers as you walk over it — reported as "the floor of the
+		garage glitches", which is exactly what it is.
+
+		Two hundredths of a stud settles it and is far below anything a
+		character can feel underfoot. A sunken room is already well clear of
+		the ground and does not need it.
+	]]
+	local lift = if sunken then 0 else 0.02
 	Build.part({
 		name = "Floor",
 		size = Vector3.new(width, 2, depth),
-		cframe = CFrame.new(centre - Vector3.new(0, 1, 0)),
+		cframe = CFrame.new(centre - Vector3.new(0, 1 - lift, 0)),
 		color = Palette.color(Palette.ground.stoneDark),
 		material = Enum.Material.Concrete,
 		parent = folder,
