@@ -399,7 +399,7 @@ local function build()
 	----------------------------------------------------------------
 	-- Right: the maps
 	----------------------------------------------------------------
-	local maps, mapBody = titled(
+	local _, mapBody = titled(
 		holder,
 		"SelectMap",
 		"🗺  SELECT MAP",

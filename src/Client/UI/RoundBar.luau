@@ -33,7 +33,6 @@ local timerLabel: TextLabel
 local percentLabel: TextLabel
 local objectiveLabel: TextLabel
 local objectiveBox: Frame
-local fpsLabel: TextLabel
 local fill: Frame
 
 local secondsLeft = 0
@@ -144,19 +143,6 @@ local function build()
 	})
 	RunOnly.add(timerLabel)
 
-	-- Tucked left of the status column rather than directly under it: the
-	-- column grows downward and the two met on a short viewport.
-	fpsLabel = Theme.text({
-		name = "Fps",
-		text = "",
-		size = UDim2.fromOffset(120, 20),
-		position = UDim2.new(1, -160, 1, -62),
-		anchor = Vector2.new(1, 1),
-		parent = gui,
-		align = Enum.TextXAlignment.Right,
-		color = Theme.colors.subtext,
-		textSize = 14,
-	})
 end
 
 --------------------------------------------------------------------
@@ -305,7 +291,6 @@ function RoundBar.start()
 	end)
 
 	-- Tick locally between updates so the clock reads smoothly.
-	local frames, elapsed = 0, 0
 	RunService.Heartbeat:Connect(function(delta)
 		secondsLeft = math.max(secondsLeft - delta, 0)
 		timerLabel.Text = Format.clock(secondsLeft)
@@ -313,13 +298,6 @@ function RoundBar.start()
 			then Theme.colors.subtext
 			elseif secondsLeft <= 60 then Theme.colors.danger
 			else Theme.colors.text
-
-		frames += 1
-		elapsed += delta
-		if elapsed >= 0.5 then
-			fpsLabel.Text = `{math.floor(frames / elapsed + 0.5)} FPS`
-			frames, elapsed = 0, 0
-		end
 	end)
 end
 
