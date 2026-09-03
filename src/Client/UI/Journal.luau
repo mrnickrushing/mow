@@ -160,8 +160,22 @@ local function body(page: Frame): ScrollingFrame
 	scroll.Position = UDim2.fromOffset(10, 52)
 	scroll.BackgroundTransparency = 1
 	scroll.BorderSizePixel = 0
-	scroll.ScrollBarThickness = 4
-	scroll.ScrollBarImageColor3 = PAPER_EDGE
+	--[[
+		A bar you can actually see, on paper.
+
+		At four pixels in the paper's own edge colour the bar was invisible
+		against the page, so a column taller than the window — the Help page's
+		hints are five hundred pixels in a four hundred pixel frame — simply
+		looked like a sentence that had been cut off mid-word. The page was
+		scrolling the whole time and nothing said so. Ink at a distance is a
+		mark on the edge of the paper, which is what a scrollbar is.
+	]]
+	scroll.ScrollBarThickness = 7
+	scroll.ScrollBarImageColor3 = INK
+	scroll.ScrollBarImageTransparency = 0.45
+	-- And a gutter of its own, so the bar does not lie across the last word
+	-- of every line it passes.
+	scroll.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
 	scroll.CanvasSize = UDim2.new()
 	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scroll.Parent = page
