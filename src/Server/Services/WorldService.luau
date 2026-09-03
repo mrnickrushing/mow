@@ -60,6 +60,19 @@ WorldService.totalUnits = 0
 WorldService.spawnAt = nil :: CFrame?
 WorldService.remainingUnits = 0
 
+local builtSignal = Instance.new("BindableEvent")
+--[[
+	Fires once the property's fixed geometry is standing, before the passes
+	that ask what is standing where.
+
+	Trees used to be planted on `Loaded`, which fires after `clearBuriedTiles`
+	— so a trunk landed on a sown tile the pass had already declared clear,
+	and the tuft was drawn up through the bark. Measured after the overlap
+	fix, that was every one of the 26 tiles still hidden across the three
+	worlds. Anything that adds cover to the ground belongs here.
+]]
+WorldService.Built = builtSignal.Event
+
 local loadedSignal = Instance.new("BindableEvent")
 --- Fires with the world definition once a new world is ready.
 WorldService.Loaded = loadedSignal.Event
@@ -2306,9 +2319,12 @@ function WorldService.load(worldId: string)
 	-- worlds does not load one. See `RunService`.
 	WorldService.spawnAt = spawnLocation.CFrame + Vector3.new(0, 4, 0)
 
+	-- Trees and stumps go in now, so the two passes below can see them.
+	builtSignal:Fire(world)
+
 	-- Both of these ask what is standing where, so they wait until it is all
 	-- standing. The clutter scatter runs during the build and cannot see the
-	-- maze hedges, retaining walls or stairs that go up after it.
+	-- maze hedges, retaining walls, stairs or trunks that go up after it.
 	Structures.settleClutter(parent)
 	clearBuriedTiles(world, grid, tiles)
 

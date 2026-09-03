@@ -477,7 +477,10 @@ function TreeService.generate(world: Types.WorldDef)
 end
 
 function TreeService.start()
-	WorldService.Loaded:Connect(function(world: Types.WorldDef)
+	-- On `Built` rather than `Loaded`: the tile pass that hides what stands
+	-- on a tile runs between the two, and a trunk is something standing on
+	-- a tile.
+	WorldService.Built:Connect(function(world: Types.WorldDef)
 		TreeService.generate(world)
 	end)
 
