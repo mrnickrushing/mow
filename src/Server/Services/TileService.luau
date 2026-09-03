@@ -94,6 +94,8 @@ export type CutResult = {
 	tilesTouched: number,
 	unitsCollected: number,
 	stalled: boolean,
+	--- Debris the held tool is simply not for, when that is why nothing moved.
+	wrongTool: number?,
 	blockedBySection: string?,
 	bagFull: boolean,
 }
@@ -116,6 +118,7 @@ function TileService.applyPasses(
 		tilesTouched = 0,
 		unitsCollected = 0,
 		stalled = false,
+		wrongTool = nil,
 		blockedBySection = nil,
 		bagFull = false,
 	}
@@ -178,6 +181,21 @@ function TileService.applyPasses(
 			result.stalled = true
 		elseif outcome.status == "bagFull" then
 			result.bagFull = true
+		elseif outcome.status == "wrongTool" then
+			--[[
+				The one refusal nothing ever reported.
+
+				`Cutting.evaluate` goes out of its way to separate this from
+				"overgrown" — "because only the second one should tell the
+				player to go buy a mower" — and then this branch did not exist,
+				so holding the wrong tool over a tile did nothing and said
+				nothing at all. The front yard is grass with leaves through it
+				and the first tool anybody buys is the reel mower, which cuts
+				grass and only grass, so the very first purchase in the game
+				makes roughly one tile in nine stop responding with no
+				explanation offered.
+			]]
+			result.wrongTool = ChunkCodec.debris(byte)
 		end
 	end
 
@@ -287,6 +305,26 @@ local function onMowIntent(player: Player, payload: any)
 		EconomyService.notify(player, "locked", "You have not bought this zone yet", nil)
 	elseif result.stalled and result.tilesTouched == 0 then
 		EconomyService.notify(player, "stall", `The {tool.name} bogs down here — you need better gear`, nil)
+	elseif result.wrongTool and result.tilesTouched == 0 then
+		--[[
+			Name the thing and name what shifts it.
+
+			"Nothing happens" is the worst answer a tool can give, and it was
+			the answer here: the reel mower cuts grass, the front yard has
+			leaves through it, and walking over one with the mower out was
+			silence. The cheapest tool that can actually clear it is usually
+			bare hands, which every player already owns.
+		]]
+		local def = DebrisConfig.get(result.wrongTool)
+		local fix = Tools.cheapestFor(result.wrongTool)
+		EconomyService.notify(
+			player,
+			"stall",
+			if fix and fix.id ~= tool.id
+				then `{tool.name} will not shift {def.name} — your hands will, or a {fix.name}`
+				else `{tool.name} will not shift {def.name} — your hands will`,
+			nil
+		)
 	elseif result.bagFull then
 		EconomyService.notify(player, "bagFull", "Bag full — get to the trailer", nil)
 	end
