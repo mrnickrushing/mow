@@ -847,6 +847,7 @@ local function step(delta: number)
 
 		local team: { Player } = {}
 		local waiting = false
+		local turnedAway = 0
 		for _, player in here do
 			if DataService.get(player) == nil then
 				--[[
@@ -859,6 +860,17 @@ local function step(delta: number)
 				waiting = true
 			elseif #team < slot.cap then
 				table.insert(team, player)
+			else
+				--[[
+					One too many for the size this game was set to.
+
+					Standing on a full pad did nothing whatsoever — no message,
+					no mark on the pad, just quietly not being in the game
+					everybody else on it was about to leave for. That is the
+					same silence that made standing on a pad feel broken in the
+					first place, so the pad says it.
+				]]
+				turnedAway += 1
 			end
 		end
 
@@ -875,7 +887,9 @@ local function step(delta: number)
 			anyReady = true
 			slot.countdown = (slot.countdown or COUNTDOWN) - delta
 			local left = math.max(math.ceil(slot.countdown or 0), 0)
-			slot.padLabel.Text = `{#team}/{slot.cap}\nStarting in {left}`
+			slot.padLabel.Text = if turnedAway > 0
+				then `{#team}/{slot.cap} — FULL\nStarting in {left}`
+				else `{#team}/{slot.cap}\nStarting in {left}`
 			slot.pad.Color = Palette.color(Palette.ground.lawn)
 
 			if (slot.countdown or 0) <= 0 then
@@ -982,7 +996,19 @@ local function onConfirm(player: Player, payload: any)
 		return
 	end
 	if slot.countdown then
-		-- Already counting down; the settings are settled.
+		--[[
+			Already counting down, so the settings are settled — and saying so
+			matters more than the refusal does. Pressing a green Confirm and
+			getting nothing back is the same silence that made standing on a
+			pad feel broken; the button is real, the game is just already on
+			its way.
+		]]
+		MowEconomyService.notify(
+			player,
+			"denied",
+			"That game is already starting — take another pad to change one",
+			nil
+		)
 		return
 	end
 
