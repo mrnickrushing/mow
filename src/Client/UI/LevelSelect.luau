@@ -26,6 +26,7 @@ local Remotes = require(Shared.Remotes)
 local Types = require(Shared.Types)
 local Worlds = require(Shared.Config.Worlds)
 local Theme = require(script.Parent.Theme)
+local Intro = require(script.Parent.Intro)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 
 local LevelSelect = {}
@@ -475,7 +476,16 @@ function LevelSelect.start()
 	task.spawn(function()
 		while true do
 			task.wait(0.2)
-			local on = padUnderfoot()
+			--[[
+				Not while the opening is running.
+
+				The intro takes the camera and hides the rest of the screen,
+				and a player can still walk during it — so without this, the
+				first thing anybody ever sees is a settings panel opening on
+				top of the story, over a camera pointing somewhere else
+				entirely.
+			]]
+			local on = padUnderfoot() and not Intro.isPlaying()
 			if not on then
 				dismissedOnPad = false
 				if isOpen then

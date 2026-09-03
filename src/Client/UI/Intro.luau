@@ -221,6 +221,11 @@ local function setChromeVisible(visible: boolean)
 	end
 end
 
+--- True while the opening is on screen, so nothing else opens over it.
+function Intro.isPlaying(): boolean
+	return playing
+end
+
 function Intro.finish()
 	if finished then
 		return
@@ -306,6 +311,21 @@ function Intro.start()
 	local connection: RBXScriptConnection? = nil
 	connection = PlayerState.Changed:Connect(function()
 		if finished or playing then
+			return
+		end
+		--[[
+			Only in the yard, never in the middle of a run.
+
+			`introSeen` is set when the opening ends, so a player who is
+			teleported to their run before it finishes still has it unset when
+			they arrive — and the next profile push would start the story over
+			the top of a lawn they are already mowing, with the camera taken
+			off them and the HUD hidden.
+
+			The lobby is the one server with a `MowLobby` in it, which is a
+			plainer question than asking the round what phase it is in.
+		]]
+		if not workspace:FindFirstChild("MowLobby") then
 			return
 		end
 		if PlayerState.get().showIntro then
