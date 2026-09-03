@@ -8,6 +8,10 @@
 	"is this beatable, and does it stay tense the whole way".
 
 	Run with:  python3 scripts/build_tests.py && luau scripts/simulate.luau
+	Party size: pass it after -a, which is how the luau CLI forwards arguments
+	           (`luau scripts/simulate.luau -a 4`). Without the flag the count
+	           is taken as another script to run and the simulation quietly
+	           falls back to solo — the header says which it did, so read it.
 
 	The virtual player buys greedily by return on investment and never wastes a
 	second, so treat every time here as a floor.

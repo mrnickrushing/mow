@@ -215,6 +215,118 @@ function Structures.clutter(context: Context, zone: Types.ZoneDef, count: number
 end
 
 --------------------------------------------------------------------
+-- Settling clutter
+--------------------------------------------------------------------
+
+--[[
+	How deep a prop may sit in something before it counts as buried.
+
+	Relative to the prop's own smallest dimension, because a rock overlapping
+	a hedge by three studs is most of the rock and a crate resting on a slab
+	overlaps it by nothing at all. Measured across the three worlds this
+	separates the four genuine cases from the hundred and fifty-six props that
+	are simply touching what they stand on.
+]]
+local BURIED_FRACTION = 0.4
+local BURIED_FLOOR = 0.5
+--- Where to try instead, in studs, nearest first.
+local NUDGES = { 3, 6, 9 }
+
+--- How far two boxes interpenetrate: the smallest of the three axis overlaps.
+local function penetration(a: BasePart, b: BasePart): number
+	local d = a.Position - b.Position
+	local ox = (a.Size.X + b.Size.X) * 0.5 - math.abs(d.X)
+	local oy = (a.Size.Y + b.Size.Y) * 0.5 - math.abs(d.Y)
+	local oz = (a.Size.Z + b.Size.Z) * 0.5 - math.abs(d.Z)
+	if ox <= 0 or oy <= 0 or oz <= 0 then
+		return 0
+	end
+	return math.min(ox, oy, oz)
+end
+
+--- The deepest thing this prop is currently inside.
+local function deepest(prop: BasePart, ignore: Instance): number
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { ignore }
+	params.MaxParts = 10
+	local worst = 0
+	for _, other in workspace:GetPartsInPart(prop, params) do
+		worst = math.max(worst, penetration(prop, other))
+	end
+	return worst
+end
+
+--- Drops a prop onto whatever is under it, so a nudge never leaves it hanging.
+local function reseat(prop: BasePart, ignore: Instance)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { ignore }
+	local from = prop.Position + Vector3.new(0, 40, 0)
+	local hit = workspace:Raycast(from, Vector3.new(0, -200, 0), params)
+	if hit then
+		prop.CFrame = CFrame.new(hit.Position + Vector3.new(0, prop.Size.Y * 0.5, 0))
+			* (prop.CFrame - prop.CFrame.Position)
+	end
+end
+
+--[[
+	Moves any prop that ended up inside the scenery.
+
+	The scatter avoids what it can be told about — the water in a pool, the
+	paving, the tiles a room's walls stand on — but it runs during the build,
+	and the comment on `clutter` above says why it cannot simply look: the
+	wall beside it may not exist yet. So the maze hedges, the retaining wall
+	round the pool court and the cellar stairs, all of which go up afterwards,
+	were never in the conversation. Measured across the three worlds, four
+	props of a hundred and sixty were standing inside one of them — a bin and
+	a rock in the Long Maze's hedges, a crate in the pool court's retaining
+	wall, a barrel inside the basement stairs.
+
+	Asking afterwards is the same trick trees already use, and the same reason
+	`clearBuriedTiles` runs last: once everything is built, the question has an
+	answer. Nudging beats re-rolling because it keeps the scatter the designer
+	tuned; a prop with nowhere to go is dropped rather than left in a wall.
+]]
+function Structures.settleClutter(parent: Instance)
+	for _, folder in parent:GetChildren() do
+		if not folder:IsA("Folder") or string.sub(folder.Name, 1, 8) ~= "Clutter_" then
+			continue
+		end
+		for _, prop in folder:GetChildren() do
+			if not prop:IsA("BasePart") then
+				continue
+			end
+			local limit = math.max(BURIED_FLOOR, math.min(prop.Size.X, prop.Size.Y, prop.Size.Z) * BURIED_FRACTION)
+			if deepest(prop, folder) <= limit then
+				continue
+			end
+
+			local home = prop.CFrame
+			local settled = false
+			for _, radius in NUDGES do
+				for step = 0, 7 do
+					local angle = step * math.pi * 0.25
+					prop.CFrame = home + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+					reseat(prop, folder)
+					if deepest(prop, folder) <= limit then
+						settled = true
+						break
+					end
+				end
+				if settled then
+					break
+				end
+			end
+
+			if not settled then
+				prop:Destroy()
+			end
+		end
+	end
+end
+
+--------------------------------------------------------------------
 -- Rooms
 --------------------------------------------------------------------
 
