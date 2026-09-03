@@ -2283,8 +2283,10 @@ function WorldService.load(worldId: string)
 	-- worlds does not load one. See `RunService`.
 	WorldService.spawnAt = spawnLocation.CFrame + Vector3.new(0, 4, 0)
 
-	-- Last, because it asks what is standing on each tile and the answer
-	-- is only complete once everything has been built.
+	-- Both of these ask what is standing where, so they wait until it is all
+	-- standing. The clutter scatter runs during the build and cannot see the
+	-- maze hedges, retaining walls or stairs that go up after it.
+	Structures.settleClutter(parent)
 	clearBuriedTiles(world, grid, tiles)
 
 	loadedSignal:Fire(world)
