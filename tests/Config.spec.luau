@@ -18,6 +18,7 @@ local DefaultData = require("./.build/Server/Lib/DefaultData")
 local Props = require("./.build/Shared/Config/Props")
 local Upgrades = require("./.build/Shared/Config/Upgrades")
 local Quests = require("./.build/Shared/Config/Quests")
+local Balance = require("./.build/Shared/Config/Balance")
 local h = require("./harness")
 
 local function rectsOverlap(a: Types.Rect, b: Types.Rect): boolean
@@ -775,6 +776,58 @@ return function()
 				Upgrades.PORTABLE_TRAILER_LEVEL >= 1 and Upgrades.PORTABLE_TRAILER_LEVEL <= haul.maxLevel,
 				"the portable trailer unlocks at a level Haul can actually reach"
 			)
+		end)
+
+		h.it("lets every tool finish a minimum stripe on a bag it can afford", function()
+			--[[
+				A stripe is banked by holding a heading for STRIPE_MIN_TILES
+				tiles, and cutting stops dead the moment the bag is full — so
+				the bag decides whether the mechanic exists at all for a given
+				tool.
+
+				It reads the deck width because a stripe's length is a distance
+				now rather than the count of tiles the mower covered. Under the
+				old counting a wide deck reached the minimum sooner, which is
+				backwards; under this one it fills the bag faster over the same
+				ground and so needs a bigger bag to cut the same length. That
+				is the right shape, but it is also a new way for the mechanic
+				to become unreachable, and this is the guard on it.
+			]]
+			local grass = Debris.get(Debris.Grass)
+			-- The lawn a new player starts on, at its average height.
+			local perTile = 1.5 * grass.unitsPerLevel * grass.weight
+
+			local bag = nil
+			for _, upgrade in Upgrades.list do
+				if upgrade.id == "bag" then
+					bag = upgrade
+				end
+			end
+			h.expectTrue(bag ~= nil, "there should be a Bag upgrade")
+			local bagDef = bag :: any
+
+			local levels: any = {}
+			for _, upgrade in Upgrades.list do
+				levels[upgrade.id] = 0
+			end
+
+			for _, tool in Tools.list do
+				local needed = GameConfig.STRIPE_MIN_TILES * tool.deck * perTile
+				local reached = nil
+				for level = 0, bagDef.maxLevel do
+					levels.bag = level
+					if Balance.bagCapacity(levels, nil) >= needed then
+						reached = level
+						break
+					end
+				end
+				levels.bag = 0
+				h.expectTrue(
+					reached ~= nil and reached <= 8,
+					`{tool.name} needs {string.format("%.0f", needed)} of bag for one stripe, `
+						.. "which is past the eighth Bag level — nobody holding it will bank one"
+				)
+			end
 		end)
 
 		h.it("keeps the free reward loops meaningful", function()

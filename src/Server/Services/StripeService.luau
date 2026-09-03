@@ -32,11 +32,41 @@ export type Stripe = {
 	--- Heading of the stripe, as a unit vector in tile space.
 	dirX: number,
 	dirZ: number,
+	--- Distinct tiles cut on this stripe. Proof that work happened; not the
+	--- stripe's length, which is `along`.
 	tiles: number,
-	--- Tiles already counted, so a wide deck does not inflate the stripe.
 	seen: { [number]: boolean },
+	--- Where the stripe began, and the furthest the player has since got along
+	--- its heading, in studs.
+	startX: number,
+	startZ: number,
+	along: number,
 	lastAt: number,
 }
+
+--[[
+	How long the stripe is, in tiles.
+
+	This used to be the count of distinct tiles cut, guarded by a comment
+	saying that counting each tile once stopped a wide deck inflating the
+	stripe. It does not: a deck eleven tiles across cuts eleven *distinct*
+	tiles abreast, so every one of them counted, and the length of a stripe
+	became the area the mower covered. A Gas Push Mower — the third rung of
+	the ladder, sixty dollars — met the six-tile minimum inside a single cut
+	tick, which is to say the one mechanic in the game that rewards holding a
+	line stopped asking you to hold one at all the moment you bought it, and
+	paid the widest tools a second time for ground the clippings had already
+	paid them for.
+
+	A stripe is a distance. This is how far the player has driven along the
+	heading they started on, which is the same number for every tool.
+]]
+local function lengthOf(stripe: Stripe): number
+	if stripe.tiles <= 0 then
+		return 0
+	end
+	return math.floor(stripe.along / GameConfig.TILE_SIZE) + 1
+end
 
 local stripes: { [Player]: Stripe } = {}
 
@@ -45,7 +75,8 @@ local IDLE_TIMEOUT = 1.2
 local MAX_DRIFT_COS = math.cos(math.rad(GameConfig.STRIPE_MAX_DRIFT))
 
 local function bank(player: Player, stripe: Stripe)
-	if stripe.tiles < GameConfig.STRIPE_MIN_TILES then
+	local length = lengthOf(stripe)
+	if length < GameConfig.STRIPE_MIN_TILES then
 		return
 	end
 
@@ -54,7 +85,7 @@ local function bank(player: Player, stripe: Stripe)
 		return
 	end
 
-	local bonus = Balance.stripeBonus(stripe.tiles, run.upgrades, EconomyService.modifiers(player))
+	local bonus = Balance.stripeBonus(length, run.upgrades, EconomyService.modifiers(player))
 	EconomyService.awardRaw(player, bonus)
 	EconomyService.awardTips(player, GameConfig.STRIPE_TIP_REWARD)
 
@@ -63,11 +94,20 @@ local function bank(player: Player, stripe: Stripe)
 	end)
 
 	QuestService.advance(player, "stripe", 1)
-	EconomyService.notify(player, "stripe", `Clean stripe — {stripe.tiles} tiles, {Format.cash(bonus)}`, bonus)
+	EconomyService.notify(player, "stripe", `Clean stripe — {length} tiles, {Format.cash(bonus)}`, bonus)
 end
 
-local function reset(player: Player, dirX: number, dirZ: number)
-	stripes[player] = { dirX = dirX, dirZ = dirZ, tiles = 0, seen = {}, lastAt = os.clock() }
+local function reset(player: Player, dirX: number, dirZ: number, atX: number, atZ: number)
+	stripes[player] = {
+		dirX = dirX,
+		dirZ = dirZ,
+		tiles = 0,
+		seen = {},
+		startX = atX,
+		startZ = atZ,
+		along = 0,
+		lastAt = os.clock(),
+	}
 end
 
 --- Records a cut tile against the player's current stripe.
@@ -85,22 +125,23 @@ local function onCut(player: Player, tileIndex: number)
 	end
 	local dirX, dirZ = look.X / length, look.Z / length
 
+	local atX, atZ = root.Position.X, root.Position.Z
 	local stripe = stripes[player]
 	local now = os.clock()
 
 	if not stripe then
-		reset(player, dirX, dirZ)
+		reset(player, dirX, dirZ, atX, atZ)
 		stripe = stripes[player]
 	elseif now - stripe.lastAt > IDLE_TIMEOUT then
 		-- Stopped cutting for a moment: bank whatever was there and start over.
 		bank(player, stripe)
-		reset(player, dirX, dirZ)
+		reset(player, dirX, dirZ, atX, atZ)
 		stripe = stripes[player]
 	else
 		local alignment = stripe.dirX * dirX + stripe.dirZ * dirZ
 		if alignment < MAX_DRIFT_COS then
 			bank(player, stripe)
-			reset(player, dirX, dirZ)
+			reset(player, dirX, dirZ, atX, atZ)
 			stripe = stripes[player]
 		end
 	end
@@ -108,7 +149,12 @@ local function onCut(player: Player, tileIndex: number)
 	local current = stripe :: Stripe
 	current.lastAt = now
 
-	-- Count each tile once, so a wide deck does not multiply the stripe length.
+	-- How far along the heading the player has got since the stripe began.
+	-- Kept as a maximum, so backing up does not shorten a stripe already cut.
+	local along = (atX - current.startX) * current.dirX + (atZ - current.startZ) * current.dirZ
+	current.along = math.max(current.along, along)
+
+	-- Each tile once, so standing still on one cannot pass for work done.
 	if not current.seen[tileIndex] then
 		current.seen[tileIndex] = true
 		current.tiles += 1
