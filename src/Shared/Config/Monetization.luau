@@ -72,19 +72,41 @@ local passes: { PassDef } = {
 		robux = 249,
 		description = "Twice the capacity. Half the trips to the trailer.",
 	},
+	--[[
+		This said "Cut debris drifts to you instead of waiting to be walked
+		over", which is a description of nothing: clippings go straight into
+		the bag when they are cut, so a magnet for them has nothing to attract.
+		AutoCollectService says as much in its own first paragraph — and then
+		implements the useful thing instead, pulling in the log piles you had
+		to drop when your bag filled at a tree, and the Golden Blades you
+		walked past. Four hundred Robux was buying that and advertising a
+		no-op.
+	]]
 	{
 		key = "autoCollect",
 		id = 0,
 		name = "Auto-Collect",
 		robux = 399,
-		description = "Cut debris drifts to you instead of waiting to be walked over.",
+		description = "Dropped log piles and Golden Blades come to you as you walk, no prompts.",
 	},
+	--[[
+		VIP said "A VIP-only estate, gold equipment skins and a permanent
+		1.25x" and delivered the last third of that sentence. There is no
+		fourth property and no `ZoneUnlock` kind a pass could gate one with;
+		there is no cosmetic system of any kind in the codebase to hang a gold
+		skin on. `Balance.cashMultiplier` applying 1.25 is the whole of it.
+
+		Described as what it is. The price is a separate question and not one
+		a description change should quietly answer: at 499 this buys a 1.25x
+		while 2x Cash buys a 2x for 199, which only made sense while the other
+		two thirds were meant to exist.
+	]]
 	{
 		key = "vip",
 		id = 0,
 		name = "VIP",
 		robux = 499,
-		description = "A VIP-only estate, gold equipment skins and a permanent 1.25x.",
+		description = "A permanent 1.25x on everything you earn, stacking on top of every other pass.",
 	},
 	{
 		key = "fastFeet",
