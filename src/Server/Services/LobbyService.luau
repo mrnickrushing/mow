@@ -68,6 +68,9 @@ export type Slot = {
 	index: number,
 	pad: BasePart,
 	padLabel: TextLabel,
+	--- The white "0/4" over the green invitation, kept apart so each keeps its
+	--- own colour.
+	padCount: TextLabel,
 	boardLabel: TextLabel,
 	worldId: string?,
 	cap: number,
@@ -283,8 +286,19 @@ local function build()
 			piece of information a player crossing the yard is actually
 			looking for.
 		]]
-		local floating = Build.billboard(padPart, UDim2.fromScale(17, 6.5), 4, 260)
-		local padLabel = Build.label(floating, "", UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), 2.2)
+		--[[
+			Two lines, the way the reference stacks them: the count in white
+			above the call to action in green.
+
+			One label carrying both meant one colour for both, and the count
+			is a fact while "Create a game!" is an invitation — the reference
+			paints them differently for that reason and it is most of why its
+			pads read at a glance.
+		]]
+		local floating = Build.billboard(padPart, UDim2.fromScale(17, 8), 4, 260)
+		local padCount = Build.label(floating, "", UDim2.fromScale(1, 0.42), UDim2.fromScale(0, 0), 1.7)
+		local padLabel = Build.label(floating, "", UDim2.fromScale(1, 0.58), UDim2.fromScale(0, 0.42), 2.2)
+		padLabel.TextColor3 = Color3.fromRGB(126, 232, 106)
 
 		-- The board behind it, at head height and low enough that four of them
 		-- in a row do not wall the yard off from its own marquee.
@@ -345,6 +359,7 @@ local function build()
 			index = index,
 			pad = padPart,
 			padLabel = padLabel,
+			padCount = padCount,
 			boardLabel = surface(board, Enum.NormalId.Front, 0.8),
 			worldId = nil,
 			cap = GAME_SLOTS,
@@ -887,9 +902,8 @@ local function step(delta: number)
 			anyReady = true
 			slot.countdown = (slot.countdown or COUNTDOWN) - delta
 			local left = math.max(math.ceil(slot.countdown or 0), 0)
-			slot.padLabel.Text = if turnedAway > 0
-				then `{#team}/{slot.cap} — FULL\nStarting in {left}`
-				else `{#team}/{slot.cap}\nStarting in {left}`
+			slot.padCount.Text = if turnedAway > 0 then `{#team}/{slot.cap} — FULL` else `{#team}/{slot.cap}`
+			slot.padLabel.Text = `Starting in {left}`
 			slot.pad.Color = Palette.color(Palette.ground.lawn)
 
 			if (slot.countdown or 0) <= 0 then
@@ -910,11 +924,13 @@ local function step(delta: number)
 		else
 			slot.countdown = nil
 			if waiting then
+				slot.padCount.Text = ""
 				slot.padLabel.Text = "…"
 				slot.pad.Color = Palette.color(Palette.ground.stoneDark)
 			elseif world and #team > 0 then
 				-- Somebody is on it with a map set that none of them has earned.
-				slot.padLabel.Text = `{#team}/{slot.cap}\nNeeds {Worlds.expect((world :: any).requiresWorld).name}`
+				slot.padCount.Text = `{#team}/{slot.cap}`
+				slot.padLabel.Text = `Needs {Worlds.expect((world :: any).requiresWorld).name}`
 				slot.pad.Color = Palette.color(Palette.ground.stoneDark)
 			elseif world then
 				--[[
@@ -933,20 +949,32 @@ local function step(delta: number)
 					slot.worldId = nil
 					slot.cap = GAME_SLOTS
 					slot.idle = 0
+					slot.padCount.Text = `0/{slot.cap}`
 					slot.padLabel.Text = "Create a game!"
 				else
-					slot.padLabel.Text = `0/{slot.cap}\nStand here`
+					slot.padCount.Text = `0/{slot.cap}`
+					slot.padLabel.Text = "Stand here"
 				end
 				slot.pad.Color = Palette.color(Palette.ground.stone)
 			else
+				slot.padCount.Text = `0/{slot.cap}`
 				slot.padLabel.Text = "Create a game!"
 				slot.pad.Color = Palette.color(Palette.ground.stone)
 			end
 		end
 
+		--[[
+			"???" over the instruction while no map is set.
+
+			The reference writes the unchosen map as three question marks
+			above "Select a map!", so the board has the same two lines whether
+			or not it has been set: the name, then what it is. Without the
+			question marks an unset board is one line and a set one is two,
+			and the row of four jumps about as people choose.
+		]]
 		slot.boardLabel.Text = if world
 			then `{(world :: any).name}\n{string.upper((world :: any).difficulty)}`
-			else "Select a map!"
+			else "???\nSelect a map!"
 	end
 
 	local status = statusLabel
