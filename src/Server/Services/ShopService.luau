@@ -20,6 +20,7 @@ local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local ToolUpgrades = require(Shared.Config.ToolUpgrades)
 local Upgrades = require(Shared.Config.Upgrades)
+local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local PlayerService = require(script.Parent.PlayerService)
 local QuestService = require(script.Parent.QuestService)
@@ -174,6 +175,53 @@ end
 -- Wiring
 --------------------------------------------------------------------
 
+--[[
+	Buying a tool outright with tips.
+
+	The free, slow mirror of the `toolPermanent` Robux product: the same grant,
+	into the same `profile.permanentTools`, paid for by turning up and playing
+	well instead of by paying. Only the bottom four rungs carry a tips price,
+	so what this can ever hand somebody is a $240 head start on a ladder that
+	runs to $650,000 — real on The House, nothing at all on The Gas Station.
+
+	It also drops the tool into the run in progress, because buying something
+	and not getting it until next time is not what a shop does.
+]]
+function ShopService.buyPermanent(player: Player, toolId: string): Result
+	local tool = Tools.get(toolId)
+	if not tool then
+		return fail("No such tool")
+	end
+	local price = tool.tipsPermanent
+	if not price then
+		return fail("That one is not sold for tips")
+	end
+
+	local profile = DataService.get(player)
+	if not profile then
+		return fail("Your save has not loaded yet")
+	end
+	if profile.permanentTools[toolId] then
+		return fail("You already own that for good")
+	end
+	if not EconomyService.spendTips(player, price) then
+		return fail(`Not enough tips — {tool.name} costs {price}`)
+	end
+
+	profile.permanentTools[toolId] = true
+
+	local run = RunState.find(player)
+	if run and not run.ownedTools[toolId] then
+		run.ownedTools[toolId] = true
+		run.equippedTool = toolId
+	end
+
+	QuestService.advance(player, "tool", 1, toolId)
+	EconomyService.notify(player, "reward", `{tool.name} — yours from now on`, nil)
+	PlayerService.push(player)
+	return OK
+end
+
 local function onPurchase(player: Player, kind: any, id: any)
 	if type(kind) ~= "string" or type(id) ~= "string" then
 		return
@@ -189,6 +237,8 @@ local function onPurchase(player: Player, kind: any, id: any)
 		result = ShopService.buyUpgrade(player, id)
 	elseif kind == "toolUpgrade" then
 		result = ShopService.buyToolUpgrade(player, id)
+	elseif kind == "permanent" then
+		result = ShopService.buyPermanent(player, id)
 	else
 		return
 	end

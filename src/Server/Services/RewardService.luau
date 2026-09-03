@@ -99,11 +99,11 @@ function RewardService.awardFirstCompletion(player: Player)
 			return
 		end
 		profile.firstCompletionClaimed = true
-		EconomyService.awardRaw(player, rewards.firstCompletionCash)
+		EconomyService.awardTips(player, rewards.firstCompletionTips)
 		EconomyService.notify(
 			player,
 			"reward",
-			`First clean sweep of a property — {Format.cash(rewards.firstCompletionCash)}`,
+			`First clean sweep of a property — {rewards.firstCompletionTips} tips`,
 			nil
 		)
 	end)

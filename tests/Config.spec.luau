@@ -17,6 +17,8 @@ local Types = require("./.build/Shared/Types")
 local DefaultData = require("./.build/Server/Lib/DefaultData")
 local Props = require("./.build/Shared/Config/Props")
 local Upgrades = require("./.build/Shared/Config/Upgrades")
+local Quests = require("./.build/Shared/Config/Quests")
+local Balance = require("./.build/Shared/Config/Balance")
 local h = require("./harness")
 
 local function rectsOverlap(a: Types.Rect, b: Types.Rect): boolean
@@ -721,6 +723,193 @@ return function()
 					)
 					previousOnce = tool.robuxOnce
 					previousPermanent = tool.robuxPermanent
+				end
+			end
+		end)
+
+		h.it("only asks for grass where a player can find grass", function()
+			--[[
+				The opening chain now names grass and counts only grass, which
+				is a promise about the world as much as about the quest: a
+				`collect` quest with subject "grass" is unfinishable in a
+				section that seeds none. Every world opens on its first
+				section, so that is the one that has to carry it.
+			]]
+			local wantsGrass = false
+			for _, quest in Quests.list do
+				if quest.kind == "collect" and quest.subject == "grass" then
+					wantsGrass = true
+				end
+			end
+			h.expectTrue(wantsGrass, "the opening chain should ask for grass at all")
+			for _, world in Worlds.list do
+				local first = world.sections[1]
+				local found = false
+				for _, entry in first.fill do
+					if entry.debris == Debris.Grass then
+						found = true
+					end
+				end
+				h.expectTrue(
+					found,
+					`{world.id} opens on {first.id}, which seeds no grass for the first quest`
+				)
+			end
+		end)
+
+		h.it("keeps the portable trailer a level Haul can reach", function()
+			--[[
+				Haul level 1 sells the portable trailer, the Journal reads it
+				back, and `Economy.earnRate` shortens every walk once it is
+				owned — three systems all describing a remote nobody had
+				connected. The unlock level has to stay inside the ladder or
+				the sentence goes back to being false.
+			]]
+			local haul: any = nil
+			for _, upgrade in Upgrades.list do
+				if upgrade.id == "trailer" then
+					haul = upgrade
+				end
+			end
+			h.expectTrue(haul ~= nil, "the Haul upgrade should exist")
+			h.expectTrue(
+				Upgrades.PORTABLE_TRAILER_LEVEL >= 1 and Upgrades.PORTABLE_TRAILER_LEVEL <= haul.maxLevel,
+				"the portable trailer unlocks at a level Haul can actually reach"
+			)
+		end)
+
+		h.it("lets every tool finish a minimum stripe on a bag it can afford", function()
+			--[[
+				A stripe is banked by holding a heading for STRIPE_MIN_TILES
+				tiles, and cutting stops dead the moment the bag is full — so
+				the bag decides whether the mechanic exists at all for a given
+				tool.
+
+				It reads the deck width because a stripe's length is a distance
+				now rather than the count of tiles the mower covered. Under the
+				old counting a wide deck reached the minimum sooner, which is
+				backwards; under this one it fills the bag faster over the same
+				ground and so needs a bigger bag to cut the same length. That
+				is the right shape, but it is also a new way for the mechanic
+				to become unreachable, and this is the guard on it.
+			]]
+			local grass = Debris.get(Debris.Grass)
+			-- The lawn a new player starts on, at its average height.
+			local perTile = 1.5 * grass.unitsPerLevel * grass.weight
+
+			local bag = nil
+			for _, upgrade in Upgrades.list do
+				if upgrade.id == "bag" then
+					bag = upgrade
+				end
+			end
+			h.expectTrue(bag ~= nil, "there should be a Bag upgrade")
+			local bagDef = bag :: any
+
+			local levels: any = {}
+			for _, upgrade in Upgrades.list do
+				levels[upgrade.id] = 0
+			end
+
+			for _, tool in Tools.list do
+				local needed = GameConfig.STRIPE_MIN_TILES * tool.deck * perTile
+				local reached = nil
+				for level = 0, bagDef.maxLevel do
+					levels.bag = level
+					if Balance.bagCapacity(levels, nil) >= needed then
+						reached = level
+						break
+					end
+				end
+				levels.bag = 0
+				h.expectTrue(
+					reached ~= nil and reached <= 8,
+					`{tool.name} needs {string.format("%.0f", needed)} of bag for one stripe, `
+						.. "which is past the eighth Bag level — nobody holding it will bank one"
+				)
+			end
+		end)
+
+		h.it("beats the session lock more than once before it expires", function()
+			--[[
+				`Store.save` is the only thing that refreshes `lockHeartbeat`,
+				and the autosave loop is the only thing that calls it while
+				somebody is playing — so the autosave interval *is* the
+				heartbeat interval, and it has to fit inside the timeout it is
+				keeping alive.
+
+				It did not: a hundred and twenty second autosave against a
+				ninety second timeout meant every live player's own lock read
+				as dead for a quarter of every cycle, and any other server
+				could take their save out from under them while they were
+				still playing on it. Room for a missed beat, not just one that
+				lands exactly on time.
+			]]
+			h.expectTrue(
+				GameConfig.AUTOSAVE_SECONDS * 2 <= GameConfig.SESSION_LOCK_TIMEOUT,
+				`autosave every {GameConfig.AUTOSAVE_SECONDS}s cannot hold a lock that `
+					.. `goes stale after {GameConfig.SESSION_LOCK_TIMEOUT}s`
+			)
+		end)
+
+		h.it("prices a cash gate under what the lawn before it is worth", function()
+			--[[
+				A cash gate is the one place a run can end on arithmetic rather
+				than on the clock. Every one of them sits on the critical path,
+				so a player who has cleared everything open to them and still
+				cannot pay has no way left to earn: the run is dead and the
+				clock just has to run out.
+
+				The three were priced at $1, $8 and $15 against worlds holding
+				$1,826, $6,463 and $11,837 of clippings, which is a door that
+				opens itself.
+
+				This is a ceiling, not a proof. What decides a stall is what is
+				*banked* when the player arrives, after everything they bought
+				on the way, and no static sum can know that — `scripts/simulate.luau`
+				is the thing that can, and it caught the first attempt at these
+				prices stalling The Gas Station outright. The fraction below is
+				set just under where that attempt sat, so raising a gate past
+				it fails here and sends you to the simulator, which is the
+				point.
+			]]
+			local function grossOf(world: any, section: any): number
+				local tiles = section.rect.w * section.rect.d * section.density
+				local weight, perTile = 0, 0
+				for _, entry in section.fill do
+					weight += entry.weight
+				end
+				for _, entry in section.fill do
+					local def = Debris.get(entry.debris)
+					local height = (entry.heightMin + entry.heightMax) * 0.5
+					perTile += (entry.weight / weight) * height * def.unitsPerLevel * def.value
+				end
+				return tiles * perTile * world.payoutMultiplier
+			end
+
+			for _, world in Worlds.list do
+				for _, section in world.sections do
+					if Worlds.unlockKind(section) == "cash" then
+						local required = section.requires
+						h.expectTrue(
+							required ~= nil,
+							`{world.id}/{section.id} charges at the door but names no lawn before it`
+						)
+						local before = nil
+						for _, other in world.sections do
+							if other.id == required then
+								before = other
+							end
+						end
+						h.expectTrue(before ~= nil, `{world.id}/{section.id} requires a section that is not there`)
+						local earnable = grossOf(world, before :: any)
+						h.expectTrue(
+							section.cost <= earnable * 0.15,
+							`{world.id}/{section.id} costs {section.cost} against {required}'s `
+								.. `{string.format("%.0f", earnable)} — past the ceiling, so run `
+								.. "scripts/simulate.luau and check nothing stalls at the door"
+						)
+					end
 				end
 			end
 		end)

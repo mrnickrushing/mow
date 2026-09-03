@@ -20,6 +20,7 @@ local Balance = require(Shared.Config.Balance)
 local DebrisConfig = require(Shared.Config.Debris)
 local Format = require(Shared.Util.Format)
 local GameConfig = require(Shared.Config.GameConfig)
+local Stripe = require(Shared.Stripe)
 local DataService = require(script.Parent.DataService)
 local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
@@ -28,24 +29,11 @@ local TileService = require(script.Parent.TileService)
 
 local StripeService = {}
 
-export type Stripe = {
-	--- Heading of the stripe, as a unit vector in tile space.
-	dirX: number,
-	dirZ: number,
-	tiles: number,
-	--- Tiles already counted, so a wide deck does not inflate the stripe.
-	seen: { [number]: boolean },
-	lastAt: number,
-}
+local stripes: { [Player]: Stripe.State } = {}
 
-local stripes: { [Player]: Stripe } = {}
-
---- A stripe lapses if no cutting happens for this long.
-local IDLE_TIMEOUT = 1.2
-local MAX_DRIFT_COS = math.cos(math.rad(GameConfig.STRIPE_MAX_DRIFT))
-
-local function bank(player: Player, stripe: Stripe)
-	if stripe.tiles < GameConfig.STRIPE_MIN_TILES then
+local function bank(player: Player, stripe: Stripe.State)
+	local length = Stripe.length(stripe)
+	if length < GameConfig.STRIPE_MIN_TILES then
 		return
 	end
 
@@ -54,7 +42,7 @@ local function bank(player: Player, stripe: Stripe)
 		return
 	end
 
-	local bonus = Balance.stripeBonus(stripe.tiles, run.upgrades, EconomyService.modifiers(player))
+	local bonus = Balance.stripeBonus(length, run.upgrades, EconomyService.modifiers(player))
 	EconomyService.awardRaw(player, bonus)
 	EconomyService.awardTips(player, GameConfig.STRIPE_TIP_REWARD)
 
@@ -63,11 +51,7 @@ local function bank(player: Player, stripe: Stripe)
 	end)
 
 	QuestService.advance(player, "stripe", 1)
-	EconomyService.notify(player, "stripe", `Clean stripe — {stripe.tiles} tiles, {Format.cash(bonus)}`, bonus)
-end
-
-local function reset(player: Player, dirX: number, dirZ: number)
-	stripes[player] = { dirX = dirX, dirZ = dirZ, tiles = 0, seen = {}, lastAt = os.clock() }
+	EconomyService.notify(player, "stripe", `Clean stripe — {length} tiles, {Format.cash(bonus)}`, bonus)
 end
 
 --- Records a cut tile against the player's current stripe.
@@ -79,40 +63,27 @@ local function onCut(player: Player, tileIndex: number)
 	end
 
 	local look = root.CFrame.LookVector
-	local length = math.sqrt(look.X * look.X + look.Z * look.Z)
-	if length < 1e-3 then
+	local heading = math.sqrt(look.X * look.X + look.Z * look.Z)
+	if heading < 1e-3 then
 		return
 	end
-	local dirX, dirZ = look.X / length, look.Z / length
+	local dirX, dirZ = look.X / heading, look.Z / heading
 
-	local stripe = stripes[player]
+	local atX, atZ = root.Position.X, root.Position.Z
 	local now = os.clock()
+	local existing: Stripe.State? = stripes[player]
 
-	if not stripe then
-		reset(player, dirX, dirZ)
-		stripe = stripes[player]
-	elseif now - stripe.lastAt > IDLE_TIMEOUT then
-		-- Stopped cutting for a moment: bank whatever was there and start over.
-		bank(player, stripe)
-		reset(player, dirX, dirZ)
-		stripe = stripes[player]
-	else
-		local alignment = stripe.dirX * dirX + stripe.dirZ * dirZ
-		if alignment < MAX_DRIFT_COS then
-			bank(player, stripe)
-			reset(player, dirX, dirZ)
-			stripe = stripes[player]
-		end
+	if existing and not Stripe.continues(existing, dirX, dirZ, now) then
+		-- Turned past the drift, or stopped for a moment: bank what was there
+		-- and start again from here.
+		bank(player, existing)
+		existing = nil
 	end
 
-	local current = stripe :: Stripe
-	current.lastAt = now
+	local stripe = existing or Stripe.new(dirX, dirZ, atX, atZ, now)
+	stripes[player] = stripe
 
-	-- Count each tile once, so a wide deck does not multiply the stripe length.
-	if not current.seen[tileIndex] then
-		current.seen[tileIndex] = true
-		current.tiles += 1
-	end
+	Stripe.record(stripe, atX, atZ, tileIndex, now)
 end
 
 function StripeService.start()
@@ -141,7 +112,7 @@ function StripeService.start()
 			task.wait(0.5)
 			local now = os.clock()
 			for player, stripe in stripes do
-				if now - stripe.lastAt > IDLE_TIMEOUT then
+				if now - stripe.lastAt > Stripe.IDLE_TIMEOUT then
 					bank(player, stripe)
 					stripes[player] = nil
 				end

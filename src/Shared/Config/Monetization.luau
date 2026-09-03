@@ -72,19 +72,51 @@ local passes: { PassDef } = {
 		robux = 249,
 		description = "Twice the capacity. Half the trips to the trailer.",
 	},
+	--[[
+		This said "Cut debris drifts to you instead of waiting to be walked
+		over", which is a description of nothing: clippings go straight into
+		the bag when they are cut, so a magnet for them has nothing to attract.
+		AutoCollectService says as much in its own first paragraph — and then
+		implements the useful thing instead, pulling in the log piles you had
+		to drop when your bag filled at a tree, and the Golden Blades you
+		walked past. Four hundred Robux was buying that and advertising a
+		no-op.
+	]]
 	{
 		key = "autoCollect",
 		id = 0,
 		name = "Auto-Collect",
 		robux = 399,
-		description = "Cut debris drifts to you instead of waiting to be walked over.",
+		description = "Dropped log piles and Golden Blades come to you as you walk, no prompts.",
 	},
+	--[[
+		VIP said "A VIP-only estate, gold equipment skins and a permanent
+		1.25x" and delivered the last third of that sentence. There is no
+		fourth property and no `ZoneUnlock` kind a pass could gate one with;
+		there is no cosmetic system of any kind in the codebase to hang a gold
+		skin on. `Balance.cashMultiplier` applying 1.25 is the whole of it.
+
+		Described as what it is. The price is a separate question and not one
+		a description change should quietly answer: at 499 this buys a 1.25x
+		while 2x Cash buys a 2x for 199, which only made sense while the other
+		two thirds were meant to exist.
+	]]
 	{
 		key = "vip",
 		id = 0,
 		name = "VIP",
-		robux = 499,
-		description = "A VIP-only estate, gold equipment skins and a permanent 1.25x.",
+		--[[
+			Repriced, and given a second perk that is worth having.
+
+			At 499 for a 1.25x it was strictly worse than 2x Cash at 199, which
+			only ever made sense while the estate and the skins in its old
+			description were meant to exist. Doubling tips is the right kind of
+			premium: tips buy permanent tools, so it changes how quickly a
+			regular unlocks things and not how hard the lawn in front of them
+			is. Nobody's run gets easier because somebody bought this.
+		]]
+		robux = 299,
+		description = "A permanent 1.25x on everything you earn, and double tips from every stripe, blade and daily streak.",
 	},
 	{
 		key = "fastFeet",
@@ -291,8 +323,21 @@ Monetization.rewards = {
 	freeRentalInterval = 1800,
 	freeRentalToolId = "riding_mower",
 	freeRentalSeconds = 120,
-	--- Flat bonus the first time a player is on a server that reaches 100%.
-	firstCompletionCash = 5000,
+	--[[
+		Paid the first time a player is on a server that reaches 100%.
+
+		It was five thousand in cash — nearly three times the whole of The
+		House's gross — granted inside `winRun`, which is to say into a run
+		that is over and about to be wiped. The player watched a number appear
+		and evaporate, and `firstCompletionClaimed` made sure it never came
+		again.
+
+		In tips, it lands somewhere that lasts: a little more than a permanent
+		Push Reel Mower, so beating your first property buys the thing that
+		makes the next one start faster. Cash was never an option — the note
+		above about the daily streak says why.
+	]]
+	firstCompletionTips = 250,
 	--- Group members get a small permanent edge that costs nothing.
 	groupBonusMultiplier = 1.05,
 	groupId = 0,

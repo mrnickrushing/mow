@@ -722,9 +722,22 @@ local function refresh()
 		elseif state.bagWeight >= state.bagCapacity * 0.8 then Theme.colors.warn
 		else Theme.colors.text
 
-	-- What one clipping is worth right now, which is the number the whole
-	-- economy is denominated in and the one an upgrade visibly moves.
-	local perClipping = Debris.get(Debris.Grass).value * math.max(state.cashMultiplier, 1)
+	--[[
+		What one clipping is worth right now, which is the number the whole
+		economy is denominated in and the one an upgrade visibly moves.
+
+		It left out the property's own payout multiplier, which is the entire
+		mechanism by which a harder lawn pays better — 1.6x at The Mansion and
+		2.1x at The Gas Station. So the readout said two cents a clipping in
+		all three worlds, understating what the player was actually paid by up
+		to a factor of two and flattening the one number that was supposed to
+		make moving up feel like moving up. `Economy.valuePerUnit` has had the
+		right formula the whole time; this is the same one, and the client has
+		known which world it is in since it was told.
+	]]
+	local world = PlayerState.world()
+	local payout = if world then world.payoutMultiplier else 1
+	local perClipping = Debris.get(Debris.Grass).value * payout * math.max(state.cashMultiplier, 1)
 	rateLabel.Text = `{Format.cashSuffix(perClipping)} / clipping`
 
 	local tool = Tools.get(state.equippedTool)

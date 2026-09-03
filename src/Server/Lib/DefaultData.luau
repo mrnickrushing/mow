@@ -10,8 +10,8 @@
 
 local DefaultData = {}
 
---- Bumped: receipts are remembered, so a retried purchase cannot pay twice.
-DefaultData.VERSION = 3
+--- Bumped: tips outlive a run and buy permanent tools.
+DefaultData.VERSION = 4
 
 export type Stats = {
 	tilesCut: number,
@@ -39,6 +39,21 @@ export type Profile = {
 	stats: Stats,
 	--- Premium currency, bought with Robux and kept forever.
 	tokens: number,
+	--[[
+		Tips: the currency you earn by turning up and by playing well.
+
+		Five things paid these out — clean stripes, wasp nests, Golden Blades,
+		the daily login streak and a trickle for time played — into `RunState`,
+		which a run start wipes, and nothing in the game had a price in them.
+		A login streak that is gone by the next round is not a login streak,
+		so they live here, where they last, and they buy permanent tools.
+
+		Deliberately not cash. Every run starts from nothing and the ladder is
+		priced in single dollars because of it; handing a returning player a
+		pile of money would buy the first half of that ladder before they had
+		cut a blade of grass.
+	]]
+	tips: number,
 	--- Tools bought outright with Robux. Handed back at the start of every run,
 	--- which is the only thing besides records that outlives one.
 	permanentTools: { [string]: boolean },
@@ -84,6 +99,7 @@ function DefaultData.template(): Profile
 			treesFelled = 0,
 		},
 		tokens = 0,
+		tips = 0,
 		permanentTools = {},
 		receipts = {},
 		questProgress = {},
@@ -132,9 +148,14 @@ function DefaultData.migrate(data: any): Profile
 	end
 
 	-- Cash, tools and upgrades used to be saved here. Strip them: leaving them
-	-- behind would be a silent second economy nothing reads.
-	for _, stale in { "cash", "tips", "lifetimeCash", "ownedTools", "equippedTool", "upgrades", "unlockedZones", "fuel" } do
+	-- behind would be a silent second economy nothing reads. Tips came off this
+	-- list when they became the thing that outlives a run.
+	for _, stale in { "cash", "lifetimeCash", "ownedTools", "equippedTool", "upgrades", "unlockedZones", "fuel" } do
 		data[stale] = nil
+	end
+
+	if type(data.tips) ~= "number" then
+		data.tips = 0
 	end
 
 	data.version = DefaultData.VERSION

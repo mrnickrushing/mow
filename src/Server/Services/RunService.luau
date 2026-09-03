@@ -24,6 +24,7 @@ local Remotes = require(Shared.Remotes)
 local Types = require(Shared.Types)
 local Worlds = require(Shared.Config.Worlds)
 local BagService = require(script.Parent.BagService)
+local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local PlayerService = require(script.Parent.PlayerService)
@@ -42,6 +43,9 @@ local phase: Phase = "lobby"
 local worldId = Worlds.STARTER_ID
 local endsAt = 0
 local startedAt = 0
+--- When the current run began, so wave counts are not relaxed before the team
+--- that justified them has finished teleporting in.
+local runStartedAt = 0
 --- Waves already cleared, per section.
 local wavesCleared: { [string]: number } = {}
 --- Waves needed, fixed when the run starts so a late joiner cannot inflate it.
@@ -54,6 +58,9 @@ local sectionsFinished = 0
 local roundState: RemoteEvent
 --- How often run state is broadcast, in Hz. The client interpolates the clock.
 local BROADCAST_HZ = 2
+--- Seconds after a run begins before the live player count is trusted over the
+--- party size the lobby sent. Long enough for four teleports to land.
+local WAVE_RELAX_GRACE = 45
 local LOBBY_SECONDS = 20
 --- How long past the lobby's clock to wait for a pick before giving up and
 --- loading the starter world, so an empty server never sits on the menu.
@@ -207,10 +214,6 @@ local function onSectionCleared(world: Types.WorldDef, section: Types.ZoneDef)
 	wavesCleared[section.id] = cleared
 	local needed = wavesNeeded[section.id] or 1
 
-	for _, player in Players:GetPlayers() do
-		QuestService.advance(player, "clearSection", 1, section.id)
-	end
-
 	if cleared < needed then
 		-- More hands, more passes. Fill it again and say so plainly.
 		WorldService.refillSection(section.id)
@@ -221,6 +224,16 @@ local function onSectionCleared(world: Types.WorldDef, section: Types.ZoneDef)
 		)
 		broadcast()
 		return
+	end
+
+	--[[
+		Every wave used to tick this, and the quest reads "Clear the Front Yard
+		completely" — so on a four-player server, where every section owes four
+		waves, the objective completed at a quarter of the section. Below the
+		early return now, where the section really is finished.
+	]]
+	for _, player in Players:GetPlayers() do
+		QuestService.advance(player, "clearSection", 1, section.id)
 	end
 
 	-- Its own notice kind, because finishing a whole section is the one moment
@@ -270,6 +283,7 @@ end
 
 local function beginRun(id: string, partySize: number?)
 	worldId = id
+	runStartedAt = os.clock()
 	local world = Worlds.expect(id)
 
 	ReplicationService.reset()
@@ -322,8 +336,10 @@ local function beginRun(id: string, partySize: number?)
 		end
 	end
 
-	-- Everyone starts from nothing. That is the whole shape of a run.
+	-- Everyone starts from nothing. That is the whole shape of a run — except
+	-- for a rental, which was sold as minutes rather than as a lawn.
 	RunState.resetAll()
+	BoostService.carryRentals()
 	BagService.clearAll()
 
 	phase = "running"
@@ -386,7 +402,7 @@ local function loseRun()
 	end
 	phase = "lost"
 	endsAt = os.clock() + GameConfig.INTERMISSION_SECONDS
-	EconomyService.notifyAll("round", "Out of time. The leaves win this one.", nil)
+	EconomyService.notifyAll("round", "Out of time. The grass wins this one.", nil)
 	broadcast()
 end
 
@@ -654,6 +670,27 @@ function RunService.start()
 					then
 						onSectionCleared(world, section)
 					end
+				end
+
+				--[[
+					Waves came down only when somebody left, and a player who
+					never arrives never leaves.
+
+					A run server takes its party size from the first player's
+					teleport data, so four pads means four waves of every
+					section from the first moment — before the other three have
+					finished teleporting in, and whether or not they ever do. If
+					one of them falls out on the way, the three who made it owe
+					a fourth player's work against a clock that never moved, and
+					nothing was ever going to tell the run otherwise.
+
+					After a grace long enough for the whole team to land, the
+					live count is the honest one. `relaxWaves` only ever lowers,
+					and never below the wave being cut, so running it on a tick
+					cannot finish a section or move a goalpost upward.
+				]]
+				if os.clock() - runStartedAt > WAVE_RELAX_GRACE then
+					relaxWaves()
 				end
 
 				if RunService.secondsLeft() <= 0 then

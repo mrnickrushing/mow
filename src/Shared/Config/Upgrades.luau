@@ -72,7 +72,7 @@ local list: { Types.UpgradeDef } = {
 	{
 		id = "trailer",
 		name = "Haul",
-		description = "Level 1 unlocks the portable trailer. Later levels widen its dump radius.",
+		description = "Level 1 parks the trailer where you stand — press T. Later levels widen its dump radius.",
 		maxLevel = 5,
 		baseCost = 90,
 		costGrowth = 2.4,

@@ -156,7 +156,22 @@ local house: Types.WorldDef = {
 			-- A cash gate rather than a completion one: a door with a small
 			-- price on it. The point is the ritual — walking up with money you
 			-- swept off the lawn and buying your way deeper — not a wall.
-			cost = 1,
+			--[[
+				The one door in each world you have to save up for.
+
+				These were a dollar here, eight at The Mansion and fifteen at The
+				Gas Station, against worlds holding roughly $1,826, $6,463 and
+				$11,837 of clippings — a tenth of a percent of the money in the
+				ground, so the gate always opened the moment you walked up to it
+				and the mechanic never did anything.
+
+				Priced now against what is actually earnable by the time you can
+				reach them: the front yard grosses $130 before any Fortune level
+				or section bonus, so thirty is a real decision beside a $10 mower
+				and a $30 rake without ever being a wall. The later two sit near a
+				seventh of what is open before them.
+			]]
+			cost = 18,
 			unlock = "cash",
 			requires = "front_yard",
 			rect = { x = 2, z = 62, w = 20, d = 32 },
@@ -280,7 +295,7 @@ local mansion: Types.WorldDef = {
 		{
 			id = "orangery",
 			name = "Orangery",
-			cost = 8,
+			cost = 150,
 			unlock = "cash",
 			requires = "east_wing",
 			rect = { x = 4, z = 52, w = 31, d = 44 },
@@ -352,7 +367,7 @@ local gasStation: Types.WorldDef = {
 		{
 			id = "wash_bay",
 			name = "Wash Bay",
-			cost = 15,
+			cost = 75,
 			unlock = "cash",
 			requires = "forecourt",
 			rect = { x = 4, z = 10, w = 27, d = 46 },

@@ -21,6 +21,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.Config.GameConfig)
 local Palette = require(Shared.Config.Palette)
 local Worlds = require(Shared.Config.Worlds)
 local Build = require(script.Parent.Parent.Lib.Build)
@@ -267,9 +268,20 @@ local function build()
 			parent = root,
 		})
 	end
+	--[[
+		The board's top line, and what it says when there is no news.
+
+		It only ever carried the result of the run you just came back from,
+		which meant that on the one view every player is guaranteed to see —
+		the first time they arrive, before they have played anything — the
+		largest object in the game was a hundred and twenty studs of blank
+		board with one line of instruction pushed into its bottom half. It
+		reads as the game's masthead until there is an outcome to report.
+	]]
 	outcomeLabel = surface(statusPost, Enum.NormalId.Front, 0.32)
 	local outcome = outcomeLabel :: TextLabel
 	outcome.Position = UDim2.fromScale(0.04, 0.08)
+	outcome.Text = GameConfig.GAME_NAME
 	statusLabel = surface(statusPost, Enum.NormalId.Front, 0.38)
 	local status = statusLabel :: TextLabel
 	status.Position = UDim2.fromScale(0.04, 0.52)
@@ -410,6 +422,38 @@ end
 	brushed elbow and never fires again while you stand still, which is the
 	opposite of what a pad wants to know.
 ]]
+--[[
+	Whether the team that is about to leave may play this property.
+
+	`chosenWorld` is sticky on purpose: you step on a plaque to pick, then walk
+	the ninety studs back to a team pad, and the choice has to survive the
+	walk. What it also survived was the chooser. The plaque checks the record
+	of the player standing on it — "It is the stepper's own record that decides
+	now" — and then nothing ever looked again, so the team that actually
+	departed was never the team that was tested. A player who has beaten The
+	House could tap The Mansion, wander off, and the next first-timer to stand
+	on a team pad was sent there alone.
+
+	At least one of the departing players has to have earned it, which leaves
+	a friend able to bring somebody along — the pads are a team, and a team of
+	four going where one of them has been is the point of the room — while the
+	empty case, where nobody leaving has the world open at all, is refused.
+]]
+local function teamAllows(team: { Player }, worldId: string): boolean
+	local world = Worlds.expect(worldId)
+	local required = world.requiresWorld
+	if not required then
+		return true
+	end
+	for _, player in team do
+		local profile = DataService.get(player)
+		if profile and profile.worldsBeaten[required] == true then
+			return true
+		end
+	end
+	return false
+end
+
 local function step(delta: number)
 	if MowRunService.phase() ~= "lobby" then
 		return
@@ -479,9 +523,11 @@ local function step(delta: number)
 
 	refreshLevelLabels()
 
-	-- Ready when somebody is on a pad and a property is picked.
+	-- Ready when somebody is on a pad, a property is picked, and somebody
+	-- leaving has actually earned it.
 	local status = statusLabel
-	if party > 0 and chosenWorld then
+	local allowed = chosenWorld ~= nil and teamAllows(team, chosenWorld :: string)
+	if party > 0 and chosenWorld and allowed then
 		countdownLeft = (countdownLeft or COUNTDOWN) - delta
 		local left = math.max(math.ceil(countdownLeft or 0), 0)
 		if status then
@@ -506,8 +552,11 @@ local function step(delta: number)
 	else
 		countdownLeft = nil
 		if status then
-			status.Text = if chosenWorld
-				then `{Worlds.expect(chosenWorld).name} — stand on a team pad to start`
+			status.Text = if chosenWorld and party > 0 and not allowed
+				then `{Worlds.expect(chosenWorld).name} — somebody on the pads has to have cleared `
+					.. Worlds.expect((Worlds.expect(chosenWorld).requiresWorld :: any)).name
+				elseif chosenWorld
+					then `{Worlds.expect(chosenWorld).name} — stand on a team pad to start`
 				else "Stand on a pad and pick a property"
 		end
 	end
@@ -544,7 +593,7 @@ function LobbyService.start()
 							then `You cleared {lastWorldName}!`
 							elseif lastOutcome == "lost" and lastWorldName
 								then `The clock beat you on {lastWorldName}.`
-							else ""
+							else GameConfig.GAME_NAME
 					end
 					chosenWorld = nil
 					countdownLeft = nil

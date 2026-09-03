@@ -14,6 +14,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local DebrisConfig = require(Shared.Config.Debris)
 local Format = require(Shared.Util.Format)
 local Quests = require(Shared.Config.Quests)
 local Remotes = require(Shared.Remotes)
@@ -194,8 +195,16 @@ function QuestService.start()
 		QuestService.advance(player, "journal", 1)
 	end)
 
-	TileService.Cut:Connect(function(player: Player, _index: number, _debrisId: number, levels: number)
-		QuestService.advance(player, "collect", levels)
+	--[[
+		The opening chain used to read "Collect 5 leaves" and count anything at
+		all, in a game whose whole subject is grass. The cut signal has always
+		carried what was cut and this handler threw it away, so the first thing
+		the game ever asks a player to do could be finished without touching a
+		lawn. It names the debris now, and the grass quests ask for grass.
+	]]
+	TileService.Cut:Connect(function(player: Player, _index: number, debrisId: number, levels: number)
+		local subject = if debrisId == DebrisConfig.Grass then "grass" else nil
+		QuestService.advance(player, "collect", levels, subject)
 	end)
 
 	BagService.Sold:Connect(function(player: Player, units: number)

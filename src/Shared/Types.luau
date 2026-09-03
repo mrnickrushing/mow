@@ -170,6 +170,16 @@ export type ToolDef = {
 	robuxOnce: number?,
 	--- Robux to keep it across every future run.
 	robuxPermanent: number?,
+	--[[
+		Tips to keep it across every future run — the free, slow path to the
+		same thing `robuxPermanent` sells.
+
+		Only the bottom of the ladder carries one. Owning all four from the
+		start is worth $240 of run cash, which is real on The House and nothing
+		on The Gas Station, so it reads as a head start for regulars rather
+		than a way past the game.
+	]]
+	tipsPermanent: number?,
 	--- Struck-through "was" price shown beside the permanent option.
 	robuxWas: number?,
 }

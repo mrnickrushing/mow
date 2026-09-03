@@ -210,7 +210,26 @@ local function refreshSection()
 		return
 	end
 
-	waveLabel.Text = `Wave : {row.wave}/{row.waves}`
+	--[[
+		Which wave you are on, not how many you have finished.
+
+		`row.wave` is the count already cleared, and it was printed straight —
+		so a solo player, whose sections all need exactly one wave, read
+		"Wave : 0/1" for the whole run, a counter that says zero until the
+		moment the section ends. Worse, the server announces the same event as
+		`wave {cleared + 1} of {needed}`, so on a four-player server clearing
+		the first wave popped a toast reading "wave 2 of 4" beside a bar
+		reading "Wave : 1/4".
+
+		The server's numbering is the right one — you are on the wave you are
+		cutting — and a section that only ever has one wave does not need a
+		counter at all.
+	]]
+	if row.waves > 1 then
+		waveLabel.Text = `Wave : {math.min(row.wave + 1, row.waves)}/{row.waves}`
+	else
+		waveLabel.Text = ""
+	end
 
 	-- A section with nothing in it reads as finished rather than as 0%, which is
 	-- what an empty denominator would otherwise give.

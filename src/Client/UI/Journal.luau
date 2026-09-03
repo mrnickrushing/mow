@@ -471,28 +471,69 @@ local function toolPanel(parent: Instance, order: number, tool: Types.ToolDef, o
 		slotCard(row, index, slot, owned, state.upgrades[slot.key] or 0)
 	end
 
-	-- A tool you do not own sells itself right under its padlocked tree.
-	if not owned and tool.cost > 0 then
+	--[[
+		What the page can sell you, and where it puts it.
+
+		Two offers, because a tool has two prices that mean different things:
+		cash buys it for this run, tips buy it for every run after. They share
+		one row so the panel keeps its height — centred when only one applies,
+		side by side when both do.
+	]]
+	local state2 = PlayerState.get()
+	local tipsPrice = tool.tipsPermanent
+	local sellsForCash = not owned and tool.cost > 0
+	local sellsForTips = tipsPrice ~= nil and not state2.permanentTools[tool.id]
+
+	local function offer(text: string, x: number, width: number, affordable: () -> boolean, onBuy: () -> ())
 		local buy = Instance.new("TextButton")
-		buy.Text = `Buy — {Format.cash(tool.cost)}`
-		buy.Size = UDim2.fromOffset(150, 26)
-		buy.Position = UDim2.new(0.5, 0, 0, 182)
+		buy.Text = text
+		buy.Size = UDim2.fromOffset(width, 26)
+		buy.Position = UDim2.new(0.5, x, 0, 182)
 		buy.AnchorPoint = Vector2.new(0.5, 0)
 		live(function()
-			buy.BackgroundColor3 = if PlayerState.get().cash >= tool.cost
+			buy.BackgroundColor3 = if affordable()
 				then Color3.fromRGB(126, 158, 78)
 				else Color3.fromRGB(196, 190, 178)
 		end)
 		buy.BorderSizePixel = 0
 		buy.Font = Theme.font
 		buy.TextColor3 = Color3.fromRGB(250, 244, 228)
-		buy.TextSize = 17
+		buy.TextSize = 16
 		buy.Parent = holder
 		Theme.corner(buy, 7)
+		buy.Activated:Connect(onBuy)
+	end
 
-		buy.Activated:Connect(function()
-			purchaseRemote:FireServer("tool", tool.id)
-		end)
+	local both = sellsForCash and sellsForTips
+	local width = if both then 148 else 172
+
+	if sellsForCash then
+		offer(
+			`Buy — {Format.cash(tool.cost)}`,
+			if both then -76 else 0,
+			width,
+			function()
+				return PlayerState.get().cash >= tool.cost
+			end,
+			function()
+				purchaseRemote:FireServer("tool", tool.id)
+			end
+		)
+	end
+
+	if sellsForTips then
+		local price = tipsPrice :: number
+		offer(
+			`Keep it — {Format.count(price)} tips`,
+			if both then 76 else 0,
+			width,
+			function()
+				return PlayerState.get().tips >= price
+			end,
+			function()
+				purchaseRemote:FireServer("permanent", tool.id)
+			end
+		)
 	end
 end
 

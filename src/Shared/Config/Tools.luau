@@ -82,6 +82,7 @@ local list: { Types.ToolDef } = {
 		robuxOnce = 25,
 		robuxPermanent = 60,
 		robuxWas = 149,
+		tipsPermanent = 200,
 		description = "No engine, no fuel, no mercy on your calves.",
 	},
 	{
@@ -102,6 +103,7 @@ local list: { Types.ToolDef } = {
 		robuxOnce = 35,
 		robuxPermanent = 80,
 		robuxWas = 199,
+		tipsPermanent = 400,
 		description = "For the leaves you would be all day picking up by hand.",
 	},
 	{
@@ -121,6 +123,7 @@ local list: { Types.ToolDef } = {
 		robuxOnce = 45,
 		robuxPermanent = 99,
 		robuxWas = 249,
+		tipsPermanent = 750,
 		description = "The first time the lawn stops fighting back.",
 	},
 	{
@@ -140,6 +143,7 @@ local list: { Types.ToolDef } = {
 		robuxOnce = 55,
 		robuxPermanent = 120,
 		robuxWas = 299,
+		tipsPermanent = 1400,
 		description = "Eats weeds. Edges like a surgeon. Loud as a chainsaw.",
 	},
 	{
