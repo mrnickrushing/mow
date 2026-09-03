@@ -182,8 +182,27 @@ function Structures.clutter(context: Context, zone: Types.ZoneDef, count: number
 	local insetX = if walled and r.w > 2 then 1 else 0
 	local insetZ = if walled and r.d > 2 then 1 else 0
 
+	--[[
+		One bin per section.
+
+		The bin is one of four props in the room set and one of seven in the
+		yard set, drawn uniformly for every clutter item — so a workshop with
+		22 items got five or six of them, and every section on the property
+		had bins standing about in the grass like a collection. A single one
+		reads as the place the clippings go; a fifth reads as litter. Once a
+		section has its bin the pick continues from the rest of the set.
+	]]
+	local pool: { PropSpec } = table.clone(set)
 	for _ = 1, count do
-		local spec = set[context.rng:NextInteger(1, #set)]
+		local spec = pool[context.rng:NextInteger(1, #pool)]
+		if spec.prop == "Bin" then
+			for k, entry in pool do
+				if entry.prop == "Bin" then
+					table.remove(pool, k)
+					break
+				end
+			end
+		end
 		local tx, tz
 		for _ = 1, 20 do
 			tx = context.rng:NextInteger(r.x + insetX, r.x + r.w - 1 - insetX)
