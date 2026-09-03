@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Loop — a server tick that survives its own mistakes.
+	Loop — a tick that survives its own mistakes, on either side of the wire.
 
 	Six services run a `task.spawn(function() while true do ... end end)` and
 	not one of them caught anything. An error in any single iteration does not
@@ -21,6 +21,12 @@
 	of them. It was reproduced this session by handing one player's bag a
 	debris id that does not exist — the pour loop died on the next push and
 	the trailer stopped paying anyone.
+
+	The client has the same shape: the pad poll that opens the level select,
+	the tally that climbs the gold counter, the round bar, the station scan.
+	One of those dying is one player's screen quietly stopping — for the pad
+	poll, exactly "nothing happens when I stand on the pad" — until they
+	rejoin.
 
 	Each iteration now runs under `pcall`. A failure is reported with the
 	loop's name and the loop carries on to the next tick.

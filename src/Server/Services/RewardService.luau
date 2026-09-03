@@ -15,7 +15,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
 local Monetization = require(Shared.Config.Monetization)
 local BoostService = require(script.Parent.BoostService)
-local Loop = require(script.Parent.Parent.Lib.Loop)
+local Loop = require(Shared.Util.Loop)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 

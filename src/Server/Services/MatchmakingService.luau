@@ -27,9 +27,12 @@
 local Players = game:GetService("Players")
 local RobloxRunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
 
 local MowRunService = require(script.Parent.RunService)
-local Loop = require(script.Parent.Parent.Lib.Loop)
+local Loop = require(Shared.Util.Loop)
 local MowEconomyService = require(script.Parent.EconomyService)
 local Worlds = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared").Config.Worlds)
 

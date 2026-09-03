@@ -18,6 +18,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
+local Loop = require(Shared.Util.Loop)
 local RunOnly = require(script.Parent.RunOnly)
 local Remotes = require(Shared.Remotes)
 local PlayerState = require(script.Parent.Parent.PlayerState)
@@ -272,21 +273,19 @@ function RoundBar.start()
 
 	-- The objective under the bar is the current quest, which is what actually
 	-- tells a new player what to do next.
-	task.spawn(function()
-		while true do
-			task.wait(0.35)
-			refreshSection()
+	Loop.forever("RoundBar.tick", function()
+		task.wait(0.35)
+		refreshSection()
 
-			local text, progress, target = Journal.currentObjective()
-			if text then
-				objectiveLabel.Text = `{text} ({progress}/{target})`
-				objectiveLabel.TextColor3 = Theme.colors.text
-				objectiveBox.Visible = true
-			else
-				objectiveLabel.Text = "Clear the property before the clock runs out"
-				objectiveLabel.TextColor3 = Theme.colors.subtext
-				objectiveBox.Visible = false
-			end
+		local text, progress, target = Journal.currentObjective()
+		if text then
+			objectiveLabel.Text = `{text} ({progress}/{target})`
+			objectiveLabel.TextColor3 = Theme.colors.text
+			objectiveBox.Visible = true
+		else
+			objectiveLabel.Text = "Clear the property before the clock runs out"
+			objectiveLabel.TextColor3 = Theme.colors.subtext
+			objectiveBox.Visible = false
 		end
 	end)
 

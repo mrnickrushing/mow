@@ -17,6 +17,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
+local Loop = require(Shared.Util.Loop)
 local Upgrades = require(Shared.Config.Upgrades)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 local Theme = require(script.Parent.Parent.UI.Theme)
@@ -175,14 +176,12 @@ function StationController.start()
 		end)
 	end)
 
-	task.spawn(function()
 		-- And a slow sweep behind both of them, for any ordering neither
 		-- caught. `adopt` ignores a folder it already holds, so this costs one
 		-- lookup a second and cannot double-attach.
-		while true do
-			task.wait(1)
-			scan()
-		end
+	Loop.forever("Station.scan", function()
+		task.wait(1)
+		scan()
 	end)
 
 	PlayerState.Changed:Connect(refresh)

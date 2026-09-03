@@ -17,7 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
 local Tools = require(Shared.Config.Tools)
 local RunState = require(script.Parent.RunState)
-local Loop = require(script.Parent.Parent.Lib.Loop)
+local Loop = require(Shared.Util.Loop)
 local EconomyService = require(script.Parent.EconomyService)
 local VehicleService = require(script.Parent.VehicleService)
 
