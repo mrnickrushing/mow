@@ -18,6 +18,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Balance = require(Shared.Config.Balance)
 local Format = require(Shared.Util.Format)
 local GameConfig = require(Shared.Config.GameConfig)
 local Remotes = require(Shared.Remotes)
@@ -363,6 +364,27 @@ local function winRun()
 
 	EconomyService.notifyAll("round", `Beaten in {Format.clock(elapsed)}`, nil)
 
+	--[[
+		The contribution split, which nothing ever paid.
+
+		`run.contribution` counts what each player has cut and describes itself
+		as being "for the contribution split and the scoreboard";
+		`ROUND_COMPLETION_BONUS` is the size of the pool. Neither was read by
+		anything, so finishing a property paid nothing at all and a team of
+		four rewarded whoever stood still exactly as well as the three who
+		mowed.
+
+		The pool scales with the number of people in the run and is divided by
+		share of the work, so finishing solo pays the whole of it and a team
+		pulling evenly pays it to each of them.
+	]]
+	local totalContribution = 0
+	local runners = 0
+	for _, state in RunState.all() do
+		totalContribution += state.contribution
+		runners += 1
+	end
+
 	for _, player in Players:GetPlayers() do
 		DataService.withProfile(player, function(profile)
 			profile.worldsBeaten[worldId] = true
@@ -384,6 +406,20 @@ local function winRun()
 			paid, and this is that moment.
 		]]
 		RewardService.awardFirstCompletion(player)
+
+		local run = RunState.find(player)
+		if run then
+			local earned = Balance.completionTips(run.contribution, totalContribution, runners)
+			if earned > 0 then
+				EconomyService.awardTips(player, earned)
+				EconomyService.notify(
+					player,
+					"reward",
+					`Your share of {Worlds.expect(worldId).name} — {earned} tips`,
+					nil
+				)
+			end
+		end
 
 		-- The world just beaten is what unlocks the next one, and the level
 		-- select is about to be shown, so the client needs to hear about it

@@ -187,4 +187,22 @@ function Balance.stripeBonus(tiles: number, levels: UpgradeLevels, mods: Modifie
 	return tiles * GameConfig.STRIPE_BONUS_PER_TILE * Balance.cashMultiplier(levels, mods)
 end
 
+--[[
+	One player's share of the tips paid out for finishing a property.
+
+	The pool is `ROUND_COMPLETION_BONUS` per person in the run, divided by
+	share of the work actually done — so finishing solo earns the whole of it,
+	a team of four pulling evenly earns it each, and somebody who cut a tenth
+	of what the others did earns a tenth. That last part is the point: a team
+	of four used to reward whoever stood still exactly as well as the three who
+	mowed.
+]]
+function Balance.completionTips(contribution: number, total: number, runners: number): number
+	if total <= 0 or runners <= 0 or contribution <= 0 then
+		return 0
+	end
+	local share = math.min(contribution / total, 1)
+	return math.floor(GameConfig.ROUND_COMPLETION_BONUS * runners * share + 0.5)
+end
+
 return Balance

@@ -63,7 +63,7 @@ function RunState.fresh(player: Player?): State
 	end
 
 	return {
-		cash = 0,
+		cash = GameConfig.STARTING_CASH,
 		earned = 0,
 		ownedTools = owned,
 		equippedTool = Tools.STARTER_ID,
