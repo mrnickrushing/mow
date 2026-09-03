@@ -216,6 +216,9 @@ export type UpgradeDef = {
 	--- bag holds 38 units, not 38.75. Without it the card advertised a value
 	--- the game then floored, and promised a quarter of a unit it never gave.
 	whole: boolean?,
+	--- The drawn icon for this line, shown on its board in front of the shed
+	--- and beside its row in the journal.
+	icon: string?,
 }
 
 export type DebrisDef = {

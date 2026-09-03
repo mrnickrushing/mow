@@ -742,10 +742,34 @@ local function renderStats()
 		stroke.Transparency = 0.6
 		stroke.Parent = row
 
+		--[[
+			The same badge the board in the yard wears.
+
+			The row used to be three lines of text, and so did the four rows
+			under it — a page you had to read rather than scan. The icon is
+			the one thing that tells a line apart at a glance, and it is the
+			same picture in both places, so the board you walked past and the
+			row you are reading are recognisably the same purchase.
+		]]
+		if def.icon then
+			local badge = Instance.new("ImageLabel")
+			badge.Name = "Icon"
+			badge.Size = UDim2.fromOffset(56, 56)
+			badge.Position = UDim2.fromOffset(12, 12)
+			badge.BackgroundTransparency = 1
+			badge.Image = def.icon
+			badge.ScaleType = Enum.ScaleType.Fit
+			badge.Parent = row
+		end
+
+		-- Text starts clear of the badge, and still stops clear of the button.
+		local textX = if def.icon then 78 else 12
+		local textInset = if def.icon then -196 else -130
+
 		local name = Instance.new("TextLabel")
 		name.Text = def.name:upper()
-		name.Size = UDim2.new(1, -130, 0, 24)
-		name.Position = UDim2.fromOffset(12, 6)
+		name.Size = UDim2.new(1, textInset, 0, 24)
+		name.Position = UDim2.fromOffset(textX, 6)
 		name.BackgroundTransparency = 1
 		name.Font = Theme.font
 		name.TextColor3 = INK
@@ -755,8 +779,8 @@ local function renderStats()
 
 		local blurb = Instance.new("TextLabel")
 		blurb.Text = def.description
-		blurb.Size = UDim2.new(1, -130, 0, 30)
-		blurb.Position = UDim2.fromOffset(12, 28)
+		blurb.Size = UDim2.new(1, textInset, 0, 30)
+		blurb.Position = UDim2.fromOffset(textX, 28)
 		blurb.BackgroundTransparency = 1
 		blurb.Font = Theme.fontRegular
 		blurb.TextColor3 = Color3.fromRGB(92, 84, 74)
@@ -769,8 +793,8 @@ local function renderStats()
 		-- "25 --> 39 units" rather than "+1 level": the purchase has to be
 		-- legible as the thing it does, not as an abstraction over it.
 		local change = Instance.new("TextLabel")
-		change.Size = UDim2.new(1, -130, 0, 22)
-		change.Position = UDim2.fromOffset(12, 56)
+		change.Size = UDim2.new(1, textInset, 0, 22)
+		change.Position = UDim2.fromOffset(textX, 56)
 		change.BackgroundTransparency = 1
 		change.Font = Theme.font
 		change.TextColor3 = Color3.fromRGB(150, 106, 30)

@@ -18,6 +18,23 @@ local Types = require(script.Parent.Parent.Types)
 
 local Upgrades = {}
 
+--[[
+	One drawn icon per line.
+
+	Every board in front of the shed is the same `ShopBoard` mesh, so the
+	picture on all five was identical: five signs a pace apart carrying the
+	same blue shape, telling you apart only by the words floating over them.
+	These are the same hand as the prop icons — flat, outlined, warm — so a
+	board and a journal row look like they came out of the same box.
+]]
+local ICONS: { [string]: string } = {
+	bag = "rbxassetid://76794692813079",
+	walk = "rbxassetid://84009081334241",
+	cash = "rbxassetid://95841231037567",
+	fuel = "rbxassetid://136822452100814",
+	trailer = "rbxassetid://97705952498292",
+}
+
 local list: { Types.UpgradeDef } = {
 	{
 		id = "bag",
@@ -84,6 +101,10 @@ local list: { Types.UpgradeDef } = {
 }
 
 Upgrades.list = list
+
+for _, def in list do
+	def.icon = ICONS[def.id]
+end
 
 local byId: { [string]: Types.UpgradeDef } = {}
 for _, def in list do
