@@ -384,6 +384,27 @@ function PlayerService.start()
 	equipRemote.OnServerEvent:Connect(onEquip)
 	trailerRemote.OnServerEvent:Connect(onPlaceTrailer)
 
+	--[[
+		A client asking for its own state.
+
+		The full state goes out when the profile finishes loading. That is
+		instant with a memory-only store, and lands before the client's handler
+		exists — so it is sent to nobody, and nothing schedules another. The
+		session then runs on the partial pushes alone: no owned tools, no
+		upgrade levels, no best times, and the opening story never plays.
+
+		This is the same fix `WORLD_INFO` already carries, for the same reason
+		and in the same shape: let the client ask, and keep asking until it has
+		an answer. Behind the same limiter as the rest of this boundary, since
+		it is a client-driven send that answers back.
+	]]
+	playerState.OnServerEvent:Connect(function(player: Player)
+		if not actionLimiterFor(player):tryConsume() then
+			return
+		end
+		PlayerService.push(player)
+	end)
+
 	Players.PlayerRemoving:Connect(function(player: Player)
 		lastPark[player] = nil
 		actionLimiters[player] = nil

@@ -14,6 +14,7 @@
 ]]
 
 local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
@@ -89,7 +90,7 @@ local function build()
 	caption = Theme.text({
 		name = "Caption",
 		text = "",
-		size = UDim2.new(0.86, 0, 0, 90),
+		size = UDim2.new(0.86, 0, 0, 132),
 		position = UDim2.new(0.5, 0, 0.72, 0),
 		anchor = Vector2.new(0.5, 0.5),
 		parent = gui,
@@ -104,26 +105,50 @@ local function build()
 			stays.
 		]]
 		color = Color3.fromRGB(255, 255, 255),
-		textSize = 36,
+		--[[
+			Big, the way the reference sets its captions.
+
+			36 on a 1080-tall screen is a subtitle; the reference's fills a
+			third of the width and is the loudest thing on screen, which is
+			what makes six short lines feel like a story rather than a tooltip
+			under the action. It scales with the viewport so a phone gets the
+			same proportion rather than the same pixels.
+		]]
+		textSize = 54,
 	})
 	caption.TextWrapped = true
 	caption.TextTransparency = 1
+	caption.TextScaled = false
+	local captionScale = Instance.new("UITextSizeConstraint")
+	captionScale.MaxTextSize = 54
+	captionScale.MinTextSize = 22
+	captionScale.Parent = caption
+	-- The theme's outline is thin for body text; a caption over a lit lawn
+	-- needs the reference's heavy one to hold its edge against anything.
+	local captionStroke = caption:FindFirstChildOfClass("UIStroke")
+	if captionStroke then
+		captionStroke.Thickness = 4
+		captionStroke.Transparency = 0
+	end
 
 	local skip = Instance.new("TextButton")
 	skip.Name = "Skip"
 	skip.Text = "SKIP"
-	skip.Size = UDim2.fromOffset(132, 46)
-	skip.Position = UDim2.new(1, -26, 1, -26)
+	skip.Size = UDim2.fromOffset(168, 58)
+	skip.Position = UDim2.new(1, -30, 1, -30)
 	skip.AnchorPoint = Vector2.new(1, 1)
 	skip.BackgroundColor3 = Color3.fromRGB(64, 154, 232)
 	skip.BorderSizePixel = 0
 	skip.AutoButtonColor = true
 	skip.Font = Theme.font
 	skip.TextColor3 = Color3.fromRGB(252, 250, 244)
-	skip.TextSize = 26
+	skip.TextSize = 32
 	skip.Parent = gui
-	Theme.corner(skip, 8)
+	Theme.corner(skip, 10)
 	Theme.outline(skip, 2)
+	-- A white ring round it, which is how the reference lifts its skip button
+	-- off the black bar it sits on.
+	Theme.stroke(skip, 3, Color3.fromRGB(252, 250, 244), 0.05)
 	skip.Activated:Connect(function()
 		Intro.finish()
 	end)
@@ -220,6 +245,42 @@ local function setChromeVisible(visible: boolean)
 	end
 end
 
+--[[
+	The scene sits behind the words, softened.
+
+	The reference blurs its property while the captions run, which is what
+	separates a cutscene from the game being played badly: the eye goes to the
+	words rather than to a lawn it cannot mow yet. Removed when the story ends
+	rather than switched off, so nothing is left over the player's own game if
+	they skip out of it early.
+]]
+local blur: BlurEffect? = nil
+
+local function setBlur(on: boolean)
+	if on then
+		if blur and blur.Parent then
+			return
+		end
+		local effect = Instance.new("BlurEffect")
+		effect.Name = "MowIntroBlur"
+		effect.Size = 0
+		effect.Parent = Lighting
+		blur = effect
+		TweenService:Create(effect, TweenInfo.new(FADE * 2), { Size = 18 }):Play()
+		return
+	end
+	local effect = blur
+	blur = nil
+	if not effect or not effect.Parent then
+		return
+	end
+	local out = TweenService:Create(effect, TweenInfo.new(FADE), { Size = 0 })
+	out.Completed:Connect(function()
+		effect:Destroy()
+	end)
+	out:Play()
+end
+
 --- True while the opening is on screen, so nothing else opens over it.
 function Intro.isPlaying(): boolean
 	return playing
@@ -232,6 +293,7 @@ function Intro.finish()
 	finished = true
 	playing = false
 	setChromeVisible(true)
+	setBlur(false)
 
 	if gui then
 		gui.Enabled = false
@@ -257,6 +319,7 @@ function Intro.play()
 	playing = true
 	gui.Enabled = true
 	setChromeVisible(false)
+	setBlur(true)
 
 	tween(topBar, FADE, { Position = UDim2.new(0, 0, 0, 0) })
 	tween(bottomBar, FADE, { Position = UDim2.new(0, 0, 0.86, 0) })
