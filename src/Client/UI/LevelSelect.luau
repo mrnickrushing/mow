@@ -237,28 +237,41 @@ local function drawCard(world: Types.WorldDef, order: number)
 	-- Gold on the one that is picked, the way the reference rings its choice.
 	Theme.stroke(card, 3, if chosen == world.id then Color3.fromRGB(252, 206, 74) else INK, if chosen == world.id then 0 else 0.4)
 
-	local banner = Instance.new("Frame")
+	--[[
+		The property itself, drawn.
+
+		This was the world's `baseGround` as a flat wash, which fell over the
+		moment two properties shared one: The House and The Mansion are both
+		`ground.lawn`, so two of the three cards were the same green rectangle
+		and the card did nothing the name was not already doing. Each property
+		now has its own picture — the teal-trimmed house, the mansion's three
+		gables, the station's red canopy — drawn in this game's palette so the
+		row of cards reads the way the reference's photographs do.
+	]]
+	local banner = Instance.new("ImageLabel")
 	banner.Name = "Banner"
 	banner.Size = UDim2.fromScale(1, 1)
 	banner.BackgroundColor3 = Palette.color(world.baseGround)
+	banner.Image = world.art or ""
+	banner.ScaleType = Enum.ScaleType.Crop
 	banner.BorderSizePixel = 0
 	banner.Parent = card
 	Theme.corner(banner, 10)
 
-	-- Darkened towards the bottom so white text sits on it and stays readable,
-	-- which is what the reference's photographs do naturally.
+	-- Darkened towards the bottom so the name sits on it and stays readable.
 	local shade = Instance.new("UIGradient")
-	shade.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(70, 70, 70))
+	shade.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+		ColorSequenceKeypoint.new(0.55, Color3.fromRGB(226, 226, 226)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(96, 96, 96)),
+	})
 	shade.Rotation = 90
 	shade.Parent = banner
 
 	if not open then
-		-- A property you have not earned is greyed rather than coloured.
-		local grey = Instance.new("UIGradient")
-		grey.Color = ColorSequence.new(Color3.fromRGB(120, 120, 120), Color3.fromRGB(60, 60, 60))
-		grey.Rotation = 90
-		grey.Parent = banner
-		shade:Destroy()
+		-- A property you have not earned is dimmed, not hidden: the picture is
+		-- most of what makes it worth earning.
+		shade.Color = ColorSequence.new(Color3.fromRGB(104, 104, 104), Color3.fromRGB(54, 54, 54))
 	end
 
 	--[[

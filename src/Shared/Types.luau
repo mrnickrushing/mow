@@ -100,6 +100,10 @@ export type WorldDef = {
 	--- up the tool ladder within a single run.
 	payoutMultiplier: number,
 	baseGround: Color3Like,
+	--- The card art for this property in the level select, drawn in the game's
+	--- own palette because the reference's cards are photographs and a flat
+	--- colour cannot tell two lawns apart.
+	art: string?,
 	--- Ordered. The first is where the run starts.
 	sections: { ZoneDef },
 	shed: { x: number, z: number },
