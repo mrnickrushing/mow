@@ -552,12 +552,29 @@ local function step(delta: number)
 	else
 		countdownLeft = nil
 		if status then
+			--[[
+				What to say to somebody who is already standing on a pad.
+
+				Players are placed at the south end and walk north, which takes
+				them over the team pads before the property plaques — so the
+				first thing a new player does is stand on a pad and get told
+				"Stand on a pad and pick a property", while standing on a pad.
+				`chosenWorld` is sticky and survives the walk, so the room does
+				work in that order; it just never said which half was missing.
+
+				The plaques cannot simply be moved in front of the pads: their
+				boards are eighteen studs tall and would sit close enough to the
+				entrance to hide the status board behind them, which is the one
+				thing in the room that explains what is happening.
+			]]
 			status.Text = if chosenWorld and party > 0 and not allowed
 				then `{Worlds.expect(chosenWorld).name} — somebody on the pads has to have cleared `
 					.. Worlds.expect((Worlds.expect(chosenWorld).requiresWorld :: any)).name
 				elseif chosenWorld
 					then `{Worlds.expect(chosenWorld).name} — stand on a team pad to start`
-				else "Stand on a pad and pick a property"
+				elseif party > 0
+					then "Now pick a property — the plaques are further in"
+				else "Stand on a team pad, and pick a property on the plaques"
 		end
 	end
 end

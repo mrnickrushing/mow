@@ -954,6 +954,40 @@ return function()
 			h.expectTrue(sold > 0, "nothing in the game has a price in tips, so nothing earns them a purpose")
 		end)
 
+		h.it("only names sections that exist somewhere", function()
+			--[[
+				A quest that names a place is held until that place is dealt
+				with, and the chain is a queue, so one that names nowhere at
+				all would hold every objective behind it forever.
+
+				`QuestService.catchUp` now steps over an objective whose
+				section this property does not have — which is what stops a
+				player who skipped the optional garage being stuck on it for
+				the rest of the game once they reach The Mansion. That fix has
+				a cost: a subject with a typo in it would be stepped over too,
+				silently, in every world. So the spelling is checked here.
+			]]
+			local known: { [string]: boolean } = {}
+			for _, world in Worlds.list do
+				for _, section in world.sections do
+					known[section.id] = true
+				end
+			end
+
+			for _, quest in Quests.list do
+				if quest.kind == "section" or quest.kind == "clearSection" then
+					h.expectTrue(
+						quest.subject ~= nil,
+						`{quest.id} is about a section but names none`
+					)
+					h.expectTrue(
+						known[quest.subject :: string] == true,
+						`{quest.id} names section "{tostring(quest.subject)}", which no world has`
+					)
+				end
+			end
+		end)
+
 		h.it("keeps the free reward loops meaningful", function()
 			local rewards = Monetization.rewards
 			h.expectTrue(#rewards.dailyStreak >= 7, "a daily streak should run at least a week")
