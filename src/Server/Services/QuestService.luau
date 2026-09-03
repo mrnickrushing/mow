@@ -213,6 +213,11 @@ function QuestService.start()
 
 	Players.PlayerRemoving:Connect(function(player: Player)
 		lastOpened[player] = nil
+		-- `catchUp` clears its own guard on the way out and never yields, so
+		-- this only matters if `advance` ever throws — but every other
+		-- per-player table in the game is dropped here, and a leftover entry
+		-- holds a reference to a player who has gone.
+		catchingUp[player] = nil
 	end)
 end
 

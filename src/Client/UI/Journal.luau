@@ -1020,6 +1020,25 @@ local function signature(): string
 	table.sort(owned)
 	table.insert(parts, table.concat(owned, ","))
 
+	--[[
+		What you own for good, which is a different set from what you own now.
+
+		The tool spread offers two prices — cash for this run, tips for every
+		run after — and the tips one disappears once it is bought. Buying
+		permanence for a tool you had *already* bought with cash this run
+		changes neither `ownedTools` nor the equipped tool, so without this the
+		spread would not redraw and the offer would sit there having already
+		been taken.
+	]]
+	local kept = {}
+	for id, has in state.permanentTools do
+		if has then
+			table.insert(kept, id)
+		end
+	end
+	table.sort(kept)
+	table.insert(parts, table.concat(kept, ","))
+
 	local levels = {}
 	for key, level in state.upgrades do
 		table.insert(levels, `{key}={level}`)

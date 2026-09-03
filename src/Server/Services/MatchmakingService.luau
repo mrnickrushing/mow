@@ -103,12 +103,36 @@ function MatchmakingService.send(team: { Player }, worldId: string, partySize: n
 			return
 		end
 
+		--[[
+			Who is actually still here.
+
+			`team` was gathered from the pads before `ReserveServer`, which is
+			a web call — so anybody can have left the game in between, and
+			`TeleportAsync` given a player who is gone throws for the whole
+			list. One person closing the tab would have stranded the other
+			three in the lobby, watching a countdown they had finished.
+
+			The party size goes with them rather than the number the pads
+			counted, so the run they arrive in owes waves for the team that
+			turned up.
+		]]
+		local going: { Player } = {}
+		for _, player in team do
+			if player.Parent then
+				table.insert(going, player)
+			end
+		end
+		if #going == 0 then
+			sending = false
+			return
+		end
+
 		local options = Instance.new("TeleportOptions")
 		options.ReservedServerAccessCode = code
-		options:SetTeleportData({ worldId = worldId, partySize = partySize })
+		options:SetTeleportData({ worldId = worldId, partySize = math.min(partySize, #going) })
 
 		local sent = pcall(function()
-			TeleportService:TeleportAsync(game.PlaceId, team, options)
+			TeleportService:TeleportAsync(game.PlaceId, going, options)
 		end)
 		if not sent then
 			warn("[Matchmaking] the teleport failed; the team stays in the lobby")

@@ -36,12 +36,10 @@ Remotes.ROUND_STATE = "RoundState"
 Remotes.NOTIFY = "Notify"
 --- Client -> server: prompt a Robux purchase.
 Remotes.PROMPT_PURCHASE = "PromptPurchase"
---- Client -> server: park or recall the portable trailer.
+--- Client -> server: park the portable trailer where the player stands.
 Remotes.PLACE_TRAILER = "PlaceTrailer"
 --- Client -> server: mount or dismount a vehicle.
 Remotes.VEHICLE = "Vehicle"
---- Client -> server: interact with a tree, stump or chipper.
-Remotes.INTERACT = "Interact"
 --- Server -> client: the objective chain and its progress.
 Remotes.QUESTS = "Quests"
 --- Client -> server: pick the world to play next, from the level select.
@@ -65,7 +63,6 @@ local EVENTS = {
 	Remotes.PROMPT_PURCHASE,
 	Remotes.PLACE_TRAILER,
 	Remotes.VEHICLE,
-	Remotes.INTERACT,
 	Remotes.QUESTS,
 	Remotes.SELECT_WORLD,
 }
