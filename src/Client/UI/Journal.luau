@@ -430,14 +430,36 @@ local function slotCard(parent: Instance, order: number, slot: any, owned: boole
 	tileStroke.Transparency = if selectedKey == slot.key and owned then 0 else 0.65
 	tileStroke.Parent = tile
 
-	Theme.icon({
-		name = "Icon",
-		prop = if owned then Props.forToolCategory(slot.category) else "Padlock",
-		size = UDim2.fromScale(0.82, 0.82),
-		position = UDim2.fromScale(0.5, 0.5),
-		anchor = Vector2.new(0.5, 0.5),
-		parent = tile,
-	})
+	--[[
+		The kind of upgrade, not the tool it belongs to.
+
+		The tile used to carry the tool's own model, which made a tool's three
+		slots three identical pictures — the card said "Dexterity" and showed
+		a glove, exactly as the card beside it saying "Grasp" did. The tool is
+		named across the top of the panel already. What the tile has to say is
+		which of the three things this slot buys, and that is the same three
+		things on every tool in the book.
+	]]
+	if owned and slot.icon then
+		local picture = Instance.new("ImageLabel")
+		picture.Name = "Icon"
+		picture.Size = UDim2.fromScale(0.82, 0.82)
+		picture.Position = UDim2.fromScale(0.5, 0.5)
+		picture.AnchorPoint = Vector2.new(0.5, 0.5)
+		picture.BackgroundTransparency = 1
+		picture.Image = slot.icon
+		picture.ScaleType = Enum.ScaleType.Fit
+		picture.Parent = tile
+	else
+		Theme.icon({
+			name = "Icon",
+			prop = if owned then Props.forToolCategory(slot.category) else "Padlock",
+			size = UDim2.fromScale(0.82, 0.82),
+			position = UDim2.fromScale(0.5, 0.5),
+			anchor = Vector2.new(0.5, 0.5),
+			parent = tile,
+		})
+	end
 
 	local cost = ToolUpgrades.costAt(slot, level)
 	local price = Instance.new("TextLabel")

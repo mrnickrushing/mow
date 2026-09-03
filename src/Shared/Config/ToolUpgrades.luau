@@ -43,6 +43,8 @@ export type Slot = {
 	maxLevel: number,
 	--- Additive step per level: power in height-levels, rate and yield in x.
 	step: number,
+	--- The drawn icon for this slot's *kind*, shared by every tool.
+	icon: string,
 }
 
 ToolUpgrades.MAX_LEVEL = 5
@@ -96,6 +98,23 @@ local BLURBS: { [SlotKind]: string } = {
 	yield = "Waste less — more clippings from every cut.",
 }
 
+--[[
+	One picture per kind, not per tool.
+
+	Every slot card used to show the tool's own model, so a tool's three
+	slots were three identical tiles: "Hold", "Dexterity", "Grasp" told apart
+	by a word that does not say what it buys. The tool is already named
+	across the top of its panel — what the card has to say is which of the
+	three things it does. A blade biting into ground, a stopwatch, a heap of
+	clippings; the same three pictures on all eleven tools, so the shape of
+	the choice is learned once.
+]]
+local ICONS: { [SlotKind]: string } = {
+	power = "rbxassetid://117313192158171",
+	rate = "rbxassetid://82556642471354",
+	yield = "rbxassetid://76308088764476",
+}
+
 --------------------------------------------------------------------
 -- Trees
 --------------------------------------------------------------------
@@ -114,6 +133,7 @@ local function makeSlot(tool: Types.ToolDef, index: number, kind: SlotKind): Slo
 		costGrowth = ToolUpgrades.COST_GROWTH,
 		maxLevel = ToolUpgrades.MAX_LEVEL,
 		step = STEP[kind],
+		icon = ICONS[kind],
 	}
 end
 
