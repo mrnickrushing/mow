@@ -153,8 +153,29 @@ local GameConfig = {
 	-- Persistence
 	--------------------------------------------------------------------
 	DATASTORE_NAME = "MowAllTheLawns_PlayerData_v1",
-	AUTOSAVE_SECONDS = 120,
-	--- Seconds before another server may steal a stale session lock.
+	--[[
+		How often a profile is written back — which is also, and this is the
+		part that mattered, how often its session lock is told somebody is
+		still holding it. `Store.save` is the only thing that refreshes
+		`lockHeartbeat`, and the autosave loop is the only thing that calls it
+		while a player is playing.
+
+		It was a hundred and twenty seconds against a ninety second timeout, so
+		every live player's own lock read as dead for thirty seconds out of
+		every two minutes, from their first minute onward. Store's comment
+		about waiting for a lock says "once the holder stops beating,
+		`lockIsLive` goes false on its own" — it was going false while the
+		holder was still beating, which is the whole failure the lock exists to
+		prevent: two servers holding one save, last writer wins, the other's
+		progress gone.
+
+		Three beats inside every timeout window now, so one missed or throttled
+		save cannot open the hole. It also halves the progress a crash can
+		take with it, which is the other thing autosave is for.
+	]]
+	AUTOSAVE_SECONDS = 30,
+	--- Seconds before another server may steal a stale session lock. Must stay
+	--- comfortably above AUTOSAVE_SECONDS; there is a test.
 	SESSION_LOCK_TIMEOUT = 90,
 }
 

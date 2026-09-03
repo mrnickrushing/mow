@@ -830,6 +830,28 @@ return function()
 			end
 		end)
 
+		h.it("beats the session lock more than once before it expires", function()
+			--[[
+				`Store.save` is the only thing that refreshes `lockHeartbeat`,
+				and the autosave loop is the only thing that calls it while
+				somebody is playing — so the autosave interval *is* the
+				heartbeat interval, and it has to fit inside the timeout it is
+				keeping alive.
+
+				It did not: a hundred and twenty second autosave against a
+				ninety second timeout meant every live player's own lock read
+				as dead for a quarter of every cycle, and any other server
+				could take their save out from under them while they were
+				still playing on it. Room for a missed beat, not just one that
+				lands exactly on time.
+			]]
+			h.expectTrue(
+				GameConfig.AUTOSAVE_SECONDS * 2 <= GameConfig.SESSION_LOCK_TIMEOUT,
+				`autosave every {GameConfig.AUTOSAVE_SECONDS}s cannot hold a lock that `
+					.. `goes stale after {GameConfig.SESSION_LOCK_TIMEOUT}s`
+			)
+		end)
+
 		h.it("keeps the free reward loops meaningful", function()
 			local rewards = Monetization.rewards
 			h.expectTrue(#rewards.dailyStreak >= 7, "a daily streak should run at least a week")
