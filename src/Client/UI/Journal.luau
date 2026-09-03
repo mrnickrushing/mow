@@ -50,6 +50,8 @@ local PAPER_EDGE = Color3.fromRGB(222, 206, 172)
 local INK = Color3.fromRGB(58, 46, 96)
 local COVER = Color3.fromRGB(58, 118, 186)
 local LOCKED = Color3.fromRGB(158, 154, 148)
+--- A brighter, opaque card on the parchment page it sits on.
+local CARD = Color3.fromRGB(255, 252, 241)
 
 --[[
 	The tabs, in the order a player needs them.
@@ -115,6 +117,32 @@ local function heading(page: Frame, text: string)
 	label.Parent = page
 end
 
+--[[
+	A row's own card, so it reads as a thing rather than as text floating on
+	the page.
+
+	Objectives and the zone list used to be `BackgroundTransparency = 1` —
+	nothing behind the words at all, on a page whose whole point is warm
+	parchment rather than a settings list. The card is brighter than the page
+	it sits on rather than a translucent tint of it, because a tint of PAPER
+	over PAPER is the page: the two are close enough in both hue and value
+	that the "card" was there in the tree and invisible on the screen.
+]]
+local function card(parent: Instance, height: number): Frame
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -12, 0, height)
+	row.BackgroundColor3 = CARD
+	row.BorderSizePixel = 0
+	row.Parent = parent
+	Theme.corner(row, 8)
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 1.5
+	stroke.Color = INK
+	stroke.Transparency = 0.75
+	stroke.Parent = row
+	return row
+end
+
 --- A scrolling body area under the heading.
 local function body(page: Frame): ScrollingFrame
 	local scroll = Instance.new("ScrollingFrame")
@@ -145,19 +173,25 @@ local function renderObjectives()
 	local scroll = body(leftPage)
 
 	for order, entry in questState do
-		local row = Instance.new("Frame")
+		local row = card(scroll, 54)
 		row.Name = entry.id
-		row.Size = UDim2.new(1, -12, 0, 54)
-		row.BackgroundTransparency = 1
 		row.LayoutOrder = order
-		row.Parent = scroll
 
-		-- A drawn checkbox rather than a tick character, so an unfinished
-		-- objective still reads as something waiting to be done.
+		--[[
+			A drawn checkbox rather than a tick character, so an unfinished
+			objective still reads as something waiting to be done.
+
+			It was filled with `PAPER` while unchecked, which was the page's
+			own colour sitting on a card that is now a different colour again
+			— an empty box no longer merely blended into the parchment, it sat
+			there as a small parchment-coloured island on a white one. White
+			reads as "not yet" against a filled green the same way an unchecked
+			real-world checkbox does.
+		]]
 		local box = Instance.new("Frame")
 		box.Size = UDim2.fromOffset(24, 24)
-		box.Position = UDim2.fromOffset(2, 4)
-		box.BackgroundColor3 = if entry.done then Color3.fromRGB(126, 186, 108) else PAPER
+		box.Position = UDim2.fromOffset(10, 15)
+		box.BackgroundColor3 = if entry.done then Color3.fromRGB(126, 186, 108) else Color3.fromRGB(255, 255, 255)
 		box.BorderSizePixel = 0
 		box.Parent = row
 		Theme.corner(box, 5)
@@ -179,8 +213,8 @@ local function renderObjectives()
 		end
 		local title = Instance.new("TextLabel")
 		title.Text = entry.text
-		title.Size = UDim2.new(1, -40, 0, 26)
-		title.Position = UDim2.fromOffset(36, 2)
+		title.Size = UDim2.new(1, -50, 0, 26)
+		title.Position = UDim2.fromOffset(46, 13)
 		title.BackgroundTransparency = 1
 		title.Font = Theme.font
 		title.TextColor3 = if entry.done then LOCKED else Color3.fromRGB(48, 40, 32)
@@ -200,8 +234,8 @@ local function renderObjectives()
 				progress.Text = `({Format.count(current.progress)}/{Format.count(current.target)})`
 			end
 		end)
-		progress.Size = UDim2.new(1, -40, 0, 22)
-		progress.Position = UDim2.fromOffset(36, 26)
+		progress.Size = UDim2.new(1, -50, 0, 22)
+		progress.Position = UDim2.fromOffset(46, 33)
 		progress.BackgroundTransparency = 1
 		progress.Font = Theme.fontRegular
 		progress.TextColor3 = LOCKED
@@ -858,11 +892,8 @@ local function renderCollection()
 			local owned = PlayerState.isSectionOpen(section.id)
 			local kind = Worlds.unlockKind(section)
 
-			local row = Instance.new("Frame")
-			row.Size = UDim2.new(1, -12, 0, 44)
-			row.BackgroundTransparency = 1
+			local row = card(scroll, 44)
 			row.LayoutOrder = order
-			row.Parent = scroll
 
 			local name = Instance.new("TextLabel")
 			name.Text = if owned then section.name else `    {section.name}`
@@ -871,11 +902,12 @@ local function renderCollection()
 					name = "Lock",
 					prop = "Padlock",
 					size = UDim2.fromOffset(22, 22),
-					position = UDim2.fromOffset(0, 11),
+					position = UDim2.fromOffset(10, 11),
 					parent = row,
 				})
 			end
-			name.Size = UDim2.new(1, -100, 1, 0)
+			name.Position = UDim2.fromOffset(10, 0)
+			name.Size = UDim2.new(1, -110, 1, 0)
 			name.BackgroundTransparency = 1
 			name.Font = Theme.font
 			name.TextColor3 = if owned then Color3.fromRGB(52, 44, 36) else LOCKED
@@ -888,7 +920,7 @@ local function renderCollection()
 					name = "Done",
 					prop = "Tick",
 					size = UDim2.fromOffset(24, 24),
-					position = UDim2.new(1, -30, 0, 10),
+					position = UDim2.new(1, -40, 0, 10),
 					parent = row,
 				})
 			end
@@ -900,7 +932,7 @@ local function renderCollection()
 				elseif kind == "button" then "find switch"
 				else Format.cash(section.cost)
 			how.Size = UDim2.new(0, 96, 1, 0)
-			how.Position = UDim2.new(1, 0, 0, 0)
+			how.Position = UDim2.new(1, -10, 0, 0)
 			how.AnchorPoint = Vector2.new(1, 0)
 			how.BackgroundTransparency = 1
 			how.Font = Theme.fontRegular
@@ -913,6 +945,12 @@ local function renderCollection()
 
 	heading(rightPage, "Records")
 	local right = body(rightPage)
+	-- One card holding all three, because these are facts about the same run
+	-- rather than a list of separate choices — a list of cards read as three
+	-- unrelated things instead of one summary.
+	local panel = card(right, 34 * 3 + 24)
+	panel.LayoutOrder = 1
+
 	-- Written out of the state each time rather than baked into a string, so
 	-- the records keep counting while the page stays still.
 	local lines: { (PlayerState.State) -> string } = {
@@ -931,14 +969,14 @@ local function renderCollection()
 		live(function()
 			label.Text = line(PlayerState.get())
 		end)
-		label.Size = UDim2.new(1, -12, 0, 34)
+		label.Size = UDim2.new(1, -24, 0, 34)
+		label.Position = UDim2.fromOffset(12, 12 + (order - 1) * 34)
 		label.BackgroundTransparency = 1
 		label.Font = Theme.fontRegular
 		label.TextColor3 = Color3.fromRGB(52, 44, 36)
 		label.TextSize = 18
 		label.TextXAlignment = Enum.TextXAlignment.Left
-		label.LayoutOrder = order
-		label.Parent = right
+		label.Parent = panel
 	end
 end
 
