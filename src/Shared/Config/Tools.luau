@@ -123,7 +123,7 @@ local list: { Types.ToolDef } = {
 		robuxOnce = 45,
 		robuxPermanent = 99,
 		robuxWas = 249,
-		tipsPermanent = 750,
+		tipsPermanent = 1200,
 		description = "The first time the lawn stops fighting back.",
 	},
 	{
@@ -143,7 +143,7 @@ local list: { Types.ToolDef } = {
 		robuxOnce = 55,
 		robuxPermanent = 120,
 		robuxWas = 299,
-		tipsPermanent = 1400,
+		tipsPermanent = 2500,
 		description = "Eats weeds. Edges like a surgeon. Loud as a chainsaw.",
 	},
 	{
