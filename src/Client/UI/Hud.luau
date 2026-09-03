@@ -21,6 +21,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Debris = require(Shared.Config.Debris)
+local RunOnly = require(script.Parent.RunOnly)
 local Format = require(Shared.Util.Format)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
@@ -109,6 +110,7 @@ local function buildCrosshair(gui: ScreenGui)
 	mark.Rotation = 45
 	mark.BackgroundTransparency = 1
 	mark.Parent = gui
+	RunOnly.add(mark)
 
 	local stroke = Instance.new("UIStroke")
 	stroke.Thickness = 2
@@ -350,6 +352,7 @@ local function buildRightColumn(gui: ScreenGui)
 		color = Theme.colors.cash,
 		textSize = 22,
 	})
+	RunOnly.add(toolStateLabel)
 
 	fuelPanel = Instance.new("Frame")
 	fuelPanel.Name = "Fuel"
@@ -382,6 +385,7 @@ local function buildBag(gui: ScreenGui)
 	holder.AnchorPoint = Vector2.new(0, 1)
 	holder.BackgroundTransparency = 1
 	holder.Parent = gui
+	RunOnly.add(holder)
 
 	-- A sack: a rounded body with a pinched neck above it.
 	local sack = Instance.new("Frame")
@@ -437,6 +441,7 @@ local function buildMiddle(gui: ScreenGui)
 		color = Theme.colors.cash,
 		textSize = 27,
 	})
+	RunOnly.add(rateLabel)
 
 	gainHolder = Instance.new("Frame")
 	gainHolder.Name = "Gains"

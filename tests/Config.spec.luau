@@ -15,6 +15,7 @@ local Worlds = require("./.build/Shared/Config/Worlds")
 local Tools = require("./.build/Shared/Config/Tools")
 local Types = require("./.build/Shared/Types")
 local DefaultData = require("./.build/Server/Lib/DefaultData")
+local LobbyPad = require("./.build/Shared/LobbyPad")
 local Props = require("./.build/Shared/Config/Props")
 local Upgrades = require("./.build/Shared/Config/Upgrades")
 local Quests = require("./.build/Shared/Config/Quests")
@@ -524,6 +525,80 @@ return function()
 		h.it("replaces a receipts field of the wrong type", function()
 			local corrupt = DefaultData.migrate({ version = 1, receipts = "not a table" })
 			h.expectTrue(type(corrupt.receipts) == "table", "a corrupt receipts field survived migration")
+		end)
+
+		h.it("agrees with itself about where a pad ends", function()
+			--[[
+				The client opened its panel on a circle of radius 14; the
+				server decided which game you joined on a square reaching 13,
+				and checked your height where the client did not. Both numbers
+				came off the same 24-stud pad and neither knew about the other.
+
+				13.5 studs out is the gap that mattered: the panel opened, the
+				green Confirm went up, and the server answered "Stand on a pad
+				to set a game up" to somebody plainly standing on one.
+			]]
+			local PAD, SIZE = 0, 24
+			h.expectTrue(LobbyPad.covers(PAD, 0, PAD, SIZE, 0, 0, 0), "the middle of a pad is not on it")
+			h.expectTrue(
+				not LobbyPad.covers(PAD, 0, PAD, SIZE, 13.5, 0, 0),
+				"13.5 studs out still counts, which is the disagreement that opened a panel over a refusal"
+			)
+			h.expectTrue(
+				LobbyPad.covers(PAD, 0, PAD, SIZE, 13, 0, 13),
+				"the corner of a square pad reads as off it"
+			)
+			h.expectTrue(
+				not LobbyPad.covers(PAD, 0, PAD, SIZE, 0, 20, 0),
+				"standing twenty studs above a pad counts as standing on it"
+			)
+		end)
+
+		h.it("keeps flanking scenery off the pads", function()
+			--[[
+				Shrinking the lobby from 260 studs to 160 moved the hedge rows
+				without anybody asking them to: they were placed at
+				`halfW - 34`, which fell from 96 to 46 while the pad row went
+				on reaching 60. Eight hedge parts ended up standing inside the
+				first pad and eight inside the last, so half the games in the
+				lobby were advertised by a shrub.
+
+				The flanks are measured off the pads now, and this is the
+				statement that was silently false before.
+			]]
+			for slots = 1, 8 do
+				local reach = LobbyPad.rowReach(slots)
+				local flank = LobbyPad.flankX(slots)
+				h.expectTrue(
+					flank > reach,
+					`with {slots} pads the flanks sit at {flank}, inside a row reaching {reach}`
+				)
+				-- The outermost pad, checked through the predicate itself.
+				local outer = (slots - 1) * 0.5 * LobbyPad.SPACING
+				h.expectTrue(
+					not LobbyPad.covers(outer, 0, 0, LobbyPad.SPAN, flank, 0, 0),
+					`with {slots} pads the hedge line at {flank} stands on the outermost pad`
+				)
+			end
+		end)
+
+		h.it("never puts one player on two pads at once", function()
+			--[[
+				The four pads sit 32 apart and are 24 across, so the margin has
+				eight studs of gap to live in. Overlapping reaches would let a
+				player set up one game and be counted into its neighbour.
+			]]
+			local FIRST, SPACING, SIZE, COUNT = -648, 32, 24, 4
+			for step = 0, 1400 do
+				local x = FIRST - 40 + step * 0.1
+				local on = 0
+				for i = 0, COUNT - 1 do
+					if LobbyPad.covers(FIRST + i * SPACING, 0, -592, SIZE, x, 0, -592) then
+						on += 1
+					end
+				end
+				h.expectTrue(on <= 1, `x={x} counts as standing on {on} pads at once`)
+			end
 		end)
 
 		h.it("survives every template field arriving as the wrong type", function()

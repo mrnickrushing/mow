@@ -23,6 +23,7 @@ local TrailerController = require(Controllers.TrailerController)
 local VehicleController = require(Controllers.VehicleController)
 
 local Hud = require(script.UI.Hud)
+local RunOnly = require(script.UI.RunOnly)
 local RoundBar = require(script.UI.RoundBar)
 local Hotbar = require(script.UI.Hotbar)
 local Journal = require(script.UI.Journal)
@@ -31,6 +32,8 @@ local Intro = require(script.UI.Intro)
 local LevelSelect = require(script.UI.LevelSelect)
 
 PlayerState.start()
+-- Before the screens that register with it, so no phase change is missed.
+RunOnly.start()
 -- Before anything that might play a cue on its first frame.
 SoundController.start()
 GrassRenderer.start()

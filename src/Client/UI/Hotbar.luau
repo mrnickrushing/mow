@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Palette = require(Shared.Config.Palette)
+local RunOnly = require(script.Parent.RunOnly)
 local Props = require(Shared.Config.Props)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
@@ -214,6 +215,7 @@ function Hotbar.start()
 
 	holder = Instance.new("Frame")
 	holder.Name = "Slots"
+	RunOnly.add(holder)
 	holder.Size = UDim2.fromOffset(MAX_SLOTS * 74, 80)
 	holder.Position = UDim2.new(0.5, 0, 1, -12)
 	holder.AnchorPoint = Vector2.new(0.5, 1)
