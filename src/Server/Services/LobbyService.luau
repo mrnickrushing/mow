@@ -35,7 +35,16 @@ local LobbyService = {}
 
 --- Far enough from every lot that nothing can ever overlap it.
 local CENTRE = Vector3.new(-600, 0, -600)
-local FLOOR_W, FLOOR_D = 260, 260
+--[[
+	A yard, not a field.
+
+	This was two hundred and sixty studs square with the pads sixty-two apart,
+	which is a long walk between two things you are trying to compare and a lot
+	of empty grass in every direction. Everything a player has to read now sits
+	inside about a hundred and sixty, close enough that the four games are one
+	glance rather than a tour.
+]]
+local FLOOR_W, FLOOR_D = 160, 160
 --- Games that can be set up side by side in the yard, and the most people
 --- any one of them can take.
 local GAME_SLOTS = 4
@@ -110,34 +119,50 @@ local function surface(part: BasePart, face: Enum.NormalId, scale: number): Text
 	return label
 end
 
+
 --[[
-	A heading painted on the floor rather than stood up on a post.
+	A pad you stand on, drawn as a glowing outline rather than a slab.
 
-	The first pass put both headings on boards at head height, which put a wall
-	across the room: from the door you read "YOUR TEAM" and saw nothing else,
-	because the sign was between you and the pads it was naming. Words on the
-	floor label the thing you are walking towards without standing in front of
-	it.
+	The reference marks its game pads with a bright rectangle burnt into the
+	grass — the lawn shows through the middle and only the edge glows. A solid
+	grey slab reads as a bit of pavement somebody left out; an outline reads as
+	somewhere to stand, which is the whole job of the thing.
+
+	The part that does the standing-on is invisible: it is there to be measured
+	against and to hang the floating count on, and the four neon edges are what
+	you actually see.
 ]]
-local function floorHeading(name: string, width: number, at: Vector3, parent: Instance): TextLabel
-	--[[
-		Turned a quarter, because a Top face reads across the part's Z.
-
-		Laid out the obvious way — long along X — the words came out running
-		up the strip instead of along it, and turned the other way they came
-		out mirrored. The strip is built long along Z and turned to face, so
-		the footprint is the same and the sentence reads left to right.
-	]]
-	local strip = Build.part({
+local function glowPad(name: string, at: Vector3, span: number, parent: Instance): BasePart
+	local plate = Build.part({
 		name = name,
-		size = Vector3.new(7, 0.3, width),
-		cframe = CFrame.new(at + Vector3.new(0, 0.15, 0)) * CFrame.Angles(0, math.rad(-90), 0),
-		color = Palette.color(Palette.house.trim),
+		size = Vector3.new(span, 0.4, span),
+		cframe = CFrame.new(at),
+		color = Palette.color(Palette.ground.lawn),
 		material = Enum.Material.SmoothPlastic,
 		canCollide = false,
 		parent = parent,
 	})
-	return surface(strip, Enum.NormalId.Top, 0.8)
+	plate.Transparency = 1
+
+	local half = span * 0.5
+	for _, edge in {
+		{ Vector3.new(span, 0.35, 1.6), Vector3.new(0, 0, half) },
+		{ Vector3.new(span, 0.35, 1.6), Vector3.new(0, 0, -half) },
+		{ Vector3.new(1.6, 0.35, span), Vector3.new(half, 0, 0) },
+		{ Vector3.new(1.6, 0.35, span), Vector3.new(-half, 0, 0) },
+	} do
+		local strip = Build.part({
+			name = "PadEdge",
+			size = edge[1],
+			cframe = CFrame.new(at + edge[2]),
+			color = Color3.fromRGB(255, 255, 255),
+			material = Enum.Material.Neon,
+			canCollide = false,
+			parent = parent,
+		})
+		strip.CastShadow = false
+	end
+	return plate
 end
 
 local function pad(name: string, at: Vector3, colour: Color3, parent: Instance, span: number?): (BasePart, TextLabel)
@@ -204,8 +229,8 @@ local function build()
 	-- A path from the gate to the plaques, so the way in is a way somewhere.
 	Build.flagstone(
 		root,
-		CENTRE + Vector3.new(0, 1.15, 20),
-		Vector2.new(16, 190),
+		CENTRE + Vector3.new(0, 1.15, 16),
+		Vector2.new(14, 108),
 		5,
 		rng
 	)
@@ -230,36 +255,75 @@ local function build()
 		settings for that game; the board behind it says what it is.
 	]]
 	for index = 1, GAME_SLOTS do
-		local x = (index - (GAME_SLOTS + 1) * 0.5) * 62
-		local at = CENTRE + Vector3.new(x, 1.5, 22)
-		local padPart, padLabel = pad(
-			`GamePad{index}`,
-			at,
-			Palette.color(Palette.ground.stone),
-			root,
-			24
-		)
+		local x = (index - (GAME_SLOTS + 1) * 0.5) * 32
+		local at = CENTRE + Vector3.new(x, 1.5, 8)
+		local padPart = glowPad(`GamePad{index}`, at - Vector3.new(0, 1.3, 0), 24, root)
+
+		--[[
+			The count floats over the pad rather than being painted on it.
+
+			Text on a Top face is read at whatever angle you happen to be
+			standing at, which for somebody walking up to a pad is almost edge
+			on — the words smear into the grass and you cannot tell a "0/4"
+			from a "2/4". A billboard faces you wherever you are, which is what
+			the reference game does with exactly this label, and it is the one
+			piece of information a player crossing the yard is actually
+			looking for.
+		]]
+		local floating = Build.billboard(padPart, UDim2.fromScale(17, 6.5), 4, 260)
+		local padLabel = Build.label(floating, "", UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), 2.2)
 
 		-- The board behind it, at head height and low enough that four of them
 		-- in a row do not wall the yard off from its own marquee.
+		--[[
+			A timber board, leaned back the way a sign in a yard leans.
+
+			Flat teal panels standing dead vertical read as menu furniture. The
+			reference frames every one of these in brown wood on wooden posts
+			and tilts it towards whoever is walking up, which is what makes its
+			lobby look like a place rather than a screen.
+		]]
+		--[[
+			Turned to face the gate, then leaned back.
+
+			A part's `Front` face is its own -Z, so a board left at the
+			identity orientation shows its blank back to anybody walking up and
+			paints its writing on the fence behind it. `lookAt` turns it round
+			first; the lean goes on after, and its sign flips with the turn.
+		]]
+		local function facing(at: Vector3): CFrame
+			return CFrame.lookAt(at, at + Vector3.new(0, 0, 1)) * CFrame.Angles(math.rad(12), 0, 0)
+		end
+		Build.part({
+			name = `GameBoardFrame{index}`,
+			size = Vector3.new(30, 11, 1.3),
+			cframe = facing(CENTRE + Vector3.new(x, 12, -10)),
+			color = Palette.color(Palette.fence.rail),
+			material = Enum.Material.WoodPlanks,
+			parent = root,
+		})
 		local board = Build.part({
 			name = `GameBoard{index}`,
-			size = Vector3.new(40, 11, 1),
-			cframe = CFrame.lookAt(
-				CENTRE + Vector3.new(x, 10, 2),
-				CENTRE + Vector3.new(x, 10, 3)
-			),
-			color = Palette.color(Palette.house.trim),
+			size = Vector3.new(27.5, 8.5, 1),
+			--[[
+				High enough to clear the count floating over its own pad.
+
+				Both were at head height and they sat straight on top of each
+				other from the near side of the yard: "2/4 Starting in 4"
+				printed across "The House EASY" and neither could be read.
+			]]
+			cframe = facing(CENTRE + Vector3.new(x, 12, -9.2)),
+			color = Palette.color(Palette.house.siding),
 			material = Enum.Material.SmoothPlastic,
 			parent = root,
 		})
 		for _, side in { -1, 1 } do
 			Build.part({
 				name = "BoardLeg",
-				size = Vector3.new(1, 10, 1),
-				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 17, 5, 2)),
-				color = Palette.color(Palette.fence.rail),
-				material = Enum.Material.SmoothPlastic,
+				size = Vector3.new(1.6, 13, 1.6),
+				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 13, 6.5, -9.5)),
+				color = Palette.color(Palette.house.roof),
+				material = Enum.Material.WoodPlanks,
 				parent = root,
 			})
 		end
@@ -275,8 +339,16 @@ local function build()
 		}
 	end
 
-	local heading = floorHeading("PickSign", 96, CENTRE + Vector3.new(0, 1.9, 58), root)
-	heading.Text = "STAND ON A PAD TO START A GAME"
+	--[[
+		No writing on the grass.
+
+		A strip of text laid flat is read at whatever angle you happen to be
+		standing at, which walking towards it means almost edge on: it smeared
+		across the middle of the yard and said nothing legible. The boards and
+		the pads already carry the instruction — "Select a map!" over a game
+		nobody has set up, "Create a game!" on the pad under it — so the strip
+		was a third voice saying the same thing worse.
+	]]
 
 	--------------------------------------------------------------------
 	-- The yard it is all standing in
@@ -303,16 +375,16 @@ local function build()
 			prop = "Column",
 			name = "ArchColumn",
 			size = Vector3.new(4, 20, 4),
-			cframe = CFrame.new(CENTRE + Vector3.new(side * 20, 10, 96)),
+			cframe = CFrame.new(CENTRE + Vector3.new(side * 15, 9, 58)),
 			parent = yard,
 		})
 	end
 	local archBoard = Build.part({
 		name = "ArchSign",
-		size = Vector3.new(48, 8, 1.4),
+		size = Vector3.new(36, 7, 1.3),
 		cframe = CFrame.lookAt(
-			CENTRE + Vector3.new(0, 22, 96),
-			CENTRE + Vector3.new(0, 22, 97)
+			CENTRE + Vector3.new(0, 20, 58),
+			CENTRE + Vector3.new(0, 20, 59)
 		),
 		color = Palette.color(Palette.house.trim),
 		material = Enum.Material.SmoothPlastic,
@@ -327,12 +399,12 @@ local function build()
 		of this room every player crosses, and a lamp post in the middle of it
 		is a thing to get stuck on.
 	]]
-	for _, z in { 86, 58, 14, -22, -70 } do
+	for _, z in { 50, 24, -2, -28 } do
 		for _, side in { -1, 1 } do
 			Build.part({
 				name = "LampPost",
 				size = Vector3.new(0.9, 11, 0.9),
-				cframe = CFrame.new(CENTRE + Vector3.new(side * 26, 5.5, z)),
+				cframe = CFrame.new(CENTRE + Vector3.new(side * 62, 5.5, z)),
 				color = Palette.color(Palette.fence.rail),
 				material = Enum.Material.SmoothPlastic,
 				parent = yard,
@@ -341,7 +413,7 @@ local function build()
 				prop = "Lantern",
 				name = "Lantern",
 				size = Vector3.new(2.6, 3.9, 2.4),
-				cframe = CFrame.new(CENTRE + Vector3.new(side * 26, 12.6, z)),
+				cframe = CFrame.new(CENTRE + Vector3.new(side * 62, 12.6, z)),
 				canCollide = false,
 				parent = yard,
 			})
@@ -354,13 +426,13 @@ local function build()
 	end
 
 	-- The shed the whole business runs out of, off the left of the path.
-	local shedAt = CENTRE + Vector3.new(-92, 0, 8)
+	local shedAt = CENTRE + Vector3.new(-56, 0, 34)
 	Build.mesh({
 		prop = "Shed",
 		name = "Shed",
-		size = Vector3.new(32, 36, 32),
-		cframe = CFrame.new(shedAt + Vector3.new(0, 18, 0)) * CFrame.Angles(0, math.rad(90), 0),
-		collisionSize = Vector3.new(30, 34, 30),
+		size = Vector3.new(24, 27, 24),
+		cframe = CFrame.new(shedAt + Vector3.new(0, 13.5, 0)) * CFrame.Angles(0, math.rad(90), 0),
+		collisionSize = Vector3.new(22, 25, 22),
 		parent = yard,
 	})
 	Build.flagstone(yard, shedAt + Vector3.new(20, 1.15, 0), Vector2.new(26, 34), 5, rng)
@@ -383,7 +455,7 @@ local function build()
 	end
 
 	-- The kit, parked on the right where you can see what you are working for.
-	local parkAt = CENTRE + Vector3.new(92, 0, 8)
+	local parkAt = CENTRE + Vector3.new(56, 0, 34)
 	Build.flagstone(yard, parkAt, Vector2.new(46, 60), 6, rng)
 	Build.mesh({
 		prop = "Trailer",
@@ -418,8 +490,8 @@ local function build()
 	for _, side in { -1, 1 } do
 		Build.hedge(
 			yard,
-			CENTRE + Vector3.new(side * 58, 0, 40),
-			CENTRE + Vector3.new(side * 58, 0, -28),
+			CENTRE + Vector3.new(side * 46, 0, 22),
+			CENTRE + Vector3.new(side * 46, 0, -22),
 			5,
 			4
 		)
@@ -431,7 +503,7 @@ local function build()
 
 	local statusPost = Build.part({
 		name = "StatusBoard",
-		size = Vector3.new(120, 30, 1.5),
+		size = Vector3.new(78, 18, 1.4),
 		--[[
 			Raised, so the lawn signs at the near end cannot stand in front of
 			it. A six-stud board thirty studs from the gate subtends more of
@@ -439,8 +511,8 @@ local function build()
 			how the old arrangement managed to hide its own marquee.
 		]]
 		cframe = CFrame.lookAt(
-			CENTRE + Vector3.new(0, 40, -112),
-			CENTRE + Vector3.new(0, 40, -111)
+			CENTRE + Vector3.new(0, 27, -34),
+			CENTRE + Vector3.new(0, 27, -33)
 		),
 		color = Palette.color(Palette.house.trim),
 		material = Enum.Material.SmoothPlastic,
@@ -449,8 +521,8 @@ local function build()
 	for _, side in { -1, 1 } do
 		Build.part({
 			name = "BoardPost",
-			size = Vector3.new(3, 55, 3),
-			cframe = CFrame.new(CENTRE + Vector3.new(side * 56, 27.5, -112)),
+			size = Vector3.new(2.4, 36, 2.4),
+			cframe = CFrame.new(CENTRE + Vector3.new(side * 37, 18, -34)),
 			color = Palette.color(Palette.fence.rail),
 			material = Enum.Material.SmoothPlastic,
 			parent = root,
@@ -481,7 +553,7 @@ local function build()
 
 	-- Trees down both flanks, well clear of anything anybody has to read.
 	for _, side in { -1, 1 } do
-		for _, z in { 96, 58, 16, -30, -76 } do
+		for _, z in { 56, 20, -18, -50 } do
 			Build.mesh({
 				prop = "Tree",
 				name = "Tree",
@@ -555,7 +627,7 @@ function LobbyService.place(player: Player)
 	if not character or not character.PrimaryPart then
 		return
 	end
-	local at = CENTRE + Vector3.new(0, 5, 104)
+	local at = CENTRE + Vector3.new(0, 5, 62)
 	character:PivotTo(CFrame.lookAt(at, at - Vector3.new(0, 0, 20)))
 end
 
