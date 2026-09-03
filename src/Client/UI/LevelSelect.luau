@@ -333,19 +333,28 @@ local function drawCard(world: Types.WorldDef, order: number)
 		badge.Name = "Tick"
 		badge.Size = UDim2.fromOffset(40, 40)
 		badge.Position = UDim2.new(1, -50, 0, 8)
-		badge.BackgroundColor3 = Color3.fromRGB(74, 190, 92)
+		--[[
+			The drawn tick is already a green disc with a white check in it,
+			so the disc it used to be drawn on top of is gone. Stacked, the
+			two greens cancelled and the badge came out as a flat blob.
+		]]
+		badge.BackgroundTransparency = 1
 		badge.BorderSizePixel = 0
 		badge.Parent = card
-		Theme.corner(badge, 20)
-		Theme.stroke(badge, 2, Color3.fromRGB(252, 250, 244), 0.15)
-		Theme.text({
+		--[[
+			The drawn tick, which is the one the book uses.
+
+			A font's check mark is fourteen pixels of hairline in a forty
+			pixel disc, and it is a different tick from the one on the
+			journal's collection page — two marks for one idea, in one game.
+		]]
+		Theme.icon({
 			name = "Mark",
-			text = "✓",
+			prop = "Tick",
 			size = UDim2.fromScale(1, 1),
-			position = UDim2.fromScale(0, 0),
+			position = UDim2.fromScale(0.5, 0.5),
+			anchor = Vector2.new(0.5, 0.5),
 			parent = badge,
-			color = Color3.fromRGB(255, 255, 255),
-			textSize = 28,
 		})
 	end
 
@@ -482,14 +491,36 @@ local function build()
 		is pure furniture, so it is the one where matching the shape is most
 		of the work.
 	]]
-	local close = button(settings, "✕", UDim2.fromOffset(40, 40), UDim2.new(1, -48, 0, 2), RED)
+	-- Empty, because the cross is drawn on rather than typed: same mark as
+	-- the one that closes the book.
+	--[[
+		The same cross the book closes with, and nothing behind it.
+
+		It is drawn as a red disc with a white X already, so the red button
+		and the white ring it used to sit on are both gone: on top of each
+		other they read as a dark red dot with something in the middle.
+	]]
+	local close = button(settings, "", UDim2.fromOffset(46, 46), UDim2.new(1, -52, 0, 2), RED)
+	close.BackgroundTransparency = 1
+	local ring = close:FindFirstChildOfClass("UIStroke")
+	if ring then
+		ring:Destroy()
+	end
+	Theme.icon({
+		name = "Mark",
+		prop = "Cross",
+		size = UDim2.fromScale(1, 1),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		parent = close,
+	})
 	-- `button` already put a UICorner on it, and Roblox honours the first one
 	-- it finds — a second is ignored, so the radius is set on the one there.
 	local closeCorner = close:FindFirstChildOfClass("UICorner")
 	if closeCorner then
 		closeCorner.CornerRadius = UDim.new(0.5, 0)
 	end
-	Theme.stroke(close, 2.5, Color3.fromRGB(252, 250, 244), 0.2)
+
 	close.Activated:Connect(function()
 		dismissedOnPad = true
 		LevelSelect.setOpen(false)
