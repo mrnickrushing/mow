@@ -20,6 +20,7 @@ local Grid = require(Shared.Grid)
 local Sprites = require(Shared.Config.Sprites)
 local Types = require(Shared.Types)
 local BagService = require(script.Parent.BagService)
+local Loop = require(script.Parent.Parent.Lib.Loop)
 local Build = require(script.Parent.Parent.Lib.Build)
 local Structures = require(script.Parent.Parent.Lib.Structures)
 local EconomyService = require(script.Parent.EconomyService)
@@ -127,10 +128,11 @@ local function makeSprinkler(tx: number, tz: number, parent: Instance)
 	-- and a lawn full of sprinklers does not drown the property.
 	local hiss = Build.sound(head, "Sprinkler", false)
 
-	task.spawn(function()
 		-- Stagger, so a world full of sprinklers does not fire in unison.
-		task.wait(rng:NextNumber(0, SPRINKLER_PERIOD))
-		while running and head.Parent do
+	task.delay(rng:NextNumber(0, SPRINKLER_PERIOD), function()
+		Loop.whileTrue("Hazard.sprinkler", function()
+			return not not (running and head.Parent)
+		end, function()
 			spray.Enabled = true
 			if hiss then
 				hiss:Play()
@@ -148,7 +150,7 @@ local function makeSprinkler(tx: number, tz: number, parent: Instance)
 			wetArea(tx, tz, SPRINKLER_RADIUS, false)
 
 			task.wait(SPRINKLER_PERIOD)
-		end
+		end)
 	end)
 end
 
@@ -218,74 +220,74 @@ local function makeDog(tx: number, tz: number, parent: Instance)
 
 	local home = dog.Position
 
-	task.spawn(function()
-		while running and dog.Parent do
-			task.wait(rng:NextNumber(DOG_MIN_GAP, DOG_MAX_GAP))
+	Loop.whileTrue("Hazard.dog", function()
+		return not not (running and dog.Parent)
+	end, function()
+		task.wait(rng:NextNumber(DOG_MIN_GAP, DOG_MAX_GAP))
 
-			-- Find someone carrying enough to be worth stealing.
-			local target: Player? = nil
-			for _, player in Players:GetPlayers() do
-				if BagService.weight(player) > 40 then
-					local character = player.Character
-					local root = character and character:FindFirstChild("HumanoidRootPart")
-					if root and root:IsA("BasePart") and (root.Position - home).Magnitude < DOG_RANGE then
-						target = player
-						break
-					end
+		-- Find someone carrying enough to be worth stealing.
+		local target: Player? = nil
+		for _, player in Players:GetPlayers() do
+			if BagService.weight(player) > 40 then
+				local character = player.Character
+				local root = character and character:FindFirstChild("HumanoidRootPart")
+				if root and root:IsA("BasePart") and (root.Position - home).Magnitude < DOG_RANGE then
+					target = player
+					break
 				end
 			end
+		end
 
-			if target then
-				local character = target.Character
-				local root = character and character:FindFirstChild("HumanoidRootPart")
-				if root and root:IsA("BasePart") and dog.Parent then
-					local run = TweenService:Create(dog, TweenInfo.new(1.6, Enum.EasingStyle.Sine), {
-						CFrame = CFrame.new(root.Position - Vector3.new(0, 1.5, 0)),
-					})
-					run:Play()
-					run.Completed:Wait()
+		if target then
+			local character = target.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			if root and root:IsA("BasePart") and dog.Parent then
+				local run = TweenService:Create(dog, TweenInfo.new(1.6, Enum.EasingStyle.Sine), {
+					CFrame = CFrame.new(root.Position - Vector3.new(0, 1.5, 0)),
+				})
+				run:Play()
+				run.Completed:Wait()
 
-					--[[
-						Still there? It ran at where you were standing, and it
-						took the cut on arrival whether or not you were still
-						standing there — so backing away did nothing and the
-						1.6 seconds of it running at you were for show.
-					]]
-					local nowRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-					local escaped = not (nowRoot and nowRoot:IsA("BasePart"))
-						or (nowRoot.Position - dog.Position).Magnitude > DOG_REACH
-					if escaped then
-						if dog.Parent then
-							TweenService:Create(dog, TweenInfo.new(2, Enum.EasingStyle.Sine), {
-								CFrame = CFrame.new(home),
-							}):Play()
-						end
-						continue
-					end
-
-					local bag = BagService.get(target)
-					local stolen = 0
-					for debrisId, units in bag.units do
-						local take = units * DOG_THEFT
-						bag.units[debrisId] = units - take
-						stolen += take
-					end
-					bag.weight *= 1 - DOG_THEFT
-
-					if stolen > 0 then
-						EconomyService.notify(
-							target,
-							"stall",
-							`The dog got away with {Format.count(stolen)} of your load`,
-							nil
-						)
-					end
-
+				--[[
+					Still there? It ran at where you were standing, and it
+					took the cut on arrival whether or not you were still
+					standing there — so backing away did nothing and the
+					1.6 seconds of it running at you were for show.
+				]]
+				local nowRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+				local escaped = not (nowRoot and nowRoot:IsA("BasePart"))
+					or (nowRoot.Position - dog.Position).Magnitude > DOG_REACH
+				if escaped then
 					if dog.Parent then
 						TweenService:Create(dog, TweenInfo.new(2, Enum.EasingStyle.Sine), {
 							CFrame = CFrame.new(home),
 						}):Play()
 					end
+					return
+				end
+
+				local bag = BagService.get(target)
+				local stolen = 0
+				for debrisId, units in bag.units do
+					local take = units * DOG_THEFT
+					bag.units[debrisId] = units - take
+					stolen += take
+				end
+				bag.weight *= 1 - DOG_THEFT
+
+				if stolen > 0 then
+					EconomyService.notify(
+						target,
+						"stall",
+						`The dog got away with {Format.count(stolen)} of your load`,
+						nil
+					)
+				end
+
+				if dog.Parent then
+					TweenService:Create(dog, TweenInfo.new(2, Enum.EasingStyle.Sine), {
+						CFrame = CFrame.new(home),
+					}):Play()
 				end
 			end
 		end

@@ -29,6 +29,7 @@ local RobloxRunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 
 local MowRunService = require(script.Parent.RunService)
+local Loop = require(script.Parent.Parent.Lib.Loop)
 local MowEconomyService = require(script.Parent.EconomyService)
 local Worlds = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared").Config.Worlds)
 
@@ -224,53 +225,51 @@ function MatchmakingService.startRunServer()
 		back to a public server, which is a lobby. Teleporting with no
 		reservation is what makes it a public one.
 	]]
-	task.spawn(function()
 		local wasRunning = false
-		while true do
-			task.wait(2)
-			local phase = MowRunService.phase()
-			if phase == "running" then
-				wasRunning = true
-			elseif wasRunning and phase == "lobby" then
-				wasRunning = false
-				--[[
-					Keep trying to hand them back, and never start a new run.
+	Loop.forever("Matchmaking.return", function()
+		task.wait(2)
+		local phase = MowRunService.phase()
+		if phase == "running" then
+			wasRunning = true
+		elseif wasRunning and phase == "lobby" then
+			wasRunning = false
+			--[[
+				Keep trying to hand them back, and never start a new run.
 
-					A reserved server has no lobby in it, so a team whose
-					return teleport failed would sit in an empty world until
-					the idle backstop began another run — on a server nobody
-					else can join, forever. The send is retried a few times,
-					and if it will not go they are told, because a stuck
-					player who knows they are stuck can rejoin.
-				]]
-				local sent = false
-				for attempt = 1, 4 do
-					local players = Players:GetPlayers()
-					if #players == 0 then
-						sent = true
-						break
-					end
-					if not canTeleport() then
-						break
-					end
-					sent = pcall(function()
-						TeleportService:TeleportAsync(game.PlaceId, players)
-					end)
-					if sent then
-						break
-					end
-					warn(`[Matchmaking] return teleport failed (attempt {attempt})`)
-					task.wait(5)
+				A reserved server has no lobby in it, so a team whose
+				return teleport failed would sit in an empty world until
+				the idle backstop began another run — on a server nobody
+				else can join, forever. The send is retried a few times,
+				and if it will not go they are told, because a stuck
+				player who knows they are stuck can rejoin.
+			]]
+			local sent = false
+			for attempt = 1, 4 do
+				local players = Players:GetPlayers()
+				if #players == 0 then
+					sent = true
+					break
 				end
-				if not sent then
-					for _, player in Players:GetPlayers() do
-						MowEconomyService.notify(
-							player,
-							"denied",
-							"Could not get you back to the lobby — please rejoin",
-							nil
-						)
-					end
+				if not canTeleport() then
+					break
+				end
+				sent = pcall(function()
+					TeleportService:TeleportAsync(game.PlaceId, players)
+				end)
+				if sent then
+					break
+				end
+				warn(`[Matchmaking] return teleport failed (attempt {attempt})`)
+				task.wait(5)
+			end
+			if not sent then
+				for _, player in Players:GetPlayers() do
+					MowEconomyService.notify(
+						player,
+						"denied",
+						"Could not get you back to the lobby — please rejoin",
+						nil
+					)
 				end
 			end
 		end

@@ -27,6 +27,7 @@ local Palette = require(Shared.Config.Palette)
 local Remotes = require(Shared.Remotes)
 local Worlds = require(Shared.Config.Worlds)
 local Build = require(script.Parent.Parent.Lib.Build)
+local Loop = require(script.Parent.Parent.Lib.Loop)
 local DataService = require(script.Parent.DataService)
 local MowEconomyService = require(script.Parent.EconomyService)
 local MowRunService = require(script.Parent.RunService)
@@ -1034,45 +1035,43 @@ function LobbyService.start()
 		A poll costs a table walk a few times a second and keeps the arrow
 		pointing one way.
 	]]
-	task.spawn(function()
 		local last = os.clock()
-		while true do
-			local now = os.clock()
-			local delta = now - last
-			last = now
+	Loop.forever("Lobby.tick", function()
+		local now = os.clock()
+		local delta = now - last
+		last = now
 
-			local phase = MowRunService.phase()
-			if phase ~= lastPhase then
-				if phase == "won" or phase == "lost" then
-					lastOutcome = phase
-					lastWorldName = Worlds.expect(MowRunService.worldId()).name
-				elseif phase == "lobby" then
-					-- Back from a run: gather everyone in and say how it went.
-					local label = outcomeLabel
-					if label then
-						label.Text = if lastOutcome == "won" and lastWorldName
-							then `You cleared {lastWorldName}!`
-							elseif lastOutcome == "lost" and lastWorldName
-								then `The clock beat you on {lastWorldName}.`
-							else GameConfig.GAME_NAME
-					end
-					for _, slot in slots do
-						slot.worldId = nil
-						slot.cap = GAME_SLOTS
-						slot.countdown = nil
-						slot.idle = 0
-					end
-					placeEveryone()
+		local phase = MowRunService.phase()
+		if phase ~= lastPhase then
+			if phase == "won" or phase == "lost" then
+				lastOutcome = phase
+				lastWorldName = Worlds.expect(MowRunService.worldId()).name
+			elseif phase == "lobby" then
+				-- Back from a run: gather everyone in and say how it went.
+				local label = outcomeLabel
+				if label then
+					label.Text = if lastOutcome == "won" and lastWorldName
+						then `You cleared {lastWorldName}!`
+						elseif lastOutcome == "lost" and lastWorldName
+							then `The clock beat you on {lastWorldName}.`
+						else GameConfig.GAME_NAME
 				end
-				lastPhase = phase
+				for _, slot in slots do
+					slot.worldId = nil
+					slot.cap = GAME_SLOTS
+					slot.countdown = nil
+					slot.idle = 0
+				end
+				placeEveryone()
 			end
-
-			local ok = pcall(step, delta)
-			if not ok then
-				warn("[Lobby] a tick failed; the yard keeps running")
-			end
-			task.wait(0.25)
+			lastPhase = phase
 		end
+
+		local ok = pcall(step, delta)
+		if not ok then
+			warn("[Lobby] a tick failed; the yard keeps running")
+		end
+		task.wait(0.25)
 	end)
 
 	-- Somebody arriving between runs belongs in the lobby, not on the last lot.

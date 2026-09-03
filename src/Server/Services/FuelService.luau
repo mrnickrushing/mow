@@ -16,6 +16,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Balance = require(Shared.Config.Balance)
 local Tools = require(Shared.Config.Tools)
 local RunState = require(script.Parent.RunState)
+local Loop = require(script.Parent.Parent.Lib.Loop)
 local EconomyService = require(script.Parent.EconomyService)
 
 local FuelService = {}
@@ -102,25 +103,23 @@ function FuelService.start()
 
 	-- Standing at the shed tops the tank up, so refuelling costs a walk rather
 	-- than a menu.
-	task.spawn(function()
 		local WorldService = require(script.Parent.WorldService)
-		while true do
-			task.wait(0.25)
-			local shed = WorldService.shedPart
-			if shed then
-				for _, player in Players:GetPlayers() do
-					local character = player.Character
-					local root = character and character:FindFirstChild("HumanoidRootPart")
-					if root and root:IsA("BasePart") then
-						local offset = root.Position - shed.Position
-						if offset.X * offset.X + offset.Z * offset.Z <= REFUEL_RADIUS * REFUEL_RADIUS then
-							local run = RunState.find(player)
-							if run then
-								local capacity = Balance.fuelCapacity(run.upgrades)
-								if run.fuel < capacity then
-									run.fuel = math.min(run.fuel + REFUEL_RATE * 0.25, capacity)
-									warned[player] = nil
-								end
+	Loop.forever("Fuel.shed", function()
+		task.wait(0.25)
+		local shed = WorldService.shedPart
+		if shed then
+			for _, player in Players:GetPlayers() do
+				local character = player.Character
+				local root = character and character:FindFirstChild("HumanoidRootPart")
+				if root and root:IsA("BasePart") then
+					local offset = root.Position - shed.Position
+					if offset.X * offset.X + offset.Z * offset.Z <= REFUEL_RADIUS * REFUEL_RADIUS then
+						local run = RunState.find(player)
+						if run then
+							local capacity = Balance.fuelCapacity(run.upgrades)
+							if run.fuel < capacity then
+								run.fuel = math.min(run.fuel + REFUEL_RATE * 0.25, capacity)
+								warned[player] = nil
 							end
 						end
 					end
