@@ -498,6 +498,104 @@ local function build()
 	end
 
 	--------------------------------------------------------------------
+	-- The street it stands on
+	--------------------------------------------------------------------
+
+	--[[
+		Neighbours over the fence.
+
+		The yard had an empty horizon in every direction, which is what made it
+		read as a menu with a lawn in it rather than as somewhere. The
+		reference has a row of suburban houses standing over its back fence,
+		close enough to see the porches and the pitched roofs, and it does most
+		of the work of making the room feel like a place.
+
+		Built out of the same siding and gable the properties are built from,
+		so the street the lobby stands on is the same street the jobs are on.
+		They sit well outside the fence and nothing walks over there, so they
+		are scenery rather than geometry: no collision, no detail beyond a
+		silhouette with windows and a door in it.
+	]]
+	local street = Build.folder("Street", root)
+	local roofs = { Palette.house.roof, Palette.house.roofDark, Palette.house.brick }
+	local sidings = { Palette.house.siding, Palette.house.sidingShade, Palette.house.garage }
+
+	local plots = {
+		{ at = Vector3.new(-104, 0, -96), width = 40, depth = 30, turn = 0 },
+		{ at = Vector3.new(-36, 0, -108), width = 46, depth = 32, turn = 0 },
+		{ at = Vector3.new(36, 0, -104), width = 42, depth = 30, turn = 0 },
+		{ at = Vector3.new(106, 0, -92), width = 40, depth = 34, turn = 22 },
+		{ at = Vector3.new(-116, 0, -8), width = 36, depth = 44, turn = 90 },
+		{ at = Vector3.new(116, 0, -18), width = 36, depth = 44, turn = -90 },
+	}
+
+	for index, plot in plots do
+		local body = Build.folder(`House{index}`, street)
+		local siding = Palette.color(sidings[(index - 1) % #sidings + 1])
+		local roof = Palette.color(roofs[(index - 1) % #roofs + 1])
+		local wallHeight = 20 + (index % 3) * 3
+		local base = CENTRE + plot.at
+		local turn = CFrame.Angles(0, math.rad(plot.turn), 0)
+
+		local shell = Build.part({
+			name = "Shell",
+			size = Vector3.new(plot.width, wallHeight, plot.depth),
+			cframe = CFrame.new(base + Vector3.new(0, wallHeight * 0.5, 0)) * turn,
+			color = siding,
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			parent = body,
+		})
+		shell.CastShadow = true
+
+		Build.gableRoof(
+			body,
+			base + Vector3.new(0, 0, 0),
+			plot.width,
+			plot.depth,
+			wallHeight,
+			8,
+			2.5,
+			roof,
+			Palette.color(Palette.house.trim),
+			siding
+		)
+
+		-- A door and a couple of windows, because a blank box is a box.
+		local frontZ = plot.depth * 0.5 + 0.4
+		Build.part({
+			name = "Door",
+			size = Vector3.new(6, 10, 0.6),
+			cframe = CFrame.new(base) * turn * CFrame.new(0, 5, frontZ),
+			color = Palette.color(Palette.house.door),
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			parent = body,
+		})
+		for _, side in { -1, 1 } do
+			Build.part({
+				name = "Window",
+				size = Vector3.new(7, 7, 0.6),
+				cframe = CFrame.new(base) * turn * CFrame.new(side * plot.width * 0.28, 11, frontZ),
+				color = Palette.color(Palette.house.window),
+				material = Enum.Material.SmoothPlastic,
+				canCollide = false,
+				parent = body,
+			})
+		end
+	end
+
+	-- A hedge line along the back, so the houses sit behind something rather
+	-- than floating on the same grass the pads are on.
+	Build.hedge(
+		street,
+		CENTRE + Vector3.new(-78, 0, -74),
+		CENTRE + Vector3.new(78, 0, -74),
+		7,
+		5
+	)
+
+	--------------------------------------------------------------------
 	-- The board at the far end
 	--------------------------------------------------------------------
 

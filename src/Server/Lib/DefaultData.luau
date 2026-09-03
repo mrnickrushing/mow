@@ -10,8 +10,8 @@
 
 local DefaultData = {}
 
---- Bumped: tips outlive a run and buy permanent tools.
-DefaultData.VERSION = 4
+--- Bumped: the opening plays once and the profile remembers it.
+DefaultData.VERSION = 5
 
 export type Stats = {
 	tilesCut: number,
@@ -77,6 +77,8 @@ export type Profile = {
 	dailyLastClaim: number,
 	playtime: number,
 	firstCompletionClaimed: boolean,
+	--- Whether this player has seen the opening. Shown once, then never again.
+	introSeen: boolean,
 	musicEnabled: boolean,
 	sfxEnabled: boolean,
 }
@@ -108,6 +110,7 @@ function DefaultData.template(): Profile
 		dailyLastClaim = 0,
 		playtime = 0,
 		firstCompletionClaimed = false,
+		introSeen = false,
 		musicEnabled = true,
 		sfxEnabled = true,
 	}
