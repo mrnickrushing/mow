@@ -116,7 +116,18 @@ local house: Types.WorldDef = {
 			optional = true,
 			rect = { x = 2, z = 46, w = 20, d = 14 },
 			density = 0.9,
-			fill = { mix(Debris.Leaves, 1, 2, 3), mix(Debris.Sticks, 0.4, 1, 2) },
+			--[[
+				Grass, like the yards either side of it.
+
+				This was leaves and sticks and nothing else, and the leaf tuft
+				is drawn in the autumn red of the trees outside. Indoors, on a
+				concrete floor, with no tree in sight, a carpet of them read as
+				"red plants" that nobody could name — the one section of the
+				property whose job was not obvious from looking at it. The
+				same fill as the front yard, so what grew in here is what grew
+				out there and the same tool clears both.
+			]]
+			fill = { grass(1, 2), mix(Debris.Leaves, 0.5, 1, 2) },
 			kind = "room",
 			clutter = 8,
 			-- A found room, not a chore: one pass and it is yours.
