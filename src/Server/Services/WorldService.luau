@@ -2393,11 +2393,15 @@ function WorldService.refillSection(sectionId: string)
 				emptied under the porch deck, the steps and the walls.
 
 				Waves are `math.max(playerCount, 1)`, so this only ever
-				happened with somebody else on the server, and it took the
-				section's own completion with it: twenty-two tiles of the
-				House's front yard alone come back under the porch, and a
-				section whose remaining units cannot reach zero never clears,
-				never opens the one behind it, and ends the run on the clock.
+				happened with somebody else on the server. Measured across the
+				three worlds it puts back 55, 77 and 22 tiles of debris inside
+				the structures each of them stands on, every wave.
+
+				None of it is strictly unreachable — everything that buries a
+				tile here is something you can stand on or walk under, so a
+				player who knows can clear it by mowing what looks like bare
+				porch boards. That is exactly the hunt `clearBuriedTiles` was
+				written to end, handed back on every wave after the first.
 			]]
 			local wx, wz = Grid.tileToWorld(grid, tx, tz)
 			local blocked = onWater
