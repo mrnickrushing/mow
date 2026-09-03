@@ -118,6 +118,43 @@ function BoostService.grantRental(player: Player, toolId: string, seconds: numbe
 	end
 
 	local existing = rentals[player]
+
+	-- Buying the same rental again tops it up rather than restarting the
+	-- clock, the same way a cash boost stacks below. Otherwise topping up
+	-- five seconds before it ran out would have thrown away whatever was
+	-- left of the first purchase.
+	if existing and existing.toolId == toolId then
+		existing.expiresAt = math.max(existing.expiresAt, os.clock()) + seconds
+		EconomyService.notify(player, "reward", `{tool.name} extended — {Format.clock(seconds)} more`, nil)
+		changedSignal:Fire(player)
+		return
+	end
+
+	--[[
+		A different rental was already running underneath this one.
+
+		`rentals` holds one entry per player, so buying a second rental before
+		the first ran out simply replaced it — the old tool's `ownedTools`
+		flag was set by `grantRental` and nothing ever cleared it again,
+		because `expireRental` and `carryRentals` only ever look at whatever
+		is in `rentals[player]` right now. The old tool became permanently
+		owned for the rest of the run, for whatever the *rental* cost rather
+		than what owning it costs: renting the Zero-Turn (49 Robux) and then
+		the Riding Mower (25 Robux) before the first ran out left a Zero-Turn
+		— 260 Robux to own for the run outright — sitting in the bag for
+		free, with the Riding Mower still correctly expiring on schedule.
+
+		Revoking the old one here, the same way its own expiry would have,
+		closes that off: whichever rental is running is the only one that is
+		ever "owned" by renting.
+	]]
+	if existing then
+		run.ownedTools[existing.toolId] = nil
+		if run.equippedTool == existing.toolId then
+			run.equippedTool = existing.previousToolId
+		end
+	end
+
 	local previous = if existing then existing.previousToolId else run.equippedTool
 
 	run.ownedTools[toolId] = true
