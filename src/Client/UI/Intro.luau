@@ -36,6 +36,23 @@ local playing = false
 local finished = false
 
 --[[
+	Announces the moment the camera goes back to the player.
+
+	The opening drives the camera itself and drifts it sideways for the whole
+	of the narration, so wherever the last shot happened to be pointing is the
+	direction the default camera adopts when it takes over — measured, that
+	left every new player standing in the lobby looking forty-five degrees off
+	into a corner of the fence.
+
+	Whatever wants to aim the camera cannot simply do it at spawn and be done,
+	because this runs afterwards and overwrites it. So rather than have anyone
+	guess at how long the opening lasts, it says when it is finished. Skipping
+	fires this too, since the skip button is the same handover.
+]]
+local returnedSignal = Instance.new("BindableEvent")
+Intro.CameraReturned = returnedSignal.Event
+
+--[[
 	The script.
 
 	Short lines, because they are read once by somebody who wants to start
@@ -310,6 +327,7 @@ function Intro.finish()
 	if doneRemote then
 		doneRemote:FireServer()
 	end
+	returnedSignal:Fire()
 end
 
 function Intro.play()
