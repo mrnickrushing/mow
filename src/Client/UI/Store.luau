@@ -82,6 +82,35 @@ local function addEntry(order: number, title: string, description: string, robux
 	button.Activated:Connect(buy)
 end
 
+--[[
+	A heading between the groups.
+
+	Forty-five rows in a list four rows tall is a nine-screen scroll, and
+	until the shop was filled in it was fifteen and the question never came
+	up. Somebody who wants Fast Feet should not have to go past thirty tool
+	unlocks to find out whether it exists.
+]]
+local function addHeading(order: number, text: string)
+	local heading = Instance.new("Frame")
+	heading.Name = text
+	heading.Size = UDim2.new(1, -12, 0, 30)
+	heading.BackgroundTransparency = 1
+	heading.LayoutOrder = order
+	heading.Parent = listFrame
+
+	local label = Theme.text({
+		name = "Text",
+		text = text,
+		size = UDim2.new(1, -8, 1, 0),
+		position = UDim2.fromOffset(4, 0),
+		parent = heading,
+		align = Enum.TextXAlignment.Left,
+		textSize = 15,
+		color = Theme.colors.subtext,
+	})
+	local _ = label
+end
+
 local function render()
 	for _, child in listFrame:GetChildren() do
 		if child:IsA("Frame") then
@@ -91,8 +120,34 @@ local function render()
 
 	local order = 0
 
+	--[[
+		Three groups, in the order somebody shops in them.
+
+		Passes first, because they are the things you keep. Then the one-off
+		boosts and refills. The tool unlocks last, because there are thirty
+		of them and they are the long tail rather than the shop window.
+	]]
+	-- Annotated: an empty table literal infers as unknown, and the entries
+	-- are read for their fields a few lines down.
+	local passes: { Monetization.PassDef } = {}
+	local boosts: { Monetization.ProductDef } = {}
+	local tools: { Monetization.ProductDef } = {}
 	for _, def in Monetization.passes do
 		if Monetization.isConfigured(def.id) then
+			table.insert(passes, def)
+		end
+	end
+	for _, def in Monetization.products do
+		if Monetization.isConfigured(def.id) then
+			local isTool = def.kind == "toolRun" or def.kind == "toolPermanent"
+			table.insert(if isTool then tools else boosts, def)
+		end
+	end
+
+	if #passes > 0 then
+		order += 1
+		addHeading(order, "YOURS FOR GOOD")
+		for _, def in passes do
 			order += 1
 			addEntry(order, def.name, def.description, def.robux, function()
 				promptRemote:FireServer("pass", def.key)
@@ -100,8 +155,21 @@ local function render()
 		end
 	end
 
-	for _, def in Monetization.products do
-		if Monetization.isConfigured(def.id) then
+	if #boosts > 0 then
+		order += 1
+		addHeading(order, "BOOSTS AND REFILLS")
+		for _, def in boosts do
+			order += 1
+			addEntry(order, def.name, def.description, def.robux, function()
+				promptRemote:FireServer("product", def.key)
+			end)
+		end
+	end
+
+	if #tools > 0 then
+		order += 1
+		addHeading(order, "TOOLS")
+		for _, def in tools do
 			order += 1
 			addEntry(order, def.name, def.description, def.robux, function()
 				promptRemote:FireServer("product", def.key)
