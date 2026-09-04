@@ -205,25 +205,37 @@ local function statOf(profile: any, stat: string): number
 	return if type(value) == "number" then value else 0
 end
 
---- Writes a player's lifetime total, so the next read can rank them.
-function LeaderboardService.publish(player: Player)
+--[[
+	Writes everybody's lifetime total, on the same beat as the read.
+
+	This used to write one player's score as they left, and it could never
+	have worked. `DataService` connects `PlayerRemoving` when it starts, near
+	the top of the server's boot, and the second line of its handler is
+	`profiles[player] = nil`. This service starts much later, so its handler
+	connected later and ran later — by which time `DataService.get` returned
+	nil and the write was skipped. Every time. The board would have stayed
+	empty for ever and nothing would have said why.
+
+	Writing everyone present on a timer has no ordering to get wrong. It also
+	catches the player whose client crashes, who never fires a clean leave at
+	all, and it costs one request per player per minute against a budget
+	measured in tens per minute.
+]]
+local function publishEveryone()
 	local store = ordered
 	if not store or not available then
 		return
 	end
-	local profile = DataService.get(player)
-	if not profile then
-		return
-	end
-	local value = math.floor(statOf(profile, BOARDS[1].stat))
-	if value <= 0 then
-		return
-	end
-	local ok, err = pcall(function()
-		store:SetAsync(tostring(player.UserId), value)
-	end)
-	if not ok then
-		warn(`[Leaderboard] could not publish {player.Name}: {err}`)
+	for player, profile in DataService.all() do
+		local value = math.floor(statOf(profile, BOARDS[1].stat))
+		if value > 0 then
+			local ok, err = pcall(function()
+				store:SetAsync(tostring(player.UserId), value)
+			end)
+			if not ok then
+				warn(`[Leaderboard] could not publish {player.Name}: {err}`)
+			end
+		end
 	end
 end
 
@@ -290,11 +302,8 @@ function LeaderboardService.start()
 		warn("[Leaderboard] no ordered store; the board will say so")
 	end
 
-	Players.PlayerRemoving:Connect(function(player)
-		LeaderboardService.publish(player)
-	end)
-
 	Loop.forever("Leaderboard.refresh", function()
+		publishEveryone()
 		refresh()
 		task.wait(REFRESH)
 	end)
