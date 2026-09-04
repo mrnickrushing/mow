@@ -582,6 +582,7 @@ local function buildBag(gui: ScreenGui)
 	holder.BackgroundTransparency = 1
 	holder.Parent = gui
 	RunOnly.add(holder)
+	Theme.chromeScale(holder)
 
 	-- A sack: a rounded body with a pinched neck above it.
 	local sack = Instance.new("Frame")
@@ -646,6 +647,7 @@ local function buildMiddle(gui: ScreenGui)
 		textSize = 27,
 	})
 	RunOnly.add(rateLabel)
+	Theme.chromeScale(rateLabel)
 
 	gainHolder = Instance.new("Frame")
 	gainHolder.Name = "Gains"
@@ -654,6 +656,7 @@ local function buildMiddle(gui: ScreenGui)
 	gainHolder.AnchorPoint = Vector2.new(0.5, 0)
 	gainHolder.BackgroundTransparency = 1
 	gainHolder.Parent = gui
+	Theme.chromeScale(gainHolder)
 
 	hintLabel = Theme.text({
 		name = "Hint",
@@ -666,6 +669,7 @@ local function buildMiddle(gui: ScreenGui)
 		color = Theme.colors.tips,
 		textSize = 18,
 	})
+	Theme.chromeScale(hintLabel)
 end
 
 local function build(): ScreenGui
@@ -687,6 +691,7 @@ local function build(): ScreenGui
 	toastHolder.AnchorPoint = Vector2.new(0.5, 1)
 	toastHolder.BackgroundTransparency = 1
 	toastHolder.Parent = gui
+	Theme.chromeScale(toastHolder)
 
 	local toastLayout = Instance.new("UIListLayout")
 	toastLayout.SortOrder = Enum.SortOrder.LayoutOrder

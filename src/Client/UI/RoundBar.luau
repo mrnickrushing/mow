@@ -67,6 +67,7 @@ local function build()
 	corner.Position = UDim2.fromOffset(18, 70)
 	corner.BackgroundTransparency = 1
 	corner.Parent = gui
+	Theme.chromeScale(corner)
 
 	waveLabel = Theme.text({
 		name = "Wave",
@@ -143,6 +144,7 @@ local function build()
 		textSize = 36,
 	})
 	RunOnly.add(timerLabel)
+	Theme.chromeScale(timerLabel)
 
 end
 
