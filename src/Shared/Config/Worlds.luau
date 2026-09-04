@@ -85,7 +85,24 @@ local house: Types.WorldDef = {
 	baseGround = Palette.ground.lawn,
 	style = "house",
 	houseRect = { x = 26, z = 34, w = 44, d = 20 },
-	shed = { x = 82, z = 54 },
+	--[[
+		By the street, opposite the trailer, not round the back.
+
+		It stood at (82, 54): the far corner of the property, sixty-two tiles
+		from where a player lands, behind the house and out of sight of
+		everything. Nobody found it, which matters because the shed is where
+		the bag and the first tools are sold — the two purchases the early
+		game is built around. Worse, that corner is where the basement is cut
+		eighteen studs into the ground, so the back of the shed hung over the
+		hole and the game propped it up on an eighteen-stud concrete plinth.
+		What you actually saw was a hut floating on a grey block.
+
+		Here it is on the verge between the road and the front lawn, forty
+		studs from the spawn on the other side of the drive from the trailer,
+		on flat ground, clear of the paving and outside every section — so it
+		buries none of the lawn it is standing next to.
+	]]
+	shed = { x = 58, z = 4 },
 	-- Parked to one side of the spawn rather than square in front of it: at
 	-- two tiles ahead and the same x, the trailer filled the entire first view
 	-- of the property. It is still the first thing you walk past.

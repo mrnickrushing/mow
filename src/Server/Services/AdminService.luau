@@ -34,6 +34,10 @@ local Remotes = require(Shared.Remotes)
 local EconomyService = require(script.Parent.EconomyService)
 local DataService = require(script.Parent.DataService)
 local RunService = require(script.Parent.RunService)
+local RunState = require(script.Parent.RunState)
+local PlayerService = require(script.Parent.PlayerService)
+local DefaultData = require(script.Parent.Parent.Lib.DefaultData)
+local Tools = require(Shared.Config.Tools)
 
 local AdminService = {}
 
@@ -125,6 +129,48 @@ local function giveTools(player: Player): string
 	return `Unlocked {granted} tools for good.`
 end
 
+--[[
+	Puts the account back to a new player's, so the owner can test as one.
+
+	Every other command here adds something, and two of them add permanently:
+	`tools` writes `permanentTools`, which survives the run, the session and
+	the server, and there was no way at all to take it back. So the owner
+	tries something once, and from then on every run starts holding sixteen
+	tools with a hundred thousand in the bank — which is exactly the state you
+	cannot test an early game from.
+
+	It clears what the game gives out and leaves alone what it sold: receipts
+	stay, because those record real Robux and a reset must never be a refund
+	that hands the same purchase out twice.
+]]
+local function resetProgress(player: Player): string
+	local fresh = DefaultData.template()
+	DataService.withProfile(player, function(profile)
+		profile.permanentTools = {}
+		profile.tips = fresh.tips
+		profile.tokens = fresh.tokens
+		profile.stats = fresh.stats
+		profile.worldsBeaten = {}
+		profile.bestTimes = {}
+		profile.questProgress = {}
+		profile.questsDone = {}
+		profile.dailyStreak = fresh.dailyStreak
+		profile.dailyLastClaim = fresh.dailyLastClaim
+		profile.firstCompletionClaimed = false
+	end)
+	-- The run in hand is holding the tools too, so it is emptied to match.
+	local run = RunState.find(player)
+	if run then
+		table.clear(run.ownedTools)
+		run.ownedTools[Tools.STARTER_ID] = true
+		run.equippedTool = Tools.STARTER_ID
+		run.cash = 0
+		table.clear(run.upgrades)
+	end
+	PlayerService.applyCharacterStats(player)
+	return "Reset to a new player: no tools, no tips, no upgrades. Purchases kept."
+end
+
 type Command = {
 	name: string,
 	help: string,
@@ -147,6 +193,13 @@ local COMMANDS: { Command } = {
 		help = "/tools — unlock every tool permanently.",
 		run = function(player: Player, _arg: string?): string
 			return giveTools(player)
+		end,
+	},
+	{
+		name = "reset",
+		help = "/reset — back to a new player. Keeps anything bought with Robux.",
+		run = function(player: Player, _arg: string?): string
+			return resetProgress(player)
 		end,
 	},
 	{

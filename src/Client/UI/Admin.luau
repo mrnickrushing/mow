@@ -68,7 +68,7 @@ local function build()
 
 	panel = Instance.new("Frame")
 	panel.Name = "Panel"
-	panel.Size = UDim2.fromOffset(232, 250)
+	panel.Size = UDim2.fromOffset(232, 290)
 	panel.AnchorPoint = Vector2.new(0, 1)
 	-- Above the thumbstick on touch: opened at the tab's height it lay across
 	-- the movement control, so pressing a command moved the character.
@@ -114,6 +114,10 @@ local function build()
 		{ label = "Give tips", command = "tips", tint = Color3.fromRGB(226, 176, 54) },
 		{ label = "Unlock every tool", command = "tools", tint = Color3.fromRGB(84, 146, 214) },
 		{ label = "Everything", command = "rich", tint = Color3.fromRGB(184, 96, 196) },
+		-- The way back. Every other button here is one-way, and "unlock every
+		-- tool" is permanent, so without this the owner cannot see their own
+		-- early game again from any account they have ever tested on.
+		{ label = "Reset to new player", command = "reset", tint = Color3.fromRGB(184, 68, 60) },
 	}
 	for index, row in rows do
 		local button = Instance.new("TextButton")
