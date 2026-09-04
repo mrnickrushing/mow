@@ -299,45 +299,61 @@ local function buildRightColumn(gui: ScreenGui)
 
 	-- Centred under a 62-wide tile whose right edge is 14 in from the screen:
 	-- the caption is 70 wide, so it hangs four pixels proud either side.
-	caption("BookLabel", "Book", "Tab", -8)
+	local bookLabel = caption("BookLabel", "Book", "Tab", -8)
 
 	--[[
-		The store, beside the book.
+		The store, which is a button and not a third icon.
 
 		It was bound to G and to nothing else, which meant that on a tablet —
 		the way most of this game is played — the Robux store could not be
 		opened at all. There was no button anywhere on the screen, and the only
 		place the key was written down was a line on the journal's tips page
 		that you needed the journal open to read.
+
+		So it became a tile, and that was the wrong shape. Three identical
+		squares in a row say "three settings"; nothing about a coin on a yellow
+		square says the third one spends real money, and the player who wants
+		to buy something has to guess which square to press. A wide pill with
+		the word on it is the only one of the three that reads as somewhere to
+		go rather than something to toggle, which is what it is.
+
+		It also gets the icon column back down to two, which is the difference
+		between furniture and clutter down the edge of a phone.
 	]]
 	local shop = Instance.new("TextButton")
 	shop.Name = "Store"
-	shop.Size = UDim2.fromOffset(62, 62)
-	shop.Position = UDim2.new(1, -86, 0, 76)
 	shop.AnchorPoint = Vector2.new(1, 0)
 	shop.BackgroundColor3 = Theme.colors.tips
 	shop.BorderSizePixel = 0
-	shop.Rotation = 5
 	shop.Text = ""
 	shop.AutoButtonColor = true
 	shop.Parent = column
-	Theme.corner(shop, 8)
+	Theme.corner(shop, 10)
 	Theme.stroke(shop, 3, Theme.colors.outline, 0.05)
-	Theme.icon({
+
+	local shopIcon = Theme.icon({
 		name = "StoreIcon",
 		prop = "Coin",
-		size = UDim2.fromScale(0.74, 0.74),
-		position = UDim2.fromScale(0.5, 0.5),
-		anchor = Vector2.new(0.5, 0.5),
+		size = UDim2.fromOffset(26, 26),
+		position = UDim2.new(0, 11, 0.5, 0),
+		anchor = Vector2.new(0, 0.5),
 		parent = shop,
+	})
+
+	local shopWord = Theme.text({
+		name = "StoreWord",
+		text = if hasKeyboard then "STORE  G" else "STORE",
+		size = UDim2.new(1, -48, 1, 0),
+		position = UDim2.fromOffset(44, 0),
+		parent = shop,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.outline,
+		textSize = 17,
 	})
 
 	shop.Activated:Connect(function()
 		Store.toggle()
 	end)
-
-	local shopLabel = caption("StoreLabel", "Shop", "G", -80)
-	shopLabel.BackgroundColor3 = Theme.colors.tips
 
 	--[[
 		A way to turn the noise off.
@@ -378,6 +394,74 @@ local function buildRightColumn(gui: ScreenGui)
 	note.TextYAlignment = Enum.TextYAlignment.Center
 
 	local soundLabel = caption("SoundLabel", "Sound", "", -152)
+
+	--[[
+		On a phone the three tiles stack down the edge instead of across it.
+
+		A row grows leftward from the right edge, so the third tile is three
+		tile-widths in — measured on an iPhone 17 in landscape, the far one
+		sat a fifth of the screen width inside the edge and a third of the way
+		down, right over the grass being cut. A phone is short and wide: there
+		is no vertical room to spare in the middle and plenty of it at the
+		sides, which is the opposite of a tablet.
+
+		So they go into a column hard against the right edge, starting near
+		the top, smaller, and without their captions — three words stacked
+		down the edge of a four-hundred-point screen is more furniture than
+		the icons themselves. Every other device keeps the row, which is what
+		the labels were added for.
+	]]
+	local function isPhone(): boolean
+		local camera = workspace.CurrentCamera
+		return camera ~= nil and camera.ViewportSize.Y <= 500
+	end
+
+	local function layoutTiles()
+		local phone = isPhone()
+		--[[
+			Book first, because the captions are placed from this same index.
+
+			They used to be two lists: the tiles were laid out left-to-right from
+			one array and the captions were positioned by hand from constants
+			written when the row had a different order in it. The row said
+			Sound, Store, Book and the captions underneath said Book, Shop,
+			Sound — every label under the wrong tile, on every desktop. Deriving
+			both from one loop is what stops that coming back.
+		]]
+		local tiles = { book, soundTile }
+		local labels = { bookLabel, soundLabel }
+		local spins = { -6, 4 }
+		for index, tile in tiles do
+			if phone then
+				tile.Size = UDim2.fromOffset(52, 52)
+				tile.Position = UDim2.new(1, -4, 0, 8 + (index - 1) * 58)
+				tile.Rotation = 0
+			else
+				tile.Size = UDim2.fromOffset(62, 62)
+				tile.Position = UDim2.new(1, -14 - (index - 1) * 72, 0, 76)
+				tile.Rotation = spins[index]
+				labels[index].Position = UDim2.new(1, -8 - (index - 1) * 72, 0, 142)
+			end
+			labels[index].Visible = not phone
+		end
+
+		-- Under the icons either way, so it is the widest thing in the corner
+		-- and the last thing the eye lands on rather than one of a set.
+		if phone then
+			shop.Size = UDim2.fromOffset(112, 36)
+			shop.Position = UDim2.new(1, -4, 0, 8 + #tiles * 58)
+			shop.Rotation = 0
+		else
+			shop.Size = UDim2.fromOffset(132, 40)
+			shop.Position = UDim2.new(1, -14, 0, 176)
+			shop.Rotation = 5
+		end
+		shopWord.TextSize = if phone then 15 else 17
+		shopIcon.Size = if phone then UDim2.fromOffset(22, 22) else UDim2.fromOffset(26, 26)
+	end
+
+	layoutTiles()
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(layoutTiles)
 
 	local function paintSound()
 		local on = not SoundController.isMuted()

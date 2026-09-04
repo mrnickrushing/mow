@@ -43,16 +43,19 @@ local function build()
 	gui.Parent = player:WaitForChild("PlayerGui")
 
 	--[[
-		A tab down the left, out of the way of everything the HUD owns.
+		A tab on the left, sat just above the bag.
 
-		The right side carries the book, the shop, the tool and the fuel
-		gauge; the bottom carries the hotbar and the clock. The left edge at
-		mid-height is the one piece of screen nothing else wants.
+		It used to float at the middle of the left edge, which on a phone is
+		the middle of the screen — the one place a player is actually
+		looking. The bag already owns the bottom-left corner, so directly
+		above it is a piece of edge that is already furniture rather than
+		lawn, and it puts the two things nobody presses mid-run together.
 	]]
 	local tab = Instance.new("TextButton")
 	tab.Name = "Tab"
-	tab.Size = UDim2.fromOffset(38, 96)
-	tab.Position = UDim2.new(0, 0, 0.5, -48)
+	tab.Size = UDim2.fromOffset(34, 84)
+	tab.AnchorPoint = Vector2.new(0, 1)
+	tab.Position = UDim2.new(0, 6, 1, -104)
 	tab.BackgroundColor3 = Color3.fromRGB(184, 68, 60)
 	tab.BorderSizePixel = 0
 	tab.Text = "A\nD\nM\nI\nN"
@@ -66,7 +69,8 @@ local function build()
 	panel = Instance.new("Frame")
 	panel.Name = "Panel"
 	panel.Size = UDim2.fromOffset(232, 250)
-	panel.Position = UDim2.new(0, 44, 0.5, -125)
+	panel.AnchorPoint = Vector2.new(0, 1)
+	panel.Position = UDim2.new(0, 44, 1, -104)
 	panel.BackgroundColor3 = Color3.fromRGB(44, 40, 52)
 	panel.BorderSizePixel = 0
 	panel.Visible = false
