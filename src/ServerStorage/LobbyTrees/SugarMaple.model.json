@@ -36,7 +36,8 @@
           0.0,
           1.0
         ],
-        "TextureID": "rbxassetid://10066748571"
+        "TextureID": "rbxassetid://10066748571",
+        "CollisionFidelity": "Box"
       }
     },
     {
@@ -74,7 +75,8 @@
           0.0,
           1.0
         ],
-        "TextureID": "rbxassetid://3919199672"
+        "TextureID": "rbxassetid://3919199672",
+        "CollisionFidelity": "Box"
       }
     },
     {
@@ -112,7 +114,8 @@
           0.0,
           1.0
         ],
-        "TextureID": "rbxassetid://3919199672"
+        "TextureID": "rbxassetid://3919199672",
+        "CollisionFidelity": "Box"
       }
     },
     {
@@ -149,7 +152,8 @@
           0.0,
           0.0,
           1.0
-        ]
+        ],
+        "CollisionFidelity": "Box"
       },
       "children": [
         {
