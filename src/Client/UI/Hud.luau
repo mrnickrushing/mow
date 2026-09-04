@@ -233,10 +233,19 @@ local function buildRightColumn(gui: ScreenGui)
 	book.Parent = column
 	Theme.corner(book, 8)
 	Theme.stroke(book, 3, Theme.colors.outline, 0.05)
+	--[[
+		The journal fills its tile and hangs over the bottom of it.
+
+		At 0.78 it was a small picture centred in a cream square, which is
+		what "a square with a drawn journal in it" describes. Drawn edge to
+		edge, with the ribbon crossing the border, the square reads as
+		something the journal is resting on rather than a frame around a
+		symbol.
+	]]
 	Theme.icon({
 		name = "BookIcon",
 		prop = "Journal",
-		size = UDim2.fromScale(0.78, 0.78),
+		size = UDim2.fromScale(1.02, 1.02),
 		position = UDim2.fromScale(0.5, 0.5),
 		anchor = Vector2.new(0.5, 0.5),
 		parent = book,
@@ -276,12 +285,22 @@ local function buildRightColumn(gui: ScreenGui)
 	]]
 	local hasKeyboard = Theme.hasKeyboard()
 
-	local function caption(name: string, word: string, key: string, x: number): TextLabel
+	--[[
+		The word alone, with no key beside it.
+
+		The key used to ride along where there was a keyboard to press, and
+		that worked while the word was "Book". "Journal  Tab" wants eighty-eight
+		pixels in a seventy-pixel pill sitting seventy-two from its neighbour,
+		and widening the pill collides with the one next to it. The keys are
+		listed on the journal's own controls page, which is where a keyboard
+		player can read all of them at once rather than one per tile.
+	]]
+	local function caption(name: string, word: string, _key: string, x: number): TextLabel
 		local label = Theme.text({
 			name = name,
-			text = if hasKeyboard then `{word}  {key}` else word,
+			text = word,
 			-- Seventy-two apart, so seventy wide leaves a hair between them.
-			-- At seventy-four they touched once there were three.
+			-- `layoutTiles` sets that spacing, whatever is written above.
 			size = UDim2.fromOffset(70, 22),
 			position = UDim2.new(1, x, 0, 142),
 			anchor = Vector2.new(1, 0),
@@ -299,7 +318,7 @@ local function buildRightColumn(gui: ScreenGui)
 
 	-- Centred under a 62-wide tile whose right edge is 14 in from the screen:
 	-- the caption is 70 wide, so it hangs four pixels proud either side.
-	local bookLabel = caption("BookLabel", "Book", "Tab", -8)
+	local bookLabel = caption("BookLabel", "Journal", "Tab", -8)
 
 	--[[
 		The store, which is a button and not a third icon.
