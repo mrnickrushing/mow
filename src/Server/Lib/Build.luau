@@ -624,7 +624,20 @@ function Build.rainbowText(parent: Instance, text: string, size: UDim2, position
 end
 
 --- A blocky hedge, the green wall that borders most of the reference's yards.
-function Build.hedge(parent: Instance, from: Vector3, to: Vector3, height: number, depth: number): Folder
+--[[
+	`colour` is optional: given one, the hedge is drawn untextured in that
+	colour rather than in the mesh's own green. The lobby's perimeter uses it to
+	turn the same hedge autumn, the way the reference's is, without a second
+	prop or a texture swap.
+]]
+function Build.hedge(
+	parent: Instance,
+	from: Vector3,
+	to: Vector3,
+	height: number,
+	depth: number,
+	colour: Color3?
+): Folder
 	local folder = Build.folder("Hedge", parent)
 	local delta = to - from
 	local length = delta.Magnitude
@@ -656,6 +669,21 @@ function Build.hedge(parent: Instance, from: Vector3, to: Vector3, height: numbe
 		]]
 		local flip = if index % 2 == 0 then 0 else math.pi
 		local spin = math.rad(90) + flip + (((index * 37) % 13) / 13 - 0.5) * math.rad(16)
+		--[[
+			Shade a coloured hedge block a step darker, per block.
+
+			One flat tint down a whole run comes out as a painted wall — the
+			green hedge never had the problem because its texture carries its
+			own light and shade. The step is deterministic and cycles, so the
+			variation reads as light on foliage rather than as noise.
+		]]
+		local tint: Color3? = if colour == nil
+			then nil
+			else colour:Lerp(
+				Color3.new(colour.R * 0.62, colour.G * 0.62, colour.B * 0.62),
+				((index * 37) % 11) / 10 * 0.35
+			)
+
 		Build.mesh({
 			prop = "Hedge",
 			name = "Hedge",
@@ -665,6 +693,8 @@ function Build.hedge(parent: Instance, from: Vector3, to: Vector3, height: numbe
 				at + Vector3.new(0, (height + wobble) * 0.5, 0),
 				at + direction + Vector3.new(0, (height + wobble) * 0.5, 0)
 			) * CFrame.Angles(0, spin, 0),
+			color = tint,
+			untextured = colour ~= nil,
 			parent = folder,
 		})
 	end
