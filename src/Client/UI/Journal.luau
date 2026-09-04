@@ -1096,7 +1096,6 @@ local function renderTips()
 		"every eight minutes of work",
 		"cutting a long straight Clean Stripe",
 		"finding the Golden Blade hidden in a section",
-		"clearing a wasp nest",
 		"finishing a property, by your share of the work",
 	}
 	for order, line in earned do
@@ -1113,15 +1112,35 @@ local function renderTips()
 
 	heading(rightPage, "Controls")
 	local right = body(rightPage)
-	-- What the keys actually do. This list used to promise that B opened "the
-	-- shed", which it never did — B and TAB are bound to the same action, and
-	-- both open this book.
-	local controls = {
-		"Hold left mouse or E — work",
-		"TAB or B — open this journal",
-		"G — the Robux store",
-		"F — mount a riding mower",
-		"",
+	--[[
+		What the controls actually do, for the screen in the player's hands.
+
+		This used to be one list of keys, and it was read on tablets — which
+		is nearly everybody — by players who have no keys. The touch list
+		names the buttons that are on the screen; the keyboard one names the
+		keys. It also used to promise that B opened "the shed", which it never
+		did: B and TAB are bound to the same action, and both open this book.
+	]]
+	-- Annotated, because an `if` between two array literals infers as a union
+	-- that the generic `for` below will not accept as iterable.
+	local controls: { string } = if Theme.hasKeyboard()
+		then {
+			"Hold left mouse or E — work",
+			"TAB or B — open this journal",
+			"G — the Robux store",
+			"F — mount a riding mower",
+			"T — park the portable trailer",
+			"",
+		}
+		else {
+			"Hold the tool button — work",
+			"Tap the Book — open this journal",
+			"Tap STORE — the Robux store",
+			"Tap Ride — mount a riding mower",
+			"Tap Trailer — park the portable trailer",
+			"",
+		}
+	for _, line in {
 		"Upgrades and tools are bought in this book,",
 		"or at the boards outside the shed.",
 		"",
@@ -1131,7 +1150,9 @@ local function renderTips()
 		"• Grass too thick for your tool will bog it down. Buy better.",
 		"• Cut in long straight lines to bank a Clean Stripe bonus.",
 		"• Some sections are not for sale. Clear a yard, or find the switch.",
-	}
+	} do
+		table.insert(controls, line)
+	end
 	--[[
 		These wrap and size themselves to what they hold.
 

@@ -206,7 +206,6 @@ local house: Types.WorldDef = {
 			density = 0.94,
 			fill = { grass(3, 3), mix(Debris.Hedge, 1, 3, 3), mix(Debris.Leaves, 0.4, 2, 3) },
 			kind = "maze",
-			hazards = { "wasps" },
 			clutter = 4,
 		},
 		{
@@ -327,7 +326,6 @@ local mansion: Types.WorldDef = {
 			density = 0.96,
 			fill = { grass(2, 3), mix(Debris.Hedge, 1.5, 3, 3), mix(Debris.Leaves, 0.4, 3, 3) },
 			kind = "maze",
-			hazards = { "wasps" },
 			clutter = 8,
 		},
 		{

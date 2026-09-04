@@ -67,7 +67,9 @@ local list: { Quest } = {
 	{
 		id = "open_journal",
 		kind = "journal",
-		text = "Open your journal (TAB)",
+		-- No key named: nearly every player is on a tablet, where the journal
+		-- is the Book on the right of the screen and there is no TAB to press.
+		text = "Open your journal",
 		target = 1,
 		reward = 1,
 	},

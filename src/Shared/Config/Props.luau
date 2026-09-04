@@ -135,7 +135,6 @@ local catalogue: { [string]: Prop } = {
 	RidingMower = prop("rbxassetid://89706697093178", "rbxassetid://120136128501167", 5.476, 6.000, 9.364),
 	Dog = prop("rbxassetid://74175582988973", "rbxassetid://77296052752514", 1.527, 4.000, 3.141),
 	Sprinkler = prop("rbxassetid://133265868962502", "rbxassetid://140459804380273", 1.568, 2.000, 1.575),
-	WaspNest = prop("rbxassetid://108560452041175", "rbxassetid://120759380593144", 2.800, 3.422, 2.777),
 	--- The collectible. Asked for as a golden blade of grass and generated as a
 	--- little gold trophy, which reads better as a thing worth picking up.
 	GoldenBlade = prop("rbxassetid://87886745552401", "rbxassetid://128380504159648", 0.734, 0.885, 0.500),

@@ -274,7 +274,7 @@ local function buildRightColumn(gui: ScreenGui)
 		A name works on every screen, and the keyboard's shortcut rides along
 		with it where there is a keyboard to press. One line, not two.
 	]]
-	local hasKeyboard = not (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
+	local hasKeyboard = Theme.hasKeyboard()
 
 	local function caption(name: string, word: string, key: string, x: number): TextLabel
 		local label = Theme.text({
@@ -1015,7 +1015,7 @@ local function refresh()
 	elseif burnsFuel and state.fuel <= 0 then
 		hintLabel.Text = "Out of fuel — refill at the shed"
 	elseif rideable then
-		hintLabel.Text = "Press F to get on the mower"
+		hintLabel.Text = if Theme.hasKeyboard() then "Press F to get on the mower" else "Tap Ride to get on the mower"
 	else
 		hintLabel.Text = ""
 	end
