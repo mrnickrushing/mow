@@ -24,6 +24,7 @@ local Tools = require(Shared.Config.Tools)
 local Types = require(Shared.Types)
 local ToolUpgrades = require(Shared.Config.ToolUpgrades)
 local Monetization = require(Shared.Config.Monetization)
+local Prices = require(Shared.Prices)
 local Upgrades = require(Shared.Config.Upgrades)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 local Store = require(script.Parent.Store)
@@ -1567,7 +1568,7 @@ local function build()
 	quick.Position = UDim2.fromOffset(24, #TABS * 56 + 12)
 	quick.BackgroundTransparency = 1
 	-- The Robux mark stays a character: it is Roblox's, not ours to redraw.
-	quick.Text = if cheapest then `\n\n⬡ {cheapest.robux}` else ""
+	quick.Text = if cheapest then `\n\n⬡ {Prices.robux(cheapest.id, cheapest.robux)}` else ""
 	quick.Visible = cheapest ~= nil
 	quick.Font = Theme.font
 	quick.TextColor3 = Theme.colors.cash
