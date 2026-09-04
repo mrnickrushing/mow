@@ -249,6 +249,79 @@ function Theme.fitToViewport(
 	return scale
 end
 
+--[[
+	The height at which the fixed-size HUD chrome starts standing down.
+
+	Every desktop window and every tablet is taller than this, so the scale
+	clamps at 1 and nothing outside a phone is touched.
+]]
+local CHROME_HEIGHT = 640
+--- As small as the chrome is allowed to get. Below this the text stops being
+--- readable, which is a worse problem than the one this solves.
+local CHROME_FLOOR = 0.62
+
+--[[
+	Shrinks a fixed-size piece of HUD chrome on a short screen.
+
+	This is not `fitToViewport` and could not be. That one answers "is this
+	panel too big for the screen, and by how much" — so for anything that
+	already fits it returns 1 and does nothing. The bag is 190x74. It fits on
+	every screen ever made, and it was therefore never scaled, and on a phone it
+	was three and a half percent of the picture instead of one and a half.
+
+	The HUD was full of that. Measured against an iPhone-sized viewport, the
+	toasts covered seventeen percent of the screen and sat across the middle of
+	it, the zone panel ten percent of the top-left corner, and the hint ran to
+	over half the width — all of them pixel-for-pixel the size they are on a
+	desktop monitor three times the area. Nothing was off screen, which is why
+	nothing caught it; there was simply far more furniture than lawn.
+
+	So the measure here is the screen's height rather than the panel's size,
+	because the question is how much room the player has, not whether the thing
+	fits. Anchored corners stay anchored: a `UIScale` changes the size of what
+	it is on and the position of what is inside it, but not that object's own
+	position, so a bag pinned to the bottom-left shrinks towards the corner it
+	is pinned to rather than drifting off it.
+]]
+function Theme.chromeScale(element: GuiObject): UIScale
+	local scale = Instance.new("UIScale")
+	scale.Parent = element
+
+	local screen = element:FindFirstAncestorWhichIsA("ScreenGui")
+
+	local function fit()
+		local area: Vector2
+		if screen and screen.AbsoluteSize.Y > 0 then
+			area = screen.AbsoluteSize
+		else
+			local camera = workspace.CurrentCamera
+			area = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+		end
+		if area.Y <= 0 then
+			return
+		end
+		scale.Scale = math.clamp(area.Y / CHROME_HEIGHT, CHROME_FLOOR, 1)
+	end
+
+	fit()
+	if screen then
+		screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+	end
+	local camera = workspace.CurrentCamera
+	if camera then
+		camera:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+	end
+	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+		local current = workspace.CurrentCamera
+		if current then
+			current:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+		end
+		fit()
+	end)
+
+	return scale
+end
+
 --------------------------------------------------------------------
 -- The cursor
 --------------------------------------------------------------------
