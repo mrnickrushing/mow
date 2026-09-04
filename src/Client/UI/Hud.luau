@@ -48,6 +48,9 @@ local toolButton: TextButton
 local toolIcon: Frame
 local toolStateLabel: TextLabel
 local toolNameLabel: TextLabel
+local bagSack: Frame? = nil
+--- The sack's own colour, kept so the full-bag red can be undone.
+local BAG_SACK_COLOUR = Color3.fromRGB(158, 158, 160)
 local journalBadge: Frame
 local gainHolder: Frame
 local toastHolder: Frame
@@ -735,6 +738,7 @@ local function buildBag(gui: ScreenGui)
 	-- A sack: a rounded body with a pinched neck above it.
 	local sack = Instance.new("Frame")
 	sack.Name = "Sack"
+	bagSack = sack
 	sack.Size = UDim2.fromOffset(64, 56)
 	sack.Position = UDim2.fromOffset(2, 16)
 	sack.BackgroundColor3 = Color3.fromRGB(158, 158, 160)
@@ -1156,6 +1160,21 @@ local function refresh()
 	end
 
 	local fraction = PlayerState.bagFraction()
+	--[[
+		The bag turns red when it is full, and the count with it.
+
+		Full is the one state that makes every other control do nothing, and
+		it was being announced by a line of hint text at the bottom of the
+		screen and a number that looked like any other number. On a tablet,
+		with the readout moved to the top-left corner, that is not an
+		announcement.
+	]]
+	local full = fraction >= 1
+	bagCountLabel.TextColor3 = if full then Theme.colors.danger else Theme.colors.text
+	bagCapacityLabel.TextColor3 = if full then Theme.colors.danger else Theme.colors.subtext
+	if bagSack then
+		bagSack.BackgroundColor3 = if full then Theme.colors.danger else BAG_SACK_COLOUR
+	end
 	local rideable = tool ~= nil and tool.vehicle ~= nil
 	if state.rentalSecondsLeft > 0 and state.rentalToolId ~= "" then
 		local rented = Tools.get(state.rentalToolId)
