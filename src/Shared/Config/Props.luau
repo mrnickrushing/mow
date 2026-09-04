@@ -71,7 +71,9 @@ local ICONS: { [string]: string } = {
 	Cross = "rbxassetid://121723463170997",
 	Tick = "rbxassetid://114338735322506",
 	GoldenBlade = "rbxassetid://117395081872373",
-	Journal = "rbxassetid://104578836287968",
+	--- A closed leather journal with a strap and a ribbon, rather than the
+	--- flat open-book symbol that read as a drawing inside a square.
+	Journal = "rbxassetid://75894204417266",
 	Scroll = "rbxassetid://95949298201999",
 	Sack = "rbxassetid://134964019879295",
 	LeafMaple = "rbxassetid://108471706964880",
