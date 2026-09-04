@@ -406,8 +406,18 @@ local function buildRightColumn(gui: ScreenGui)
 		local nowMuted = not SoundController.isMuted()
 		SoundController.setMuted(nowMuted)
 		paintSound()
-		-- Remembered, so it is still off next time.
-		Remotes.event(Remotes.SETTINGS):FireServer("sfx", not nowMuted)
+		--[[
+			One button, both settings.
+
+			A player pressing a speaker icon means "stop making noise", not
+			"stop the effects but keep the music". Both fields are written so
+			the profile matches what they actually asked for, and so
+			`musicEnabled` is a real setting rather than a field nothing
+			reads — which is what it was until there was music to enable.
+		]]
+		local remote = Remotes.event(Remotes.SETTINGS)
+		remote:FireServer("sfx", not nowMuted)
+		remote:FireServer("music", not nowMuted)
 	end)
 	paintSound()
 

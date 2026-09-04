@@ -53,6 +53,11 @@ end
 ]]
 local muted = false
 
+--- The background track and the routine that pauses it. Declared here because
+--- `setMuted` below is written before either exists.
+local music: Sound? = nil
+local applyMusicMute: () -> ()
+
 --- Silences or restores every cue. Loops already running are stopped at once
 --- rather than left playing until whatever drives them next changes its mind.
 function SoundController.setMuted(on: boolean)
@@ -65,6 +70,7 @@ function SoundController.setMuted(on: boolean)
 			sound:Stop()
 		end
 	end
+	applyMusicMute()
 end
 
 function SoundController.isMuted(): boolean
@@ -139,6 +145,33 @@ function SoundController.setLoop(name: string, on: boolean)
 	sound:Play()
 end
 
+--[[
+	The background track, which is not a cue.
+
+	Cues are fired at moments and come from a round-robin pool. Music is one
+	Sound that starts when the client does and never stops, so it lives
+	beside the pool rather than in it — taking a pool slot would mean the
+	next cut silenced the music.
+]]
+function applyMusicMute()
+	local track = music
+	if not track then
+		return
+	end
+	if muted then
+		track:Pause()
+	elseif not track.IsPlaying then
+		--[[
+			Resumed rather than restarted.
+
+			`Play` on a paused Sound begins again from zero, so a player
+			toggling sound off and on would hear the first bar of the track
+			every time. `Resume` picks it up where it was.
+		]]
+		track:Resume()
+	end
+end
+
 function SoundController.start()
 	holder = Instance.new("Folder")
 	holder.Name = "MowSounds"
@@ -149,6 +182,17 @@ function SoundController.start()
 		sound.Name = `Shot{index}`
 		sound.Parent = holder
 		pool[index] = sound
+	end
+
+	local track = Instance.new("Sound")
+	track.Name = "Music"
+	track.SoundId = Audio.music.id
+	track.Volume = Audio.music.volume
+	track.Looped = true
+	track.Parent = holder
+	music = track
+	if not muted then
+		track:Play()
 	end
 end
 

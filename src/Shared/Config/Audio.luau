@@ -76,6 +76,23 @@ local cues: { [string]: Cue } = {
 	Win = cue("1839881844", 0.5, {}),
 }
 
+--[[
+	The bed the whole thing plays over.
+
+	There was none. Nineteen Sound instances in a running game and every one
+	of them was either a cue firing on an action, a sprinkler, or one of the
+	default character noises Roblox attaches to an avatar — nothing continuous
+	at all, in the lobby or in a run.
+
+	Kept much quieter than the cues on purpose. Music under work sounds should
+	be felt rather than listened to, and a mower loop at 0.28 will sit on top
+	of this rather than fight it.
+
+	The track is from the same first-party library the cues come from, and it
+	is one line to change: swap the id, and everything else here stays put.
+]]
+Audio.music = { id = "rbxassetid://1839246711", volume = 0.11 }
+
 Audio.cues = cues
 
 --- The cue by name, or nil when nothing answers to it.
