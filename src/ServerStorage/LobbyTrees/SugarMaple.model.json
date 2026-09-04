@@ -1,0 +1,167 @@
+{
+  "className": "Model",
+  "children": [
+    {
+      "name": "Trunk",
+      "className": "MeshPart",
+      "properties": {
+        "MeshId": "rbxassetid://10066618419",
+        "Size": [
+          3.0,
+          5.0,
+          2.8
+        ],
+        "Anchored": true,
+        "CanCollide": false,
+        "CastShadow": true,
+        "Material": "Plastic",
+        "Color": {
+          "Color3uint8": [
+            163,
+            162,
+            165
+          ]
+        },
+        "CFrame": [
+          0.74,
+          8.73,
+          1.38,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "TextureID": "rbxassetid://10066748571"
+      }
+    },
+    {
+      "name": "InnerCrown",
+      "className": "MeshPart",
+      "properties": {
+        "MeshId": "rbxassetid://10066618421",
+        "Size": [
+          11.3,
+          14.5,
+          13.2
+        ],
+        "Anchored": true,
+        "CanCollide": false,
+        "CastShadow": true,
+        "Material": "Plastic",
+        "Color": {
+          "Color3uint8": [
+            163,
+            162,
+            165
+          ]
+        },
+        "CFrame": [
+          1.38,
+          15.48,
+          0.23,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "TextureID": "rbxassetid://3919199672"
+      }
+    },
+    {
+      "name": "OuterCrown",
+      "className": "MeshPart",
+      "properties": {
+        "MeshId": "rbxassetid://10066618436",
+        "Size": [
+          22.0,
+          23.4,
+          24.7
+        ],
+        "Anchored": true,
+        "CanCollide": false,
+        "CastShadow": true,
+        "Material": "Plastic",
+        "Color": {
+          "Color3uint8": [
+            163,
+            162,
+            165
+          ]
+        },
+        "CFrame": [
+          0.0,
+          17.88,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "TextureID": "rbxassetid://3919199672"
+      }
+    },
+    {
+      "name": "Foliage",
+      "className": "MeshPart",
+      "properties": {
+        "MeshId": "rbxassetid://10066618472",
+        "Size": [
+          17.7,
+          27.4,
+          20.8
+        ],
+        "Anchored": true,
+        "CanCollide": false,
+        "CastShadow": true,
+        "Material": "Plastic",
+        "Color": {
+          "Color3uint8": [
+            163,
+            162,
+            165
+          ]
+        },
+        "CFrame": [
+          0.02,
+          13.7,
+          0.29,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      },
+      "children": [
+        {
+          "name": "SurfaceAppearance",
+          "className": "SurfaceAppearance",
+          "properties": {
+            "ColorMap": "rbxassetid://10066742016",
+            "AlphaMode": "Overlay",
+            "NormalMap": "rbxassetid://10066741787"
+          }
+        }
+      ]
+    }
+  ]
+}

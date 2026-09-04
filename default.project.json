@@ -74,6 +74,12 @@
       "$properties": {
         "CharacterAutoLoads": true
       }
+    },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "LobbyTrees": {
+        "$path": "src/ServerStorage/LobbyTrees"
+      }
     }
   }
 }
