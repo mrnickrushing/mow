@@ -198,12 +198,31 @@ end
 	by eye, and it leaves the bar full size wherever there is room for all
 	three.
 ]]
+--[[
+	The height at which the fixed-size HUD chrome starts standing down.
+
+	Every desktop window and every tablet is taller than this, so the scale
+	clamps at 1 and nothing outside a phone is touched.
+]]
+local CHROME_HEIGHT = 640
+--- As small as the chrome is allowed to get. Below this the text stops being
+--- readable, which is a worse problem than the one this solves.
+local CHROME_FLOOR = 0.62
+
+--- How much of its designed size the fixed HUD chrome is drawn at, for a
+--- screen of this size. Used both to scale that chrome and to work out how
+--- much room to leave for it.
+local function chromeFactor(area: Vector2): number
+	return math.clamp(area.Y / CHROME_HEIGHT, CHROME_FLOOR, 1)
+end
+
 function Theme.fitToViewport(
 	panel: GuiObject,
 	width: number,
 	height: number,
 	reservedY: number?,
-	reservedX: number?
+	reservedX: number?,
+	reservedXInset: number?
 ): UIScale
 	local scale = Instance.new("UIScale")
 	scale.Parent = panel
@@ -225,8 +244,31 @@ function Theme.fitToViewport(
 		if area.X <= 0 or area.Y <= 0 then
 			return
 		end
+		--[[
+			A reserve is a widget that scales plus a margin that does not.
+
+			`reservedY` is the panel's own drop from the top edge. A `UIScale`
+			does not move the thing it is on, so that is the same number of pixels
+			on every screen and it is used as given.
+
+			The horizontal reserve is the round timer sitting in the bottom
+			corner, and that is two different measurements added together: the
+			timer is `reservedX` wide and is chrome, so it shrinks; it sits
+			`reservedXInset` in from the edge, and that offset does not. Leaving
+			the whole 262 fixed reserved room on a phone for corners that had
+			shrunk to 173, and the bar paid for it — eight slots at 53 pixels
+			where there was room for 72.
+
+			Scaling the whole 262 instead is wrong in the other direction, and
+			only by enough to be missed: at 812x339 it reserves 162 for a timer
+			whose left edge is 171 in, and the last slot lands 8 pixels underneath
+			it. Splitting the two is the only version that holds at both ends —
+			it is exactly 262 wherever the chrome is full size, so no screen
+			large enough to matter sees any change at all.
+		]]
 		local usableY = math.max(area.Y - (reservedY or 0), 1)
-		local usableX = math.max(area.X - (reservedX or 0) * 2, 1)
+		local reserve = (reservedXInset or 0) + (reservedX or 0) * chromeFactor(area)
+		local usableX = math.max(area.X - reserve * 2, 1)
 		scale.Scale = math.clamp(math.min(usableX / width, usableY / height), 0.35, 1)
 	end
 
@@ -248,17 +290,6 @@ function Theme.fitToViewport(
 
 	return scale
 end
-
---[[
-	The height at which the fixed-size HUD chrome starts standing down.
-
-	Every desktop window and every tablet is taller than this, so the scale
-	clamps at 1 and nothing outside a phone is touched.
-]]
-local CHROME_HEIGHT = 640
---- As small as the chrome is allowed to get. Below this the text stops being
---- readable, which is a worse problem than the one this solves.
-local CHROME_FLOOR = 0.62
 
 --[[
 	Shrinks a fixed-size piece of HUD chrome on a short screen.
@@ -300,7 +331,7 @@ function Theme.chromeScale(element: GuiObject): UIScale
 		if area.Y <= 0 then
 			return
 		end
-		scale.Scale = math.clamp(area.Y / CHROME_HEIGHT, CHROME_FLOOR, 1)
+		scale.Scale = chromeFactor(area)
 	end
 
 	fit()

@@ -245,8 +245,11 @@ function Hotbar.start()
 		everything is unaffected: the scale clamps at 1 above 1212 pixels, so
 		nothing changes on a desktop.
 	]]
-	local CORNER_RESERVE = 262
-	Theme.fitToViewport(holder, MAX_SLOTS * 74, 120, 0, CORNER_RESERVE)
+	-- The round timer is 240 wide and sits 22 in from the edge. Only the first
+	-- of those shrinks on a phone, so they are passed separately; together they
+	-- are the same 262 this reserved before.
+	local CORNER_WIDGET, CORNER_INSET = 240, 22
+	Theme.fitToViewport(holder, MAX_SLOTS * 74, 120, 0, CORNER_WIDGET, CORNER_INSET)
 
 	local layoutOrder = Instance.new("UIListLayout")
 	layoutOrder.FillDirection = Enum.FillDirection.Horizontal
