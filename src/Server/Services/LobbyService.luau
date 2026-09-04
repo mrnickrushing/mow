@@ -511,23 +511,24 @@ local function build()
 		local WOOD = Palette.color(Palette.house.roof)
 		local RAIL = Palette.color(Palette.fence.rail)
 
-		-- Posts, running well past the board so it hangs between them.
+		--[[
+			Short feet, not posts.
+
+			Each sign stood on two two-by-two uprights running twenty-one
+			studs from the grass to well above the board. One sign like that
+			is a yard sign; four of them in a row, with their neighbours'
+			uprights five studs away, is a picket fence of poles across the
+			back of the lawn — which is what they read as, and what they were
+			asked to stop being.
+
+			The board keeps a foot at each end, stopping where the board
+			starts. It still stands on something; it no longer has antennae.
+		]]
 		for _, side in { -1, 1 } do
 			Build.part({
 				name = "BoardLeg",
-				size = Vector3.new(2.2, 21, 2.2),
-				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 13.4, 10.5, -9.6 + PAD_ROW_Z)),
-				color = WOOD,
-				material = Enum.Material.WoodPlanks,
-				parent = root,
-			})
-			-- A short angled brace at the foot, which is what stops a sign
-			-- on two posts looking like it was pushed into the lawn.
-			Build.part({
-				name = "BoardBrace",
-				size = Vector3.new(1.4, 5.2, 1.4),
-				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 13.4, 2.4, -8.1 + PAD_ROW_Z))
-					* CFrame.Angles(math.rad(34), 0, 0),
+				size = Vector3.new(2.8, 7.4, 2.8),
+				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 11.6, 3.7, -9.6 + PAD_ROW_Z)),
 				color = WOOD,
 				material = Enum.Material.WoodPlanks,
 				parent = root,
@@ -776,6 +777,9 @@ local function build()
 	-- The board at the far end
 	--------------------------------------------------------------------
 
+	--- Where the marquee stands, and its posts with it.
+	local MARQUEE_Z = -68
+
 	local statusPost = Build.part({
 		name = "StatusBoard",
 		size = Vector3.new(78, 18, 1.4),
@@ -793,8 +797,8 @@ local function build()
 			banner hanging over open lawn with the thing it titles behind it.
 		]]
 		cframe = CFrame.lookAt(
-			CENTRE + Vector3.new(0, 27, -68),
-			CENTRE + Vector3.new(0, 27, -67)
+			CENTRE + Vector3.new(0, 27, MARQUEE_Z),
+			CENTRE + Vector3.new(0, 27, MARQUEE_Z + 1)
 		),
 		color = Color3.fromRGB(247, 236, 208),
 		material = Enum.Material.SmoothPlastic,
@@ -830,11 +834,19 @@ local function build()
 	painted.ZIndex = 0
 	painted.Parent = marquee
 
+	--[[
+		The posts that hold the marquee up, standing under the marquee.
+
+		They were left at z = -34 when the board moved back to -68, so what
+		the yard actually had was two thirty-six stud poles in front of the
+		pads holding nothing at all, and a sign floating behind them. They
+		are placed from the same number the board is now.
+	]]
 	for _, side in { -1, 1 } do
 		Build.part({
 			name = "BoardPost",
 			size = Vector3.new(2.4, 36, 2.4),
-			cframe = CFrame.new(CENTRE + Vector3.new(side * 37, 18, -34)),
+			cframe = CFrame.new(CENTRE + Vector3.new(side * 37, 18, MARQUEE_Z + 1.4)),
 			color = Palette.color(Palette.fence.rail),
 			material = Enum.Material.SmoothPlastic,
 			parent = root,

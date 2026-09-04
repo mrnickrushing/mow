@@ -95,6 +95,14 @@ local stationSignal = Instance.new("BindableEvent")
 --- Fires with (player, upgradeId) when someone uses an upgrade station.
 WorldService.StationTried = stationSignal.Event
 
+--- The section whose switch raises the garage door.
+local GARAGE_SECTION = "garage"
+--- Courses in one bay, so the tween can stagger by height rather than by index.
+local GARAGE_COURSES_PER_BAY = 6
+type GarageSlat = { part: Part, shut: CFrame, rolled: CFrame }
+local garageSlats: { GarageSlat } = {}
+local garageOpen = false
+
 local switchSignal = Instance.new("BindableEvent")
 --- Fires with (player, sectionId) when someone flips a hidden switch. The
 --- world hides the switch; whether flipping it opens anything is the run's.
@@ -888,6 +896,9 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		a human scale. A car is about ten studs, so a bay is fourteen.
 	]]
 	local bayWidth, bays = GARAGE_BAY_WIDTH, GARAGE_BAYS
+	-- A freshly built door is a shut door, whatever the last world's was doing.
+	table.clear(garageSlats)
+	garageOpen = false
 	--[[
 		The doors run from the driveway up, not from the plinth up.
 
@@ -903,7 +914,7 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	for bay = 0, bays - 1 do
 		local bayX = garageX + (bay - (bays - 1) * 0.5) * (bayWidth + 1.5)
 		for course = 0, courses - 1 do
-			Build.mesh({
+			local slat = Build.mesh({
 				prop = "GarageDoor",
 				name = "GarageDoor",
 				-- Painted, not printed: the model's own texture is a strong
@@ -916,6 +927,22 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 				cframe = CFrame.new(bayX, courseHeight * (course + 0.5), frontZ - 0.5),
 				parent = garage,
 			})
+			--[[
+				Where this course sits when the door is up.
+
+				A roll-up door does not slide into the sky, it gathers into a
+				drum under the lintel — so the courses stack tight at the top
+				in the order they arrive, the bottom one travelling furthest
+				and finishing outermost. Tipped back a little as they land,
+				which is what sells it as a curl rather than a stack of
+				planks that happens to be near the ceiling.
+			]]
+			local rolled = CFrame.new(
+				bayX,
+				garageHeight - 1.1 - course * 0.62,
+				frontZ - 0.5 - 0.55 - course * 0.22
+			) * CFrame.Angles(math.rad(-16 - course * 3), 0, 0)
+			table.insert(garageSlats, { part = slat, shut = slat.CFrame, rolled = rolled })
 		end
 	end
 	Build.part({
@@ -2579,7 +2606,47 @@ function WorldService.isSectionOpen(sectionId: string): boolean
 	return openSections[sectionId] == true
 end
 
+--[[
+	Rolls the garage door, once, when its section opens.
+
+	The door was twelve solid courses that never moved. Flipping the switch
+	opened the section — the gate lifted, the quest ticked, the grass inside
+	counted — and left the opening bricked up with a door, so the one thing
+	the switch is for could not be walked through. Nothing in the game said
+	why, because from the outside a shut garage door and a locked garage look
+	the same.
+
+	Each course tweens to its rolled place and stops colliding as it goes, so
+	a player who flips the switch and walks straight at the opening is not
+	stopped by a slat that has not finished travelling.
+]]
+local function rollGarage(open: boolean)
+	if #garageSlats == 0 or garageOpen == open then
+		return
+	end
+	garageOpen = open
+	for index, slat in garageSlats do
+		local part = slat.part
+		if not part.Parent then
+			continue
+		end
+		part.CanCollide = not open
+		local goal = if open then slat.rolled else slat.shut
+		-- The lowest course leads, so the door reads as lifting from the
+		-- ground rather than every panel setting off at once.
+		local lead = (index - 1) % GARAGE_COURSES_PER_BAY * 0.06
+		TweenService:Create(
+			part,
+			TweenInfo.new(1.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, false, lead),
+			{ CFrame = goal }
+		):Play()
+	end
+end
+
 function WorldService.setSectionOpen(sectionId: string, open: boolean)
+	if sectionId == GARAGE_SECTION then
+		rollGarage(open)
+	end
 	if open then
 		openSections[sectionId] = true
 		-- An open section has no door: the purchase consumes it.
@@ -2596,6 +2663,15 @@ end
 --- Shuts every gate, for the start of a fresh run.
 function WorldService.closeAllSections()
 	table.clear(openSections)
+	--[[
+		The door is not this function's business.
+
+		It cleared the slat list here, and a run begins by loading the world
+		and then shutting its gates — so the door was built, recorded, and the
+		record thrown away a moment later. `rollGarage` then had nothing to
+		roll and the switch went on doing nothing, which is the bug this was
+		all meant to fix. The build owns the list and resets the flag.
+	]]
 end
 
 --- Fraction of the world's debris that has been cleared, 0..1.
