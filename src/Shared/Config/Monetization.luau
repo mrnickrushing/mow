@@ -236,13 +236,42 @@ local products: { ProductDef } = {
 -- first time a tool is renamed.
 --------------------------------------------------------------------
 
+--[[
+	The two product ids each paid tool was given on the dashboard.
+
+	Written out by tool rather than generated, because these are facts about
+	the outside world: thirty products exist, each with an id Roblox chose,
+	and nothing in this file can derive them. The loop below still builds the
+	entries, so a tool renamed or repriced needs no work here — only a tool
+	newly given a Robux price needs a row adding, and the test that refuses a
+	duplicate id will say so if one is pasted twice.
+]]
+local TOOL_PRODUCT_IDS: { [string]: { run: number, forever: number } } = {
+	reel_mower       = { run = 3711188116, forever = 3711188187 },
+	rake             = { run = 3711188311, forever = 3711188387 },
+	gas_mower        = { run = 3711188452, forever = 3711188528 },
+	trimmer          = { run = 3711188601, forever = 3711188659 },
+	blower           = { run = 3711188724, forever = 3711188783 },
+	self_propelled   = { run = 3711188853, forever = 3711188938 },
+	hedge_trimmer    = { run = 3711189035, forever = 3711189145 },
+	pole_saw         = { run = 3711189253, forever = 3711189349 },
+	chainsaw         = { run = 3711189430, forever = 3711189522 },
+	riding_mower     = { run = 3711189633, forever = 3711189721 },
+	backpack_blower  = { run = 3711189834, forever = 3711189902 },
+	zero_turn        = { run = 3711189983, forever = 3711190052 },
+	stump_grinder    = { run = 3711190160, forever = 3711190238 },
+	wood_chipper     = { run = 3711190320, forever = 3711190406 },
+	commercial_deck  = { run = 3711190508, forever = 3711190593 },
+}
+
 for _, tool in Tools.list do
 	local once = tool.robuxOnce
 	local permanent = tool.robuxPermanent
+	local productIds = TOOL_PRODUCT_IDS[tool.id]
 	if tool.cost > 0 and once and permanent then
 		table.insert(products, {
 			key = `tool_{tool.id}_run`,
-			id = 0,
+			id = if productIds then productIds.run else 0,
 			name = `{tool.name} — this run`,
 			robux = once,
 			kind = "toolRun",
@@ -251,7 +280,7 @@ for _, tool in Tools.list do
 		})
 		table.insert(products, {
 			key = `tool_{tool.id}_forever`,
-			id = 0,
+			id = if productIds then productIds.forever else 0,
 			name = `{tool.name} — forever`,
 			robux = permanent,
 			kind = "toolPermanent",
