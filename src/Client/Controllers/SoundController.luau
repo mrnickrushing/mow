@@ -57,6 +57,13 @@ local muted = false
 --- `setMuted` below is written before either exists.
 local music: Sound? = nil
 local applyMusicMute: () -> ()
+--- The shuffled order of `Audio.music.tracks`, and how far through it we are.
+local order: { number } = {}
+local atTrack = 0
+--- Bumped every time a track is started, so a watchdog armed for one track
+--- does not fire against the track that replaced it.
+local generation = 0
+local playNext: () -> ()
 
 --- Silences or restores every cue. Loops already running are stopped at once
 --- rather than left playing until whatever drives them next changes its mind.
@@ -153,6 +160,56 @@ end
 	beside the pool rather than in it — taking a pool slot would mean the
 	next cut silenced the music.
 ]]
+--[[
+	The next track in the shuffle.
+
+	`Looped` is off and this is hung on `Ended`, so the six tracks play through
+	and then reshuffle. The reshuffle matters more than it sounds: without it
+	the list would run in the same order for ever, and the first track would
+	be the one every player heard while they were still reading the loading
+	screen, every session.
+
+	The watchdog is there because `Ended` is the only thing advancing this. If
+	an id ever stops resolving — pulled, moderated, or simply a bad day for the
+	CDN — `Play` quietly does nothing, `Ended` never fires, and the music is
+	gone for the rest of the session with nothing in the log to say why. Fifteen
+	seconds of a track that will not start is enough to give up on it and take
+	the next one.
+]]
+function playNext()
+	local track = music
+	if not track then
+		return
+	end
+
+	atTrack += 1
+	if atTrack > #order then
+		for i = #order, 2, -1 do
+			local j = math.random(i)
+			order[i], order[j] = order[j], order[i]
+		end
+		atTrack = 1
+	end
+
+	local def = Audio.music.tracks[order[atTrack]]
+	if not def then
+		return
+	end
+
+	generation += 1
+	local mine = generation
+	track.SoundId = def.id
+	if not muted then
+		track:Play()
+	end
+
+	task.delay(15, function()
+		if mine == generation and not muted and not track.IsPlaying then
+			playNext()
+		end
+	end)
+end
+
 function applyMusicMute()
 	local track = music
 	if not track then
@@ -186,14 +243,21 @@ function SoundController.start()
 
 	local track = Instance.new("Sound")
 	track.Name = "Music"
-	track.SoundId = Audio.music.id
 	track.Volume = Audio.music.volume
-	track.Looped = true
+	track.Looped = false
 	track.Parent = holder
 	music = track
-	if not muted then
-		track:Play()
+
+	for index = 1, #Audio.music.tracks do
+		order[index] = index
 	end
+	-- Starts at the end so the first `playNext` shuffles before it picks,
+	-- rather than always opening on the first track in the config.
+	atTrack = #order
+	track.Ended:Connect(function()
+		playNext()
+	end)
+	playNext()
 end
 
 return SoundController
