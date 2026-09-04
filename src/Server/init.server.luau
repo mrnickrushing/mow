@@ -41,6 +41,7 @@ local SweepService = require(Services.SweepService)
 local LobbyService = require(Services.LobbyService)
 local MatchmakingService = require(Services.MatchmakingService)
 local LeaderboardService = require(Services.LeaderboardService)
+local PriceService = require(script.Services.PriceService)
 local AdminService = require(Services.AdminService)
 
 -- Order matters: data before anything that reads a profile, replication before
@@ -93,6 +94,7 @@ if MatchmakingService.isRunServer() then
 else
 	RunService.setAutoStart(false)
 	MatchmakingService.watchFailures()
+	PriceService.start()
 	LeaderboardService.start()
 	AdminService.start()
 	LobbyService.start()

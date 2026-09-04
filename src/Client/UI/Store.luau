@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Monetization = require(Shared.Config.Monetization)
+local Prices = require(Shared.Prices)
 local Remotes = require(Shared.Remotes)
 local Theme = require(script.Parent.Theme)
 
@@ -149,7 +150,7 @@ local function render()
 		addHeading(order, "YOURS FOR GOOD")
 		for _, def in passes do
 			order += 1
-			addEntry(order, def.name, def.description, def.robux, function()
+			addEntry(order, def.name, def.description, Prices.robux(def.id, def.robux), function()
 				promptRemote:FireServer("pass", def.key)
 			end)
 		end
@@ -160,7 +161,7 @@ local function render()
 		addHeading(order, "BOOSTS AND REFILLS")
 		for _, def in boosts do
 			order += 1
-			addEntry(order, def.name, def.description, def.robux, function()
+			addEntry(order, def.name, def.description, Prices.robux(def.id, def.robux), function()
 				promptRemote:FireServer("product", def.key)
 			end)
 		end
@@ -171,7 +172,7 @@ local function render()
 		addHeading(order, "TOOLS")
 		for _, def in tools do
 			order += 1
-			addEntry(order, def.name, def.description, def.robux, function()
+			addEntry(order, def.name, def.description, Prices.robux(def.id, def.robux), function()
 				promptRemote:FireServer("product", def.key)
 			end)
 		end
@@ -290,6 +291,21 @@ function Store.start()
 	promptRemote = Remotes.event(Remotes.PROMPT_PURCHASE)
 	build()
 	render()
+
+	--[[
+		Redraw if a price lands while the store is already open.
+
+		Opening it renders, so almost every player sees live prices without
+		this. The exception is the first player on a new server, who can have
+		the store open before the server has finished asking Roblox what
+		anything costs — about ten seconds — and would otherwise sit looking at
+		the configured prices with no reason to close and reopen.
+	]]
+	Prices.onChanged(function()
+		if isOpen then
+			render()
+		end
+	end)
 end
 
 return Store
