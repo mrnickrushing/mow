@@ -36,7 +36,8 @@
           0.0047,
           -0.8655
         ],
-        "TextureID": "rbxassetid://743204224"
+        "TextureID": "rbxassetid://743204224",
+        "CollisionFidelity": "Box"
       }
     },
     {
@@ -74,7 +75,8 @@
           -0.0105,
           0.4988
         ],
-        "TextureID": "rbxassetid://11236617669"
+        "TextureID": "rbxassetid://11236617669",
+        "CollisionFidelity": "Box"
       }
     }
   ]
