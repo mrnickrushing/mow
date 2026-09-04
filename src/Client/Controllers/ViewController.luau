@@ -25,6 +25,7 @@ local Props = require(Shared.Config.Props)
 local Types = require(Shared.Types)
 local MowController = require(script.Parent.MowController)
 local PlayerState = require(script.Parent.Parent.PlayerState)
+local Intro = require(script.Parent.Parent.UI.Intro)
 
 local ViewController = {}
 
@@ -232,6 +233,114 @@ end
 -- Lifecycle
 --------------------------------------------------------------------
 
+--[[
+	Turns a player who has just spawned in the lobby to face the yard.
+
+	The lobby stands them at the gate looking north up the middle, and it does
+	it by rotating the character — which in a first-person camera is not where
+	facing comes from. The camera owns the yaw and the character is turned to
+	match it, so the server's rotation was overwritten within a frame and every
+	player arrived staring at the fence behind them with the pads, the boards
+	and the sign all out of shot. Setting the camera is what actually turns
+	somebody round; measured, it moves the character with it.
+
+	Aimed at the marquee rather than at a compass direction, so it keeps
+	pointing at the right thing if the yard is ever laid out differently
+	again — which it has been twice.
+]]
+local function faceTheYard()
+	task.spawn(function()
+		--[[
+			Holds the aim through everything that resets it.
+
+			Three things do, and each defeated a simpler version. The lobby
+			replicates from the server, so the first attempt has nothing to aim
+			at. Roblox's camera module re-asserts its stored yaw while it
+			settles after a spawn. And the loading screen hands the camera back
+			when it closes, seconds later, undoing whatever was set before it.
+
+			A fourth thing defeated the version after that: stopping on player
+			input. `InputChanged` fires for ambient mouse movement, so in
+			Studio it stood down before it had aimed even once. There is no
+			input test here now — the window is short and almost all of it is
+			spent behind the loading screen, so there is very little of it a
+			player is awake for.
+		]]
+		--[[
+			Aims until one aim survives a tick, then stops.
+
+			What it is up against was measured rather than guessed. While the
+			loading screen still owns the camera every set is dragged straight
+			back to the yaw the character spawned with; once the screen lets go,
+			a single set holds exactly, unmoved over three seconds. So there is
+			no need to know when that moment is, and no need for a threshold: it
+			aims, and if the aim is still there on the next tick it was not being
+			fought and the job is done.
+
+			The version before this stopped correcting as soon as the camera was
+			anywhere in front of the player, which left them resting forty-six
+			degrees off with the marquee at the edge of the shot — right about
+			the angle the drag happened to abandon them at.
+
+			Because it gives up the moment an aim holds, the longest it can ever
+			pull against somebody turning of their own accord is one tick, and
+			almost all of the window is spent behind the loading screen where
+			there is nobody to pull against.
+		]]
+		for _ = 1, 166 do
+			task.wait(0.15)
+			local lobby = workspace:FindFirstChild("MowLobby")
+			local marquee = lobby and lobby:FindFirstChild("StatusBoard", true)
+			local character = player.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			local camera = workspace.CurrentCamera
+			if not (marquee and root and root:IsA("BasePart") and camera) then
+				continue
+			end
+			--[[
+				The opening owns the camera while it runs.
+
+				It flies the camera round the house on a tween, so aiming into
+				that is both pointless and visible: the shot would stutter
+				towards the lobby once every tick. It is left alone, and the
+				aim happens again when it hands the camera back below.
+			]]
+			if Intro.isPlaying() or camera.CameraType ~= Enum.CameraType.Custom then
+				continue
+			end
+			--[[
+				Waits for the lobby to seat them rather than giving up.
+
+				This guard is here so a run, which has its own spawn and its own
+				thing worth looking at, is left alone. It was a `return`, and
+				that is what defeated every version of this: the loop starts the
+				moment the client does, which is before the lobby has moved
+				anybody anywhere, so the first thing it saw was a player two and
+				a half thousand studs away at the world origin — reasonably
+				concluded they were not in the lobby, and quit for good.
+
+				Waiting instead costs nothing and is correct in both cases: in a
+				run it simply never comes true and the loop runs out.
+			]]
+			if (root.Position - marquee.Position).Magnitude > 400 then
+				continue
+			end
+			local eye = camera.CFrame.Position
+			local flat = Vector3.new(marquee.Position.X, eye.Y, marquee.Position.Z)
+			local want = flat - eye
+			if want.Magnitude < 1 then
+				return
+			end
+			local facing = camera.CFrame.LookVector:Dot(want.Unit)
+			-- Already there, and nothing pulled it away: finished.
+			if facing > 0.99 then
+				return
+			end
+			camera.CFrame = CFrame.lookAt(eye, flat)
+		end
+	end)
+end
+
 function ViewController.start()
 	-- Locked rather than merely zoomed in, so the player cannot scroll out to a
 	-- third-person view the viewmodel was never drawn for.
@@ -241,7 +350,20 @@ function ViewController.start()
 
 	player.CharacterAdded:Connect(function()
 		player.CameraMode = Enum.CameraMode.LockFirstPerson
+		faceTheYard()
 	end)
+
+	--[[
+		Aim again when the opening lets go of the camera.
+
+		A player seeing the story for the first time is aimed at spawn, watches
+		the narration through, and is put back down facing
+		wherever the last shot drifted to — so the aim at spawn, which does
+		hold, is undone by something that happens afterwards. This is that
+		moment, told rather than guessed at.
+	]]
+	Intro.CameraReturned:Connect(faceTheYard)
+	faceTheYard()
 
 	RunService.RenderStepped:Connect(step)
 end

@@ -1516,15 +1516,40 @@ function LobbyService.start()
 		task.wait(0.25)
 	end)
 
-	-- Somebody arriving between runs belongs in the lobby, not on the last lot.
-	Players.PlayerAdded:Connect(function(player: Player)
+	--[[
+		Somebody arriving between runs belongs in the lobby, not on the last lot.
+
+		Players already here are wired up as well as ones still to arrive.
+		`PlayerAdded` only fires for players who join after the connection is
+		made, and this service starts during boot — so anybody the server
+		already knows about never had their `CharacterAdded` connected and was
+		never moved into the yard at all. They stood wherever Roblox dropped
+		them, which with the starter property preloaded underneath the lobby
+		is on that property, at the world origin, outside both.
+	]]
+	local function watch(player: Player)
 		player.CharacterAdded:Connect(function()
 			task.wait(0.3)
 			if MowRunService.phase() == "lobby" then
 				LobbyService.place(player)
 			end
 		end)
-	end)
+		-- The character may already exist, in which case the connection above
+		-- has nothing left to fire for.
+		if player.Character then
+			task.spawn(function()
+				task.wait(0.3)
+				if MowRunService.phase() == "lobby" then
+					LobbyService.place(player)
+				end
+			end)
+		end
+	end
+
+	for _, player in Players:GetPlayers() do
+		watch(player)
+	end
+	Players.PlayerAdded:Connect(watch)
 end
 
 return LobbyService
