@@ -16,6 +16,7 @@
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local DebrisConfig = require(Shared.Config.Debris)
@@ -109,29 +110,77 @@ end
 	and stumps sit on top of that: they pay, they count for quests, and they are
 	there for anyone who wants them.
 ]]
+--[[
+	The species a choppable tree can be, weighted.
+
+	Sugar maple three to two over the red. The Japanese maple is left out
+	of the lot on purpose: it spreads wider than it stands, and inside a
+	section — where the house is a few paces away — a crown that wide is a
+	crown through a wall. The other two hold their width in check once
+	scaled down to tree height.
+]]
+local CHOPPABLE = { "SugarMaple", "SugarMaple", "SugarMaple", "RedMaple", "RedMaple" }
+
 local function makeTree(position: Vector3, sectionId: string, parent: Instance)
 	local model = Instance.new("Model")
 	model.Name = "Tree"
 
-	local height = rng:NextNumber(22, 30)
+	local height = rng:NextNumber(20, 27)
 
 	--[[
-		One mesh for the whole tree, on a slim collision column.
+		A real tree on an invisible column.
 
-		The tree used to be a brown box with a green box balanced on it. The
-		model carries its own trunk and canopy, so the part underneath only has
-		to be something to walk into and hang the Chop prompt on — a column the
-		width of the trunk, rather than a block the width of the leaves.
+		The tree used to be the `Tree` prop — the starburst the catalogue
+		itself calls a firework — on a slim collision column, and the belt
+		of scenery around every lot has just stopped using it for the same
+		reason. So the look is one of the real species from
+		`ServerStorage.Trees`, scaled to this tree's height, and the column
+		is still here doing what it always did: something to walk into, to
+		hang the Chop prompt on, and for `fellTree` to topple. It is just
+		not drawn any more.
+
+		The meshes are welded to it now rather than at felling time, because
+		a chop tilts the column and a tree whose crown does not move when it
+		is hit looks like it was not hit.
 	]]
-	local trunk = Build.mesh({
-		prop = "Tree",
-		name = "Trunk",
-		-- Proportions of the source mesh, so a taller tree is not a fatter one.
-		size = Vector3.new(height * 0.666, height, height * 0.703),
-		collisionSize = Vector3.new(3.4, height, 3.4),
-		cframe = CFrame.new(position + Vector3.new(0, height * 0.5, 0)),
-		parent = model,
-	})
+	local templates = ServerStorage:FindFirstChild("Trees")
+	local template = templates and templates:FindFirstChild(CHOPPABLE[rng:NextInteger(1, #CHOPPABLE)])
+	local trunk: BasePart
+	if template then
+		trunk = Build.part({
+			name = "Trunk",
+			size = Vector3.new(3.4, height, 3.4),
+			cframe = CFrame.new(position + Vector3.new(0, height * 0.5, 0)),
+			transparency = 1,
+			castShadow = false,
+			parent = model,
+		})
+		local look = template:Clone()
+		look.WorldPivot = CFrame.identity
+		look:ScaleTo(height / look:GetExtentsSize().Y)
+		look:PivotTo(CFrame.new(position - Vector3.new(0, 0.5, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0))
+		for _, part in look:GetChildren() do
+			if part:IsA("BasePart") then
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = trunk
+				weld.Part1 = part
+				weld.Parent = trunk
+				part.Anchored = false
+				part.Parent = model
+			end
+		end
+		look:Destroy()
+	else
+		-- The firework, so a missing template costs a look and not a tree.
+		trunk = Build.mesh({
+			prop = "Tree",
+			name = "Trunk",
+			size = Vector3.new(height * 0.666, height, height * 0.703),
+			collisionSize = Vector3.new(3.4, height, 3.4),
+			cframe = CFrame.new(position + Vector3.new(0, height * 0.5, 0)),
+			parent = model,
+		})
+	end
 
 	model.PrimaryPart = trunk
 	model.Parent = parent
@@ -172,9 +221,11 @@ local function blockedByStructure(at: Vector3): boolean
 		return false
 	end
 	structureParams.FilterDescendantsInstances = { root }
+	-- Twenty-two across rather than sixteen: a real crown at tree height is
+	-- eleven studs from its trunk, where the firework's was nine.
 	local parts = workspace:GetPartBoundsInBox(
 		CFrame.new(at + Vector3.new(0, 11, 0)),
-		Vector3.new(16, 16, 16),
+		Vector3.new(22, 16, 22),
 		structureParams
 	)
 	for _, part in parts do
