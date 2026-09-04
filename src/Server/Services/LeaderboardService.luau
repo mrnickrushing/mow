@@ -231,14 +231,27 @@ local function buildBoard(parent: Instance, def: BoardDef, at: CFrame)
 		Color3.fromRGB(178, 166, 150), Enum.TextXAlignment.Center)
 end
 
---- Builds every board. Called by the lobby once its yard exists, with the
---- place each board should stand.
-function LeaderboardService.build(parent: Instance, at: CFrame)
+--[[
+	Builds every board, each where the lobby says it stands.
+
+	One place per board, not one place and a spacing. The spacing version
+	offset each board along the first one's right-hand axis, and that axis is
+	whatever the lobby's `lookAt` happened to produce — here it pointed at the
+	left-hand fence, from an anchor already forty-six studs toward it. With a
+	single board the offset was always zero and nothing could show it. The
+	moment there were two, the second landed centred ten studs outside the
+	yard, through the hedge, four pickets and fifteen tree canopies.
+
+	Where a thing stands is a fact about the yard, so the yard supplies it.
+]]
+function LeaderboardService.build(parent: Instance, places: { CFrame })
 	for index, def in BOARDS do
-		-- Far enough apart that the inner posts of a pair keep daylight between
-		-- them: at the boards' own width a spacing in the thirties left the two
-		-- frames reading as one wide board with a seam down it.
-		buildBoard(parent, def, at * CFrame.new((index - 1) * 44, 0, 0))
+		local at = places[index]
+		if not at then
+			warn(`[Leaderboard] no place given for the {def.key} board; not built`)
+			continue
+		end
+		buildBoard(parent, def, at)
 	end
 end
 

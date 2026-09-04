@@ -17,6 +17,7 @@
 	so that arriving back is a move rather than a rebuild.
 ]]
 
+local ServerStorage = game:GetService("ServerStorage")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -357,11 +358,16 @@ local function build()
 	})
 
 	--[[
-		A picket fence on all four sides, open where you arrive.
+		A picket fence on all four sides, closed.
 
-		The gap matters more than the fence: a yard you cannot see out of is a
-		room, and the point of standing here is that it feels like the front of
-		somebody's house.
+		The near side used to stop either side of a thirty-six stud opening,
+		on the argument that a yard you cannot see out of is a room. But there
+		was never anything in the opening — no gate, no arch, no path through
+		it — and nothing beyond it but the surround running out to the fog. A
+		hole that size in a picket fence with nothing standing in it does not
+		read as a way in; it reads as a missing panel. The hedge behind it is
+		twelve studs tall now anyway, which is the thing that actually decides
+		whether you can see out.
 	]]
 	local halfW, halfD = FLOOR_W * 0.5, FLOOR_D * 0.5
 	local fences = Build.folder("Fences", root)
@@ -369,9 +375,7 @@ local function build()
 		{ CENTRE + Vector3.new(-halfW, 0, -halfD), CENTRE + Vector3.new(halfW, 0, -halfD) },
 		{ CENTRE + Vector3.new(-halfW, 0, -halfD), CENTRE + Vector3.new(-halfW, 0, halfD) },
 		{ CENTRE + Vector3.new(halfW, 0, -halfD), CENTRE + Vector3.new(halfW, 0, halfD) },
-		-- The near side, in two runs with the gate between them.
-		{ CENTRE + Vector3.new(-halfW, 0, halfD), CENTRE + Vector3.new(-18, 0, halfD) },
-		{ CENTRE + Vector3.new(18, 0, halfD), CENTRE + Vector3.new(halfW, 0, halfD) },
+		{ CENTRE + Vector3.new(-halfW, 0, halfD), CENTRE + Vector3.new(halfW, 0, halfD) },
 	}
 	for _, run in corners do
 		Build.picketFence(fences, run[1], run[2], 9, false)
@@ -639,16 +643,21 @@ local function build()
 
 		The reference stands two of these at the boundary behind its map
 		signs, and they are most of why its yard feels like a place other
-		people play in. Ours face the gate from the left-hand corner, out of
-		the walked middle and out of the sight line to the map boards.
+		people play in. Ours stand one in each back corner, angled in toward
+		the middle of the yard, either side of the status board.
+
+		Not side by side, though that was the first idea. The status board
+		sits twenty-six studs in front of the fence line and spans the middle
+		forty of it, so a second board next to the first lands directly behind
+		it and is hidden from anywhere a player stands. And the left-hand
+		corner has thirty-four studs of clear fence before the hedge, which is
+		one board, not two. The corners are the only two places along the back
+		where a board this size is both inside the yard and in view.
 	]]
-	LeaderboardService.build(
-		root,
-		CFrame.lookAt(
-			CENTRE + Vector3.new(-46, 21, -62),
-			CENTRE + Vector3.new(-40, 17, 20)
-		)
-	)
+	LeaderboardService.build(root, {
+		CFrame.lookAt(CENTRE + Vector3.new(-46, 21, -62), CENTRE + Vector3.new(-40, 17, 20)),
+		CFrame.lookAt(CENTRE + Vector3.new(46, 21, -62), CENTRE + Vector3.new(40, 17, 20)),
+	})
 
 	--------------------------------------------------------------------
 	-- The street it stands on
@@ -869,17 +878,35 @@ local function build()
 	--------------------------------------------------------------------
 
 	--[[
-		Trees outside the fence, in a wall of them.
+		A handful of real trees, not a belt of bush-clusters.
 
-		Two rows of four stood *inside* the yard, on the grass a player walks
-		across, which is the one place the reference keeps clear. Its trees
-		are all beyond the fence and there are a great many — a solid band of
-		autumn behind the houses, tall enough that the yard has a ceiling of
-		orange rather than a horizon.
+		There were a hundred of them, on four rings all the way round the
+		fence, each one three tinted `Bush` meshes stacked on a column. From
+		the yard that read as exactly what it was — a row of orange blobs at
+		regular spacing — and the note on it was blunt: fewer, and real.
 
-		So they move out past the fence and there are thirty-eight of them,
-		at four depths so the band has thickness, with the height and the
-		turn varied per tree so it does not read as a row.
+		These are three actual tree meshes from the Creator Store, picked by
+		standing fourteen candidates in a row and photographing them: a sugar
+		maple, a big red maple and a Japanese maple, all of them autumn already.
+		That last part is not taste, it is the constraint. A green tree cannot
+		be made autumn — every realistic one is a texture or a PBR surface, and
+		a colour multiplied into a green texture is mud, which was tried and
+		photographed before this was accepted.
+
+		Nor can `Build.mesh` draw them. It hangs a `SpecialMesh` on a part, and
+	a PBR surface only works on a real `MeshPart`. And a script cannot build
+	one of those either: `CreateMeshPartAsync` will make the part, but
+	`SurfaceAppearance.ColorMap` is not writable without Plugin capability —
+	it worked from the command bar, and the first server to run it threw.
+
+	So they are not built at all. Each species is a `.model.json` under
+	`src/ServerStorage/LobbyTrees`, transcribed layer by layer from the model
+	it came from, and Rojo writes the mesh ids and the PBR maps straight into
+	the place file, where they are ordinary serialised properties. The lobby
+	clones them. No web calls at boot, the author's PBR kept exactly, and the
+	trees are text in the repo that a diff can read. The ids were confirmed
+	to load in a place with no universe grant, which is the test that they
+	are public and will load live.
 	]]
 	--[[
 		A tree built out of bushes, because the tree mesh is a starburst.
@@ -946,40 +973,45 @@ local function build()
 		end
 	end
 
-	for _, ring in { 24, 46, 70, 96 } do
-		local step = 26 + ring * 0.13
-		local reach = halfW + ring
-		local n = math.max(math.floor(reach * 2 / step), 3)
-		for side = 0, 3 do
-			for i = 0, n do
-				local along = -reach + (reach * 2) * (i / n) + rng:NextNumber(-8, 8)
-				local out = reach + rng:NextNumber(-7, 7)
-				local x, z
-				if side == 0 then
-					x, z = along, -out
-				elseif side == 1 then
-					x, z = along, out
-				elseif side == 2 then
-					x, z = -out, along
-				else
-					x, z = out, along
-				end
-				--[[
-					Planted only where there is room for a trunk.
+	--[[
+		Where each one stands, in yard coordinates.
 
-					The gate side stays open so arriving still shows the
-					street, and everything else asks first: the houses have
-					reserved their plots, and each tree reserves its own
-					patch, so no trunk comes up inside a wall or inside
-					another trunk. Canopies still overlap, which is what
-					makes it a wood rather than an avenue.
-				]]
-				local at = CENTRE + Vector3.new(x, 0, z)
-				if not (side == 1 and math.abs(x) < 26) and clearAt(at, 3.2) then
-					plantTree(at, rng:NextNumber(44, 68), CANOPY[rng:NextInteger(1, #CANOPY)])
-					reserve(at, 9, 9)
-				end
-			end
+		Behind the back row of houses, outside the two on the flanks, and a
+		couple over the south hedge so the sky has trees in it whichever way
+		you face. None of them in a row: the spacing, the species, the size and
+		the turn all vary, because a row of identical trees is the thing being
+		replaced. Placed by hand and then checked with an overlap query against
+		the roofs, because a crown through a roof was the first complaint.
+	]]
+	local STANDS = {
+		{ x = -82, z = -152, species = "RedMaple", scale = 1.0, turn = 20 },
+		{ x = -14, z = -160, species = "SugarMaple", scale = 1.25, turn = 200 },
+		{ x = 52, z = -150, species = "JapaneseMaple", scale = 1.1, turn = 95 },
+		{ x = 124, z = -148, species = "RedMaple", scale = 0.85, turn = 310 },
+		{ x = -158, z = -62, species = "JapaneseMaple", scale = 1.0, turn = 140 },
+		{ x = -154, z = 44, species = "SugarMaple", scale = 1.15, turn = 55 },
+		{ x = 156, z = -78, species = "SugarMaple", scale = 1.3, turn = 260 },
+		{ x = 152, z = 34, species = "JapaneseMaple", scale = 0.9, turn = 15 },
+		{ x = -46, z = 130, species = "RedMaple", scale = 0.9, turn = 170 },
+		{ x = 58, z = 124, species = "SugarMaple", scale = 1.05, turn = 330 },
+	}
+
+	local templates = ServerStorage:FindFirstChild("LobbyTrees")
+	for _, stand in STANDS do
+		-- Half a stud down, so the roots are in the ground rather than on it.
+		local at = CENTRE + Vector3.new(stand.x, -0.5, stand.z)
+		local template = templates and templates:FindFirstChild(stand.species)
+		if template then
+			local tree = template:Clone()
+			-- The file places every layer relative to the tree's feet on the
+			-- ground, so the origin is the feet; scale and stand it from there.
+			tree.WorldPivot = CFrame.identity
+			tree:ScaleTo(stand.scale)
+			tree:PivotTo(CFrame.new(at) * CFrame.Angles(0, math.rad(stand.turn), 0))
+			tree.Parent = treeBelt
+		else
+			warn(`[Lobby] no "{stand.species}" in ServerStorage.LobbyTrees; planting the bush tree instead`)
+			plantTree(at, 52 * stand.scale, CANOPY[rng:NextInteger(1, #CANOPY)])
 		end
 	end
 
@@ -992,7 +1024,7 @@ local function build()
 		every side, which does the opposite job: it closes the room off
 		without putting anything inside it.
 
-		Left open at the gate, so the way in is still a way in.
+		Closed all the way round, the same as the fence in front of it.
 	]]
 	local h = halfW - 3
 	--[[
@@ -1010,8 +1042,7 @@ local function build()
 		{ Vector3.new(-h, 1, -h), Vector3.new(h, 1, -h) },
 		{ Vector3.new(-h, 1, -h), Vector3.new(-h, 1, h) },
 		{ Vector3.new(h, 1, -h), Vector3.new(h, 1, h) },
-		{ Vector3.new(-h, 1, h), Vector3.new(-20, 1, h) },
-		{ Vector3.new(20, 1, h), Vector3.new(h, 1, h) },
+		{ Vector3.new(-h, 1, h), Vector3.new(h, 1, h) },
 	} do
 		Build.hedge(root, CENTRE + run[1], CENTRE + run[2], 12, 8, HEDGE_GOLD)
 	end
