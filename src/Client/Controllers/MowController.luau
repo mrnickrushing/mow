@@ -294,6 +294,13 @@ MowController.setMowing = setMowing
 	else works while held, which is what makes mowing a line feel like one
 	continuous action rather than a string of clicks.
 ]]
+--- True when there is no room for another clipping, which is the one state
+--- where the server refuses every cut and the screen cannot show it.
+local function bagFull(): boolean
+	local state = PlayerState.get()
+	return state.bagCapacity > 0 and state.bagWeight >= state.bagCapacity - 0.001
+end
+
 function MowController.press()
 	local tool = equipped()
 	if tool and tool.toggle then
@@ -352,6 +359,21 @@ end
 
 local function step(delta: number)
 	if not mowing then
+		return
+	end
+	--[[
+		A full bag stops the mower rather than running it for nothing.
+
+		The server refuses a cut with no room for it, and says so — but the
+		client predicts the cut anyway, and a prediction the server never
+		confirms is never corrected either, because the server only sends the
+		tiles it actually changed and it changed none. So the grass went on
+		cutting on screen while the bag and the percentage sat still, which
+		reads exactly like the game being broken rather than the bag being
+		full. Stopping is also what the machine would do.
+	]]
+	if bagFull() then
+		setMowing(false)
 		return
 	end
 
