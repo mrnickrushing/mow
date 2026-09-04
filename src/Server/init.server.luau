@@ -42,6 +42,7 @@ local LobbyService = require(Services.LobbyService)
 local MatchmakingService = require(Services.MatchmakingService)
 local LeaderboardService = require(Services.LeaderboardService)
 local PriceService = require(script.Services.PriceService)
+local Trees = require(script.Lib.Trees)
 local AdminService = require(Services.AdminService)
 
 -- Order matters: data before anything that reads a profile, replication before
@@ -99,6 +100,15 @@ RunService.start()
 	The read that found it was the ordered store itself, through the Open
 	Cloud execution API: zero entries against a profile that said 9,137.
 ]]
+--[[
+	The tree meshes, fetched once so no world load waits on them.
+
+	Eight web calls in a thread of its own. Everything that plants a tree
+	calls `warm` too and waits if this has not finished, so the order does
+	not matter — this just means it usually has.
+]]
+task.spawn(Trees.warm)
+
 PriceService.start()
 LeaderboardService.start()
 AdminService.start()

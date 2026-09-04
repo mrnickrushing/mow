@@ -17,7 +17,6 @@
 	so that arriving back is a move rather than a rebuild.
 ]]
 
-local ServerStorage = game:GetService("ServerStorage")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -28,6 +27,7 @@ local Palette = require(Shared.Config.Palette)
 local Remotes = require(Shared.Remotes)
 local Worlds = require(Shared.Config.Worlds)
 local Build = require(script.Parent.Parent.Lib.Build)
+local Trees = require(script.Parent.Parent.Lib.Trees)
 local Loop = require(Shared.Util.Loop)
 local DataService = require(script.Parent.DataService)
 local MowEconomyService = require(script.Parent.EconomyService)
@@ -863,28 +863,20 @@ local function build()
 		the yard that read as exactly what it was — a row of orange blobs at
 		regular spacing — and the note on it was blunt: fewer, and real.
 
-		These are three actual tree meshes from the Creator Store, picked by
+		These are two real tree meshes from the Creator Store, picked by
 		standing fourteen candidates in a row and photographing them: a sugar
-		maple, a big red maple and a Japanese maple, all of them autumn already.
+		maple and a big red maple, both of them autumn already.
 		That last part is not taste, it is the constraint. A green tree cannot
 		be made autumn — every realistic one is a texture or a PBR surface, and
 		a colour multiplied into a green texture is mud, which was tried and
 		photographed before this was accepted.
 
-		Nor can `Build.mesh` draw them. It hangs a `SpecialMesh` on a part, and
-	a PBR surface only works on a real `MeshPart`. And a script cannot build
-	one of those either: `CreateMeshPartAsync` will make the part, but
-	`SurfaceAppearance.ColorMap` is not writable without Plugin capability —
-	it worked from the command bar, and the first server to run it threw.
-
-	So they are not built at all. Each species is a `.model.json` under
-	`src/ServerStorage/Trees`, transcribed layer by layer from the model
-	it came from, and Rojo writes the mesh ids and the PBR maps straight into
-	the place file, where they are ordinary serialised properties. The lobby
-	clones them. No web calls at boot, the author's PBR kept exactly, and the
-	trees are text in the repo that a diff can read. The ids were confirmed
-	to load in a place with no universe grant, which is the test that they
-	are public and will load live.
+		Nor can `Build.mesh` draw them: it hangs a `SpecialMesh` on a part, and
+		these are real `MeshPart`s. `Lib.Trees` builds them and hands them out;
+		the note on that file says why they are fetched at runtime, and why a
+		caller asks for a height rather than a scale. Both matter here — the
+		first version of this list carried a multiplier, and the red maple is
+		sixty studs tall before it is multiplied by anything.
 	]]
 	--[[
 		A tree built out of bushes, because the tree mesh is a starburst.
@@ -962,36 +954,29 @@ local function build()
 		the roofs, because a crown through a roof was the first complaint.
 	]]
 	local STANDS = {
-		{ x = -82, z = -152, species = "RedMaple", scale = 1.0, turn = 20 },
-		{ x = -14, z = -160, species = "SugarMaple", scale = 1.25, turn = 200 },
-		{ x = 52, z = -150, species = "JapaneseMaple", scale = 1.1, turn = 95 },
-		{ x = 124, z = -148, species = "RedMaple", scale = 0.85, turn = 310 },
-		{ x = -158, z = -62, species = "JapaneseMaple", scale = 1.0, turn = 140 },
-		{ x = -154, z = 44, species = "SugarMaple", scale = 1.15, turn = 55 },
-		{ x = 156, z = -78, species = "SugarMaple", scale = 1.3, turn = 260 },
-		{ x = 152, z = 34, species = "JapaneseMaple", scale = 0.9, turn = 15 },
-		{ x = -46, z = 130, species = "RedMaple", scale = 0.9, turn = 170 },
-		{ x = 58, z = 124, species = "SugarMaple", scale = 1.05, turn = 330 },
+		{ x = -82, z = -152, species = "RedMaple", height = 26, turn = 20 },
+		{ x = -14, z = -160, species = "SugarMaple", height = 29, turn = 200 },
+		{ x = 52, z = -150, species = "RedMaple", height = 27, turn = 95 },
+		{ x = 124, z = -148, species = "RedMaple", height = 24, turn = 310 },
+		{ x = -158, z = -62, species = "SugarMaple", height = 26, turn = 140 },
+		{ x = -154, z = 44, species = "SugarMaple", height = 28, turn = 55 },
+		{ x = 156, z = -78, species = "SugarMaple", height = 29, turn = 260 },
+		{ x = 152, z = 34, species = "SugarMaple", height = 25, turn = 15 },
+		{ x = -46, z = 130, species = "RedMaple", height = 25, turn = 170 },
+		{ x = 58, z = 124, species = "SugarMaple", height = 26, turn = 330 },
 	}
 
-	local templates = ServerStorage:FindFirstChild("Trees")
-	for _, stand in STANDS do
-		-- Half a stud down, so the roots are in the ground rather than on it.
-		local at = CENTRE + Vector3.new(stand.x, -0.5, stand.z)
-		local template = templates and templates:FindFirstChild(stand.species)
-		if template then
-			local tree = template:Clone()
-			-- The file places every layer relative to the tree's feet on the
-			-- ground, so the origin is the feet; scale and stand it from there.
-			tree.WorldPivot = CFrame.identity
-			tree:ScaleTo(stand.scale)
-			tree:PivotTo(CFrame.new(at) * CFrame.Angles(0, math.rad(stand.turn), 0))
-			tree.Parent = treeBelt
-		else
-			warn(`[Lobby] no "{stand.species}" in ServerStorage.Trees; planting the bush tree instead`)
-			plantTree(at, 52 * stand.scale, CANOPY[rng:NextInteger(1, #CANOPY)])
+	task.spawn(function()
+		Trees.warm()
+		for _, stand in STANDS do
+			-- Half a stud down, so the roots are in the ground rather than on it.
+			local at = CENTRE + Vector3.new(stand.x, -0.5, stand.z)
+			local turn = math.rad(stand.turn)
+			if not Trees.plant(stand.species, at, stand.height, turn, treeBelt) then
+				plantTree(at, stand.height, CANOPY[rng:NextInteger(1, #CANOPY)])
+			end
 		end
-	end
+	end)
 
 	--[[
 		No hedge.

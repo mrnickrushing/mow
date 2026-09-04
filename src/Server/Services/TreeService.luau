@@ -16,7 +16,6 @@
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
-local ServerStorage = game:GetService("ServerStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local DebrisConfig = require(Shared.Config.Debris)
@@ -26,6 +25,7 @@ local Types = require(Shared.Types)
 local Worlds = require(Shared.Config.Worlds)
 local BagService = require(script.Parent.BagService)
 local Build = require(script.Parent.Parent.Lib.Build)
+local Trees = require(script.Parent.Parent.Lib.Trees)
 local DataService = require(script.Parent.DataService)
 local RunState = require(script.Parent.RunState)
 local EconomyService = require(script.Parent.EconomyService)
@@ -134,7 +134,7 @@ local function makeTree(position: Vector3, sectionId: string, parent: Instance)
 		itself calls a firework — on a slim collision column, and the belt
 		of scenery around every lot has just stopped using it for the same
 		reason. So the look is one of the real species from
-		`ServerStorage.Trees`, scaled to this tree's height, and the column
+		`Lib.Trees`, scaled to this tree's height, and the column
 		is still here doing what it always did: something to walk into, to
 		hang the Chop prompt on, and for `fellTree` to topple. It is just
 		not drawn any more.
@@ -143,22 +143,24 @@ local function makeTree(position: Vector3, sectionId: string, parent: Instance)
 		a chop tilts the column and a tree whose crown does not move when it
 		is hit looks like it was not hit.
 	]]
-	local templates = ServerStorage:FindFirstChild("Trees")
-	local template = templates and templates:FindFirstChild(CHOPPABLE[rng:NextInteger(1, #CHOPPABLE)])
 	local trunk: BasePart
-	if template then
-		trunk = Build.part({
-			name = "Trunk",
-			size = Vector3.new(3.4, height, 3.4),
-			cframe = CFrame.new(position + Vector3.new(0, height * 0.5, 0)),
-			transparency = 1,
-			castShadow = false,
-			parent = model,
-		})
-		local look = template:Clone()
-		look.WorldPivot = CFrame.identity
-		look:ScaleTo(height / look:GetExtentsSize().Y)
-		look:PivotTo(CFrame.new(position - Vector3.new(0, 0.5, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0))
+	local column = Build.part({
+		name = "Trunk",
+		size = Vector3.new(3.4, height, 3.4),
+		cframe = CFrame.new(position + Vector3.new(0, height * 0.5, 0)),
+		transparency = 1,
+		castShadow = false,
+		parent = model,
+	})
+	local look = Trees.plant(
+		CHOPPABLE[rng:NextInteger(1, #CHOPPABLE)],
+		position - Vector3.new(0, 0.5, 0),
+		height,
+		rng:NextNumber(0, math.pi * 2),
+		model
+	)
+	if look then
+		trunk = column
 		for _, part in look:GetChildren() do
 			if part:IsA("BasePart") then
 				local weld = Instance.new("WeldConstraint")
@@ -171,6 +173,7 @@ local function makeTree(position: Vector3, sectionId: string, parent: Instance)
 		end
 		look:Destroy()
 	else
+		column:Destroy()
 		-- The firework, so a missing template costs a look and not a tree.
 		trunk = Build.mesh({
 			prop = "Tree",
@@ -502,6 +505,8 @@ end
 
 function TreeService.generate(world: Types.WorldDef)
 	clear()
+	-- Idempotent; boot has almost certainly done it. Waits if it has not.
+	Trees.warm()
 
 	local root = WorldService.container()
 	if not root then
