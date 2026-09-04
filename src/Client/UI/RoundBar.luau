@@ -279,7 +279,16 @@ function RoundBar.start()
 
 		local text, progress, target = Journal.currentObjective()
 		if text then
-			objectiveLabel.Text = `{text} ({progress}/{target})`
+			--[[
+				Counted, not printed raw.
+
+				Units sold is a running float, and the bar was showing it
+				exactly: "Sell 1,000 units in total (140.72765566000004/1000)".
+				The journal has always run these through `Format.count`; this
+				line was the one place a quest's own progress reached a player
+				as a fourteen-decimal number.
+			]]
+			objectiveLabel.Text = `{text} ({Format.count(progress)}/{Format.count(target)})`
 			objectiveLabel.TextColor3 = Theme.colors.text
 			objectiveBox.Visible = true
 		else
