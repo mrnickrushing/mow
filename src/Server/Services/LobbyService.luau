@@ -852,34 +852,96 @@ local function build()
 		at four depths so the band has thickness, with the height and the
 		turn varied per tree so it does not read as a row.
 	]]
+	--[[
+		A tree built out of bushes, because the tree mesh is a starburst.
+
+		The `Tree` prop is a spiky orange burst — from any distance it reads
+		as a firework, not foliage, and it is the single thing that has kept
+		this yard from looking like the reference's. Roblox's mesh generator
+		refused four times running with an upload error, and asset search only
+		reaches this account's own inventory because the experience is not
+		group-owned, so there was nothing to swap it for.
+
+		But there already is a dense, round, billowing cluster in the
+		catalogue we ship: the `Bush`. Three of them at different sizes,
+		overlapping on a trunk and tinted autumn, make exactly the fat cloudy
+		canopy the reference's trees have. It is the same trick a set builder
+		would use — the shape was on the shelf, under another name.
+	]]
 	local treeBelt = Build.folder("Trees", root)
-	for _, ring in { 26, 48, 72, 98 } do
-		local step = 34 + ring * 0.12
+	-- Weighted to orange rather than gold: at this size a yellow canopy
+	-- behind a cream board reads as more board.
+	local CANOPY = {
+		Color3.fromRGB(228, 116, 38),
+		Color3.fromRGB(212, 92, 40),
+		Color3.fromRGB(236, 148, 44),
+		Color3.fromRGB(198, 76, 42),
+		Color3.fromRGB(224, 130, 40),
+	}
+
+	local function plantTree(at: Vector3, height: number, tint: Color3)
+		local trunkHeight = height * 0.42
+		Build.mesh({
+			prop = "Column",
+			name = "Trunk",
+			size = Vector3.new(height * 0.115, trunkHeight, height * 0.115),
+			cframe = CFrame.new(at + Vector3.new(0, trunkHeight * 0.5 - 1, 0)),
+			color = Palette.color(Palette.tree.trunk),
+			untextured = true,
+			canCollide = false,
+			castShadow = false,
+			parent = treeBelt,
+		})
+		-- Three clusters, offset and different sizes, so the canopy is one
+		-- lumpy mass rather than three balls in a stack.
+		type Blob = { at: Vector3, scale: number }
+		local blobs: { Blob } = {
+			{ at = Vector3.new(0, trunkHeight + height * 0.20, 0), scale = 0.62 },
+			{ at = Vector3.new(height * 0.13, trunkHeight + height * 0.10, height * 0.08), scale = 0.48 },
+			{ at = Vector3.new(-height * 0.12, trunkHeight + height * 0.12, -height * 0.09), scale = 0.50 },
+		}
+		for index, blob in blobs do
+			local span = height * blob.scale
+			Build.mesh({
+				prop = "Bush",
+				name = "Canopy",
+				size = Vector3.new(span, span * 0.86, span),
+				cframe = CFrame.new(at + blob.at)
+					* CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0),
+				color = if index == 1 then tint else tint:Lerp(Color3.new(1, 1, 1), 0.12),
+				untextured = true,
+				canCollide = false,
+				castShadow = false,
+				parent = treeBelt,
+			})
+		end
+	end
+
+	for _, ring in { 26, 52, 82 } do
+		local step = 30 + ring * 0.16
 		local reach = halfW + ring
 		local n = math.max(math.floor(reach * 2 / step), 3)
 		for side = 0, 3 do
 			for i = 0, n do
-				local along = -reach + (reach * 2) * (i / n) + rng:NextNumber(-7, 7)
-				local out = reach + rng:NextNumber(-6, 6)
+				local along = -reach + (reach * 2) * (i / n) + rng:NextNumber(-8, 8)
+				local out = reach + rng:NextNumber(-7, 7)
 				local x, z
-				if side == 0 then x, z = along, -out
-				elseif side == 1 then x, z = along, out
-				elseif side == 2 then x, z = -out, along
-				else x, z = out, along end
+				if side == 0 then
+					x, z = along, -out
+				elseif side == 1 then
+					x, z = along, out
+				elseif side == 2 then
+					x, z = -out, along
+				else
+					x, z = out, along
+				end
 				-- The gate side stays open, so arriving still shows the street.
 				if not (side == 1 and math.abs(x) < 26) then
-					local height = rng:NextNumber(30, 46)
-					Build.mesh({
-						prop = "Tree",
-						name = "Tree",
-						size = Vector3.new(height * 0.7, height, height * 0.7),
-						collisionSize = Vector3.new(3, height, 3),
-						cframe = CFrame.new(CENTRE + Vector3.new(x, height * 0.5 - 1, z))
-							* CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0),
-						canCollide = false,
-						castShadow = false,
-						parent = treeBelt,
-					})
+					plantTree(
+						CENTRE + Vector3.new(x, 0, z),
+						rng:NextNumber(44, 68),
+						CANOPY[rng:NextInteger(1, #CANOPY)]
+					)
 				end
 			end
 		end
