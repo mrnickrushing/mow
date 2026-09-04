@@ -32,6 +32,7 @@ local DataService = require(script.Parent.DataService)
 local MowEconomyService = require(script.Parent.EconomyService)
 local MowRunService = require(script.Parent.RunService)
 local MatchmakingService = require(script.Parent.MatchmakingService)
+local LeaderboardService = require(script.Parent.LeaderboardService)
 
 local LobbyService = {}
 
@@ -53,6 +54,24 @@ local LobbyService = {}
 	lobby is the only thing there is to see.
 ]]
 local CENTRE = Vector3.new(-2600, 0, -2600)
+--[[
+	The leaves that fall through the yard.
+
+	Drawn for this rather than borrowed: the first pass used the maple leaf
+	from the icon set, which carries the heavy dark outline every icon in that
+	set has. At particle size an outline that thick eats the shape, and what
+	came down over the lawn was a shower of little orange stars. These are the
+	same leaf with no outline and a soft edge, in the three colours the trees
+	are, so what falls matches what it fell off.
+]]
+--- The drawn marquee panel that faces the gate.
+local MARQUEE_IMAGE = "rbxassetid://129115569426351"
+
+local LEAF_TEXTURES = {
+	"rbxassetid://109856879793416",
+	"rbxassetid://72158913177317",
+	"rbxassetid://79755062091566",
+}
 --[[
 	A yard, not a field.
 
@@ -343,14 +362,15 @@ local function build()
 		Build.picketFence(fences, run[1], run[2], 9, false)
 	end
 
-	-- A path from the gate to the plaques, so the way in is a way somewhere.
-	Build.flagstone(
-		root,
-		CENTRE + Vector3.new(0, 1.15, 16),
-		Vector2.new(14, 108),
-		5,
-		rng
-	)
+	--[[
+		No path.
+
+		A hundred and eight studs of flagstone ran up the middle of the room
+		to tell you where to walk. The reference has bare grass and four lit
+		rectangles, and the lit rectangles are the instruction — a path
+		leading to them is a second instruction saying the same thing, laid
+		over the thing it is describing.
+	]]
 
 	--------------------------------------------------------------------
 	-- The games on offer
@@ -439,17 +459,61 @@ local function build()
 		local function facing(at: Vector3): CFrame
 			return CFrame.lookAt(at, at + Vector3.new(0, 0, 1)) * CFrame.Angles(math.rad(12), 0, 0)
 		end
+		--[[
+			Built as a sign, not drawn as one.
+
+			This was two slabs and two sticks: a wooden rectangle with a
+			slightly smaller plastic rectangle laid on it, on a pair of plain
+			posts. Nothing about it was wrong and all of it read as fake,
+			because a real yard sign is made of separate pieces of timber and
+			you can see the joins — the posts run past the board top and
+			bottom, the panel is held between rails, and there is a dark edge
+			where the panel sits proud of its backing.
+
+			So there are seven pieces here instead of three, and each is a
+			thing a joiner would have cut: two posts, a backing board, the
+			white face inset on it, a rail across the top and the bottom, and
+			a brace under each post where it meets the ground.
+		]]
+		local WOOD = Palette.color(Palette.house.roof)
+		local RAIL = Palette.color(Palette.fence.rail)
+
+		-- Posts, running well past the board so it hangs between them.
+		for _, side in { -1, 1 } do
+			Build.part({
+				name = "BoardLeg",
+				size = Vector3.new(2.2, 21, 2.2),
+				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 13.4, 10.5, -9.6)),
+				color = WOOD,
+				material = Enum.Material.WoodPlanks,
+				parent = root,
+			})
+			-- A short angled brace at the foot, which is what stops a sign
+			-- on two posts looking like it was pushed into the lawn.
+			Build.part({
+				name = "BoardBrace",
+				size = Vector3.new(1.4, 5.2, 1.4),
+				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 13.4, 2.4, -8.1))
+					* CFrame.Angles(math.rad(34), 0, 0),
+				color = WOOD,
+				material = Enum.Material.WoodPlanks,
+				parent = root,
+			})
+		end
+
+		-- The dark backing the panel sits on, which gives the face its edge.
 		Build.part({
 			name = `GameBoardFrame{index}`,
-			size = Vector3.new(30, 11, 1.3),
-			cframe = facing(CENTRE + Vector3.new(x, 12, -10)),
-			color = Palette.color(Palette.fence.rail),
+			size = Vector3.new(29.2, 11.4, 0.9),
+			cframe = facing(CENTRE + Vector3.new(x, 12, -9.9)),
+			color = Color3.fromRGB(74, 52, 34),
 			material = Enum.Material.WoodPlanks,
 			parent = root,
 		})
+
 		local board = Build.part({
 			name = `GameBoard{index}`,
-			size = Vector3.new(27.5, 8.5, 1),
+			size = Vector3.new(27.4, 9.4, 0.55),
 			--[[
 				High enough to clear the count floating over its own pad.
 
@@ -457,17 +521,21 @@ local function build()
 				other from the near side of the yard: "2/4 Starting in 4"
 				printed across "The House EASY" and neither could be read.
 			]]
-			cframe = facing(CENTRE + Vector3.new(x, 12, -9.2)),
-			color = Palette.color(Palette.house.siding),
+			cframe = facing(CENTRE + Vector3.new(x, 12, -9.35)),
+			color = Color3.fromRGB(248, 244, 233),
 			material = Enum.Material.SmoothPlastic,
 			parent = root,
 		})
-		for _, side in { -1, 1 } do
+
+		-- Rails across the face, top and bottom. The reference's boards have
+		-- these and they are most of why they read as carpentry.
+		for _, rail in { { 5.1, 1.5 }, { -5.1, 1.5 } } do
 			Build.part({
-				name = "BoardLeg",
-				size = Vector3.new(1.6, 13, 1.6),
-				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 13, 6.5, -9.5)),
-				color = Palette.color(Palette.house.roof),
+				name = "BoardRail",
+				size = Vector3.new(29.6, rail[2], 1.1),
+				cframe = facing(CENTRE + Vector3.new(x, 12 + rail[1], -9.9))
+					* CFrame.new(0, 0, -0.5),
+				color = RAIL,
 				material = Enum.Material.WoodPlanks,
 				parent = root,
 			})
@@ -478,7 +546,25 @@ local function build()
 			pad = padPart,
 			padLabel = padLabel,
 			padCount = padCount,
-			boardLabel = surface(board, Enum.NormalId.Front, 0.8),
+			boardLabel = (function(): TextLabel
+				--[[
+					Dark writing on a pale board.
+
+					`surface` paints white, which is right for the teal
+					marquee it was written for and wrong on cream: the four
+					map boards had white text on an almost-white panel and
+					read as blank planks with a smudge on them from any
+					distance at all. The reference's are near-black on white,
+					which is why you can read them across the yard.
+				]]
+				local label = surface(board, Enum.NormalId.Front, 0.8)
+				label.TextColor3 = Color3.fromRGB(48, 40, 34)
+				local stroke = label:FindFirstChildOfClass("UIStroke")
+				if stroke then
+					stroke:Destroy()
+				end
+				return label
+			end)(),
 			worldId = nil,
 			cap = GAME_SLOTS,
 			countdown = nil,
@@ -514,156 +600,40 @@ local function build()
 		off the marketplace is the usual way a published Roblox game acquires
 		a backdoor, and there is nothing here that needs one.
 	]]
-	local yard = Build.folder("Yard", root)
+	--[[
+		The yard is grass, and that is the whole of it.
 
-	-- The way in: a gate you walk under, with the name over it.
-	for _, side in { -1, 1 } do
-		Build.mesh({
-			prop = "Column",
-			name = "ArchColumn",
-			size = Vector3.new(4, 20, 4),
-			cframe = CFrame.new(CENTRE + Vector3.new(side * 15, 9, 58)),
-			parent = yard,
-		})
-	end
-	local archBoard = Build.part({
-		name = "ArchSign",
-		size = Vector3.new(36, 7, 1.3),
-		cframe = CFrame.lookAt(
-			CENTRE + Vector3.new(0, 20, 58),
-			CENTRE + Vector3.new(0, 20, 59)
-		),
-		color = Palette.color(Palette.house.trim),
-		material = Enum.Material.SmoothPlastic,
-		parent = yard,
-	})
-	surface(archBoard, Enum.NormalId.Front, 0.72).Text = GameConfig.GAME_NAME
+		This held a gate you walked under with the game's name on it, a shed
+		with a counter and stock, a trailer, two riding mowers, a dog, crates,
+		barrels, a sack, a toolbox, eight lamp posts and two flagstone yards.
+		All of it in the middle of the room, between a player and the four
+		boards they came here to read.
+
+		The reference's lobby has none of it. Its floor is empty grass from
+		where you spawn to where the boards stand, and everything with a job —
+		the boards, the leaderboards, the shop stand — is pushed out to the
+		fence line. That is why it reads at a glance and this did not: not
+		because our props were worse, but because there were props at all.
+
+		What was here was carefully made and none of it is missed. A lobby is
+		signposting, and signposting works by having nothing else in the way.
+	]]
 
 	--[[
-		The two big pieces are sited before anything is laid out around them.
+		The all-time boards, along the back fence.
 
-		They are built further down, where the rest of their dressing is; what
-		happens here is only that the yard learns their footprints, in time
-		for the lamp row below to route around them.
+		The reference stands two of these at the boundary behind its map
+		signs, and they are most of why its yard feels like a place other
+		people play in. Ours face the gate from the left-hand corner, out of
+		the walked middle and out of the sight line to the map boards.
 	]]
-	local shedAt = CENTRE + Vector3.new(-56, 0, 34)
-	local parkAt = CENTRE + Vector3.new(56, 0, 34)
-	reserve(shedAt, 24, 24)
-	-- The trailer is parked across the drive, so it is wide, not deep.
-	reserve(parkAt + Vector3.new(4, 0, -20), 15, 8)
-	for index, z in { 6, 20 } do
-		reserve(parkAt + Vector3.new(index * 2 - 3, 0, z), 10, 6)
-	end
-
-	--[[
-		Lamps down both sides of the path.
-
-		Placed off the walked line rather than on it: the path is the one part
-		of this room every player crosses, and a lamp post in the middle of it
-		is a thing to get stuck on. Off the line is not the same as clear of
-		everything, though — the left-hand row ran through the shed — so each
-		one takes the nearest spot to its slot that is actually free.
-	]]
-	for _, z in { 50, 24, -2, -28 } do
-		for _, side in { -1, 1 } do
-			local at = nudgeAlongZ(CENTRE + Vector3.new(side * 62, 0, z), 1)
-			if at then
-				Build.part({
-					name = "LampPost",
-					size = Vector3.new(0.9, 11, 0.9),
-					cframe = CFrame.new(at + Vector3.new(0, 5.5, 0)),
-					color = Palette.color(Palette.fence.rail),
-					material = Enum.Material.SmoothPlastic,
-					parent = yard,
-				})
-				local lamp = Build.mesh({
-					prop = "Lantern",
-					name = "Lantern",
-					size = Vector3.new(2.6, 3.9, 2.4),
-					cframe = CFrame.new(at + Vector3.new(0, 12.6, 0)),
-					canCollide = false,
-					parent = yard,
-				})
-				local glow = Instance.new("PointLight")
-				glow.Color = Color3.fromRGB(255, 226, 158)
-				glow.Range = 34
-				glow.Brightness = 1.1
-				glow.Parent = lamp
-				reserve(at, 3, 3)
-			end
-		end
-	end
-
-	-- The shed the whole business runs out of, off the left of the path.
-	Build.mesh({
-		prop = "Shed",
-		name = "Shed",
-		size = Vector3.new(24, 27, 24),
-		cframe = CFrame.new(shedAt + Vector3.new(0, 13.5, 0)) * CFrame.Angles(0, math.rad(90), 0),
-		collisionSize = Vector3.new(22, 25, 22),
-		parent = yard,
-	})
-	Build.flagstone(yard, shedAt + Vector3.new(20, 1.15, 0), Vector2.new(26, 34), 5, rng)
-	for index, spec in {
-		{ prop = "Crate", size = Vector3.new(5, 3, 4), at = Vector3.new(22, 1.5, 18) },
-		{ prop = "Crate", size = Vector3.new(5, 3, 4), at = Vector3.new(27, 1.5, 15) },
-		{ prop = "Barrel", size = Vector3.new(4, 4.2, 4), at = Vector3.new(21, 2.1, -14) },
-		{ prop = "Sack", size = Vector3.new(3, 4, 3.3), at = Vector3.new(26, 2, -18) },
-		{ prop = "Toolbox", size = Vector3.new(3, 2.4, 1.8), at = Vector3.new(18, 1.2, -6) },
-	} do
-		Build.mesh({
-			prop = spec.prop,
-			name = spec.prop,
-			size = spec.size,
-			cframe = CFrame.new(shedAt + spec.at) * CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0),
-			canCollide = false,
-			parent = yard,
-		})
-		-- The stock outside the shed is furniture too: a bush landed on the
-		-- barrel before these were on the map the scatter checks against.
-		reserve(shedAt + spec.at, spec.size.X + 3, spec.size.Z + 3)
-		local _ = index
-	end
-
-	-- The kit, parked on the right where you can see what you are working for.
-	-- (sited above, with the shed.)
-	Build.flagstone(yard, parkAt, Vector2.new(46, 60), 6, rng)
-	Build.mesh({
-		prop = "Trailer",
-		name = "Trailer",
-		size = Vector3.new(10, 6.1, 15),
-		cframe = CFrame.new(parkAt + Vector3.new(4, 3, -20)) * CFrame.Angles(0, math.rad(90), 0),
-		collisionSize = Vector3.new(7, 4, 14),
-		parent = yard,
-	})
-	for index, z in { 6, 20 } do
-		Build.mesh({
-			prop = "RidingMower",
-			name = "RidingMower",
-			size = Vector3.new(6.6, 7.2, 11.2),
-			cframe = CFrame.new(parkAt + Vector3.new(index * 2 - 3, 3.6, z))
-				* CFrame.Angles(0, math.rad(if index == 1 then 96 else 84), 0),
-			collisionSize = Vector3.new(5, 5, 9),
-			parent = yard,
-		})
-	end
-	Build.mesh({
-		prop = "Dog",
-		name = "Dog",
-		size = Vector3.new(2.4, 5.6, 4.6),
-		cframe = CFrame.new(parkAt + Vector3.new(-16, 2.8, -6)) * CFrame.Angles(0, math.rad(-40), 0),
-		canCollide = false,
-		parent = yard,
-	})
-
-	--[[
-		The depot used to get its own short hedge either side, at the same 46
-		studs out that the flanks were wrongly using — so it was planted in the
-		first and last pad along with them. The flank line now runs the full
-		depth of the lawn outside the pads, which already frames the yard; a
-		second row on the same line would only be fourteen more parts in the
-		same place.
-	]]
+	LeaderboardService.build(
+		root,
+		CFrame.lookAt(
+			CENTRE + Vector3.new(-46, 21, -62),
+			CENTRE + Vector3.new(-40, 17, 20)
+		)
+	)
 
 	--------------------------------------------------------------------
 	-- The street it stands on
@@ -789,10 +759,40 @@ local function build()
 			CENTRE + Vector3.new(0, 27, -34),
 			CENTRE + Vector3.new(0, 27, -33)
 		),
-		color = Palette.color(Palette.house.trim),
+		color = Color3.fromRGB(247, 236, 208),
 		material = Enum.Material.SmoothPlastic,
 		parent = root,
 	})
+
+	--[[
+		A painted sign, not a coloured slab.
+
+		This was a flat teal rectangle with two lines of white type laid over
+		it — the largest single object in the room and the least made thing
+		in it. The board carries a drawn panel now: planks with a grain, a
+		routed border in wood and gold, the title cut into it with a shadow
+		and a highlight, a push mower at one end and fallen leaves at the
+		other. The line that changes still prints on top, in the clear band
+		the drawing leaves for it.
+	]]
+	local marquee = Instance.new("SurfaceGui")
+	marquee.Name = "Painted"
+	marquee.Face = Enum.NormalId.Front
+	marquee.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	marquee.PixelsPerStud = 24
+	marquee.LightInfluence = 0
+	marquee.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	marquee.Parent = statusPost
+
+	local painted = Instance.new("ImageLabel")
+	painted.Name = "Panel"
+	painted.Size = UDim2.fromScale(1, 1)
+	painted.BackgroundTransparency = 1
+	painted.Image = MARQUEE_IMAGE
+	painted.ScaleType = Enum.ScaleType.Stretch
+	painted.ZIndex = 0
+	painted.Parent = marquee
+
 	for _, side in { -1, 1 } do
 		Build.part({
 			name = "BoardPost",
@@ -813,13 +813,26 @@ local function build()
 		board with one line of instruction pushed into its bottom half. It
 		reads as the game's masthead until there is an outcome to report.
 	]]
-	outcomeLabel = surface(statusPost, Enum.NormalId.Front, 0.32)
+	--[[
+		Both lines live in the painted panel's clear band.
+
+		The title is painted on now, so the outcome line no longer doubles as
+		the masthead — it says nothing until there is something to say, and
+		the panel carries the name in the meantime. Dark ink, because the
+		board is cream: `surface` paints white for the teal it used to be.
+	]]
+	outcomeLabel = surface(statusPost, Enum.NormalId.Front, 0.22)
 	local outcome = outcomeLabel :: TextLabel
-	outcome.Position = UDim2.fromScale(0.04, 0.08)
-	outcome.Text = GameConfig.GAME_NAME
-	statusLabel = surface(statusPost, Enum.NormalId.Front, 0.38)
+	outcome.Position = UDim2.fromScale(0.04, 0.545)
+	outcome.TextColor3 = Color3.fromRGB(150, 92, 30)
+	outcome.ZIndex = 2
+	outcome.Text = ""
+
+	statusLabel = surface(statusPost, Enum.NormalId.Front, 0.20)
 	local status = statusLabel :: TextLabel
-	status.Position = UDim2.fromScale(0.04, 0.52)
+	status.Position = UDim2.fromScale(0.04, 0.755)
+	status.TextColor3 = Color3.fromRGB(70, 56, 40)
+	status.ZIndex = 2
 	status.Text = "Stand on a pad and pick a property"
 
 	--------------------------------------------------------------------
@@ -827,71 +840,174 @@ local function build()
 	--------------------------------------------------------------------
 
 	--[[
-		Trees down both flanks, well clear of anything anybody has to read.
+		Trees outside the fence, in a wall of them.
 
-		Clearance is measured on the trunk, not the canopy. A branch reaching
-		over a shed roof is what a tree beside a shed looks like; a trunk
-		coming up through the trailer is not, and that is exactly what the
-		right-hand row used to do at the second slot down.
+		Two rows of four stood *inside* the yard, on the grass a player walks
+		across, which is the one place the reference keeps clear. Its trees
+		are all beyond the fence and there are a great many — a solid band of
+		autumn behind the houses, tall enough that the yard has a ceiling of
+		orange rather than a horizon.
+
+		So they move out past the fence and there are thirty-eight of them,
+		at four depths so the band has thickness, with the height and the
+		turn varied per tree so it does not read as a row.
 	]]
-	for _, side in { -1, 1 } do
-		for _, z in { 56, 20, -18, -50 } do
-			local at = nudgeAlongZ(CENTRE + Vector3.new(side * (halfW - 20), 0, z), 2)
-			if at then
-				Build.mesh({
-					prop = "Tree",
-					name = "Tree",
-					size = Vector3.new(24, 34, 24),
-					collisionSize = Vector3.new(4, 30, 4),
-					cframe = CFrame.new(at + Vector3.new(0, 17, 0))
-						* CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0),
-					parent = root,
-				})
-				reserve(at, 6, 6)
+	local treeBelt = Build.folder("Trees", root)
+	for _, ring in { 26, 48, 72, 98 } do
+		local step = 34 + ring * 0.12
+		local reach = halfW + ring
+		local n = math.max(math.floor(reach * 2 / step), 3)
+		for side = 0, 3 do
+			for i = 0, n do
+				local along = -reach + (reach * 2) * (i / n) + rng:NextNumber(-7, 7)
+				local out = reach + rng:NextNumber(-6, 6)
+				local x, z
+				if side == 0 then x, z = along, -out
+				elseif side == 1 then x, z = along, out
+				elseif side == 2 then x, z = -out, along
+				else x, z = out, along end
+				-- The gate side stays open, so arriving still shows the street.
+				if not (side == 1 and math.abs(x) < 26) then
+					local height = rng:NextNumber(30, 46)
+					Build.mesh({
+						prop = "Tree",
+						name = "Tree",
+						size = Vector3.new(height * 0.7, height, height * 0.7),
+						collisionSize = Vector3.new(3, height, 3),
+						cframe = CFrame.new(CENTRE + Vector3.new(x, height * 0.5 - 1, z))
+							* CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0),
+						canCollide = false,
+						castShadow = false,
+						parent = treeBelt,
+					})
+				end
 			end
 		end
 	end
 
-	-- Hedges along the inside of the flanks, and a few bushes about.
-	local flankX = LobbyPad.flankX(GAME_SLOTS)
-	for _, side in { -1, 1 } do
-		Build.hedge(
-			root,
-			CENTRE + Vector3.new(side * flankX, 1, -100),
-			CENTRE + Vector3.new(side * flankX, 1, 100),
-			8,
-			7
-		)
+	--[[
+		One hedge, following the fence the whole way round.
+
+		There were two, running down the flanks *inside* the yard at the pad
+		line — a pair of green walls either side of the boards, dividing the
+		room up. The reference has a single hedge tight behind its fence on
+		every side, which does the opposite job: it closes the room off
+		without putting anything inside it.
+
+		Left open at the gate, so the way in is still a way in.
+	]]
+	local h = halfW - 3
+	for _, run in {
+		{ Vector3.new(-h, 1, -h), Vector3.new(h, 1, -h) },
+		{ Vector3.new(-h, 1, -h), Vector3.new(-h, 1, h) },
+		{ Vector3.new(h, 1, -h), Vector3.new(h, 1, h) },
+		{ Vector3.new(-h, 1, h), Vector3.new(-20, 1, h) },
+		{ Vector3.new(20, 1, h), Vector3.new(h, 1, h) },
+	} do
+		Build.hedge(root, CENTRE + run[1], CENTRE + run[2], 9, 7)
 	end
 	--[[
-		A scatter is only a scatter if the pieces are apart.
+		Leaves on the grass, at the edges, where leaves collect.
 
-		Fourteen throws at the grass with nothing checking where the last one
-		landed put two seven-stud bushes two studs apart, which from any angle
-		is one lumpy bush with a seam down it. Each throw now has a few
-		attempts to find somewhere free — of the other bushes, of the trees,
-		and of the yard's furniture — and gives up quietly rather than piling
-		on top of something.
+		Fourteen seven-stud bushes were scattered across the middle of the
+		yard. The reference's floor has no bushes on it at all — what it has
+		is autumn litter, drifted up against the fence and thin in the middle,
+		which is where leaves actually end up and which leaves the walked
+		part of the room clear.
+
+		Laid in a ring inside the fence, thickest at the boundary and fading
+		inward, so the yard has a season rather than an obstacle course.
 	]]
-	for _ = 1, 14 do
-		for _ = 1, 8 do
-			local x = rng:NextNumber(-halfW + 30, halfW - 30)
-			local z = rng:NextNumber(-halfD + 24, halfD - 24)
-			local at = CENTRE + Vector3.new(x, 0, z)
-			if math.abs(x) > 34 and clearAt(at, 3.5) then
-				Build.mesh({
-					prop = "Bush",
-					name = "Bush",
-					size = Vector3.new(7, 7, 7),
-					cframe = CFrame.new(at + Vector3.new(0, 3.5, 0))
-						* CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0),
-					canCollide = false,
-					parent = root,
-				})
-				reserve(at, 7, 7)
-				break
-			end
+	local litter = Build.folder("Litter", root)
+	local LITTER_TINTS = {
+		Color3.fromRGB(226, 132, 46),
+		Color3.fromRGB(238, 168, 58),
+		Color3.fromRGB(196, 104, 44),
+		Color3.fromRGB(180, 138, 66),
+	}
+	for _ = 1, 260 do
+		-- Biased hard to the rim: the walked middle of the yard stays clear.
+		local t = math.sqrt(rng:NextNumber(0.62, 1))
+		local edge = (halfW - 8) * t
+		local along = rng:NextNumber(-edge, edge)
+		local x, z
+		if rng:NextNumber() < 0.5 then
+			x, z = along, edge * (if rng:NextNumber() < 0.5 then -1 else 1)
+		else
+			x, z = edge * (if rng:NextNumber() < 0.5 then -1 else 1), along
 		end
+		local at = CENTRE + Vector3.new(x, 0.12, z)
+		if clearAt(at, 2) then
+			--[[
+				Small, warm and untextured.
+
+				At three studs across in the mesh's own colour these came out
+				as bright red blobs sitting on open grass — closer to spilled
+				paint than to fallen leaves. Autumn litter is small, it is
+				orange and tan rather than red, and there is a lot of it: the
+				count went up and the size came down, which is the only way a
+				scatter reads as litter instead of as objects.
+			]]
+			local size = rng:NextNumber(1.1, 1.9)
+			local leaf = Build.mesh({
+				prop = if rng:NextNumber() < 0.5 then "LeafMaple" else "LeafOak",
+				name = "Leaf",
+				untextured = true,
+				color = LITTER_TINTS[rng:NextInteger(1, #LITTER_TINTS)],
+				size = Vector3.new(size, 0.2, size * rng:NextNumber(0.85, 1.15)),
+				cframe = CFrame.new(at) * CFrame.Angles(0, rng:NextNumber() * math.pi * 2, 0),
+				canCollide = false,
+				castShadow = false,
+				parent = litter,
+			})
+			leaf.Anchored = true
+		end
+	end
+
+	--[[
+		And leaves still coming down.
+
+		The reference has them drifting across the whole frame the entire
+		time you stand there, and it is most of why its lobby feels like a
+		place in a season rather than a room with orange trees around it.
+		Kept sparse on purpose. The first pass ran three emitters at nine a
+		second with a two-and-a-half stud sprite and the sky filled with
+		them — you could not see the boards for the weather. Six a second at
+		about a stud is a leaf drifting past now and then, which is what the
+		reference actually has.
+	]]
+	local sky = Build.part({
+		name = "LeafFall",
+		size = Vector3.new(halfW * 2, 1, halfD * 2),
+		cframe = CFrame.new(CENTRE + Vector3.new(0, 62, 0)),
+		color = Color3.fromRGB(255, 255, 255),
+		material = Enum.Material.SmoothPlastic,
+		canCollide = false,
+		parent = root,
+	})
+	sky.Transparency = 1
+	sky.CastShadow = false
+
+	for _, texture in LEAF_TEXTURES do
+	local fall = Instance.new("ParticleEmitter")
+	fall.Texture = texture
+	fall.Rate = 2
+	fall.Lifetime = NumberRange.new(8, 13)
+	fall.Speed = NumberRange.new(1, 3)
+	fall.SpreadAngle = Vector2.new(28, 28)
+	fall.Rotation = NumberRange.new(0, 360)
+	fall.RotSpeed = NumberRange.new(-45, 45)
+	fall.Size = NumberSequence.new(1.15)
+	fall.Acceleration = Vector3.new(2.5, -5.5, 1.5)
+	fall.EmissionDirection = Enum.NormalId.Bottom
+	fall.LightEmission = 0.25
+	fall.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.12, 0),
+		NumberSequenceKeypoint.new(0.85, 0),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	fall.Parent = sky
 	end
 end
 
@@ -1259,7 +1375,7 @@ function LobbyService.start()
 						then `You cleared {lastWorldName}!`
 						elseif lastOutcome == "lost" and lastWorldName
 							then `The clock beat you on {lastWorldName}.`
-						else GameConfig.GAME_NAME
+						else ""
 				end
 				for _, slot in slots do
 					slot.worldId = nil
