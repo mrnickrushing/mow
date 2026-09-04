@@ -266,27 +266,69 @@ local BURIED_FLOOR = 0.5
 --- Where to try instead, in studs, nearest first.
 local NUDGES = { 3, 6, 9 }
 
---- How far two boxes interpenetrate: the smallest of the three axis overlaps.
-local function penetration(a: BasePart, b: BasePart): number
-	local d = a.Position - b.Position
-	local ox = (a.Size.X + b.Size.X) * 0.5 - math.abs(d.X)
-	local oy = (a.Size.Y + b.Size.Y) * 0.5 - math.abs(d.Y)
-	local oz = (a.Size.Z + b.Size.Z) * 0.5 - math.abs(d.Z)
+--- A part's world-axis-aligned bounds, from the eight corners of its box, so
+--- a block turned ninety degrees does not report its width as its depth.
+local function worldBounds(part: BasePart): (Vector3, Vector3)
+	local half = part.Size * 0.5
+	local lo, hi = nil, nil
+	for _, sx in { -1, 1 } do
+		for _, sy in { -1, 1 } do
+			for _, sz in { -1, 1 } do
+				local corner = part.CFrame:PointToWorldSpace(Vector3.new(half.X * sx, half.Y * sy, half.Z * sz))
+				lo = if lo then lo:Min(corner) else corner
+				hi = if hi then hi:Max(corner) else corner
+			end
+		end
+	end
+	return lo :: Vector3, hi :: Vector3
+end
+
+--- How far two axis-aligned boxes interpenetrate: the smallest of the three
+--- axis overlaps.
+local function penetration(aLo: Vector3, aHi: Vector3, bLo: Vector3, bHi: Vector3): number
+	local ox = math.min(aHi.X, bHi.X) - math.max(aLo.X, bLo.X)
+	local oy = math.min(aHi.Y, bHi.Y) - math.max(aLo.Y, bLo.Y)
+	local oz = math.min(aHi.Z, bHi.Z) - math.max(aLo.Z, bLo.Z)
 	if ox <= 0 or oy <= 0 or oz <= 0 then
 		return 0
 	end
 	return math.min(ox, oy, oz)
 end
 
---- The deepest thing this prop is currently inside.
+--[[
+	The deepest thing this prop is currently inside.
+
+	Measured against what a thing *is*, not against each part of it. A hedge
+	is thirty blocks in a row, and a bin standing across the join of two of
+	them overlaps each block only a little along the line — the smallest axis
+	— while being most of its width into the hedge. Per block that came out
+	under the limit, and the pass this feeds walked past a bin and a chair
+	that were more than half inside the back hedge, which is exactly the case
+	it was written to catch. So the parts the prop touches are grouped by
+	what they belong to, each group is one box, and the prop is measured
+	against that box.
+]]
 local function deepest(prop: BasePart, ignore: Instance): number
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { ignore }
-	params.MaxParts = 10
-	local worst = 0
+	params.MaxParts = 16
+	local pLo, pHi = worldBounds(prop)
+	local groups: { [Instance]: { lo: Vector3, hi: Vector3 } } = {}
 	for _, other in workspace:GetPartsInPart(prop, params) do
-		worst = math.max(worst, penetration(prop, other))
+		local key: Instance = other.Parent or other
+		local lo, hi = worldBounds(other)
+		local group = groups[key]
+		if group then
+			group.lo = group.lo:Min(lo)
+			group.hi = group.hi:Max(hi)
+		else
+			groups[key] = { lo = lo, hi = hi }
+		end
+	end
+	local worst = 0
+	for _, group in groups do
+		worst = math.max(worst, penetration(pLo, pHi, group.lo, group.hi))
 	end
 	return worst
 end
