@@ -88,10 +88,34 @@ local cues: { [string]: Cue } = {
 	be felt rather than listened to, and a mower loop at 0.28 will sit on top
 	of this rather than fight it.
 
-	The track is from the same first-party library the cues come from, and it
-	is one line to change: swap the id, and everything else here stays put.
+	A list rather than a track, because a run lasts ninety minutes.
+
+	This was one id with `Looped` set, and the id was `Jumpstyle` — a hardstyle
+	dance number, 112 seconds long. So the game opened on a rave and then
+	played the same 112 seconds forty-eight times while you pushed a mower
+	around a garden. Either half of that is a problem on its own.
+
+	Six tracks of old-time blues and quiet piano jazz run a little under
+	twenty minutes before anything comes round again, which is long enough
+	that the repeat is not what you notice. They are shuffled, so the session
+	does not always open on the same one.
+
+	All six are from the same first-party library the cues come from, and all
+	six were checked to load and report their real length rather than trusted
+	to exist because a search returned them.
 ]]
-Audio.music = { id = "rbxassetid://1839246711", volume = 0.11 }
+Audio.music = {
+	volume = 0.1,
+	--- Shuffled and played through; see `SoundController`.
+	tracks = {
+		{ id = "rbxassetid://1836352946", name = "Muddy Delta Blues" },
+		{ id = "rbxassetid://1836118280", name = "Delta Blues" },
+		{ id = "rbxassetid://1838898999", name = "Delta Blues (short)" },
+		{ id = "rbxassetid://1841979451", name = "Piano Bar Jazz" },
+		{ id = "rbxassetid://1841984324", name = "Piano Bar Jazz (b)" },
+		{ id = "rbxassetid://1845341094", name = "Chill Jazz" },
+	},
+}
 
 Audio.cues = cues
 

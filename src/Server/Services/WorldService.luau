@@ -777,7 +777,26 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	-- Steps down to the path, as wide as the opening in the rail above them
 	-- rather than half the porch: steps wider than their doorway invite you
 	-- to climb them anywhere and meet the rail everywhere but the middle.
+	--[[
+		Each step is solid from the ground to its own tread.
+
+		They used to be three slabs a stud and a bit thick, hung at three
+		heights with nothing underneath any of them: the bottom one floated a
+		quarter of a stud over the lawn, the middle one a stud and a half, the
+		top one nearly three. Walked up to they were fine — you climb the
+		tops. Crouched beside them, which is where a player mowing the front
+		garden actually is, they were three pale trays hovering over the path
+		with daylight under each, and the whole thing read as a broken
+		staircase dropped into the middle of the yard.
+
+		A step is a block. The tread heights are unchanged, so the climb feels
+		as it did; what is new is that the block goes all the way down. The top
+		one now finishes flush with the porch brick rather than a tenth of a
+		stud short of it, and each is deep enough to meet the one below with no
+		slot to see through.
+	]]
 	for step = 0, 2 do
+		local tread = 3.6 - step * 1.15
 		Build.mesh({
 			prop = "StepBlock",
 			name = "Step",
@@ -785,9 +804,13 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 			-- these steps are the last three feet of the flagstone path.
 			untextured = true,
 			color = Palette.color(Palette.ground.path),
-			size = Vector3.new(GAP + 2, 1.3, 3),
-			collisionSize = Vector3.new(GAP + 2, 1.3, 3),
-			cframe = CFrame.new(porchX, 3.3 - step * 1.2, porchZ - porchDepth * 0.5 - 1.6 - step * 2.6),
+			size = Vector3.new(GAP + 2, tread, 3.4),
+			collisionSize = Vector3.new(GAP + 2, tread, 3.4),
+			cframe = CFrame.new(
+				porchX,
+				tread * 0.5,
+				porchZ - porchDepth * 0.5 - 1.5 - step * 2.4
+			),
 			parent = porch,
 		})
 	end
