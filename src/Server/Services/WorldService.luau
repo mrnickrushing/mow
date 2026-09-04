@@ -9,6 +9,7 @@
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
@@ -327,12 +328,25 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 		is close the horizon, which is most of why a cartoon suburb reads as a
 		place rather than as a plane with a building on it.
 
+		They are real trees now. This was a hundred and twenty-three copies of
+		the `Tree` prop, which the catalogue itself describes as a starburst
+		that reads as a firework, and the note on the lobby's version of the
+		same belt was "fake looking trees lined up all the way across the
+		fence". The three species in `ServerStorage.Trees` — the ones the lobby
+		uses — are planted instead, at wider spacing, weighted toward the two
+		smaller maples, each at its own size and turn. The prop stays as the
+		fallback for a missing template so a property is never bare.
+
 		Kept clear of the road along the south edge and of the spawn, so the
 		first thing anybody sees is still the property.
 	]]
 	local belt = Build.folder("TreeBelt", parent)
 	local beltRng = Random.new(grid.width * 7919 + grid.depth)
 	local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)
+	local templates = ServerStorage:FindFirstChild("Trees")
+	-- Two of each smaller maple to one red: the red is sixty-five studs
+	-- across at full size and a row of them is a wall, not a treeline.
+	local SPECIES = { "SugarMaple", "SugarMaple", "JapaneseMaple", "JapaneseMaple", "RedMaple" }
 
 	--[[
 		Where a trunk already stands.
@@ -345,10 +359,10 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 
 		Canopies are supposed to overlap; that is what makes it a belt rather
 		than an avenue. Trunks are not, so the test is on the trunk and a
-		tree with no room simply is not planted. There are hundreds.
+		tree with no room simply is not planted.
 	]]
 	local planted: { Vector2 } = {}
-	local TRUNK_APART = 14
+	local TRUNK_APART = 24
 
 	local function plant(x: number, z: number)
 		if (Vector2.new(x, z) - Vector2.new(spawnAt.X, spawnAt.Z)).Magnitude < 80 then
@@ -361,6 +375,22 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 			end
 		end
 		table.insert(planted, at)
+		local turn = CFrame.Angles(0, beltRng:NextNumber(0, math.pi * 2), 0)
+		local name = SPECIES[beltRng:NextInteger(1, #SPECIES)]
+		local template = templates and templates:FindFirstChild(name)
+		if template then
+			local tree = template:Clone()
+			-- The file places every layer relative to the tree's feet, so the
+			-- origin is the feet: scale about them, then stand them on the apron,
+			-- whose top is seven tenths below ground level, a stud down so the
+			-- roots are in it rather than on it.
+			tree.WorldPivot = CFrame.identity
+			tree:ScaleTo(if name == "RedMaple" then beltRng:NextNumber(0.8, 1.15) else beltRng:NextNumber(0.9, 1.5))
+			tree:PivotTo(CFrame.new(x, GameConfig.GROUND_Y - 1, z) * turn)
+			tree.Name = "Scenery"
+			tree.Parent = belt
+			return
+		end
 		local height = beltRng:NextNumber(24, 38)
 		Build.mesh({
 			prop = "Tree",
@@ -369,24 +399,28 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 			-- fatter one.
 			size = Vector3.new(height * 0.666, height, height * 0.703),
 			collisionSize = Vector3.new(3.4, height, 3.4),
-			cframe = CFrame.new(x, GameConfig.GROUND_Y + height * 0.5 - 1, z)
-				* CFrame.Angles(0, beltRng:NextNumber(0, math.pi * 2), 0),
-			-- Background: their shadows would fall on the apron, not the lawn,
-			-- and there are a lot of them.
+			cframe = CFrame.new(x, GameConfig.GROUND_Y + height * 0.5 - 1, z) * turn,
 			castShadow = false,
 			parent = belt,
 		})
 	end
 
 	-- Two staggered rows a side. The south rows start beyond the road.
-	local SPACING = 34
+	-- Wider than the firework belt was: a real crown is twenty to fifty
+	-- studs across, and at thirty-four they merged into one long hedge.
+	local SPACING = 56
 	for _, side in { "north", "south", "west", "east" } do
 		local alongX = side == "north" or side == "south"
 		local length = if alongX then width else depth
 		local steps = math.max(math.floor((length + 160) / SPACING), 2)
 		-- Annotated, because an `if` between two array literals infers as a
 		-- union that the generic `for` will not accept as iterable.
-		local rows: { number } = if side == "south" then { 42, 74 } else { 20, 50 }
+		-- The fenced sides start further out than the firework belt did. A real
+		-- tree's limbs reach twenty studs from its trunk at full size, and at
+		-- twenty out the inner row's trunks stood thirteen studs from the
+		-- pickets with their limbs across the fence. The south has no fence,
+		-- only the road, and keeps its rows.
+		local rows: { number } = if side == "south" then { 42, 74 } else { 30, 64 }
 		for _, out in rows do
 			for step = 0, steps do
 				local at = -80 + (length + 160) * (step / steps) + beltRng:NextNumber(-9, 9)

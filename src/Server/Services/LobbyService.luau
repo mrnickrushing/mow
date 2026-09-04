@@ -878,7 +878,7 @@ local function build()
 	it worked from the command bar, and the first server to run it threw.
 
 	So they are not built at all. Each species is a `.model.json` under
-	`src/ServerStorage/LobbyTrees`, transcribed layer by layer from the model
+	`src/ServerStorage/Trees`, transcribed layer by layer from the model
 	it came from, and Rojo writes the mesh ids and the PBR maps straight into
 	the place file, where they are ordinary serialised properties. The lobby
 	clones them. No web calls at boot, the author's PBR kept exactly, and the
@@ -974,7 +974,7 @@ local function build()
 		{ x = 58, z = 124, species = "SugarMaple", scale = 1.05, turn = 330 },
 	}
 
-	local templates = ServerStorage:FindFirstChild("LobbyTrees")
+	local templates = ServerStorage:FindFirstChild("Trees")
 	for _, stand in STANDS do
 		-- Half a stud down, so the roots are in the ground rather than on it.
 		local at = CENTRE + Vector3.new(stand.x, -0.5, stand.z)
@@ -988,7 +988,7 @@ local function build()
 			tree:PivotTo(CFrame.new(at) * CFrame.Angles(0, math.rad(stand.turn), 0))
 			tree.Parent = treeBelt
 		else
-			warn(`[Lobby] no "{stand.species}" in ServerStorage.LobbyTrees; planting the bush tree instead`)
+			warn(`[Lobby] no "{stand.species}" in ServerStorage.Trees; planting the bush tree instead`)
 			plantTree(at, 52 * stand.scale, CANOPY[rng:NextInteger(1, #CANOPY)])
 		end
 	end

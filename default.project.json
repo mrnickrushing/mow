@@ -77,8 +77,8 @@
     },
     "ServerStorage": {
       "$className": "ServerStorage",
-      "LobbyTrees": {
-        "$path": "src/ServerStorage/LobbyTrees"
+      "Trees": {
+        "$path": "src/ServerStorage/Trees"
       }
     }
   }
