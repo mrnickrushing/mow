@@ -82,6 +82,28 @@ HazardService.start()
 RunService.start()
 
 --[[
+	Three services that every server needs, whichever job it has.
+
+	These sat inside the lobby branch below, and in Studio that is invisible:
+	Studio is one server doing both jobs, so everything ran. In production a
+	run is a reserved server of its own, and on that server none of the three
+	ever started. The leaderboard loop — the only thing that writes a score —
+	lived only on the lobby server, where a player's clippings never change
+	and where they stand for under a minute before a pad sends them away; the
+	ladders had been empty since the day the boards went up, with the owner's
+	nine thousand clippings sitting unpublished in his profile. Prices fell
+	back to the stale config on every run server, which is where the store is
+	actually opened. And the admin's cash command, which only works inside a
+	run, ran on the one kind of server that has no runs.
+
+	The read that found it was the ordered store itself, through the Open
+	Cloud execution API: zero entries against a profile that said 9,137.
+]]
+PriceService.start()
+LeaderboardService.start()
+AdminService.start()
+
+--[[
 	One place, two jobs.
 
 	Every team gets a server of its own, and a reserved server is another
@@ -94,9 +116,6 @@ if MatchmakingService.isRunServer() then
 else
 	RunService.setAutoStart(false)
 	MatchmakingService.watchFailures()
-	PriceService.start()
-	LeaderboardService.start()
-	AdminService.start()
 	LobbyService.start()
 end
 
