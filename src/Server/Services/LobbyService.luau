@@ -409,9 +409,24 @@ local function build()
 		side by side without touching each other. Standing on one opens the
 		settings for that game; the board behind it says what it is.
 	]]
+	--[[
+		The games line the back fence, not the middle of the lawn.
+
+		Four pads and four signs stood across the centre of the yard, which put
+		the one thing everybody walks to in the one place everybody walks
+		through, and left the boards at the back with a row of signs in front of
+		them. Against the back fence the pads read as a counter you walk up to,
+		the yard in front of them is empty lawn, and the sight line from the
+		gate to the boards on either side is clear.
+
+		One number moves the pad, its posts, its braces, its backing, its face
+		and its rails, because every one of them is placed from here.
+	]]
+	local PAD_ROW_Z = -54
+
 	for index = 1, GAME_SLOTS do
 		local x = (index - (GAME_SLOTS + 1) * 0.5) * LobbyPad.SPACING
-		local at = CENTRE + Vector3.new(x, 1.5, 8)
+		local at = CENTRE + Vector3.new(x, 1.5, 8 + PAD_ROW_Z)
 		local padPart = glowPad(
 			`{GameConfig.LOBBY_PAD_PREFIX}{index}`,
 			at - Vector3.new(0, 1.3, 0),
@@ -501,7 +516,7 @@ local function build()
 			Build.part({
 				name = "BoardLeg",
 				size = Vector3.new(2.2, 21, 2.2),
-				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 13.4, 10.5, -9.6)),
+				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 13.4, 10.5, -9.6 + PAD_ROW_Z)),
 				color = WOOD,
 				material = Enum.Material.WoodPlanks,
 				parent = root,
@@ -511,7 +526,7 @@ local function build()
 			Build.part({
 				name = "BoardBrace",
 				size = Vector3.new(1.4, 5.2, 1.4),
-				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 13.4, 2.4, -8.1))
+				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 13.4, 2.4, -8.1 + PAD_ROW_Z))
 					* CFrame.Angles(math.rad(34), 0, 0),
 				color = WOOD,
 				material = Enum.Material.WoodPlanks,
@@ -523,7 +538,7 @@ local function build()
 		Build.part({
 			name = `GameBoardFrame{index}`,
 			size = Vector3.new(29.2, 11.4, 0.9),
-			cframe = facing(CENTRE + Vector3.new(x, 12, -9.9)),
+			cframe = facing(CENTRE + Vector3.new(x, 12, -9.9 + PAD_ROW_Z)),
 			color = Color3.fromRGB(74, 52, 34),
 			material = Enum.Material.WoodPlanks,
 			parent = root,
@@ -539,7 +554,7 @@ local function build()
 				other from the near side of the yard: "2/4 Starting in 4"
 				printed across "The House EASY" and neither could be read.
 			]]
-			cframe = facing(CENTRE + Vector3.new(x, 12, -9.35)),
+			cframe = facing(CENTRE + Vector3.new(x, 12, -9.35 + PAD_ROW_Z)),
 			color = Color3.fromRGB(248, 244, 233),
 			material = Enum.Material.SmoothPlastic,
 			parent = root,
@@ -551,7 +566,7 @@ local function build()
 			Build.part({
 				name = "BoardRail",
 				size = Vector3.new(29.6, rail[2], 1.1),
-				cframe = facing(CENTRE + Vector3.new(x, 12 + rail[1], -9.9))
+				cframe = facing(CENTRE + Vector3.new(x, 12 + rail[1], -9.9 + PAD_ROW_Z))
 					* CFrame.new(0, 0, -0.5),
 				color = RAIL,
 				material = Enum.Material.WoodPlanks,
@@ -638,24 +653,23 @@ local function build()
 	]]
 
 	--[[
-		The all-time boards, along the back fence.
+		The all-time boards, one on each side fence, facing in.
 
-		The reference stands two of these at the boundary behind its map
-		signs, and they are most of why its yard feels like a place other
-		people play in. Ours stand one in each back corner, angled in toward
-		the middle of the yard, either side of the status board.
+		They were in the two back corners, which was the only place along the
+		back that a board this size fitted — and then the pads moved to the back
+		fence and there was no room there at all. The sides were always the
+		better answer: a player walks in at the gate and up the middle of the
+		yard, so a board on each flank is side-on to nothing and square to
+		somebody crossing the lawn, which is what "where you can see the things"
+		means.
 
-		Not side by side, though that was the first idea. The status board
-		sits twenty-six studs in front of the fence line and spans the middle
-		forty of it, so a second board next to the first lands directly behind
-		it and is hidden from anywhere a player stands. And the left-hand
-		corner has thirty-four studs of clear fence, which is one board, not
-		two. The corners are the only two places along the back
-		where a board this size is both inside the yard and in view.
+		Turned ninety degrees, so their width runs along the fence rather than
+		across the yard. Sixteen studs in from it, level with the middle of the
+		walk, and the lawn between them stays empty.
 	]]
 	LeaderboardService.build(root, {
-		CFrame.lookAt(CENTRE + Vector3.new(-46, 21, -62), CENTRE + Vector3.new(-40, 17, 20)),
-		CFrame.lookAt(CENTRE + Vector3.new(46, 21, -62), CENTRE + Vector3.new(40, 17, 20)),
+		CFrame.lookAt(CENTRE + Vector3.new(-64, 21, 4), CENTRE + Vector3.new(20, 17, 4)),
+		CFrame.lookAt(CENTRE + Vector3.new(64, 21, 4), CENTRE + Vector3.new(-20, 17, 4)),
 	})
 
 	--------------------------------------------------------------------
@@ -771,9 +785,16 @@ local function build()
 			the view than a thirty-stud board two hundred studs away, which is
 			how the old arrangement managed to hide its own marquee.
 		]]
+		--[[
+			Over the pad row, which is now against the back fence.
+
+			It used to stand thirty studs in front of the pads because the
+			pads were in the middle of the yard. Left there it would be a
+			banner hanging over open lawn with the thing it titles behind it.
+		]]
 		cframe = CFrame.lookAt(
-			CENTRE + Vector3.new(0, 27, -34),
-			CENTRE + Vector3.new(0, 27, -33)
+			CENTRE + Vector3.new(0, 27, -68),
+			CENTRE + Vector3.new(0, 27, -67)
 		),
 		color = Color3.fromRGB(247, 236, 208),
 		material = Enum.Material.SmoothPlastic,
