@@ -675,6 +675,17 @@ local function build()
 		local base = CENTRE + plot.at
 		local turn = CFrame.Angles(0, math.rad(plot.turn), 0)
 
+		--[[
+			The house claims its plot before anything is scattered near it.
+
+			The tree belt is planted after this and knows nothing about the
+			street unless it is told; without this, trunks came up through
+			three of the six houses, one of them five studs inside the wall.
+			Generous on purpose — a canopy overhanging a roof is fine, a
+			trunk in the porch is not, and the margin is what separates them.
+		]]
+		reserve(base, math.max(plot.width, plot.depth) + 9, math.max(plot.width, plot.depth) + 9)
+
 		local shell = Build.part({
 			name = "Shell",
 			size = Vector3.new(plot.width, wallHeight, plot.depth),
@@ -917,8 +928,8 @@ local function build()
 		end
 	end
 
-	for _, ring in { 26, 52, 82 } do
-		local step = 30 + ring * 0.16
+	for _, ring in { 24, 46, 70, 96 } do
+		local step = 26 + ring * 0.13
 		local reach = halfW + ring
 		local n = math.max(math.floor(reach * 2 / step), 3)
 		for side = 0, 3 do
@@ -935,13 +946,20 @@ local function build()
 				else
 					x, z = out, along
 				end
-				-- The gate side stays open, so arriving still shows the street.
-				if not (side == 1 and math.abs(x) < 26) then
-					plantTree(
-						CENTRE + Vector3.new(x, 0, z),
-						rng:NextNumber(44, 68),
-						CANOPY[rng:NextInteger(1, #CANOPY)]
-					)
+				--[[
+					Planted only where there is room for a trunk.
+
+					The gate side stays open so arriving still shows the
+					street, and everything else asks first: the houses have
+					reserved their plots, and each tree reserves its own
+					patch, so no trunk comes up inside a wall or inside
+					another trunk. Canopies still overlap, which is what
+					makes it a wood rather than an avenue.
+				]]
+				local at = CENTRE + Vector3.new(x, 0, z)
+				if not (side == 1 and math.abs(x) < 26) and clearAt(at, 3.2) then
+					plantTree(at, rng:NextNumber(44, 68), CANOPY[rng:NextInteger(1, #CANOPY)])
+					reserve(at, 9, 9)
 				end
 			end
 		end
