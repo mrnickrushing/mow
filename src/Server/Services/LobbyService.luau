@@ -82,6 +82,21 @@ local LEAF_TEXTURES = {
 	glance rather than a tour.
 ]]
 local FLOOR_W, FLOOR_D = 160, 160
+--[[
+	The yard's own grass, brighter than the palette's lawn.
+
+	The reference's lobby reads at a glance for one big reason: its grass is a
+	saturated yellow-green, almost chartreuse, under an amber sky. Ours was the
+	palette's lawn green — right for a property mid-game, where cut grass has to
+	look like a lawn anyone would want, but in the lobby it sat dull and olive
+	under the warm light. A yard nobody is mowing can afford to be the most
+	vivid lawn in the game, so this one leans gold.
+
+	Lobby-only on purpose: `Palette.ground.lawn` is the colour of every property
+	and the grass renderer's ground, and shifting that would repaint the jobs,
+	not the shop window.
+]]
+local LOBBY_LAWN = Palette.rgb(186, 202, 60)
 --- Games that can be set up side by side in the yard, and the most people
 --- any one of them can take.
 -- The largest team one pad has to plan for; shared so a change here cannot
@@ -183,7 +198,7 @@ local function glowPad(name: string, at: Vector3, span: number, parent: Instance
 		name = name,
 		size = Vector3.new(span, 0.4, span),
 		cframe = CFrame.new(at),
-		color = Palette.color(Palette.ground.lawn),
+		color = Palette.color(LOBBY_LAWN),
 		material = Enum.Material.SmoothPlastic,
 		canCollide = false,
 		parent = parent,
@@ -326,7 +341,7 @@ local function build()
 		name = "Surround",
 		size = Vector3.new(3000, 2, 3000),
 		cframe = CFrame.new(CENTRE - Vector3.new(0, 1.1, 0)),
-		color = Palette.color(Palette.ground.lawn),
+		color = Palette.color(LOBBY_LAWN),
 		material = Enum.Material.Grass,
 		castShadow = false,
 		parent = root,
@@ -336,7 +351,7 @@ local function build()
 		name = "Lawn",
 		size = Vector3.new(FLOOR_W, 2, FLOOR_D),
 		cframe = CFrame.new(CENTRE - Vector3.new(0, 1, 0)),
-		color = Palette.color(Palette.ground.lawn),
+		color = Palette.color(LOBBY_LAWN),
 		material = Enum.Material.Grass,
 		parent = root,
 	})
@@ -745,12 +760,15 @@ local function build()
 		into the corner it was always meant to be.
 	]]
 	local backX = LobbyPad.flankX(GAME_SLOTS) - 4
+	-- The same gold as the fence line's hedge, so the street behind the houses
+	-- carries the season too rather than stopping at the boundary.
 	Build.hedge(
 		street,
 		CENTRE + Vector3.new(-backX, 0, -74),
 		CENTRE + Vector3.new(backX, 0, -74),
-		7,
-		5
+		9,
+		6,
+		Color3.fromRGB(226, 140, 46)
 	)
 
 	--------------------------------------------------------------------
@@ -977,6 +995,17 @@ local function build()
 		Left open at the gate, so the way in is still a way in.
 	]]
 	local h = halfW - 3
+	--[[
+		Gold, not green, and tall enough to top the fence.
+
+		The reference's hedge is one of the loudest things in its lobby: a tall
+		warm gold-orange wall running behind the pickets, holding the whole
+		autumn palette together at eye level. Ours was green and waist-and-a-half
+		high, which kept the yard feeling like a show garden rather than late
+		October. Same hedge, drawn in the season the trees behind it already are,
+		and tall enough that the fence sits at its feet instead of beside it.
+	]]
+	local HEDGE_GOLD = Color3.fromRGB(232, 152, 50)
 	for _, run in {
 		{ Vector3.new(-h, 1, -h), Vector3.new(h, 1, -h) },
 		{ Vector3.new(-h, 1, -h), Vector3.new(-h, 1, h) },
@@ -984,7 +1013,7 @@ local function build()
 		{ Vector3.new(-h, 1, h), Vector3.new(-20, 1, h) },
 		{ Vector3.new(20, 1, h), Vector3.new(h, 1, h) },
 	} do
-		Build.hedge(root, CENTRE + run[1], CENTRE + run[2], 9, 7)
+		Build.hedge(root, CENTRE + run[1], CENTRE + run[2], 12, 8, HEDGE_GOLD)
 	end
 	--[[
 		Leaves on the grass, at the edges, where leaves collect.
@@ -1005,9 +1034,9 @@ local function build()
 		Color3.fromRGB(196, 104, 44),
 		Color3.fromRGB(180, 138, 66),
 	}
-	for _ = 1, 260 do
+	for _ = 1, 340 do
 		-- Biased hard to the rim: the walked middle of the yard stays clear.
-		local t = math.sqrt(rng:NextNumber(0.62, 1))
+		local t = math.sqrt(rng:NextNumber(0.55, 1))
 		local edge = (halfW - 8) * t
 		local along = rng:NextNumber(-edge, edge)
 		local x, z
@@ -1027,8 +1056,13 @@ local function build()
 				orange and tan rather than red, and there is a lot of it: the
 				count went up and the size came down, which is the only way a
 				scatter reads as litter instead of as objects.
+
+				Bumped a little larger and a little thicker since, because the
+				reference's litter is chunky enough to read as single leaves from
+				across the yard while ours had thinned into a sprinkle of confetti.
+				Still litter-scale; the middle stays bare.
 			]]
-			local size = rng:NextNumber(1.1, 1.9)
+			local size = rng:NextNumber(1.3, 2.2)
 			local leaf = Build.mesh({
 				prop = if rng:NextNumber() < 0.5 then "LeafMaple" else "LeafOak",
 				name = "Leaf",
@@ -1052,9 +1086,9 @@ local function build()
 		place in a season rather than a room with orange trees around it.
 		Kept sparse on purpose. The first pass ran three emitters at nine a
 		second with a two-and-a-half stud sprite and the sky filled with
-		them — you could not see the boards for the weather. Six a second at
-		about a stud is a leaf drifting past now and then, which is what the
-		reference actually has.
+		them — you could not see the boards for the weather. Nine a second at a
+		little over a stud is a leaf drifting past every few heartbeats, which is
+		what the reference actually has.
 	]]
 	local sky = Build.part({
 		name = "LeafFall",
@@ -1071,13 +1105,13 @@ local function build()
 	for _, texture in LEAF_TEXTURES do
 	local fall = Instance.new("ParticleEmitter")
 	fall.Texture = texture
-	fall.Rate = 2
+	fall.Rate = 3
 	fall.Lifetime = NumberRange.new(8, 13)
 	fall.Speed = NumberRange.new(1, 3)
 	fall.SpreadAngle = Vector2.new(28, 28)
 	fall.Rotation = NumberRange.new(0, 360)
 	fall.RotSpeed = NumberRange.new(-45, 45)
-	fall.Size = NumberSequence.new(1.15)
+	fall.Size = NumberSequence.new(1.25)
 	fall.Acceleration = Vector3.new(2.5, -5.5, 1.5)
 	fall.EmissionDirection = Enum.NormalId.Bottom
 	fall.LightEmission = 0.25

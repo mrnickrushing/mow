@@ -5,9 +5,12 @@
 	The reference's lobby has two of these standing at the back: a gold-headed
 	frame reading LEAVES COLLECTED with the top players and their totals down
 	it, and they are most of why its yard feels like somewhere with other
-	people in it rather than a menu you happen to walk around. The profile has
-	carried `stats.unitsSold` since the beginning, with a comment saying it was
-	for exactly this, and nothing was ever built to read it.
+	people in it rather than a menu you happen to walk around. There are two of
+	them now, the way the reference has two: a lifetime total and a time record.
+
+	The clippings number has lived in the profile's stats since the beginning,
+	with a comment saying it was for exactly this, and nothing was ever built
+	to read it; the record time has been waiting just as long in `bestTimes`.
 
 	Ranking across servers needs an OrderedDataStore, because the top ten is a
 	question about everybody who has ever played and a server only knows about
@@ -40,8 +43,8 @@ local ROWS = 8
 --- worth a request more often than this, and the quota is shared.
 local REFRESH = 60
 
-local ordered: OrderedDataStore? = nil
-local available = true
+local stores: { [string]: OrderedDataStore } = {}
+local available: { [string]: boolean } = {}
 
 --[[
 	One entry per kind of board, so adding a second is a table row.
@@ -52,14 +55,51 @@ local available = true
 ]]
 type BoardDef = {
 	key: string,
-	stat: string,
+	--- The OrderedDataStore this board's ladder lives in. Carries a version so
+	--- a ladder can be reset without the old numbers bleeding into the new one.
+	store: string,
 	title: string,
-	--- Rendered under each name. Clippings are counted, not priced.
-	suffix: string,
+	--- False on a time board, where the fastest is the best rather than the most.
+	descending: boolean,
+	--- The number this board ranks, taken from a profile. Zero means "not on
+	--- the board", and is never written.
+	value: (profile: any) -> number,
+	--- How a value prints in its row.
+	format: (number) -> string,
 }
 
 local BOARDS: { BoardDef } = {
-	{ key = "clippings", stat = "unitsSold", title = "CLIPPINGS COLLECTED", suffix = "" },
+	{
+		key = "clippings",
+		store = "MowClippings_v1",
+		title = "CLIPPINGS COLLECTED",
+		descending = true,
+		value = function(profile: any): number
+			local stats = profile and profile.stats
+			local value = stats and (stats :: any).unitsSold
+			return if type(value) == "number" then value else 0
+		end,
+		format = Format.count,
+	},
+	{
+		key = "fastest",
+		store = "MowFastestHouse_v1",
+		title = "HOUSE TIME RECORDS",
+		descending = false,
+		--[[
+			The House, because it is the one property everybody can run.
+
+			A record board for a world behind a gate would stand empty for most
+			players for ever, and an empty board is a wall; a ladder anyone can
+			appear on tonight is one more reason to have a go at beating it.
+		]]
+		value = function(profile: any): number
+			local times = profile and profile.bestTimes
+			local value = times and (times :: any).house
+			return if type(value) == "number" then value else 0
+		end,
+		format = Format.clock,
+	},
 }
 
 type Row = { name: TextLabel, score: TextLabel }
@@ -85,7 +125,10 @@ local function buildBoard(parent: Instance, def: BoardDef, at: CFrame)
 	for _, side in { -1, 1 } do
 		local post = Build.part({
 			name = "BoardPost",
-			size = Vector3.new(2.2, height + 8, 2.2),
+			-- Thick timber, the reference's framing logs rather than fence
+			-- pickets: a board this size on thin posts reads as a notice
+			-- nailed to two sticks.
+			size = Vector3.new(3.2, height + 8, 3.2),
 			cframe = at * CFrame.new(side * (width * 0.5 + 1), 0, 1.2),
 			color = WOOD,
 			material = Enum.Material.WoodPlanks,
@@ -112,13 +155,14 @@ local function buildBoard(parent: Instance, def: BoardDef, at: CFrame)
 		parent = parent,
 	})
 
-	-- The gold header bar, which is what makes it read as a trophy board
-	-- rather than a notice board.
+	-- The banner header, which is what makes it read as a trophy board
+	-- rather than a notice board. The reference's are dark orange with pale
+	-- lettering, which keeps its warmth against all that timber.
 	local header = Build.part({
 		name = "Header",
 		size = Vector3.new(width + 1.2, 5, 1.1),
 		cframe = at * CFrame.new(0, height * 0.5 - 1.6, -0.7),
-		color = Color3.fromRGB(240, 186, 62),
+		color = Color3.fromRGB(224, 108, 30),
 		material = Enum.Material.SmoothPlastic,
 		parent = parent,
 	})
@@ -165,7 +209,7 @@ local function buildBoard(parent: Instance, def: BoardDef, at: CFrame)
 	end
 
 	label(surfaceOn(header), def.title, UDim2.fromScale(1, 1), UDim2.new(), 44,
-		Color3.fromRGB(58, 40, 14), Enum.TextXAlignment.Center)
+		Color3.fromRGB(255, 246, 228), Enum.TextXAlignment.Center)
 
 	local sheet = surfaceOn(face)
 	local built: { Row } = {}
@@ -191,19 +235,16 @@ end
 --- place each board should stand.
 function LeaderboardService.build(parent: Instance, at: CFrame)
 	for index, def in BOARDS do
-		buildBoard(parent, def, at * CFrame.new((index - 1) * 36, 0, 0))
+		-- Far enough apart that the inner posts of a pair keep daylight between
+		-- them: at the boards' own width a spacing in the thirties left the two
+		-- frames reading as one wide board with a seam down it.
+		buildBoard(parent, def, at * CFrame.new((index - 1) * 44, 0, 0))
 	end
 end
 
 --------------------------------------------------------------------
 -- The numbers
 --------------------------------------------------------------------
-
-local function statOf(profile: any, stat: string): number
-	local stats = profile and profile.stats
-	local value = stats and (stats :: any)[stat]
-	return if type(value) == "number" then value else 0
-end
 
 --[[
 	Writes everybody's lifetime total, on the same beat as the read.
@@ -218,88 +259,96 @@ end
 
 	Writing everyone present on a timer has no ordering to get wrong. It also
 	catches the player whose client crashes, who never fires a clean leave at
-	all, and it costs one request per player per minute against a budget
-	measured in tens per minute.
+	all, and it costs one request per player per board per minute — two
+	boards on a full server, a hundred a minute, which is the ceiling this
+	pattern should ever be asked to carry. A third board wants batching or
+	backoff before it wants adding.
 ]]
 local function publishEveryone()
-	local store = ordered
-	if not store or not available then
-		return
-	end
-	for player, profile in DataService.all() do
-		local value = math.floor(statOf(profile, BOARDS[1].stat))
-		if value > 0 then
-			local ok, err = pcall(function()
-				store:SetAsync(tostring(player.UserId), value)
-			end)
-			if not ok then
-				warn(`[Leaderboard] could not publish {player.Name}: {err}`)
+	for _, def in BOARDS do
+		local store = stores[def.key]
+		if not store or available[def.key] == false then
+			continue
+		end
+		for player, profile in DataService.all() do
+			local value = math.floor(def.value(profile))
+			if value > 0 then
+				local ok, err = pcall(function()
+					store:SetAsync(tostring(player.UserId), value)
+				end)
+				if not ok then
+					warn(`[Leaderboard] could not publish {player.Name} to {def.key}: {err}`)
+				end
 			end
 		end
 	end
 end
 
 local function refresh()
-	local def = BOARDS[1]
-	local built = rows[def.key]
-	local status = statusLabels[def.key]
-	if not built then
-		return
-	end
-
-	if not available or not ordered then
-		if status then
-			status.Text = "waiting for a published server"
+	for _, def in BOARDS do
+		local built = rows[def.key]
+		local status = statusLabels[def.key]
+		if not built then
+			continue
 		end
-		return
-	end
 
-	local store = ordered :: OrderedDataStore
-	local ok, pages = pcall(function()
-		return store:GetSortedAsync(false, ROWS)
-	end)
-	if not ok then
-		if status then
-			status.Text = "scores are having a lie down"
+		local store = stores[def.key]
+		if not store or available[def.key] == false then
+			if status then
+				status.Text = "waiting for a published server"
+			end
+			continue
 		end
-		return
-	end
 
-	local page = (pages :: DataStorePages):GetCurrentPage()
-	if status then
-		status.Text = ""
-	end
-	for i = 1, ROWS do
-		local entry = page[i]
-		local row = built[i]
-		if entry then
-			--[[
-				A name, not a number. `GetNameFromUserIdAsync` is a web call
-				and it is cached by Roblox, but a failed one must not take the
-				whole board down with it — a row that says the user id is a
-				worse board, not a broken one.
-			]]
-			local named, name = pcall(function()
-				return Players:GetNameFromUserIdAsync(tonumber(entry.key) or 0)
-			end)
-			row.name.Text = if named then name else "…"
-			row.score.Text = Format.count(entry.value)
-		else
-			row.name.Text = "—"
-			row.score.Text = ""
+		local ok, pages = pcall(function()
+			-- The most of something sorts one way, the least of it the other.
+			return store:GetSortedAsync(not def.descending, ROWS)
+		end)
+		if not ok then
+			if status then
+				status.Text = "scores are having a lie down"
+			end
+			continue
+		end
+
+		local page = (pages :: DataStorePages):GetCurrentPage()
+		if status then
+			status.Text = ""
+		end
+		for i = 1, ROWS do
+			local entry = page[i]
+			local row = built[i]
+			if entry then
+				--[[
+					A name, not a number. `GetNameFromUserIdAsync` is a web call
+					and it is cached by Roblox, but a failed one must not take the
+					whole board down with it — a row that says the user id is a
+					worse board, not a broken one.
+				]]
+				local named, name = pcall(function()
+					return Players:GetNameFromUserIdAsync(tonumber(entry.key) or 0)
+				end)
+				row.name.Text = if named then name else "…"
+				row.score.Text = def.format(entry.value)
+			else
+				row.name.Text = "—"
+				row.score.Text = ""
+			end
 		end
 	end
 end
 
 function LeaderboardService.start()
-	local ok, store = pcall(function()
-		return DataStoreService:GetOrderedDataStore("MowClippings_v1")
-	end)
-	if ok then
-		ordered = store
-	else
-		available = false
-		warn("[Leaderboard] no ordered store; the board will say so")
+	for _, def in BOARDS do
+		local ok, store = pcall(function()
+			return DataStoreService:GetOrderedDataStore(def.store)
+		end)
+		if ok then
+			stores[def.key] = store
+		else
+			available[def.key] = false
+			warn(`[Leaderboard] no ordered store for {def.key}; its board will say so`)
+		end
 	end
 
 	Loop.forever("Leaderboard.refresh", function()
