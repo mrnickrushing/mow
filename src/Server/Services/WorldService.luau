@@ -2275,7 +2275,19 @@ local function clearBuriedTiles(world: Types.WorldDef, grid: Grid.Grid, tiles: b
 			end
 			local folder = part.Parent
 			local clutter = folder ~= nil and string.sub(folder.Name, 1, 8) == "Clutter_"
-			if part.CanCollide or clutter then
+			--[[
+				Paving buries a tile, and had to be named to do it.
+
+				A slab is `canCollide = false` — you walk over a path, you do
+				not bump into it — and it lives in a folder called `Paving`
+				rather than `Clutter_`, so it satisfied neither half of this
+				test. Every stone in every path had whatever was sown under
+				it still sown, and the tufts came up through the stone: a
+				front garden with grass growing out of the middle of its own
+				flagstones, which is the complaint that keeps coming back.
+			]]
+			local paving = folder ~= nil and folder.Name == "Paving"
+			if part.CanCollide or clutter or paving then
 				return true
 			end
 		end

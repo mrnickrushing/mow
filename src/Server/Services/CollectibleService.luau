@@ -27,8 +27,20 @@ local WorldService = require(script.Parent.WorldService)
 
 local CollectibleService = {}
 
---- Cash a Golden Blade pays, before the world multiplier.
-local BLADE_CASH = 12
+--[[
+	What a Golden Blade pays. Flat, and not multiplied by anything.
+
+	This was twelve "before the world multiplier", and then `award` put the
+	player's whole multiplier stack on top of that as well. On the gas
+	station with a couple of cash upgrades bought it came to twelve times
+	2.1 times 2.5 — sixty-three cash for one pickup, when a clipping pays
+	five hundredths. One trophy was worth about twelve hundred clippings,
+	which is not a bonus, it is a way of skipping the game.
+
+	A collectible is a finder's fee, not income: the same ten wherever it is
+	found and whatever you have bought.
+]]
+local BLADE_CASH = 10
 --- The blade's own box, shared so the spot it is tested for is the spot it fills.
 local BLADE_SIZE = Vector3.new(2.4, 4.8, 2.4)
 local BLADE_LIFT = Vector3.new(0, 3, 0)
@@ -73,9 +85,9 @@ local function spawnBlade(position: Vector3, section: Types.ZoneDef, parent: Ins
 		end
 		part:Destroy()
 
-		local world = WorldService.world
-		local multiplier = if world then world.payoutMultiplier else 1
-		local paid = EconomyService.award(player, BLADE_CASH * multiplier)
+		-- `awardRaw`, so neither the world's payout multiplier nor the
+		-- player's upgrades inflate what is meant to be a flat finder's fee.
+		local paid = EconomyService.awardRaw(player, BLADE_CASH)
 		EconomyService.awardTips(player, BLADE_TIPS)
 
 		DataService.withProfile(player, function(profile)

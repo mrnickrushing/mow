@@ -288,6 +288,31 @@ local function build()
 		return nil
 	end
 
+	--[[
+		Ground that reaches past the fence.
+
+		The yard is a hundred and sixty square and everything that makes it
+		feel like somewhere is not: the six neighbour houses stand a hundred
+		and sixteen out, their roofs further, and the hedge along the back
+		beyond that. All of it was standing on nothing. From inside the yard,
+		at eye level, you could see the grass simply stop and the sky carry
+		on underneath — a lawn floating in the air with a street floating
+		beside it.
+
+		So the lawn is the yard, and this is the ground the yard sits in. It
+		runs out past the fog, which is the only edge a player should ever
+		find: not a cliff, just distance.
+	]]
+	Build.part({
+		name = "Surround",
+		size = Vector3.new(3000, 2, 3000),
+		cframe = CFrame.new(CENTRE - Vector3.new(0, 1.1, 0)),
+		color = Palette.color(Palette.ground.lawn),
+		material = Enum.Material.Grass,
+		castShadow = false,
+		parent = root,
+	})
+
 	Build.part({
 		name = "Lawn",
 		size = Vector3.new(FLOOR_W, 2, FLOOR_D),
@@ -376,7 +401,19 @@ local function build()
 			paints them differently for that reason and it is most of why its
 			pads read at a glance.
 		]]
-		local floating = Build.billboard(padPart, UDim2.fromScale(17, 8), 4, 260)
+		--[[
+			Small, and sitting close over its own pad.
+
+			Seventeen studs wide by eight tall, lifted four, meant the label
+			occupied everything from the grass to well above head height and
+			was drawn at that size whatever you were doing. Standing beside
+			one it filled the screen; crossing the yard, four of them hung in
+			the air over the trees and the trailer with their words cut in
+			half by whatever they happened to pass behind. The reference
+			keeps this tight to the pad, and it is a label on a thing rather
+			than a sign in the sky.
+		]]
+		local floating = Build.billboard(padPart, UDim2.fromScale(11, 4.6), 2.8, 260)
 		local padCount = Build.label(floating, "", UDim2.fromScale(1, 0.42), UDim2.fromScale(0, 0), 1.7)
 		local padLabel = Build.label(floating, "", UDim2.fromScale(1, 0.58), UDim2.fromScale(0, 0.42), 2.2)
 		padLabel.TextColor3 = Color3.fromRGB(126, 232, 106)
