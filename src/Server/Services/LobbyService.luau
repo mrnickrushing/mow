@@ -365,9 +365,8 @@ local function build()
 		was never anything in the opening — no gate, no arch, no path through
 		it — and nothing beyond it but the surround running out to the fog. A
 		hole that size in a picket fence with nothing standing in it does not
-		read as a way in; it reads as a missing panel. The hedge behind it is
-		twelve studs tall now anyway, which is the thing that actually decides
-		whether you can see out.
+		read as a way in; it reads as a missing panel. And you can see out over
+		a nine-stud picket fence anyway, which was the whole argument.
 	]]
 	local halfW, halfD = FLOOR_W * 0.5, FLOOR_D * 0.5
 	local fences = Build.folder("Fences", root)
@@ -650,8 +649,8 @@ local function build()
 		sits twenty-six studs in front of the fence line and spans the middle
 		forty of it, so a second board next to the first lands directly behind
 		it and is hidden from anywhere a player stands. And the left-hand
-		corner has thirty-four studs of clear fence before the hedge, which is
-		one board, not two. The corners are the only two places along the back
+		corner has thirty-four studs of clear fence, which is one board, not
+		two. The corners are the only two places along the back
 		where a board this size is both inside the yard and in view.
 	]]
 	LeaderboardService.build(root, {
@@ -758,27 +757,6 @@ local function build()
 		end
 	end
 
-	--[[
-		A hedge line along the back, so the houses sit behind something rather
-		than floating on the same grass the pads are on.
-
-		It stops where the flank hedges are rather than running past them. At
-		seventy-eight it overran both by eight studs and the two runs crossed,
-		which from inside the yard is a bush growing sideways out of a hedge.
-		Ending it just short of the flank's own thickness turns the crossing
-		into the corner it was always meant to be.
-	]]
-	local backX = LobbyPad.flankX(GAME_SLOTS) - 4
-	-- The same gold as the fence line's hedge, so the street behind the houses
-	-- carries the season too rather than stopping at the boundary.
-	Build.hedge(
-		street,
-		CENTRE + Vector3.new(-backX, 0, -74),
-		CENTRE + Vector3.new(backX, 0, -74),
-		9,
-		6,
-		Color3.fromRGB(226, 140, 46)
-	)
 
 	--------------------------------------------------------------------
 	-- The board at the far end
@@ -977,7 +955,7 @@ local function build()
 		Where each one stands, in yard coordinates.
 
 		Behind the back row of houses, outside the two on the flanks, and a
-		couple over the south hedge so the sky has trees in it whichever way
+		couple over the south fence so the sky has trees in it whichever way
 		you face. None of them in a row: the spacing, the species, the size and
 		the turn all vary, because a row of identical trees is the thing being
 		replaced. Placed by hand and then checked with an overlap query against
@@ -1016,36 +994,16 @@ local function build()
 	end
 
 	--[[
-		One hedge, following the fence the whole way round.
+		No hedge.
 
-		There were two, running down the flanks *inside* the yard at the pad
-		line — a pair of green walls either side of the boards, dividing the
-		room up. The reference has a single hedge tight behind its fence on
-		every side, which does the opposite job: it closes the room off
-		without putting anything inside it.
-
-		Closed all the way round, the same as the fence in front of it.
+		There was one the whole way round, tight behind the pickets — first
+		green and waist-high, then gold and twelve studs tall to match the
+		reference's. It is built from the same `Bush` mesh the old tree belt
+		was, and a hundred of them shoulder to shoulder along a fence read as
+		exactly that: a row of identical gold trees, lined up, which is the one
+		thing this yard is not supposed to have. The fence is the boundary and
+		the real trees behind the houses are the trees.
 	]]
-	local h = halfW - 3
-	--[[
-		Gold, not green, and tall enough to top the fence.
-
-		The reference's hedge is one of the loudest things in its lobby: a tall
-		warm gold-orange wall running behind the pickets, holding the whole
-		autumn palette together at eye level. Ours was green and waist-and-a-half
-		high, which kept the yard feeling like a show garden rather than late
-		October. Same hedge, drawn in the season the trees behind it already are,
-		and tall enough that the fence sits at its feet instead of beside it.
-	]]
-	local HEDGE_GOLD = Color3.fromRGB(232, 152, 50)
-	for _, run in {
-		{ Vector3.new(-h, 1, -h), Vector3.new(h, 1, -h) },
-		{ Vector3.new(-h, 1, -h), Vector3.new(-h, 1, h) },
-		{ Vector3.new(h, 1, -h), Vector3.new(h, 1, h) },
-		{ Vector3.new(-h, 1, h), Vector3.new(h, 1, h) },
-	} do
-		Build.hedge(root, CENTRE + run[1], CENTRE + run[2], 12, 8, HEDGE_GOLD)
-	end
 	--[[
 		Leaves on the grass, at the edges, where leaves collect.
 
