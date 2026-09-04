@@ -41,6 +41,7 @@ local SweepService = require(Services.SweepService)
 local LobbyService = require(Services.LobbyService)
 local MatchmakingService = require(Services.MatchmakingService)
 local LeaderboardService = require(Services.LeaderboardService)
+local AdminService = require(Services.AdminService)
 
 -- Order matters: data before anything that reads a profile, replication before
 -- anything that marks tiles, and every listener connected before RunService
@@ -93,6 +94,7 @@ else
 	RunService.setAutoStart(false)
 	MatchmakingService.watchFailures()
 	LeaderboardService.start()
+	AdminService.start()
 	LobbyService.start()
 end
 

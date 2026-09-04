@@ -23,6 +23,7 @@ local TrailerController = require(Controllers.TrailerController)
 local VehicleController = require(Controllers.VehicleController)
 
 local Hud = require(script.UI.Hud)
+local Admin = require(script.UI.Admin)
 local RunOnly = require(script.UI.RunOnly)
 local RoundBar = require(script.UI.RoundBar)
 local Hotbar = require(script.UI.Hotbar)
@@ -53,6 +54,7 @@ Store.start()
 LevelSelect.start()
 Intro.start()
 Hud.start()
+Admin.start()
 AffordController.start()
 
 -- Sections behind a shut gate render desaturated, so the renderer follows the
