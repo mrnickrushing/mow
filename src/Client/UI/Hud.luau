@@ -337,6 +337,78 @@ local function buildRightColumn(gui: ScreenGui)
 	local shopLabel = caption("StoreLabel", "Shop", "G", -80)
 	shopLabel.BackgroundColor3 = Theme.colors.tips
 
+	--[[
+		A way to turn the noise off.
+
+		The profile has carried `sfxEnabled` since the beginning, saved and
+		loaded with everything else, and nothing anywhere read it — there was
+		no control, so the setting could never be anything but true. A game
+		that cuts, sells and chops ten times a second and cannot be muted is
+		a game people play on silent, which loses the sound altogether rather
+		than only when they want it gone.
+
+		Third tile in the same row, labelled with its own state the way the
+		reference labels its music toggle.
+	]]
+	local soundTile = Instance.new("TextButton")
+	soundTile.Name = "Sound"
+	soundTile.Size = UDim2.fromOffset(62, 62)
+	soundTile.Position = UDim2.new(1, -158, 0, 76)
+	soundTile.AnchorPoint = Vector2.new(1, 0)
+	soundTile.BackgroundColor3 = Theme.colors.progress
+	soundTile.BorderSizePixel = 0
+	soundTile.Rotation = 4
+	soundTile.Text = ""
+	soundTile.AutoButtonColor = true
+	soundTile.Parent = column
+	Theme.corner(soundTile, 8)
+	Theme.stroke(soundTile, 3, Theme.colors.outline, 0.05)
+
+	local note = Theme.text({
+		name = "Note",
+		text = utf8.char(0x266A),
+		size = UDim2.fromScale(1, 1),
+		position = UDim2.fromScale(0, 0),
+		parent = soundTile,
+		align = Enum.TextXAlignment.Center,
+		textSize = 34,
+	})
+	note.TextYAlignment = Enum.TextYAlignment.Center
+
+	local soundLabel = caption("SoundLabel", "Sound", "", -152)
+
+	local function paintSound()
+		local on = not SoundController.isMuted()
+		soundLabel.Text = if on then "Sound ON" else "Sound OFF"
+		note.TextTransparency = if on then 0 else 0.55
+		soundTile.BackgroundColor3 = if on then Theme.colors.progress else Theme.colors.panel
+	end
+
+	--[[
+		Take the saved value the first time the profile arrives.
+
+		Only once: after that the button is the truth, and re-applying on
+		every push would fight a player who muted the game a second ago.
+	]]
+	local soundApplied = false
+	PlayerState.Changed:Connect(function()
+		if soundApplied then
+			return
+		end
+		soundApplied = true
+		SoundController.setMuted(PlayerState.get().sfxEnabled == false)
+		paintSound()
+	end)
+
+	soundTile.Activated:Connect(function()
+		local nowMuted = not SoundController.isMuted()
+		SoundController.setMuted(nowMuted)
+		paintSound()
+		-- Remembered, so it is still off next time.
+		Remotes.event(Remotes.SETTINGS):FireServer("sfx", not nowMuted)
+	end)
+	paintSound()
+
 	-- The tool, and whether it is running. On touch this is also the button that
 	-- runs it; on a mouse the camera is locked to the centre of the screen, so
 	-- it can only ever be a readout.

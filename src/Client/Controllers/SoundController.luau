@@ -44,11 +44,38 @@ local function dress(sound: Sound, def: Audio.Cue)
 	sound.PlaybackSpeed = if spread > 0 then speed + rng:NextNumber(-spread, spread) else speed
 end
 
+--[[
+	Whether the game is allowed to make a noise.
+
+	One gate, here, rather than a check at every call site. Everything that
+	makes a sound goes through `play` or `setLoop`, so muting is a property
+	of the speaker and not something thirty callers have to remember.
+]]
+local muted = false
+
+--- Silences or restores every cue. Loops already running are stopped at once
+--- rather than left playing until whatever drives them next changes its mind.
+function SoundController.setMuted(on: boolean)
+	if muted == on then
+		return
+	end
+	muted = on
+	if on then
+		for _, sound in loops do
+			sound:Stop()
+		end
+	end
+end
+
+function SoundController.isMuted(): boolean
+	return muted
+end
+
 --- Plays a cue once. Unknown names are ignored rather than raising: a missing
 --- sound should never be what stops a cut from registering.
 function SoundController.play(name: string)
 	local def = Audio.get(name)
-	if not def or not holder then
+	if muted or not def or not holder then
 		return
 	end
 
@@ -78,6 +105,9 @@ end
 	answer actually changes.
 ]]
 function SoundController.setLoop(name: string, on: boolean)
+	if muted then
+		on = false
+	end
 	local def = Audio.get(name)
 	if not def or not holder then
 		return

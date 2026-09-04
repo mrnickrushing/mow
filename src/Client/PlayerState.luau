@@ -68,6 +68,8 @@ export type State = {
 	worldsBeaten: { [string]: boolean },
 	bestTimes: { [string]: number },
 	showIntro: boolean,
+	--- False when this player has muted the game.
+	sfxEnabled: boolean,
 }
 
 local state: State = {
@@ -93,6 +95,7 @@ local state: State = {
 	worldsBeaten = {},
 	bestTimes = {},
 	showIntro = false,
+	sfxEnabled = true,
 }
 
 local world: Types.WorldDef? = nil
@@ -236,6 +239,9 @@ local function applyPayload(payload: any)
 		end
 		if type(payload.showIntro) == "boolean" then
 			state.showIntro = payload.showIntro
+		end
+		if type(payload.sfxEnabled) == "boolean" then
+			state.sfxEnabled = payload.sfxEnabled
 		end
 		if type(payload.worldsBeaten) == "table" then
 			state.worldsBeaten = payload.worldsBeaten
