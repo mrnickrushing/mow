@@ -51,7 +51,22 @@ local PAPER = Color3.fromRGB(246, 236, 210)
 local PAPER_EDGE = Color3.fromRGB(222, 206, 172)
 local INK = Color3.fromRGB(58, 46, 96)
 local COVER = Color3.fromRGB(58, 118, 186)
-local LOCKED = Color3.fromRGB(158, 154, 148)
+--[[
+	Greys dark enough to read.
+
+	Every one of these was a pale grey, chosen to look inactive, and measured
+	against what it actually sits on none of them cleared three to one: the
+	"(0/5)" counters and locked "?" prices at 2.4 on the paper, and white
+	lettering on the can't-afford and MAX buttons at 1.7 — a "Buy — $10"
+	that could not be read on the button it was printed on. Inactive still
+	has to be legible, so each is the same hue two shades darker, which puts
+	the counters at 4.2 and the button lettering above 4.
+]]
+local LOCKED = Color3.fromRGB(118, 112, 104)
+--- The can't-afford button, MAX, and the detail panel with nothing selected.
+local UNAFFORDABLE = Color3.fromRGB(116, 110, 100)
+local MAXED = Color3.fromRGB(122, 114, 102)
+local NOTHING_SELECTED = Color3.fromRGB(104, 100, 118)
 --- A brighter, opaque card on the parchment page it sits on.
 local CARD = Color3.fromRGB(255, 252, 241)
 
@@ -575,7 +590,7 @@ local function toolPanel(parent: Instance, order: number, tool: Types.ToolDef, o
 		live(function()
 			buy.BackgroundColor3 = if affordable()
 				then Color3.fromRGB(126, 158, 78)
-				else Color3.fromRGB(196, 190, 178)
+				else UNAFFORDABLE
 		end)
 		buy.BorderSizePixel = 0
 		buy.Font = Theme.font
@@ -669,7 +684,7 @@ local function renderUpgrades()
 	-- instruction when nothing is picked yet.
 	local detail = Instance.new("Frame")
 	detail.Size = UDim2.new(1, -16, 0, 96)
-	detail.BackgroundColor3 = Color3.fromRGB(178, 176, 190)
+	detail.BackgroundColor3 = NOTHING_SELECTED
 	detail.BackgroundTransparency = 0.2
 	detail.BorderSizePixel = 0
 	detail.LayoutOrder = 2
@@ -710,7 +725,7 @@ local function renderUpgrades()
 		local cost = selectedCost
 		buyButton.BackgroundColor3 = if cost and PlayerState.get().cash >= cost
 			then Color3.fromRGB(126, 158, 78)
-			else Color3.fromRGB(196, 190, 178)
+			else UNAFFORDABLE
 	end)
 	buyButton.BorderSizePixel = 0
 	buyButton.Font = Theme.font
@@ -863,7 +878,7 @@ local function renderStats()
 			if not cost then
 				change.Text = `{Format.stat(Upgrades.valueAt(def, level))}{def.suffix} — the top of the line`
 				buy.Text = "MAX"
-				buy.BackgroundColor3 = Color3.fromRGB(178, 172, 160)
+				buy.BackgroundColor3 = MAXED
 				return
 			end
 
@@ -873,7 +888,7 @@ local function renderStats()
 			buy.Text = Format.cash(cost)
 			buy.BackgroundColor3 = if state.cash >= cost
 				then Color3.fromRGB(126, 158, 78)
-				else Color3.fromRGB(196, 190, 178)
+				else UNAFFORDABLE
 		end)
 
 		buy.Activated:Connect(function()
