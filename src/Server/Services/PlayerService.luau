@@ -56,6 +56,10 @@ export type StatePayload = {
 	worldsBeaten: { [string]: boolean },
 	bestTimes: { [string]: number },
 	showIntro: boolean,
+	--- False when the player has muted the game. Sent so the setting survives
+	--- a rejoin; without it the toggle resets to on every session and the
+	--- saved value could never be observed.
+	sfxEnabled: boolean,
 }
 
 function PlayerService.buildState(player: Player): StatePayload?
@@ -73,6 +77,7 @@ function PlayerService.buildState(player: Player): StatePayload?
 		bestTimes = if profile then profile.bestTimes else {},
 		--- True until the opening has been watched once.
 		showIntro = profile ~= nil and not profile.introSeen,
+		sfxEnabled = profile == nil or profile.sfxEnabled ~= false,
 		cash = run.cash,
 		tips = EconomyService.tips(player),
 		earned = run.earned,
@@ -350,6 +355,29 @@ function PlayerService.start()
 	playerState = Remotes.event(Remotes.PLAYER_STATE)
 	equipRemote = Remotes.event(Remotes.EQUIP)
 	trailerRemote = Remotes.event(Remotes.PLACE_TRAILER)
+
+	--[[
+		Preferences the player set, written to their profile.
+
+		Only ever booleans the game already knows the names of — the value is
+		coerced and the key is looked up in a fixed set, so a client sending
+		anything else writes nothing. A settings remote that took a field name
+		and a value on trust would let a player set any field on their own
+		save.
+	]]
+	Remotes.event(Remotes.SETTINGS).OnServerEvent:Connect(function(player, key, value)
+		if type(key) ~= "string" then
+			return
+		end
+		local on = value == true
+		DataService.withProfile(player, function(profile)
+			if key == "sfx" then
+				profile.sfxEnabled = on
+			elseif key == "music" then
+				profile.musicEnabled = on
+			end
+		end)
+	end)
 
 	--[[
 		The opening is watched once and then never again.

@@ -50,6 +50,8 @@ Remotes.QUESTS = "Quests"
 	notice in the other direction only decides whether a button is drawn.
 ]]
 Remotes.ADMIN = "Admin"
+--- Client -> server: a preference the player changed, to be remembered.
+Remotes.SETTINGS = "Settings"
 --[[
 	Client -> server: the lobby's game settings, confirmed.
 
@@ -83,6 +85,7 @@ local EVENTS = {
 	Remotes.LOBBY_CONFIRM,
 	Remotes.INTRO_DONE,
 	Remotes.ADMIN,
+	Remotes.SETTINGS,
 }
 
 local folder: Folder? = nil
