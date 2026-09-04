@@ -41,6 +41,16 @@ Remotes.VEHICLE = "Vehicle"
 --- Server -> client: the objective chain and its progress.
 Remotes.QUESTS = "Quests"
 --[[
+	Both ways, for the owner's own commands.
+
+	Server -> client once on join, to say "you may show the panel". Client ->
+	server to ask for something. The asking direction is not trusted: the
+	server checks the caller's `UserId` against its own list before it does
+	anything, so a player who finds this remote and fires it is refused. The
+	notice in the other direction only decides whether a button is drawn.
+]]
+Remotes.ADMIN = "Admin"
+--[[
 	Client -> server: the lobby's game settings, confirmed.
 
 	Carries the map and the party size the player set on the pad, which is the
@@ -72,6 +82,7 @@ local EVENTS = {
 	Remotes.QUESTS,
 	Remotes.LOBBY_CONFIRM,
 	Remotes.INTRO_DONE,
+	Remotes.ADMIN,
 }
 
 local folder: Folder? = nil
