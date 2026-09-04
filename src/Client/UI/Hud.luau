@@ -482,6 +482,36 @@ local function buildRightColumn(gui: ScreenGui)
 	layoutTiles()
 	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(layoutTiles)
 
+	--[[
+		Puts the tool button just above Roblox's jump button.
+
+		Measured rather than guessed: the jump control is drawn by Roblox at a
+		size and place of its own choosing, which is not the same on a phone
+		as on a tablet. Where there is no jump button — a mouse, where this is
+		a readout rather than a control — the fallback inset is used, which is
+		clear of the store either way.
+	]]
+	local function parkTool()
+		local touchGui = player:FindFirstChild("PlayerGui") and (player.PlayerGui :: any):FindFirstChild("TouchGui")
+		local jump = touchGui and touchGui:FindFirstChild("JumpButton", true)
+		local area = gui.AbsoluteSize
+		if jump and jump:IsA("GuiObject") and jump.AbsoluteSize.Y > 8 and area.X > 0 then
+			local centreX = jump.AbsolutePosition.X + jump.AbsoluteSize.X * 0.5
+			local fromRight = area.X - centreX + toolButton.AbsoluteSize.X * 0.5
+			-- Sixteen studs of daylight over the jump button, so the two read
+			-- as a stack rather than as one control.
+			local fromBottom = area.Y - jump.AbsolutePosition.Y + 16
+			toolButton.Position = UDim2.new(1, -fromRight, 1, -fromBottom)
+			toolStateLabel.Position = UDim2.new(1, -(fromRight - toolButton.AbsoluteSize.X * 0.5 - 60), 1, -(fromBottom + toolButton.AbsoluteSize.Y + 2))
+		else
+			toolButton.Position = UDim2.new(1, -22, 1, -240)
+			toolStateLabel.Position = UDim2.new(1, -5, 1, -212)
+		end
+	end
+	parkTool()
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(parkTool)
+	task.defer(parkTool)
+
 	local function paintSound()
 		local on = not SoundController.isMuted()
 		soundLabel.Text = if on then "Sound ON" else "Sound OFF"
@@ -527,11 +557,26 @@ local function buildRightColumn(gui: ScreenGui)
 	-- The tool, and whether it is running. On touch this is also the button that
 	-- runs it; on a mouse the camera is locked to the centre of the screen, so
 	-- it can only ever be a readout.
+	--[[
+		The tool button sits above the jump button, not on top of the store.
+
+		It lived in the top-right column at a fixed drop of 190, and the store
+		pill above it runs from 176 to 216 — so on every screen that is not a
+		phone the two overlapped, and the word PICK UP was printed across the
+		store. It also put the one control a player holds down at the top of
+		the screen, as far from a thumb as the layout allows.
+
+		So it comes out of the column and parks itself against the bottom
+		right, just above Roblox's jump button, which is where the hand
+		already is. `parkTool` measures the real jump button rather than
+		guessing an inset, because Roblox sizes and places that control
+		itself and it is not the same on every screen.
+	]]
 	toolButton = Instance.new("TextButton")
 	toolButton.Name = "Tool"
 	toolButton.Size = UDim2.fromOffset(86, 86)
-	toolButton.Position = UDim2.new(1, -6, 0, 190)
-	toolButton.AnchorPoint = Vector2.new(1, 0)
+	toolButton.Position = UDim2.new(1, -22, 1, -240)
+	toolButton.AnchorPoint = Vector2.new(1, 1)
 	toolButton.BackgroundColor3 = Theme.colors.panelLight
 	toolButton.BackgroundTransparency = 0.15
 	toolButton.BorderSizePixel = 0
@@ -540,7 +585,7 @@ local function buildRightColumn(gui: ScreenGui)
 	-- Off until the first refresh says otherwise, so it cannot flash up in
 	-- the lobby on the frame between being built and being told.
 	toolButton.Visible = false
-	toolButton.Parent = column
+	toolButton.Parent = gui
 
 	local round = Instance.new("UICorner")
 	round.CornerRadius = UDim.new(0.5, 0)
@@ -560,9 +605,10 @@ local function buildRightColumn(gui: ScreenGui)
 		name = "State",
 		text = "",
 		size = UDim2.fromOffset(120, 26),
-		position = UDim2.new(1, -26, 0, 268),
-		anchor = Vector2.new(1, 0),
-		parent = column,
+		-- Under the button, wherever `parkTool` has put it.
+		position = UDim2.new(1, -5, 1, -212),
+		anchor = Vector2.new(1, 1),
+		parent = gui,
 		align = Enum.TextXAlignment.Center,
 		color = Theme.colors.cash,
 		textSize = 22,
