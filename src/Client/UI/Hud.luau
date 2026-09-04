@@ -280,7 +280,9 @@ local function buildRightColumn(gui: ScreenGui)
 		local label = Theme.text({
 			name = name,
 			text = if hasKeyboard then `{word}  {key}` else word,
-			size = UDim2.fromOffset(74, 22),
+			-- Seventy-two apart, so seventy wide leaves a hair between them.
+			-- At seventy-four they touched once there were three.
+			size = UDim2.fromOffset(70, 22),
 			position = UDim2.new(1, x, 0, 142),
 			anchor = Vector2.new(1, 0),
 			parent = column,
@@ -296,7 +298,7 @@ local function buildRightColumn(gui: ScreenGui)
 	end
 
 	-- Centred under a 62-wide tile whose right edge is 14 in from the screen:
-	-- the caption is 74 wide, so it hangs six studs proud either side.
+	-- the caption is 70 wide, so it hangs four pixels proud either side.
 	caption("BookLabel", "Book", "Tab", -8)
 
 	--[[
