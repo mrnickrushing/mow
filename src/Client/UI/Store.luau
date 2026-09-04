@@ -43,7 +43,17 @@ local function addEntry(order: number, title: string, description: string, robux
 		parent = row,
 		textSize = 17,
 	})
-	Theme.text({
+	--[[
+		Wrapped, because these lines are what the thing does.
+
+		A single unwrapped line in a box a hundred and forty short of the
+		price button fits about sixty characters, and VIP's is a hundred:
+		"...and double tips from every strip" and then nothing. The row is
+		sixty-eight tall with thirty of it given to this label, which at
+		thirteen point is two lines — there was always room, the label just
+		was not allowed to use it.
+	]]
+	local detail = Theme.text({
 		name = "Detail",
 		text = description,
 		size = UDim2.new(1, -140, 0, 30),
@@ -53,6 +63,8 @@ local function addEntry(order: number, title: string, description: string, robux
 		textSize = 13,
 		bold = false,
 	})
+	detail.TextWrapped = true
+	detail.TextYAlignment = Enum.TextYAlignment.Top
 
 	local button = Instance.new("TextButton")
 	button.Name = "Buy"
