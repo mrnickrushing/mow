@@ -47,6 +47,7 @@ local rateLabel: TextLabel
 local toolButton: TextButton
 local toolIcon: Frame
 local toolStateLabel: TextLabel
+local toolNameLabel: TextLabel
 local journalBadge: Frame
 local gainHolder: Frame
 local toastHolder: Frame
@@ -492,25 +493,60 @@ local function buildRightColumn(gui: ScreenGui)
 		clear of the store either way.
 	]]
 	local function parkTool()
+		if not (toolButton and toolStateLabel and toolNameLabel) then
+			return false
+		end
 		local touchGui = player:FindFirstChild("PlayerGui") and (player.PlayerGui :: any):FindFirstChild("TouchGui")
 		local jump = touchGui and touchGui:FindFirstChild("JumpButton", true)
 		local area = gui.AbsoluteSize
-		if jump and jump:IsA("GuiObject") and jump.AbsoluteSize.Y > 8 and area.X > 0 then
-			local centreX = jump.AbsolutePosition.X + jump.AbsoluteSize.X * 0.5
-			local fromRight = area.X - centreX + toolButton.AbsoluteSize.X * 0.5
-			-- Sixteen studs of daylight over the jump button, so the two read
-			-- as a stack rather than as one control.
-			local fromBottom = area.Y - jump.AbsolutePosition.Y + 16
-			toolButton.Position = UDim2.new(1, -fromRight, 1, -fromBottom)
-			toolStateLabel.Position = UDim2.new(1, -(fromRight - toolButton.AbsoluteSize.X * 0.5 - 60), 1, -(fromBottom + toolButton.AbsoluteSize.Y + 2))
-		else
-			toolButton.Position = UDim2.new(1, -22, 1, -240)
-			toolStateLabel.Position = UDim2.new(1, -5, 1, -212)
+		local width, height = toolButton.AbsoluteSize.X, toolButton.AbsoluteSize.Y
+		if width < 1 or area.X < 1 then
+			return false
 		end
+		local fromRight, fromBottom
+		if jump and jump:IsA("GuiObject") and jump.AbsoluteSize.Y > 8 then
+			fromRight = area.X - (jump.AbsolutePosition.X + jump.AbsoluteSize.X * 0.5) + width * 0.5
+			-- Sixteen pixels of daylight over the jump button, so the two read
+			-- as a stack rather than as one control.
+			fromBottom = area.Y - jump.AbsolutePosition.Y + 16
+		else
+			fromRight, fromBottom = 22, 240
+		end
+		toolButton.Position = UDim2.new(1, -fromRight, 1, -fromBottom)
+		--[[
+			The name above, the state below, both centred on the button.
+
+			Anchored bottom-right, so the offset is where each label's bottom
+			edge sits: the name clears the top of the button, the state hangs
+			just under it. Getting these the same way round put the name across
+			the button's face and the word on top of the icon.
+		]]
+		local centreFromRight = fromRight - width * 0.5
+		toolNameLabel.Position =
+			UDim2.new(1, -(centreFromRight - toolNameLabel.AbsoluteSize.X * 0.5), 1, -(fromBottom + height + 4))
+		toolStateLabel.Position =
+			UDim2.new(1, -(centreFromRight - toolStateLabel.AbsoluteSize.X * 0.5), 1, -(fromBottom - 28))
+		return jump ~= nil
 	end
-	parkTool()
+
+	--[[
+		Kept asking until Roblox has drawn its touch controls.
+
+		`TouchGui` does not exist when this builds, so the first call always
+		falls back to a fixed inset and the button ends up in roughly the right
+		place rather than the right one. Re-parking until the jump button turns
+		up costs a handful of frames and is the difference between measured and
+		guessed.
+	]]
+	task.spawn(function()
+		for _ = 1, 40 do
+			if parkTool() then
+				break
+			end
+			task.wait(0.25)
+		end
+	end)
 	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(parkTool)
-	task.defer(parkTool)
 
 	local function paintSound()
 		local on = not SoundController.isMuted()
@@ -601,6 +637,29 @@ local function buildRightColumn(gui: ScreenGui)
 		parent = toolButton,
 	})
 
+	--[[
+		The name of the thing in your hand.
+
+		The button showed a picture and a verb — PICK UP, MOW — and never once
+		said what you were holding. With one icon per family that was close to
+		unreadable: six mowers shared a drawing, so the only way to know
+		whether you had the reel mower or the zero-turn was to remember what
+		you last bought. The icons are per tool now and this says the name
+		outright, which between them is the whole answer.
+	]]
+	toolNameLabel = Theme.text({
+		name = "ToolName",
+		text = "",
+		size = UDim2.fromOffset(190, 24),
+		position = UDim2.new(1, -5, 1, -238),
+		anchor = Vector2.new(1, 1),
+		parent = gui,
+		align = Enum.TextXAlignment.Right,
+		color = Theme.colors.text,
+		textSize = 19,
+	})
+	RunOnly.add(toolNameLabel)
+
 	toolStateLabel = Theme.text({
 		name = "State",
 		text = "",
@@ -614,6 +673,14 @@ local function buildRightColumn(gui: ScreenGui)
 		textSize = 22,
 	})
 	RunOnly.add(toolStateLabel)
+
+	-- Only now: `parkTool` moves the button and both of its labels, and until
+	-- this line one of them did not exist. Called earlier it threw, and a throw
+	-- here takes the rest of the HUD with it — the bag, the rate and the
+	-- toasts never got built at all.
+	parkTool()
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(parkTool)
+	task.defer(parkTool)
 
 	fuelPanel = Instance.new("Frame")
 	fuelPanel.Name = "Fuel"
@@ -1062,7 +1129,8 @@ local function refresh()
 	rateLabel.Text = `{Format.cashSuffix(perClipping)} / clipping`
 
 	local tool = Tools.get(state.equippedTool)
-	Theme.setIcon(toolIcon, if tool then Props.forToolCategory(tool.category) else Props.FALLBACK_TOOL_ICON)
+	Theme.setIcon(toolIcon, if tool then Props.forTool(tool.id, tool.category) else Props.FALLBACK_TOOL_ICON)
+	toolNameLabel.Text = if tool then tool.name else ""
 	toolStateLabel.Text = MowController.actionLabel()
 	toolStateLabel.TextColor3 = if MowController.isMowing() then Theme.colors.cash else Theme.colors.subtext
 	--[[
@@ -1076,6 +1144,7 @@ local function refresh()
 		straight back on. So it asks.
 	]]
 	toolButton.Visible = tool ~= nil and RunOnly.isRunning()
+	toolNameLabel.Visible = toolButton.Visible
 
 	local burnsFuel = tool ~= nil and tool.fuelBurn > 0
 	fuelPanel.Visible = burnsFuel and state.fuelCapacity > 0

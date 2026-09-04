@@ -276,6 +276,44 @@ local TOOL_ICON: { [string]: string } = {
 Props.FALLBACK_TOOL_ICON = "Toolbox"
 
 --- The catalogue name of the model for a tool category.
+--[[
+	One icon per tool, because a category is not a tool.
+
+	The HUD, the hotbar and the book all drew the tool in hand from
+	`forToolCategory`, and there are six mowers. All six were the same picture,
+	so the readout that is supposed to tell you what you are holding told you
+	only that it was a mower — and the artwork made the same mistake, six
+	ride-on silhouettes in six colours for three push mowers and three
+	ride-ons. These differ in outline rather than in colour: the reel mower
+	shows its cylinder, the self-propelled its catcher, the zero-turn its lap
+	bars where the riding mower has a wheel.
+]]
+local TOOL_ID_ICON: { [string]: string } = {
+	backpack_blower = "rbxassetid://100220811585600",
+	blower = "rbxassetid://127714604621354",
+	chainsaw = "rbxassetid://115948059000241",
+	commercial_deck = "rbxassetid://105456902413076",
+	gas_mower = "rbxassetid://86640118373430",
+	hands = "rbxassetid://124222421953767",
+	hedge_trimmer = "rbxassetid://133447343638454",
+	pole_saw = "rbxassetid://103085523082989",
+	rake = "rbxassetid://70400164099386",
+	reel_mower = "rbxassetid://121844497945867",
+	riding_mower = "rbxassetid://108953157966522",
+	self_propelled = "rbxassetid://122902452289405",
+	stump_grinder = "rbxassetid://106048220406242",
+	trimmer = "rbxassetid://91720912071265",
+	wood_chipper = "rbxassetid://131528279311230",
+	zero_turn = "rbxassetid://75910826613787",
+}
+
+--- The icon for a specific tool, falling back to its category and then to the
+--- generic toolbox, so a tool added without art still draws something.
+function Props.forTool(toolId: string, category: string?): string
+	return TOOL_ID_ICON[toolId]
+		or (if category then Props.forToolCategory(category) else Props.FALLBACK_TOOL_ICON)
+end
+
 function Props.forToolCategory(category: string): string
 	return TOOL_ICON[category] or Props.FALLBACK_TOOL_ICON
 end

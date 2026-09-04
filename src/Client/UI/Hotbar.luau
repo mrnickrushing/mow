@@ -192,7 +192,7 @@ local function refresh()
 		button.Visible = toolId ~= nil
 		if toolId and icon and stroke and selected then
 			local tool = Tools.get(toolId)
-			Theme.setIcon(icon, if tool then Props.forToolCategory(tool.category) else Props.FALLBACK_TOOL_ICON)
+			Theme.setIcon(icon, if tool then Props.forTool(tool.id, tool.category) else Props.FALLBACK_TOOL_ICON)
 
 			local equipped = state.equippedTool == toolId
 			stroke.Color = if equipped then Theme.colors.text else Theme.colors.outline

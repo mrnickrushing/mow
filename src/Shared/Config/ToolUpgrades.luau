@@ -29,6 +29,9 @@ export type SlotKind = "power" | "rate" | "yield"
 export type Slot = {
 	--- `toolId/slot`, the key its level is stored under.
 	key: string,
+	--- The tool this slot belongs to. `category` is not enough to draw it:
+	--- six mowers share a category and each has its own icon.
+	toolId: string,
 	slot: SlotKind,
 	name: string,
 	description: string,
@@ -125,6 +128,7 @@ local function makeSlot(tool: Types.ToolDef, index: number, kind: SlotKind): Slo
 	local names = NAMES[tool.category] or NAMES.Hand
 	return {
 		key = `{tool.id}/{kind}`,
+		toolId = tool.id,
 		slot = kind,
 		name = names[index],
 		description = BLURBS[kind],
