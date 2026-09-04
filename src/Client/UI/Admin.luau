@@ -70,7 +70,9 @@ local function build()
 	panel.Name = "Panel"
 	panel.Size = UDim2.fromOffset(232, 250)
 	panel.AnchorPoint = Vector2.new(0, 1)
-	panel.Position = UDim2.new(0, 44, 1, -104)
+	-- Above the thumbstick on touch: opened at the tab's height it lay across
+	-- the movement control, so pressing a command moved the character.
+	panel.Position = if UserInputService.TouchEnabled then UDim2.new(0, 44, 1, -200) else UDim2.new(0, 44, 1, -104)
 	panel.BackgroundColor3 = Color3.fromRGB(44, 40, 52)
 	panel.BorderSizePixel = 0
 	panel.Visible = false
