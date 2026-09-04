@@ -485,7 +485,7 @@ local function slotCard(parent: Instance, order: number, slot: any, owned: boole
 	else
 		Theme.icon({
 			name = "Icon",
-			prop = if owned then Props.forToolCategory(slot.category) else "Padlock",
+			prop = if owned then Props.forTool(slot.toolId, slot.category) else "Padlock",
 			size = UDim2.fromScale(0.82, 0.82),
 			position = UDim2.fromScale(0.5, 0.5),
 			anchor = Vector2.new(0.5, 0.5),

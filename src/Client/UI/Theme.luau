@@ -504,6 +504,37 @@ end
 --- Shows `propName` in an icon frame built by `Theme.icon`. Silent on an
 --- unknown name, so a new tool category cannot blank the hotbar.
 function Theme.setIcon(frame: GuiObject, propName: string)
+	--[[
+		A drawn image, given by id rather than by prop name.
+
+		Every icon in the game used to belong to a prop — a mesh with a name
+		in the catalogue — and this looked one up. The per-tool icons have no
+		prop behind them and never will: there is no `ReelMower` model, only a
+		picture of one, and inventing sixteen catalogue entries with fake mesh
+		ids and native sizes to hang sixteen images on would be a lie told to
+		a lookup table. So an id is allowed to arrive directly. Anything that
+		is not an id is still a prop name, exactly as before.
+
+		Without this the call quietly did nothing: `Props.get` returned nil for
+		an id, the function returned early, and every tool kept whatever icon
+		it happened to have — which is how six mowers went on sharing one
+		picture after they had each been given their own.
+	]]
+	if string.sub(propName, 1, 13) == "rbxassetid://" then
+		local drawn = frame:FindFirstChild("Picture") :: ImageLabel?
+		if drawn then
+			drawn.Image = propName
+			drawn.Visible = true
+		end
+		local spun = if frame:IsA("ViewportFrame")
+			then frame
+			else frame:FindFirstChildWhichIsA("ViewportFrame")
+		if spun then
+			spun.Visible = false
+		end
+		return
+	end
+
 	local def = Props.get(propName)
 	if not def then
 		return
