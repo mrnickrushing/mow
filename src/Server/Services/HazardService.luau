@@ -1,6 +1,6 @@
 --!strict
 --[[
-	HazardService — sprinklers, wasps and the neighbour's dog.
+	HazardService — sprinklers and the neighbour's dog.
 
 	These exist to break the rhythm rather than to punish. Grinding one enormous
 	lawn is hypnotic for about ten minutes and dull after twenty; something that
@@ -34,11 +34,6 @@ local HazardService = {}
 local SPRINKLER_PERIOD = 42
 --- Tiles a sprinkler wets, as a radius.
 local SPRINKLER_RADIUS = 7
---- Seconds a wasp sting slows the player.
-local STING_SECONDS = 3
-
---- Players still shaking off a sting, mapped to when it wears off.
-local stung: { [Player]: number } = {}
 --[[
 	The neighbour's dog.
 
@@ -154,55 +149,6 @@ local function makeSprinkler(tx: number, tz: number, parent: Instance)
 	end)
 end
 
---------------------------------------------------------------------
--- Wasps
---------------------------------------------------------------------
-
-local function makeWaspNest(tx: number, tz: number, parent: Instance)
-	local at = WorldService.tilePointToWorld(tx, tz)
-	local nest = Build.mesh({
-		prop = "WaspNest",
-		name = "WaspNest",
-		size = Vector3.new(3, 3.9, 3),
-		collisionSize = Vector3.new(3, 3.6, 3),
-		cframe = CFrame.new(at + Vector3.new(0, 9, 0)),
-		canCollide = false,
-		parent = parent,
-	})
-
-	local prompt = Build.prompt(nest, "Knock down", "Wasp Nest", 12)
-	prompt.HoldDuration = 1.2
-	prompt.Triggered:Connect(function(player: Player)
-		if not nest.Parent then
-			return
-		end
-		nest:Destroy()
-
-		-- The sting is a modifier rather than a value written straight onto the
-		-- humanoid. Writing it directly meant anything that recomputed walk
-		-- speed while you were stung — buying a Stride level was the easy one —
-		-- cancelled the penalty, and worse, the delayed restore then put back a
-		-- speed from before the upgrade and left it wrong for the rest of the
-		-- run.
-		stung[player] = os.clock() + STING_SECONDS
-		PlayerService.applyCharacterStats(player)
-		EconomyService.notify(player, "stall", "Stung! Shake it off", nil)
-		task.delay(STING_SECONDS, function()
-			local until_ = stung[player]
-			if until_ and os.clock() >= until_ - 0.05 then
-				stung[player] = nil
-				if player.Parent then
-					PlayerService.applyCharacterStats(player)
-				end
-			end
-		end)
-
-		-- Worth doing anyway: a cleared nest pays a tip.
-		EconomyService.awardTips(player, 1)
-	end)
-end
-
---------------------------------------------------------------------
 -- The dog
 --------------------------------------------------------------------
 
@@ -353,8 +299,6 @@ function HazardService.generate(world: Types.WorldDef)
 					makeSprinkler(tx, tz, parent)
 					local bx, bz = dryTile(section)
 					makeSprinkler(bx, bz, parent)
-				elseif kind == "wasps" then
-					makeWaspNest(tx, tz, parent)
 				elseif kind == "dog" then
 					makeDog(tx, tz, parent)
 				end
@@ -364,14 +308,6 @@ function HazardService.generate(world: Types.WorldDef)
 end
 
 function HazardService.start()
-	EconomyService.addModifierSource(function(player: Player)
-		return { stung = stung[player] ~= nil }
-	end)
-
-	Players.PlayerRemoving:Connect(function(player)
-		stung[player] = nil
-	end)
-
 	WorldService.Loaded:Connect(HazardService.generate)
 
 	local world = WorldService.world

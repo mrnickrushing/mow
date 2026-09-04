@@ -1042,7 +1042,7 @@ return function()
 		h.it("gives tips something to buy, and keeps it to the bottom of the ladder", function()
 			--[[
 				Tips were paid out by five different systems — clean stripes,
-				wasp nests, Golden Blades, the daily login streak and a trickle
+				Golden Blades, the daily login streak and a trickle
 				for time played — and nothing in the game had a price in them.
 				A currency with no sink is a reward loop that pays into
 				nothing, so the first half of this is simply that one exists.

@@ -40,7 +40,6 @@ function EconomyService.modifiers(player: Player): Balance.Modifiers
 		merged.fastFeet = merged.fastFeet or mods.fastFeet
 		merged.infiniteFuel = merged.infiniteFuel or mods.infiniteFuel
 		merged.vip = merged.vip or mods.vip
-		merged.stung = merged.stung or mods.stung
 		-- Timed boosts multiply rather than override, so two stack.
 		merged.cashBoost = (merged.cashBoost or 1) * (mods.cashBoost or 1)
 		merged.serverBoost = (merged.serverBoost or 1) * (mods.serverBoost or 1)

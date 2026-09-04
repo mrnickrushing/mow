@@ -353,6 +353,32 @@ function Theme.chromeScale(element: GuiObject): UIScale
 	return scale
 end
 
+--[[
+	Whether the player has keys to press.
+
+	The HUD is written for a touch screen first — that is what nearly every
+	player holds — and mentions a key only when there is one. A tablet with a
+	keyboard attached counts as having one; a laptop with a touch screen
+	counts as having one. Only a device with touch and no keyboard is told
+	to tap.
+]]
+function Theme.hasKeyboard(): boolean
+	local UserInputService = game:GetService("UserInputService")
+	-- What the player last touched settles it, when there is an answer: a key
+	-- or a mouse means keys, a finger means tap. Studio reports a keyboard and
+	-- a touch screen at once, and so does a tablet with a keyboard clipped on;
+	-- the device flags alone cannot tell those two players apart.
+	local last = UserInputService:GetLastInputType()
+	if last == Enum.UserInputType.Keyboard or last == Enum.UserInputType.MouseButton1
+		or last == Enum.UserInputType.MouseMovement or last == Enum.UserInputType.MouseWheel then
+		return true
+	end
+	if last == Enum.UserInputType.Touch then
+		return false
+	end
+	return UserInputService.KeyboardEnabled or not UserInputService.TouchEnabled
+end
+
 --------------------------------------------------------------------
 -- The cursor
 --------------------------------------------------------------------

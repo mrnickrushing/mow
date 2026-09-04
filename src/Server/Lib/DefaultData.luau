@@ -42,7 +42,7 @@ export type Profile = {
 	--[[
 		Tips: the currency you earn by turning up and by playing well.
 
-		Five things paid these out — clean stripes, wasp nests, Golden Blades,
+		Four things paid these out — clean stripes, Golden Blades,
 		the daily login streak and a trickle for time played — into `RunState`,
 		which a run start wipes, and nothing in the game had a price in them.
 		A login streak that is gone by the next round is not a login streak,
