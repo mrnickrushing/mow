@@ -577,8 +577,24 @@ local function buildBag(gui: ScreenGui)
 	local holder = Instance.new("Frame")
 	holder.Name = "Bag"
 	holder.Size = UDim2.fromOffset(190, 74)
-	holder.Position = UDim2.new(0, 20, 1, -22)
-	holder.AnchorPoint = Vector2.new(0, 1)
+	--[[
+		Bottom-left on a keyboard; top-left, under the objective panel, on touch.
+
+		The bottom-left corner of a touch screen is where Roblox draws the
+		movement thumbstick, and the bag sat squarely on it — measured, the
+		thumbstick's rest area and the sack overlapped on every touch device.
+		A readout under a thumb is a readout nobody reads and a thumbstick
+		that starts on a sack. On touch it joins the stack of information at
+		the top-left instead, where the objective panel already is; with a
+		mouse there is no thumbstick and the corner is free.
+	]]
+	if UserInputService.TouchEnabled then
+		holder.Position = UDim2.new(0, 20, 0, 190)
+		holder.AnchorPoint = Vector2.new(0, 0)
+	else
+		holder.Position = UDim2.new(0, 20, 1, -22)
+		holder.AnchorPoint = Vector2.new(0, 1)
+	end
 	holder.BackgroundTransparency = 1
 	holder.Parent = gui
 	RunOnly.add(holder)
