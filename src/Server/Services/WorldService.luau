@@ -9,7 +9,6 @@
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerStorage = game:GetService("ServerStorage")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
@@ -23,6 +22,7 @@ local Upgrades = require(Shared.Config.Upgrades)
 local Worlds = require(Shared.Config.Worlds)
 local Types = require(Shared.Types)
 local Build = require(script.Parent.Parent.Lib.Build)
+local Trees = require(script.Parent.Parent.Lib.Trees)
 local ReplicationService = require(script.Parent.ReplicationService)
 local Structures = require(script.Parent.Parent.Lib.Structures)
 
@@ -343,10 +343,8 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 	local belt = Build.folder("TreeBelt", parent)
 	local beltRng = Random.new(grid.width * 7919 + grid.depth)
 	local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)
-	local templates = ServerStorage:FindFirstChild("Trees")
-	-- Two of each smaller maple to one red: the red is sixty-five studs
-	-- across at full size and a row of them is a wall, not a treeline.
-	local SPECIES = { "SugarMaple", "SugarMaple", "JapaneseMaple", "JapaneseMaple", "RedMaple" }
+	-- Two sugars to one red.
+	local BELT_SPECIES = { "SugarMaple", "SugarMaple", "RedMaple" }
 
 	--[[
 		Where a trunk already stands.
@@ -361,6 +359,10 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 		than an avenue. Trunks are not, so the test is on the trunk and a
 		tree with no room simply is not planted.
 	]]
+	-- Idempotent, and boot has almost certainly done it already; this is the
+	-- first world on a fresh run server paying for it once.
+	Trees.warm()
+
 	local planted: { Vector2 } = {}
 	local TRUNK_APART = 24
 
@@ -375,22 +377,25 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 			end
 		end
 		table.insert(planted, at)
-		local turn = CFrame.Angles(0, beltRng:NextNumber(0, math.pi * 2), 0)
-		local name = SPECIES[beltRng:NextInteger(1, #SPECIES)]
-		local template = templates and templates:FindFirstChild(name)
-		if template then
-			local tree = template:Clone()
-			-- The file places every layer relative to the tree's feet, so the
-			-- origin is the feet: scale about them, then stand them on the apron,
-			-- whose top is seven tenths below ground level, a stud down so the
-			-- roots are in it rather than on it.
-			tree.WorldPivot = CFrame.identity
-			tree:ScaleTo(if name == "RedMaple" then beltRng:NextNumber(0.8, 1.15) else beltRng:NextNumber(0.9, 1.5))
-			tree:PivotTo(CFrame.new(x, GameConfig.GROUND_Y - 1, z) * turn)
-			tree.Name = "Scenery"
-			tree.Parent = belt
+		local spin = beltRng:NextNumber(0, math.pi * 2)
+		local name = BELT_SPECIES[beltRng:NextInteger(1, #BELT_SPECIES)]
+		--[[
+			A height, not a multiplier.
+
+			The two meshes are sixty and twenty-three studs tall out of the
+			box, so one multiplier across both is one sensible tree and one
+			that fills the sky. These are background, so a touch taller than
+			the ones standing in the yard.
+		]]
+		local want = beltRng:NextNumber(28, 40)
+		-- The apron's top is a little below ground level; a stud down puts the
+		-- roots in it rather than on it.
+		local real = Trees.plant(name, Vector3.new(x, GameConfig.GROUND_Y - 1, z), want, spin, belt)
+		if real then
+			real.Name = "Scenery"
 			return
 		end
+		local turn = CFrame.Angles(0, spin, 0)
 		local height = beltRng:NextNumber(24, 38)
 		Build.mesh({
 			prop = "Tree",
