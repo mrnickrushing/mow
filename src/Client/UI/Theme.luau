@@ -136,10 +136,23 @@ function Theme.text(options: TextOptions): TextLabel
 	end
 	label.Parent = options.parent
 
-	-- Every label gets the outline; the world behind this UI is far too bright
-	-- for plain white text to read against.
-	label.TextStrokeTransparency = 1
-	Theme.outline(label, if options.bold == false then Theme.OUTLINE else Theme.OUTLINE_HEAVY)
+	--[[
+		A dark outline on light lettering, and none on dark.
+
+		Every label used to get the outline, because the world behind this UI
+		is far too bright for bare white text. That is right for white text
+		and wrong for everything else: dark ink with a three-and-a-half pixel
+		dark outline is a solid black letter, and the captions under the
+		Journal and Sound tiles and the word on the STORE pill had been exactly
+		that — "you can't even see it, it's just black" — since the day they
+		were given a light pill to sit on. So the outline goes on when the ink
+		is light enough to need it, by luminance, and stays off otherwise.
+	]]
+	local ink = label.TextColor3
+	local luminance = 0.299 * ink.R + 0.587 * ink.G + 0.114 * ink.B
+	if luminance > 0.45 then
+		Theme.outline(label, if options.bold == false then Theme.OUTLINE else Theme.OUTLINE_HEAVY)
+	end
 	return label
 end
 
