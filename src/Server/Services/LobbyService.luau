@@ -987,15 +987,15 @@ local function build()
 		the roofs, because a crown through a roof was the first complaint.
 	]]
 	local STANDS = {
-		{ x = -82, z = -152, species = "RedMaple", height = 26, turn = 20 },
+		{ x = -82, z = -152, species = "SugarMaple", height = 26, turn = 20 },
 		{ x = -14, z = -160, species = "SugarMaple", height = 29, turn = 200 },
-		{ x = 52, z = -150, species = "RedMaple", height = 27, turn = 95 },
-		{ x = 124, z = -148, species = "RedMaple", height = 24, turn = 310 },
+		{ x = 52, z = -150, species = "SugarMaple", height = 27, turn = 95 },
+		{ x = 124, z = -148, species = "SugarMaple", height = 24, turn = 310 },
 		{ x = -158, z = -62, species = "SugarMaple", height = 26, turn = 140 },
 		{ x = -154, z = 44, species = "SugarMaple", height = 28, turn = 55 },
 		{ x = 156, z = -78, species = "SugarMaple", height = 29, turn = 260 },
 		{ x = 152, z = 34, species = "SugarMaple", height = 25, turn = 15 },
-		{ x = -46, z = 130, species = "RedMaple", height = 25, turn = 170 },
+		{ x = -46, z = 130, species = "SugarMaple", height = 25, turn = 170 },
 		{ x = 58, z = 124, species = "SugarMaple", height = 26, turn = 330 },
 	}
 

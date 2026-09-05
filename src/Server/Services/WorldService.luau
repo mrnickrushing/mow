@@ -352,7 +352,7 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 	local beltRng = Random.new(grid.width * 7919 + grid.depth)
 	local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)
 	-- Two sugars to one red.
-	local BELT_SPECIES = { "SugarMaple", "SugarMaple", "RedMaple" }
+	local BELT_SPECIES = { "SugarMaple" }
 
 	--[[
 		Where a trunk already stands.

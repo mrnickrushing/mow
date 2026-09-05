@@ -119,7 +119,9 @@ end
 	crown through a wall. The other two hold their width in check once
 	scaled down to tree height.
 ]]
-local CHOPPABLE = { "SugarMaple", "SugarMaple", "SugarMaple", "RedMaple", "RedMaple" }
+-- One entry, because one species is what builds cleanly. Height and spin
+-- are what keep a belt of them from looking stamped out.
+local CHOPPABLE = { "SugarMaple" }
 
 local function makeTree(position: Vector3, sectionId: string, parent: Instance)
 	local model = Instance.new("Model")
