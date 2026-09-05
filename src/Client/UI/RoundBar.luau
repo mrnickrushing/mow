@@ -189,7 +189,22 @@ local function refreshSection()
 	elseif phase == "lost" then
 		sectionLabel.Text = "Out of time"
 	elseif phase == "lobby" then
+		--[[
+			Nothing behind the words in the lobby.
+
+			The rows outlive the run that filled them and `currentRow` falls
+			back to the last open section, so walking back into the lobby off
+			a finished property left "Next up" written over a full gold bar
+			reading 100% — a progress bar for a run that is over, in a room
+			where there is nothing to be making progress on. Somebody joining
+			fresh sees "Next up" and an empty bar, which is the right look;
+			this is the same look for the same state.
+		]]
 		sectionLabel.Text = "Next up"
+		waveLabel.Text = ""
+		percentLabel.Text = ""
+		fill.Size = UDim2.fromScale(0, 1)
+		return
 	else
 		sectionLabel.Text = if row then row.name else ""
 	end
