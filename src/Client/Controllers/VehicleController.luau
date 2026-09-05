@@ -16,6 +16,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local PlayerState = require(script.Parent.Parent.PlayerState)
+local Theme = require(script.Parent.Parent.UI.Theme)
 
 local VehicleController = {}
 
@@ -132,6 +133,7 @@ local function refreshTouchButton()
 	if inSeat or VehicleController.hasVehicleEquipped() then
 		ContextActionService:BindAction(TOUCH_ACTION, onToggleSeat, true)
 		ContextActionService:SetTitle(TOUCH_ACTION, if inSeat then "Hop Off" else "Ride")
+		Theme.dressActionButton(TOUCH_ACTION)
 	end
 end
 

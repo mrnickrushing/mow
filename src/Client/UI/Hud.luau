@@ -1092,6 +1092,13 @@ end
 -- Refresh
 --------------------------------------------------------------------
 
+--- True while the player is actually sitting on something.
+local function seated(): boolean
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return humanoid ~= nil and humanoid.SeatPart ~= nil
+end
+
 local function refresh()
 	local state = PlayerState.get()
 
@@ -1183,7 +1190,16 @@ local function refresh()
 		hintLabel.Text = "Bag full — head to the trailer"
 	elseif burnsFuel and state.fuel <= 0 then
 		hintLabel.Text = "Out of fuel — refill at the shed"
-	elseif rideable then
+	elseif rideable and not seated() then
+		--[[
+			Only while they are still off it.
+
+			This asked whether a rideable tool was equipped and nothing else,
+			so it went on saying "Tap Ride to get on the mower" while the
+			player was sitting on the mower, with the button beside it already
+			reading "Hop Off". The one line on screen telling you what to do
+			next was telling you to do the thing you had just done.
+		]]
 		hintLabel.Text = if Theme.hasKeyboard() then "Press F to get on the mower" else "Tap Ride to get on the mower"
 	else
 		hintLabel.Text = ""
@@ -1197,6 +1213,24 @@ end
 function Hud.start()
 	build()
 	refresh()
+
+	--[[
+		Sitting down is not a change to the player's own state, so nothing
+		would have redrawn the hint until the next unrelated push.
+	]]
+	local function watchSeat(character: Model)
+		local humanoid = character:WaitForChild("Humanoid", 10)
+		if humanoid and humanoid:IsA("Humanoid") then
+			humanoid.Seated:Connect(refresh)
+		end
+		refresh()
+	end
+	player.CharacterAdded:Connect(function(character)
+		task.spawn(watchSeat, character)
+	end)
+	if player.Character then
+		task.spawn(watchSeat, player.Character)
+	end
 
 	Loop.forever("Hud.tally", function()
 		task.wait(0.15)
