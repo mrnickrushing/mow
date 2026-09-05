@@ -945,26 +945,72 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 			table.insert(garageSlats, { part = slat, shut = slat.CFrame, rolled = rolled })
 		end
 	end
-	Build.part({
-		name = "GarageFrame",
-		--[[
-			The trim sits in the gap between the siding and the doors.
+	--[[
+		What is behind a door that has just gone up.
 
-			At 0.5 deep on the wall plane it was buried behind the proudest
-			siding course, which striped straight through it. Pushed out to
-			clear the siding it went too far the other way and stood in
-			front of the doors, hiding both bays behind one teal slab. The
-			siding's proudest face is 0.6 out and the doors' is 1.1 out, so
-			the trim's face goes at 0.75 — visible as a surround, with the
-			doors still standing proud of it.
-		]]
-		size = Vector3.new(garageWidth + 2, garageHeight + 1.5, 1.0),
-		cframe = CFrame.new(garageX, (garageHeight + 0.5) * 0.5, frontZ - 0.25),
-		color = Palette.color(Palette.house.trim),
+		The trim used to be one slab the size of the whole opening, and while
+		the doors were shut that was invisible and fine. Rolled up, it was the
+		thing you were left looking at: a flat teal panel the colour of the
+		house siding, filling both bays. Opening a garage revealed a painted
+		wall.
+
+		There is nothing behind these doors to reveal — the house is solid
+		there, its own wall boards half a stud back. So rather than cut a hole
+		into a wall, the panel becomes the back of a shallow recess and is
+		painted the colour of an unlit garage. A door that goes up now shows
+		a dark bay rather than a bright rectangle of siding, which is what the
+		eye is expecting.
+	]]
+	Build.part({
+		name = "GarageRecess",
+		-- On the trim's own plane, which is the one thing here that is
+		-- already proud of the siding. Measured in the running game, the
+		-- siding's face is at frontZ - 0.6 and the trim's at frontZ - 0.75;
+		-- set flush with the siding, as this first was, the recess sat a
+		-- tenth of a stud behind it and simply did not draw.
+		size = Vector3.new(garageWidth, garageHeight, 1.0),
+		cframe = CFrame.new(garageX, garageHeight * 0.5, frontZ - 0.25),
+		color = Palette.color(Palette.rgb(56, 52, 55)),
 		material = Enum.Material.SmoothPlastic,
 		canCollide = false,
 		parent = garage,
 	})
+
+	--[[
+		The trim, as a surround rather than a sheet.
+
+		Two jambs, a lintel and a mullion between the bays, so it frames the
+		opening instead of filling it. Its face sits at 0.75 out: the siding's
+		proudest course is 0.6 and the doors are 1.1, so the trim reads as a
+		surround with the doors standing proud of it — which is where the old
+		slab had already been tuned to, and the only thing that changes is
+		that it no longer covers the hole it is supposed to edge.
+	]]
+	local trimWidth = 1.6
+	local halfOpening = garageWidth * 0.5
+	local trimPieces = {
+		-- { centre x, centre y, width, height }
+		{ garageX - halfOpening - trimWidth * 0.5, garageHeight * 0.5, trimWidth, garageHeight },
+		{ garageX + halfOpening + trimWidth * 0.5, garageHeight * 0.5, trimWidth, garageHeight },
+		{ garageX, garageHeight + trimWidth * 0.5, garageWidth + trimWidth * 2, trimWidth },
+	}
+	-- A mullion in each gap between bays, which is where the bays already
+	-- leave 1.5 studs of daylight.
+	for bay = 1, bays - 1 do
+		local left = garageX + ((bay - 1) - (bays - 1) * 0.5) * (bayWidth + 1.5)
+		table.insert(trimPieces, { left + (bayWidth + 1.5) * 0.5, garageHeight * 0.5, 1.5, garageHeight })
+	end
+	for _, piece in trimPieces do
+		Build.part({
+			name = "GarageTrim",
+			size = Vector3.new(piece[3], piece[4], 1.0),
+			cframe = CFrame.new(piece[1], piece[2], frontZ - 0.25),
+			color = Palette.color(Palette.house.trim),
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			parent = garage,
+		})
+	end
 end
 
 --------------------------------------------------------------------
@@ -1392,15 +1438,36 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 		})
 	end
 
+	--[[
+		The shell, stood on the floor rather than in the air above it.
+
+		`Build.mesh` lifts a mesh by half the difference between the model and
+		the collision box under it, so that a box shorter than the model does
+		not leave the model half buried. That rule expects the caller to have
+		placed the part at half the box's height — its base on the ground.
+
+		This asked for a one-stud box and then placed it at half the *model's*
+		height, ten studs up, so the lift was applied to something that was
+		already where it belonged and the shed's roof and walls drew nine and
+		a half studs above the floor, hanging over the yard with daylight
+		underneath. Moving the shed to the front verge is what made it
+		obvious; it had been doing this out of sight in the back garden.
+
+		Every other mesh in the world that carries a lift places its part the
+		way the rule expects — thirty-six of thirty-seven, checked in the
+		running game — so the caller is what changes here, not the rule.
+
+		No collision on the shell either: the walls the player can bump into
+		stay as thin slabs, so the open front is genuinely open and nobody
+		gets caught on a roof overhang.
+	]]
+	local shellBox = Vector3.new(1, 1, 1)
 	Build.mesh({
 		prop = "Shed",
 		name = "Shell",
 		size = Vector3.new(width + 4, height + 4, depth + 4),
-		-- No collision on the shell: the walls the player can actually bump
-		-- into stay as thin slabs, so the open front is genuinely open and
-		-- nobody gets caught on a roof overhang.
-		collisionSize = Vector3.new(1, 1, 1),
-		cframe = CFrame.new(centre + Vector3.new(0, (height + 4) * 0.5, 0)),
+		collisionSize = shellBox,
+		cframe = CFrame.new(centre + Vector3.new(0, shellBox.Y * 0.5, 0)),
 		canCollide = false,
 		parent = shed,
 	})
