@@ -494,6 +494,388 @@ local function walkableRoof(world: Types.WorldDef, rect: Types.Rect): boolean
 	return false
 end
 
+--[[
+	The Mansion, which is a stone house and not a big wooden one.
+
+	`buildHouse` raises the property every world used to be built from: a
+	timber frame in cream lap siding, a teal band under the eaves, a brown
+	shingle roof, a wooden porch on two square posts and a row of garage
+	doors. Handed The Mansion's rect it made exactly that, two hundred and
+	sixty-four studs wide — which is why the second property arrived looking
+	like the first one at twice the size.
+
+	An estate is not a larger house, it is a different building, so this is a
+	different builder rather than a switch inside that one:
+
+	  ashlar walls in pale limestone, with dressed quoins at every corner
+	  a projecting wing at each end, so the frontage has a shape to it
+	  a portico of six round columns carrying a pediment, over the full
+	    width of the entrance rather than a corner of it
+	  a mansard in grey slate, with dormers standing out of the lower pitch
+	  a stone balustrade along the roofline
+	  four chimney stacks, placed in pairs, because a symmetrical house has
+	    symmetrical stacks
+
+	Nothing here is shared with the suburban builder except the window model,
+	and that is set in a stone surround.
+]]
+local function buildManor(world: Types.WorldDef, parent: Folder)
+	local rect = world.houseRect
+	if not rect then
+		return
+	end
+
+	local manor = Build.folder("House", parent)
+	local centre = WorldService.tilePointFlat(rect.x + rect.w * 0.5, rect.z + rect.d * 0.5)
+	local width, depth = rect.w * TILE, rect.d * TILE
+	local halfWidth, halfDepth = width * 0.5, depth * 0.5
+	local frontZ = centre.Z - halfDepth
+
+	local PLINTH = 3.0
+	local WALL = 30
+	local wallTop = PLINTH + WALL
+
+	local stone = Palette.color(Palette.estate.stone)
+	local stoneShade = Palette.color(Palette.estate.stoneShade)
+	local quoin = Palette.color(Palette.estate.quoin)
+	local roofColour = Palette.color(Palette.estate.roof)
+	local lead = Palette.color(Palette.estate.lead)
+
+	--- The step of dressed stone the whole building stands on.
+	Build.part({
+		name = "Plinth",
+		size = Vector3.new(width + 4, PLINTH, depth + 4),
+		cframe = CFrame.new(centre + Vector3.new(0, PLINTH * 0.5, 0)),
+		color = stoneShade,
+		material = Enum.Material.Sandstone,
+		parent = manor,
+	})
+
+	--[[
+		The block itself, one mass of ashlar.
+
+		A plain part rather than courses of blocks, for the reason the first
+		house's walls are plain: a stone model stretched two hundred and sixty
+		studs is one smeared stone. Roblox's sandstone tiles, so it is masonry
+		at any length of wall.
+	]]
+	Build.part({
+		name = "Ashlar",
+		size = Vector3.new(width, WALL, depth),
+		cframe = CFrame.new(centre + Vector3.new(0, PLINTH + WALL * 0.5, 0)),
+		color = stone,
+		material = Enum.Material.Sandstone,
+		parent = manor,
+	})
+
+	--[[
+		A wing at each end, standing a little proud of the middle.
+
+		Without them the frontage is one unbroken run of wall as long as the
+		lawn is wide, which reads as a wall rather than as a house. Two
+		projecting ends and a recessed centre is the shape every building like
+		this has, and it is what gives the portico something to stand in front
+		of.
+	]]
+	local wingWidth = width * 0.22
+	local wingOut = 12
+	for _, side in { -1, 1 } do
+		local x = centre.X + side * (halfWidth - wingWidth * 0.5)
+		Build.part({
+			name = "Wing",
+			size = Vector3.new(wingWidth, WALL, depth + wingOut),
+			cframe = CFrame.new(x, PLINTH + WALL * 0.5, centre.Z - wingOut * 0.5),
+			color = stone,
+			material = Enum.Material.Sandstone,
+			parent = manor,
+		})
+		Build.part({
+			name = "WingPlinth",
+			size = Vector3.new(wingWidth + 4, PLINTH, depth + wingOut + 4),
+			cframe = CFrame.new(x, PLINTH * 0.5, centre.Z - wingOut * 0.5),
+			color = stoneShade,
+			material = Enum.Material.Sandstone,
+			parent = manor,
+		})
+	end
+
+	--[[
+		Quoins: the dressed stones that run up every outside corner.
+
+		They are the single detail that says "cut stone" rather than "grey
+		box" from across a lawn, and they cost eight thin columns.
+	]]
+	local quoinCorners = {
+		Vector3.new(-halfWidth, 0, -halfDepth - wingOut),
+		Vector3.new(halfWidth, 0, -halfDepth - wingOut),
+		Vector3.new(-halfWidth, 0, halfDepth),
+		Vector3.new(halfWidth, 0, halfDepth),
+		Vector3.new(-halfWidth + wingWidth, 0, -halfDepth - wingOut),
+		Vector3.new(halfWidth - wingWidth, 0, -halfDepth - wingOut),
+	}
+	for _, corner in quoinCorners do
+		Build.part({
+			name = "Quoin",
+			size = Vector3.new(4.5, WALL, 4.5),
+			cframe = CFrame.new(centre + corner + Vector3.new(0, PLINTH + WALL * 0.5, 0)),
+			color = quoin,
+			material = Enum.Material.Sandstone,
+			parent = manor,
+		})
+	end
+
+	--- The lead cornice the roof sits behind.
+	Build.part({
+		name = "Cornice",
+		size = Vector3.new(width + 7, 2.6, depth + wingOut + 7),
+		cframe = CFrame.new(centre.X, wallTop + 1.3, centre.Z - wingOut * 0.5),
+		color = lead,
+		material = Enum.Material.Metal,
+		parent = manor,
+	})
+
+	--[[
+		A mansard, which is two pitches: a steep lower slope you see, and a
+		shallow cap you do not.
+
+		The first house has one gable in brown shingle. This is grey slate,
+		much steeper, and the dormers standing out of it are what make a roof
+		read as an attic storey rather than as a lid.
+	]]
+	local MANSARD = 13
+	local mansardY = wallTop + 2.6
+	Build.part({
+		name = "Mansard",
+		size = Vector3.new(width + 3, MANSARD, depth + wingOut + 3),
+		cframe = CFrame.new(centre.X, mansardY + MANSARD * 0.5, centre.Z - wingOut * 0.5),
+		color = roofColour,
+		material = Enum.Material.Slate,
+		parent = manor,
+	})
+	Build.part({
+		name = "RoofCap",
+		size = Vector3.new(width - 14, 3, depth + wingOut - 14),
+		cframe = CFrame.new(centre.X, mansardY + MANSARD + 1.5, centre.Z - wingOut * 0.5),
+		color = Palette.color(Palette.estate.roofDark),
+		material = Enum.Material.Slate,
+		parent = manor,
+	})
+
+	--- Dormers out of the front slope, evenly spaced and skipping the middle
+	--- where the pediment stands.
+	local dormerCount = math.max(math.floor(width / 34), 3)
+	for index = 0, dormerCount - 1 do
+		local t = (index + 0.5) / dormerCount
+		local x = centre.X - halfWidth + width * t
+		if math.abs(x - centre.X) > width * 0.16 then
+			local z = frontZ - wingOut + 1
+			Build.part({
+				name = "Dormer",
+				size = Vector3.new(9, 9, 5),
+				cframe = CFrame.new(x, mansardY + 5.5, z),
+				color = quoin,
+				material = Enum.Material.Sandstone,
+				parent = manor,
+			})
+			Build.part({
+				name = "DormerRoof",
+				size = Vector3.new(10.5, 1.6, 6),
+				cframe = CFrame.new(x, mansardY + 10.8, z),
+				color = lead,
+				material = Enum.Material.Metal,
+				parent = manor,
+			})
+			Build.mesh({
+				prop = "Window",
+				name = "Window",
+				size = Vector3.new(5, 6, 0.9),
+				collisionSize = Vector3.new(5, 6, 0.6),
+				cframe = CFrame.new(x, mansardY + 5.5, z - 2.7),
+				canCollide = false,
+				parent = manor,
+			})
+		end
+	end
+
+	--[[
+		A balustrade along the roofline, which is the estate's answer to the
+		first house's teal band: the thing you recognise it by at a distance.
+	]]
+	local baluster = math.max(math.floor(width / 11), 6)
+	for index = 0, baluster - 1 do
+		local x = centre.X - halfWidth + width * ((index + 0.5) / baluster)
+		Build.part({
+			name = "Baluster",
+			size = Vector3.new(1.6, 4.5, 1.6),
+			cframe = CFrame.new(x, wallTop + 4.9, centre.Z + halfDepth + 2),
+			color = quoin,
+			material = Enum.Material.Sandstone,
+			parent = manor,
+		})
+	end
+
+	--- Four stacks in pairs, because a symmetrical house has symmetrical ones.
+	for _, sx in { -0.62, 0.62 } do
+		for _, sz in { -0.4, 0.4 } do
+			Build.part({
+				name = "Chimney",
+				size = Vector3.new(7, 17, 9),
+				cframe = CFrame.new(
+					centre.X + halfWidth * sx,
+					mansardY + MANSARD * 0.5 + 8.5,
+					centre.Z + halfDepth * sz - wingOut * 0.5
+				),
+				color = stoneShade,
+				material = Enum.Material.Sandstone,
+				parent = manor,
+			})
+		end
+	end
+
+	--------------------------------------------------------------------
+	-- Windows, in stone surrounds
+	--------------------------------------------------------------------
+
+	local WINDOW_PITCH = 21
+	local storeys = { 12, 25 }
+
+	local function windowsAlong(origin: Vector3, along: Vector3, span: number, yaw: number, clear: number?)
+		local usable = span - 20
+		if usable <= 0 then
+			return
+		end
+		local count = math.max(math.floor(usable / WINDOW_PITCH), 1)
+		local step = usable / count
+		for index = 0, count do
+			local offset = -usable * 0.5 + step * index
+			if not clear or math.abs(offset) > clear then
+				for _, height in storeys do
+					local at = origin + along * offset
+					-- The surround first, then the glass in front of it: a
+					-- window in a stone house is a hole with dressed edges.
+					Build.part({
+						name = "Surround",
+						size = Vector3.new(if math.abs(yaw) < 0.1 or math.abs(yaw - math.pi) < 0.1 then 11 else 1.4, 12, if math.abs(yaw) < 0.1 or math.abs(yaw - math.pi) < 0.1 then 1.4 else 11),
+						cframe = CFrame.new(at.X, height, at.Z),
+						color = quoin,
+						material = Enum.Material.Sandstone,
+						parent = manor,
+					})
+					Build.mesh({
+						prop = "Window",
+						name = "Window",
+						size = Vector3.new(8, 9.5, 0.9),
+						collisionSize = Vector3.new(8, 9.5, 0.6),
+						cframe = CFrame.new(Vector3.new(at.X, height, at.Z)) * CFrame.Angles(0, yaw, 0),
+						canCollide = false,
+						parent = manor,
+					})
+				end
+			end
+		end
+	end
+
+	local sideways = Vector3.new(1, 0, 0)
+	local frontways = Vector3.new(0, 0, 1)
+	windowsAlong(Vector3.new(centre.X, 0, frontZ - wingOut - 1.2), sideways, width, 0, width * 0.19)
+	windowsAlong(centre + frontways * (halfDepth + 1.2), sideways, width, math.pi, nil)
+	windowsAlong(Vector3.new(centre.X - halfWidth - 1.2, 0, centre.Z - wingOut * 0.5), frontways, depth, math.rad(-90), nil)
+	windowsAlong(Vector3.new(centre.X + halfWidth + 1.2, 0, centre.Z - wingOut * 0.5), frontways, depth, math.rad(90), nil)
+
+	--------------------------------------------------------------------
+	-- The portico
+	--------------------------------------------------------------------
+
+	--[[
+		Six columns and a pediment across the middle of the frontage.
+
+		The first house has a porch: a corner of decking on two square posts,
+		off to one side of the front door. This is the other thing entirely —
+		centred, the full height of the building, and the reason you can tell
+		which way round the house is from anywhere on the lawn.
+	]]
+	local portico = Build.folder("Portico", manor)
+	local porticoWidth = width * 0.30
+	local porticoDepth = 22
+	local porticoZ = frontZ - wingOut - porticoDepth * 0.5
+	local COLUMN_H = 26
+
+	Build.part({
+		name = "PorticoFloor",
+		size = Vector3.new(porticoWidth + 6, PLINTH, porticoDepth + 4),
+		cframe = CFrame.new(centre.X, PLINTH * 0.5, porticoZ),
+		color = stoneShade,
+		material = Enum.Material.Sandstone,
+		parent = portico,
+	})
+
+	for index = 0, 5 do
+		local x = centre.X + (index - 2.5) * (porticoWidth / 5)
+		Build.mesh({
+			prop = "Column",
+			name = "Column",
+			untextured = true,
+			color = quoin,
+			size = Vector3.new(4.4, COLUMN_H, 4.4),
+			collisionSize = Vector3.new(3.6, COLUMN_H, 3.6),
+			cframe = CFrame.new(x, PLINTH + COLUMN_H * 0.5, porticoZ - porticoDepth * 0.5 + 3),
+			parent = portico,
+		})
+	end
+
+	Build.part({
+		name = "Entablature",
+		size = Vector3.new(porticoWidth + 8, 4.5, porticoDepth + 4),
+		cframe = CFrame.new(centre.X, PLINTH + COLUMN_H + 2.25, porticoZ),
+		color = quoin,
+		material = Enum.Material.Sandstone,
+		parent = portico,
+	})
+
+	--- The pediment: a triangle of stone over the entablature, stepped rather
+	--- than wedged so it needs no new primitive.
+	for step = 0, 4 do
+		local shrink = step * (porticoWidth + 8) * 0.11
+		Build.part({
+			name = "Pediment",
+			size = Vector3.new(porticoWidth + 8 - shrink, 2.2, porticoDepth + 4),
+			cframe = CFrame.new(centre.X, PLINTH + COLUMN_H + 4.5 + 1.1 + step * 2.2, porticoZ),
+			color = if step == 4 then lead else quoin,
+			material = Enum.Material.Sandstone,
+			parent = portico,
+		})
+	end
+
+	--- Steps the full width of the portico, which is how you arrive at one.
+	for step = 0, 2 do
+		local tread = PLINTH - step * 0.9
+		Build.part({
+			name = "Step",
+			size = Vector3.new(porticoWidth + 6 + step * 3, tread, 3.6),
+			cframe = CFrame.new(
+				centre.X,
+				tread * 0.5,
+				porticoZ + porticoDepth * 0.5 + 1.8 + step * 3.4
+			),
+			color = stoneShade,
+			material = Enum.Material.Sandstone,
+			parent = portico,
+		})
+	end
+
+	Build.mesh({
+		prop = "Door",
+		name = "Door",
+		untextured = true,
+		color = Palette.color(Palette.estate.door),
+		size = Vector3.new(9, 14, 0.9),
+		collisionSize = Vector3.new(9, 14, 0.6),
+		cframe = CFrame.new(centre.X, PLINTH + 7, frontZ - wingOut - 0.5),
+		canCollide = false,
+		parent = manor,
+	})
+end
+
 local function buildHouse(world: Types.WorldDef, parent: Folder)
 	local rect = world.houseRect
 	if not rect then
@@ -2289,7 +2671,9 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 			-- two studs, so the gap in it — and the flight that arrives at it
 			-- — are measured from the deck's edge, not the section's.
 			local overhang = if kind == "roof" then 2 else 0
-			local needsWayIn = kind == "room" or elevation ~= 0
+			-- A glasshouse is walled like a room and a terrace stands above the
+			-- lawn, so both want the same doorway-and-stairs treatment.
+			local needsWayIn = kind == "room" or kind == "glasshouse" or elevation ~= 0
 			local approach = if needsWayIn
 				then chooseApproach(world, section, elevation, overhang, parent)
 				else nil
@@ -2303,6 +2687,12 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 
 			if kind == "room" then
 				Structures.room(context, section, 16, elevation < 0, opening)
+			elseif kind == "court" then
+				Structures.court(context, section)
+			elseif kind == "terrace" then
+				Structures.terrace(context, section, opening)
+			elseif kind == "glasshouse" then
+				Structures.glasshouse(context, section, opening)
 			elseif kind == "pool" then
 				Structures.pool(context, section)
 			elseif kind == "maze" then
@@ -2633,7 +3023,11 @@ function WorldService.load(worldId: string)
 		totalUnits = WorldService.totalUnits,
 	})
 	buildGround(world, grid, parent)
-	buildHouse(world, parent)
+	if world.style == "estate" then
+		buildManor(world, parent)
+	else
+		buildHouse(world, parent)
+	end
 	WorldService.shedPart = buildShed(world, parent)
 	WorldService.trailerPart = buildTrailer(world, parent)
 	WorldService.sectionSigns = buildSectionSigns(world, parent)
@@ -2726,6 +3120,256 @@ function WorldService.load(worldId: string)
 				slab.stone,
 				rng
 			)
+		end
+	elseif world.style == "estate" then
+		--[[
+			The grounds of an estate, which is the other half of why the
+			second property used to look like the first.
+
+			Everything below the house was shared too: the same white picket
+			fence round three sides, the same two garden hedges — placed, as
+			it happens, at The House's own tile numbers, so on a grid half as
+			big again they landed in the middle of nothing — and the same grey
+			flagstone path and driveway. A player walked out of one property
+			and into a bigger copy of it.
+
+			An estate has a boundary wall rather than a fence, gates rather
+			than a gap at the kerb, a gravel carriage drive rather than a
+			garden path, and a parterre rather than two hedges: clipped yew
+			in a shape, with a fountain in the middle of it. None of it is
+			decoration for its own sake — it is what tells you at a glance
+			which of the two places you are standing in.
+		]]
+		local estate = Build.folder("Estate", parent)
+		local ground = GameConfig.GROUND_Y
+		local stone = Palette.color(Palette.estate.stone)
+		local quoin = Palette.color(Palette.estate.quoin)
+		local lead = Palette.color(Palette.estate.lead)
+		local iron = Palette.color(Palette.estate.iron)
+		local yew = Palette.color(Palette.estate.yew)
+
+		--------------------------------------------------------------------
+		-- The boundary wall
+		--------------------------------------------------------------------
+
+		--[[
+			A stone wall with piers, on the three sides the picket fence used
+			to close. The kerb is left open the same way, because that is
+			where the players arrive; the gates below stand in that opening.
+		]]
+		local WALL_H, WALL_T, PIER_GAP = 11, 2.4, 34
+		local runs = {
+			{ Vector3.new(0, 0, 0), Vector3.new(0, 0, depth) },
+			{ Vector3.new(0, 0, depth), Vector3.new(width, 0, depth) },
+			{ Vector3.new(width, 0, depth), Vector3.new(width, 0, 0) },
+		}
+		for _, run in runs do
+			local from, to = run[1], run[2]
+			local delta = to - from
+			local length = delta.Magnitude
+			local along = delta.Unit
+			local mid = from + delta * 0.5
+			local across = Vector3.new(-along.Z, 0, along.X)
+			Build.part({
+				name = "EstateWall",
+				size = Vector3.new(
+					math.abs(along.X) * length + math.abs(across.X) * WALL_T,
+					WALL_H,
+					math.abs(along.Z) * length + math.abs(across.Z) * WALL_T
+				),
+				cframe = CFrame.new(mid + Vector3.new(0, ground + WALL_H * 0.5, 0)),
+				color = stone,
+				material = Enum.Material.Sandstone,
+				parent = estate,
+			})
+			-- A lead coping, so the top of the wall is a line and not an edge.
+			Build.part({
+				name = "WallCoping",
+				size = Vector3.new(
+					math.abs(along.X) * length + math.abs(across.X) * (WALL_T + 1.4),
+					1.1,
+					math.abs(along.Z) * length + math.abs(across.Z) * (WALL_T + 1.4)
+				),
+				cframe = CFrame.new(mid + Vector3.new(0, ground + WALL_H + 0.55, 0)),
+				color = lead,
+				material = Enum.Material.Metal,
+				parent = estate,
+			})
+			local piers = math.max(math.floor(length / PIER_GAP), 1)
+			for index = 0, piers do
+				local at = from + along * (length * index / piers)
+				Build.part({
+					name = "Pier",
+					size = Vector3.new(5, WALL_H + 4, 5),
+					cframe = CFrame.new(at + Vector3.new(0, ground + (WALL_H + 4) * 0.5, 0)),
+					color = quoin,
+					material = Enum.Material.Sandstone,
+					parent = estate,
+				})
+			end
+		end
+
+		--------------------------------------------------------------------
+		-- The gates
+		--------------------------------------------------------------------
+
+		local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)
+		local GATE_HALF = 17
+		for _, side in { -1, 1 } do
+			Build.part({
+				name = "GatePier",
+				size = Vector3.new(7, 24, 7),
+				cframe = CFrame.new(spawnAt.X + side * GATE_HALF, ground + 12, ground + 4),
+				color = quoin,
+				material = Enum.Material.Sandstone,
+				parent = estate,
+			})
+			-- A stone ball on each, which is the one detail everybody draws
+			-- when they draw a gatepost.
+			Build.part({
+				name = "GateBall",
+				shape = Enum.PartType.Ball,
+				size = Vector3.new(5, 5, 5),
+				cframe = CFrame.new(spawnAt.X + side * GATE_HALF, ground + 26.5, ground + 4),
+				color = quoin,
+				material = Enum.Material.Sandstone,
+				parent = estate,
+			})
+			--- The leaf itself, swung open against its pier.
+			Build.mesh({
+				prop = "Gate",
+				name = "GateLeaf",
+				untextured = true,
+				color = iron,
+				size = Vector3.new(14, 18, 1.4),
+				collisionSize = Vector3.new(1.4, 18, 14),
+				cframe = CFrame.new(spawnAt.X + side * (GATE_HALF - 1), ground + 9, ground + 11)
+					* CFrame.Angles(0, math.rad(side * 78), 0),
+				canCollide = false,
+				parent = estate,
+			})
+		end
+
+		--------------------------------------------------------------------
+		-- The carriage drive
+		--------------------------------------------------------------------
+
+		--[[
+			Gravel, not flagstone, and a circle rather than a path.
+
+			`Worlds.pavingRects` reports the same rectangles to the tree and
+			clutter scatters, so nothing is planted through the drive for the
+			same reason nothing is planted through The House's path.
+		]]
+		for _, slab in Worlds.pavingRects(world) do
+			Build.part({
+				name = "Drive",
+				size = Vector3.new(slab.w, 0.5, slab.d),
+				cframe = CFrame.new(slab.x + slab.w * 0.5, ground + 0.25, slab.z + slab.d * 0.5),
+				color = Palette.color(Palette.estate.gravel),
+				material = Enum.Material.Sand,
+				castShadow = false,
+				parent = estate,
+			})
+		end
+
+		--------------------------------------------------------------------
+		-- The fountain, in the middle of the circle
+		--------------------------------------------------------------------
+
+		local hr = world.houseRect
+		local circle = Vector3.new(
+			spawnAt.X,
+			ground,
+			if hr then (hr.z * TILE + TILE * 0.5) - 46 else spawnAt.Z + 60
+		)
+
+		local basinR = 15
+		Build.part({
+			name = "FountainBasin",
+			shape = Enum.PartType.Cylinder,
+			size = Vector3.new(4.5, basinR * 2, basinR * 2),
+			cframe = CFrame.new(circle + Vector3.new(0, 2.25, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+			color = quoin,
+			material = Enum.Material.Sandstone,
+			parent = estate,
+		})
+		Build.part({
+			name = "FountainWater",
+			shape = Enum.PartType.Cylinder,
+			size = Vector3.new(0.6, basinR * 2 - 3, basinR * 2 - 3),
+			cframe = CFrame.new(circle + Vector3.new(0, 4.3, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+			color = Palette.color(Palette.estate.water),
+			material = Enum.Material.Glass,
+			transparency = 0.3,
+			canCollide = false,
+			parent = estate,
+		})
+		for tier, size in { 9, 6, 3.4 } do
+			Build.part({
+				name = "FountainTier",
+				shape = Enum.PartType.Cylinder,
+				size = Vector3.new(1.8, size, size),
+				cframe = CFrame.new(circle + Vector3.new(0, 5.5 + tier * 3.4, 0))
+					* CFrame.Angles(0, 0, math.rad(90)),
+				color = quoin,
+				material = Enum.Material.Sandstone,
+				parent = estate,
+			})
+		end
+		Build.part({
+			name = "FountainStem",
+			size = Vector3.new(2.2, 12, 2.2),
+			cframe = CFrame.new(circle + Vector3.new(0, 10, 0)),
+			color = quoin,
+			material = Enum.Material.Sandstone,
+			parent = estate,
+		})
+
+		--------------------------------------------------------------------
+		-- The parterre, and an avenue to the gates
+		--------------------------------------------------------------------
+
+		--[[
+			Clipped yew in a shape, either side of the drive.
+
+			Low and dark, which is what separates a parterre from the garden
+			hedge on the first property: that one is bright green and taller
+			than a player, and it is a boundary. This is a pattern you look
+			down on and walk around.
+		]]
+		local PARTERRE = 3.5
+		for _, side in { -1, 1 } do
+			local x = circle.X + side * 40
+			Build.hedge(estate, Vector3.new(x - 22, ground, circle.Z - 20), Vector3.new(x + 22, ground, circle.Z - 20), PARTERRE, 4, yew)
+			Build.hedge(estate, Vector3.new(x - 22, ground, circle.Z + 20), Vector3.new(x + 22, ground, circle.Z + 20), PARTERRE, 4, yew)
+			Build.hedge(estate, Vector3.new(x - 22, ground, circle.Z - 20), Vector3.new(x - 22, ground, circle.Z + 20), PARTERRE, 4, yew)
+			Build.hedge(estate, Vector3.new(x + 22, ground, circle.Z - 20), Vector3.new(x + 22, ground, circle.Z + 20), PARTERRE, 4, yew)
+		end
+
+		--- Urns on plinths down the drive, in pairs.
+		for index = 0, 3 do
+			local z = ground + 26 + index * 30
+			for _, side in { -1, 1 } do
+				local x = spawnAt.X + side * 26
+				Build.part({
+					name = "UrnPlinth",
+					size = Vector3.new(4, 6, 4),
+					cframe = CFrame.new(x, ground + 3, z),
+					color = quoin,
+					material = Enum.Material.Sandstone,
+					parent = estate,
+				})
+				Build.part({
+					name = "Urn",
+					shape = Enum.PartType.Ball,
+					size = Vector3.new(5, 5, 5),
+					cframe = CFrame.new(x, ground + 8, z),
+					color = Palette.color(Palette.estate.stoneShade),
+					material = Enum.Material.Sandstone,
+					parent = estate,
+				})
+			end
 		end
 	else
 		local lot = world.style == "lot"

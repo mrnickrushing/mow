@@ -18,6 +18,10 @@ export type PartOptions = {
 	name: string?,
 	size: Vector3,
 	cframe: CFrame,
+	--- Block unless asked otherwise. A basin, a ball on a gatepost and a
+	--- fountain tier are all round, and building them out of blocks is how a
+	--- stone estate ends up looking like a stack of crates.
+	shape: Enum.PartType?,
 	color: Color3?,
 	material: Enum.Material?,
 	transparency: number?,
@@ -274,6 +278,9 @@ function Build.part(options: PartOptions): Part
 
 	local part = Instance.new("Part")
 	part.Name = options.name or "Part"
+	if options.shape then
+		part.Shape = options.shape
+	end
 	part.Size = options.size
 	part.CFrame = options.cframe
 	part.Anchored = if options.anchored == nil then true else options.anchored

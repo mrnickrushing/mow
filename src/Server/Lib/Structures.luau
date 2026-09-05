@@ -58,6 +58,8 @@ export type WallRingOptions = {
 	thickness: number,
 	color: Color3,
 	material: Enum.Material,
+	--- Opaque unless asked otherwise, so a ring can be glazing as well as wall.
+	transparency: number?,
 	parent: Instance,
 	opening: Opening?,
 }
@@ -479,6 +481,7 @@ function Structures.wallRing(options: WallRingOptions)
 					),
 					color = options.color,
 					material = options.material,
+					transparency = options.transparency,
 					parent = options.parent,
 				})
 			end
@@ -874,6 +877,410 @@ function Structures.maze(context: Context, zone: Types.ZoneDef)
 			tx += 1
 		end
 	end
+
+	return folder
+end
+
+--------------------------------------------------------------------
+-- The estate's own sections
+--------------------------------------------------------------------
+
+--[[
+	Three kinds of place that exist only on The Mansion.
+
+	The first property is a lawn, a garage, a roof, a pool, a maze and a
+	cellar, and until now the second one was the same six things with longer
+	names — a "Grand Lawn" is an open section, an "Orangery" is a room, "The
+	Cellars" is a sunken room. Reported as the second property looking
+	identical to the first, which it structurally was.
+
+	A court, a terrace and a glasshouse are not dressings on those: each is a
+	surface you have never mown on before, with its own way in and its own
+	reason to be somewhere.
+]]
+
+--[[
+	A tennis court: tarmac, painted lines, a net, and a mesh surround.
+
+	The debris still lies on the section's tiles exactly as it does on grass,
+	so nothing about clearing it changes — what changes is that you are doing
+	it on a hard blue court between two fences, which looks nothing like a
+	lawn and reads from the far side of the estate.
+]]
+function Structures.court(context: Context, zone: Types.ZoneDef)
+	local tile = context.tileSize
+	local folder = Build.folder(`Court_{zone.id}`, context.parent)
+	local r = zone.rect
+	local centre = context.flat(r.x + r.w * 0.5, r.z + r.d * 0.5)
+	local width, depth = r.w * tile, r.d * tile
+
+	--[[
+		The playing surface, finishing exactly at ground level.
+
+		Debris is drawn on the section's own floor — ground level for anything
+		unelevated — so a surface whose top face sits even half a stud proud of
+		that buries every leaf on the court inside the tarmac. Half the section
+		would be invisible and still counted, which is the fault that already
+		cost a player two sections of the first property. The top face is at
+		`groundY`, and the apron sits a shade below it so the edge still reads
+		as a kerb.
+
+		A shade proud of it rather than flush: the lawn slab's own top face is
+		at `groundY` too, and two surfaces at the same height flicker against
+		each other across the whole court. Six hundredths is under the leaves
+		lying on it and enough to win the depth test.
+	]]
+	Build.part({
+		name = "CourtSurface",
+		size = Vector3.new(width, 1.2, depth),
+		cframe = CFrame.new(centre + Vector3.new(0, context.groundY - 0.54, 0)),
+		color = Palette.color(Palette.court.tarmac),
+		material = Enum.Material.Asphalt,
+		parent = folder,
+	})
+	Build.part({
+		name = "CourtApron",
+		size = Vector3.new(width + 5, 0.9, depth + 5),
+		cframe = CFrame.new(centre + Vector3.new(0, context.groundY - 0.42, 0)),
+		color = Palette.color(Palette.court.apron),
+		material = Enum.Material.Asphalt,
+		parent = folder,
+	})
+
+	--[[
+		The painted lines, which are the whole reason this reads as a court.
+
+		Laid as thin white slabs a hair above the tarmac: the tramlines down
+		each side, the baselines across each end, and the service box through
+		the middle. Proportional to the section rather than to a real court,
+		because the section is whatever the world says it is.
+	]]
+	local LINE = 0.9
+	local inset = 6
+	local function line(cx: number, cz: number, w: number, d: number)
+		Build.part({
+			name = "CourtLine",
+			size = Vector3.new(w, 0.25, d),
+			cframe = CFrame.new(centre + Vector3.new(cx, context.groundY + 0.2, cz)),
+			color = Palette.color(Palette.court.line),
+			material = Enum.Material.SmoothPlastic,
+			castShadow = false,
+			canCollide = false,
+			parent = folder,
+		})
+	end
+	local playW, playD = width - inset * 2, depth - inset * 2
+	line(0, -playD * 0.5, playW, LINE)
+	line(0, playD * 0.5, playW, LINE)
+	line(-playW * 0.5, 0, LINE, playD)
+	line(playW * 0.5, 0, LINE, playD)
+	line(-playW * 0.5 + 7, 0, LINE, playD)
+	line(playW * 0.5 - 7, 0, LINE, playD)
+	line(0, -playD * 0.25, playW - 14, LINE)
+	line(0, playD * 0.25, playW - 14, LINE)
+	line(0, 0, LINE, playD * 0.5)
+
+	--- The net, across the short axis, with a post at each end.
+	local netAlongX = width >= depth
+	local netLength = if netAlongX then width - inset else depth - inset
+	Build.part({
+		name = "Net",
+		size = if netAlongX then Vector3.new(netLength, 5, 0.6) else Vector3.new(0.6, 5, netLength),
+		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + 2.5, 0)),
+		color = Palette.color(Palette.court.net),
+		material = Enum.Material.Fabric,
+		transparency = 0.35,
+		canCollide = false,
+		parent = folder,
+	})
+	Build.part({
+		name = "NetTape",
+		size = if netAlongX then Vector3.new(netLength, 0.8, 0.8) else Vector3.new(0.8, 0.8, netLength),
+		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + 5.1, 0)),
+		color = Palette.color(Palette.court.line),
+		material = Enum.Material.SmoothPlastic,
+		canCollide = false,
+		parent = folder,
+	})
+	for _, side in { -1, 1 } do
+		local at = if netAlongX
+			then Vector3.new(side * netLength * 0.5, 0, 0)
+			else Vector3.new(0, 0, side * netLength * 0.5)
+		Build.part({
+			name = "NetPost",
+			size = Vector3.new(1.4, 6.5, 1.4),
+			cframe = CFrame.new(centre + at + Vector3.new(0, context.groundY + 3.25, 0)),
+			color = Palette.color(Palette.estate.iron),
+			material = Enum.Material.Metal,
+			parent = folder,
+		})
+	end
+
+	--[[
+		The surround: posts and mesh, open on the side the player walks in.
+
+		Left open rather than gated, because a court is not a gated section —
+		it is somewhere on the estate you walk onto. The mesh is a thin
+		translucent panel between real posts, which is what chain-link reads
+		as at any distance worth drawing it from.
+	]]
+	local FENCE_H = 20
+	local halfW, halfD = width * 0.5 + 2.5, depth * 0.5 + 2.5
+	local sides = {
+		{ from = Vector3.new(-halfW, 0, -halfD), to = Vector3.new(halfW, 0, -halfD) },
+		{ from = Vector3.new(-halfW, 0, halfD), to = Vector3.new(halfW, 0, halfD) },
+		{ from = Vector3.new(-halfW, 0, -halfD), to = Vector3.new(-halfW, 0, halfD) },
+	}
+	for _, run in sides do
+		local delta = run.to - run.from
+		local length = delta.Magnitude
+		local mid = centre + run.from + delta * 0.5
+		local alongX = math.abs(delta.X) > math.abs(delta.Z)
+		Build.part({
+			name = "CourtMesh",
+			size = if alongX then Vector3.new(length, FENCE_H, 0.4) else Vector3.new(0.4, FENCE_H, length),
+			cframe = CFrame.new(mid + Vector3.new(0, context.groundY + FENCE_H * 0.5, 0)),
+			color = Palette.color(Palette.court.mesh),
+			material = Enum.Material.DiamondPlate,
+			transparency = 0.55,
+			parent = folder,
+		})
+		local posts = math.max(math.floor(length / 22), 1)
+		for index = 0, posts do
+			local at = centre + run.from + delta.Unit * (length * index / posts)
+			Build.part({
+				name = "CourtPost",
+				size = Vector3.new(1.3, FENCE_H + 1, 1.3),
+				cframe = CFrame.new(at + Vector3.new(0, context.groundY + (FENCE_H + 1) * 0.5, 0)),
+				color = Palette.color(Palette.estate.iron),
+				material = Enum.Material.Metal,
+				parent = folder,
+			})
+		end
+	end
+
+	return folder
+end
+
+--[[
+	A raised stone terrace, with a balustrade round it and steps off it.
+
+	`Structures.room` walls a section in and roofs it. A terrace is the
+	opposite: it is open to the sky and open to the view, and what makes it a
+	place is that it stands above the lawn. The stairs the section builder
+	adds for any raised section arrive at its edge, so the balustrade leaves
+	the same gap the doorway of a room would.
+]]
+function Structures.terrace(context: Context, zone: Types.ZoneDef, opening: Opening?)
+	local tile = context.tileSize
+	local folder = Build.folder(`Terrace_{zone.id}`, context.parent)
+	local r = zone.rect
+	local centre = context.flat(r.x + r.w * 0.5, r.z + r.d * 0.5)
+	local width, depth = r.w * tile, r.d * tile
+	local lift = zone.elevation or 0
+
+	--[[
+		The deck, finishing exactly at the elevation the section is drawn at.
+
+		Debris is placed on `GROUND_Y + elevation`, so a deck whose top face
+		is even half a stud above that buries the whole section inside its own
+		floor. `RoofDeck` gets this right by building down from the elevation
+		rather than around it, and so does this.
+	]]
+	local DECK = 1.4
+	local deckTop = context.groundY + lift
+	Build.part({
+		name = "TerraceMass",
+		size = Vector3.new(width + 4, lift + 0.1, depth + 4),
+		cframe = CFrame.new(
+			centre + Vector3.new(0, (deckTop - DECK + context.groundY - 1.5) * 0.5, 0)
+		),
+		color = Palette.color(Palette.estate.stoneShade),
+		material = Enum.Material.Sandstone,
+		parent = folder,
+	})
+	Build.part({
+		name = "TerraceDeck",
+		size = Vector3.new(width + 4, DECK, depth + 4),
+		cframe = CFrame.new(centre + Vector3.new(0, deckTop - DECK * 0.5, 0)),
+		color = Palette.color(Palette.estate.stone),
+		material = Enum.Material.Sandstone,
+		parent = folder,
+	})
+
+	--- A balustrade all the way round, broken where the steps come up.
+	Structures.parapet(context, zone, 1, opening)
+	local halfW, halfD = (width + 4) * 0.5, (depth + 4) * 0.5
+	local runs = {
+		{ from = Vector3.new(-halfW, 0, -halfD), to = Vector3.new(halfW, 0, -halfD) },
+		{ from = Vector3.new(-halfW, 0, halfD), to = Vector3.new(halfW, 0, halfD) },
+		{ from = Vector3.new(-halfW, 0, -halfD), to = Vector3.new(-halfW, 0, halfD) },
+		{ from = Vector3.new(halfW, 0, -halfD), to = Vector3.new(halfW, 0, halfD) },
+	}
+	for _, run in runs do
+		local delta = run.to - run.from
+		local length = delta.Magnitude
+		local along = delta.Unit
+		local count = math.max(math.floor(length / 6), 1)
+		for index = 0, count do
+			local at = centre + run.from + along * (length * index / count)
+			-- The gap the stairs arrive through, left alone.
+			local skip = false
+			if opening then
+				local toEdge = at - centre
+				if toEdge:Dot(opening.normal) > 0 then
+					local across = Vector3.new(-opening.normal.Z, 0, opening.normal.X)
+					if math.abs(toEdge:Dot(across) - (opening.offset or 0)) < opening.width * 0.6 then
+						skip = true
+					end
+				end
+			end
+			if not skip then
+				Build.part({
+					name = "Baluster",
+					size = Vector3.new(1.5, 4.5, 1.5),
+					cframe = CFrame.new(at + Vector3.new(0, context.groundY + lift + 2.6, 0)),
+					color = Palette.color(Palette.estate.quoin),
+					material = Enum.Material.Sandstone,
+					parent = folder,
+				})
+			end
+		end
+		-- The rail along the top of them.
+		local alongX = math.abs(delta.X) > math.abs(delta.Z)
+		Build.part({
+			name = "BalustradeRail",
+			size = if alongX then Vector3.new(length, 1, 2.4) else Vector3.new(2.4, 1, length),
+			cframe = CFrame.new(
+				centre + run.from + delta * 0.5 + Vector3.new(0, context.groundY + lift + 5.2, 0)
+			),
+			color = Palette.color(Palette.estate.quoin),
+			material = Enum.Material.Sandstone,
+			canCollide = false,
+			parent = folder,
+		})
+	end
+
+	return folder
+end
+
+--[[
+	A glasshouse: iron frame, glazed walls, a ridge lantern down the middle.
+
+	The Orangery was a `room` — the same four opaque walls and flat ceiling
+	the garage and the cellars are built from, in the same stone. An orangery
+	is the one building on an estate you can see through, and that is the
+	entire point of it: the section is lit, the debris inside is visible from
+	the lawn, and it looks like nothing else on either property.
+]]
+function Structures.glasshouse(context: Context, zone: Types.ZoneDef, opening: Opening?)
+	local tile = context.tileSize
+	local folder = Build.folder(`Glasshouse_{zone.id}`, context.parent)
+	local r = zone.rect
+	local centre = context.flat(r.x + r.w * 0.5, r.z + r.d * 0.5)
+	local width, depth = r.w * tile, r.d * tile
+	local HEIGHT = 26
+
+	Build.part({
+		name = "Floor",
+		size = Vector3.new(width + 4, 2, depth + 4),
+		cframe = CFrame.new(centre + Vector3.new(0, context.groundY - 1, 0)),
+		color = Palette.color(Palette.ground.stoneDark),
+		material = Enum.Material.Slate,
+		parent = folder,
+	})
+
+	--- A low stone dwarf wall, which is what a glasshouse stands on.
+	Structures.wallRing({
+		name = "DwarfWall",
+		centre = centre + Vector3.new(0, context.groundY, 0),
+		width = width + 4,
+		depth = depth + 4,
+		height = 5,
+		thickness = 2,
+		color = Palette.color(Palette.estate.stone),
+		material = Enum.Material.Sandstone,
+		parent = folder,
+		opening = opening,
+	})
+	--- The glazing above it, in one translucent ring.
+	Structures.wallRing({
+		name = "Glazing",
+		centre = centre + Vector3.new(0, context.groundY + 5, 0),
+		width = width + 4,
+		depth = depth + 4,
+		height = HEIGHT - 5,
+		thickness = 0.8,
+		color = Palette.color(Palette.estate.glass),
+		material = Enum.Material.Glass,
+		transparency = 0.62,
+		parent = folder,
+		opening = opening,
+	})
+
+	--- The iron mullions between the panes, which is what stops the glazing
+	--- reading as a sheet of coloured air.
+	local halfW, halfD = (width + 4) * 0.5, (depth + 4) * 0.5
+	for _, run in {
+		{ from = Vector3.new(-halfW, 0, -halfD), to = Vector3.new(halfW, 0, -halfD) },
+		{ from = Vector3.new(-halfW, 0, halfD), to = Vector3.new(halfW, 0, halfD) },
+		{ from = Vector3.new(-halfW, 0, -halfD), to = Vector3.new(-halfW, 0, halfD) },
+		{ from = Vector3.new(halfW, 0, -halfD), to = Vector3.new(halfW, 0, halfD) },
+	} do
+		local delta = run.to - run.from
+		local length = delta.Magnitude
+		local along = delta.Unit
+		local count = math.max(math.floor(length / 9), 1)
+		for index = 0, count do
+			local at = centre + run.from + along * (length * index / count)
+			Build.part({
+				name = "Mullion",
+				size = Vector3.new(1, HEIGHT - 5, 1),
+				cframe = CFrame.new(at + Vector3.new(0, context.groundY + 5 + (HEIGHT - 5) * 0.5, 0)),
+				color = Palette.color(Palette.estate.iron),
+				material = Enum.Material.Metal,
+				canCollide = false,
+				parent = folder,
+			})
+		end
+	end
+
+	--- Eaves, and the lantern along the ridge.
+	Build.part({
+		name = "Eaves",
+		size = Vector3.new(width + 8, 1.6, depth + 8),
+		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + HEIGHT, 0)),
+		color = Palette.color(Palette.estate.iron),
+		material = Enum.Material.Metal,
+		parent = folder,
+	})
+	Build.part({
+		name = "Glasshouse",
+		size = Vector3.new(width, 1, depth),
+		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + HEIGHT + 1.3, 0)),
+		color = Palette.color(Palette.estate.glass),
+		material = Enum.Material.SmoothPlastic,
+		transparency = 0.72,
+		parent = folder,
+	})
+	local ridgeAlongX = width >= depth
+	Build.part({
+		name = "Lantern",
+		size = if ridgeAlongX then Vector3.new(width * 0.55, 6, 14) else Vector3.new(14, 6, depth * 0.55),
+		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + HEIGHT + 4.3, 0)),
+		color = Palette.color(Palette.estate.glass),
+		material = Enum.Material.SmoothPlastic,
+		transparency = 0.62,
+		parent = folder,
+	})
+	Build.part({
+		name = "LanternCap",
+		size = if ridgeAlongX then Vector3.new(width * 0.58, 1.2, 16) else Vector3.new(16, 1.2, depth * 0.58),
+		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + HEIGHT + 7.5, 0)),
+		color = Palette.color(Palette.estate.iron),
+		material = Enum.Material.Metal,
+		parent = folder,
+	})
 
 	return folder
 end

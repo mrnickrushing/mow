@@ -280,25 +280,30 @@ local mansion: Types.WorldDef = {
 	gridWidth = 144,
 	gridDepth = 144,
 	--[[
-		A tighter clock than The House, and The Gas Station's is tighter still
-		against what it asks for.
+		Two and a half hours, up from sixty-seven minutes.
 
-		Every property used to give ninety minutes. That made the ladder read
-		backwards: this world holds more than twice the work of The House, but
-		it also pays better, and the gear that buys bought clearing speed faster
-		than the extra ground cost — so a perfect run finished The Mansion in
-		37:40 against The House's 41:14. The middle rung was the easiest one.
+		The reasoning that set it at sixty-seven was about the *ratio* — a
+		later world has to give less clock per unit of work than the one
+		before it, or it is not the harder world — and that is still the
+		invariant the tests hold. What it lost sight of is that a ratio has
+		two ends. Sixty-seven minutes against The House's hundred and twenty
+		did make the ratio fall, and it did it by handing the player a bigger
+		property and *half an hour less of the day* to clear it in, which is
+		not a harder world so much as an impossible one.
 
-		Paying less was the wrong lever; the payout is already the minimum that
-		reaches the gear this world needs. Time is the honest one, and it is the
-		thing a player can feel: more ground, less of the afternoon to do it in.
+		This property now asks for about twice The House's work — sixty-six
+		thousand units against thirty-three — with a court, a terrace and a
+		glasshouse that are all new ground to learn. Two and a half hours is
+		more clock than The House gives and still a third less time per unit,
+		so the rung is harder in the way the ladder means and not in the way
+		that just runs it out.
 	]]
-	runSeconds = 4050,
+	runSeconds = 9000,
 	-- Enough to reach the gear this world needs, and no more. Paying several
 	-- times the first world turned it into the easiest one.
 	payoutMultiplier = 1.6,
 	baseGround = Palette.ground.lawn,
-	style = "house",
+	style = "estate",
 	houseRect = { x = 42, z = 50, w = 66, d = 30 },
 	shed = { x = 124, z = 82 },
 	trailer = { x = 67, z = 5 },
@@ -318,29 +323,78 @@ local mansion: Types.WorldDef = {
 			trees = 5,
 			clutter = 14,
 		},
+		--[[
+			The tennis court, which is the first hard surface anybody mows.
+
+			Every section in the game until now has been a lawn, a room or a
+			roof. This is tarmac inside a twenty-stud mesh fence, with painted
+			lines and a net across the middle, and the leaves blown into it
+			over a winter are what you are there for. It is off the critical
+			path on purpose — like the garage and the rooftop on the first
+			property, somewhere to go that nobody made you go.
+		]]
 		{
-			id = "east_wing",
-			name = "East Wing",
+			id = "tennis_court",
+			name = "Tennis Court",
 			cost = 0,
 			unlock = "completion",
 			requires = "grand_lawn",
-			rect = { x = 112, z = 10, w = 28, d = 70 },
-			density = 0.94,
-			fill = { grass(2, 3), mix(Debris.Hedge, 0.8, 3, 3), mix(Debris.Leaves, 0.4, 2, 3) },
-			kind = "open",
-			trees = 4,
-			clutter = 14,
+			optional = true,
+			rect = { x = 6, z = 10, w = 26, d = 34 },
+			density = 0.92,
+			-- No grass: nothing grows through tarmac. What collects on a court
+			-- is what the wind put there.
+			fill = { mix(Debris.Leaves, 1, 2, 3), mix(Debris.Sticks, 0.4, 1, 2) },
+			kind = "court",
+			clutter = 5,
+			waves = 1,
 		},
+		--[[
+			A raised stone terrace along the east front, with a balustrade.
+
+			The east wing used to be another `open` — a second lawn, in the
+			same green, at the same height as the first. A terrace stands six
+			studs above the ground with steps up to it, so it is somewhere you
+			climb to and look out from, and the debris on it is at eye level
+			from the lawn below.
+		]]
+		{
+			id = "east_terrace",
+			name = "East Terrace",
+			cost = 0,
+			unlock = "completion",
+			requires = "grand_lawn",
+			rect = { x = 112, z = 12, w = 26, d = 66 },
+			density = 0.94,
+			-- Mostly what the trees dropped on it. Grass only in the joints
+			-- between the flags, because a terrace is a floor.
+			fill = { grass(1, 2, 1.5), mix(Debris.Leaves, 1.6, 2, 3), mix(Debris.Sticks, 0.6, 2, 3) },
+			kind = "terrace",
+			elevation = 6,
+			clutter = 12,
+		},
+		--[[
+			The orangery, which is glass rather than stone.
+
+			This was a `room`: the same four opaque walls and flat ceiling the
+			garage and the cellars are built from. An orangery is the one
+			building on an estate you can see into, and the point of the
+			section is that you can stand on the lawn and watch how much of it
+			is still full of leaves.
+
+			The one door on this property you save up for, priced against what
+			is open before it.
+		]]
 		{
 			id = "orangery",
 			name = "Orangery",
-			cost = 150,
+			cost = 140,
 			unlock = "cash",
-			requires = "east_wing",
+			requires = "east_terrace",
 			rect = { x = 4, z = 52, w = 31, d = 44 },
 			density = 0.95,
 			fill = { grass(2, 3, 3), mix(Debris.Leaves, 1, 3, 3), mix(Debris.Sticks, 0.5, 2, 3) },
-			kind = "room",
+			kind = "glasshouse",
 			clutter = 16,
 		},
 		{
@@ -381,7 +435,23 @@ local gasStation: Types.WorldDef = {
 	requiresWorld = "mansion",
 	gridWidth = 144,
 	gridDepth = 144,
-	runSeconds = 4650,
+	--[[
+		Three hours, up from seventy-seven minutes.
+
+		Raised with The Mansion's, and for the same reason. The rule the tests
+		hold is that each rung gives less clock per unit of work than the one
+		before it, and seventy-seven minutes satisfied it by a mile — a
+		hundred and eight thousand units, half again as much as The Mansion,
+		in half the time. That is not the hardest property, it is the one
+		nobody finishes.
+
+		Three hours keeps the decline honest (a tenth of a second per unit
+		against The Mansion's 0.113) while giving the last and largest
+		property more of the day than either of the two before it, which is
+		what "hard" should mean here: more ground, tighter margins, and still
+		an afternoon to do it in.
+	]]
+	runSeconds = 10800,
 	payoutMultiplier = 2.1,
 	baseGround = Palette.ground.stone,
 	style = "lot",
@@ -591,15 +661,36 @@ export type Paving = { x: number, z: number, w: number, d: number, stone: number
 ]]
 function Worlds.pavingRects(world: Types.WorldDef): { Paving }
 	local hr = world.houseRect
-	if world.style ~= "house" or not hr then
+	if not hr then
 		return {}
 	end
 	local tile = GameConfig.TILE_SIZE
 	local centreX = (hr.x + hr.w * 0.5) * tile + tile * 0.5
 	local frontZ = hr.z * tile + tile * 0.5
+	local kerbZ = 34
+
+	--[[
+		An estate is approached up a drive, not along a garden path.
+
+		Two rectangles again, because everything that keeps off the hard
+		surfaces reads these: one straight run from the gates, and a broad
+		square around the fountain that the drive sweeps round. A circle
+		described by two rectangles is close enough — what matters is that
+		nothing is planted through it.
+	]]
+	if world.style == "estate" then
+		local circleZ = frontZ - 46
+		return {
+			{ x = centreX - 13, z = kerbZ, w = 26, d = circleZ - 22 - kerbZ, stone = 6 },
+			{ x = centreX - 44, z = circleZ - 24, w = 88, d = (frontZ - 6) - (circleZ - 24), stone = 6 },
+		}
+	end
+
+	if world.style ~= "house" then
+		return {}
+	end
 	local doorX = centreX - hr.w * tile * 0.18
 	local garageX = centreX + hr.w * tile * 0.28
-	local kerbZ = 34
 	return {
 		{ x = doorX - 10, z = kerbZ, w = 20, d = frontZ - 8 - kerbZ, stone = 5 },
 		{ x = garageX - 17, z = kerbZ, w = 34, d = frontZ - 1 - kerbZ, stone = 6 },

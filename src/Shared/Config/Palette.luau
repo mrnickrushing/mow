@@ -143,6 +143,54 @@ Palette.house = {
 	brickDark = rgb(124, 70, 56),
 }
 
+--[[
+	The Mansion, which is a different building and not a bigger one.
+
+	Every colour above belongs to the first property: cream lap siding, a teal
+	eaves band, a brown shingle roof, a wooden porch. The Mansion was built by
+	the same builder out of the same palette, so it arrived as The House at
+	twice the size — reported as "the mansion looks identical to the first
+	level".
+
+	An estate is stone, lead and iron. Pale ashlar with lighter quoins at the
+	corners, a grey slate roof rather than a brown one, gutters and a cornice
+	in weathered lead, black railings, and a gravel carriage drive instead of
+	a flagstone path. The planting is dark clipped yew instead of the bright
+	garden hedge, because a parterre is a shape cut out of something almost
+	black.
+]]
+Palette.estate = {
+	stone = rgb(224, 216, 196),
+	stoneShade = rgb(198, 188, 166),
+	--- The dressed corners and window surrounds, a shade lighter than the wall.
+	quoin = rgb(240, 234, 218),
+	roof = rgb(78, 82, 92),
+	roofDark = rgb(58, 62, 72),
+	--- Cornice, gutters, the capping on the parapet.
+	lead = rgb(118, 124, 134),
+	--- Railings, gates and lamp standards.
+	iron = rgb(36, 38, 42),
+	gravel = rgb(202, 190, 168),
+	gravelDark = rgb(176, 164, 142),
+	--- Clipped yew, much darker than a garden hedge.
+	yew = rgb(38, 76, 50),
+	door = rgb(58, 46, 40),
+	window = rgb(150, 190, 206),
+	water = rgb(120, 172, 194),
+	--- The glazing on the orangery, and the only translucent surface in the
+	--- game that is meant to be looked through rather than at.
+	glass = rgb(196, 226, 226),
+}
+
+--- The tennis court, which is the one hard-surfaced place you mow.
+Palette.court = {
+	tarmac = rgb(58, 104, 148),
+	apron = rgb(126, 96, 82),
+	line = rgb(244, 244, 238),
+	net = rgb(30, 32, 36),
+	mesh = rgb(96, 112, 108),
+}
+
 Palette.fence = {
 	picket = rgb(214, 168, 108),
 	picketShade = rgb(184, 138, 84),
