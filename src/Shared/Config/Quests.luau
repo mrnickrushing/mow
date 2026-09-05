@@ -103,7 +103,7 @@ local list: { Quest } = {
 		-- journal open and no longer does, so a player following that sentence
 		-- walks the length of the property to a building that does nothing. The
 		-- book is where tools are bought, from wherever you are standing.
-		text = "Buy a proper tool from your book",
+		text = "Buy a proper tool from your journal",
 		target = 1,
 		reward = 8,
 	},

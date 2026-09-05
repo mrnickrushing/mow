@@ -142,7 +142,7 @@ function EconomyService.awardTips(player: Player, amount: number)
 		EconomyService.notify(
 			player,
 			"reward",
-			"Tips are yours to keep — a run never takes them back. Spend them in your book to own a tool for good.",
+			"Tips are yours to keep — a run never takes them back. Spend them in your journal to own a tool for good.",
 			nil
 		)
 	end
