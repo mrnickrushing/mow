@@ -35,6 +35,7 @@ local MowRunService = require(script.Parent.RunService)
 local MatchmakingService = require(script.Parent.MatchmakingService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
 local VehicleService = require(script.Parent.VehicleService)
+local WorldService = require(script.Parent.WorldService)
 
 local LobbyService = {}
 
@@ -1205,6 +1206,66 @@ local function placeEveryone()
 	end
 end
 
+--[[
+	Nobody is left standing in the sky.
+
+	Reported from a live game as a tablet showing nothing but sky where the
+	lobby should be, the whole interface up and working over the top of it.
+
+	Placement is a single shot: a timer after a character appears, taken only
+	if the phase is right. Anything that makes that one shot miss leaves a
+	player standing on nothing with no second chance — a character arriving
+	before the lobby has been built, a round starting in the gap between the
+	two, a return teleport landing in the middle of one. Each of those is worth
+	fixing on its own, and none of them can be fixed for the case nobody has
+	thought of yet.
+
+	So this is the second chance, and it is deliberately the dumbest test that
+	can be written: is there anything at all underneath this character. A
+	player standing on anything is never touched, so it cannot argue with the
+	game about where anybody should be — it only ever answers the one question
+	the game got wrong.
+]]
+--- How far down to look before calling it empty. Every lot and the lobby sit
+--- on a skirt far wider than this, so only a genuine void answers nothing.
+local VOID_DROP = 400
+
+local function standingOnSomething(character: Model): boolean
+	local root = character.PrimaryPart or character:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") then
+		-- Nothing to judge yet; a character still assembling is not lost.
+		return true
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character }
+	return workspace:Raycast(root.Position, Vector3.new(0, -VOID_DROP, 0), params) ~= nil
+end
+
+local function rescue(player: Player)
+	local character = player.Character
+	if not character then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		return
+	end
+	if standingOnSomething(character) then
+		return
+	end
+	if MowRunService.phase() == "lobby" then
+		LobbyService.place(player)
+	else
+		-- Mid-round: the property they are supposed to be on, not the lobby.
+		local spawnAt = WorldService.spawnPoint()
+		if spawnAt and character.PrimaryPart then
+			character:PivotTo(spawnAt)
+		end
+	end
+	warn(`[Lobby] {player.Name} had nothing underneath them; put back`)
+end
+
 --------------------------------------------------------------------
 -- The loop
 --------------------------------------------------------------------
@@ -1497,6 +1558,14 @@ end
 
 function LobbyService.start()
 	build()
+
+	-- Slow on purpose: it is a safety net, not a system.
+	Loop.forever("LobbyService.rescue", function()
+		task.wait(1)
+		for _, player in Players:GetPlayers() do
+			rescue(player)
+		end
+	end)
 
 	Remotes.event(Remotes.LOBBY_CONFIRM).OnServerEvent:Connect(onConfirm)
 
