@@ -279,8 +279,8 @@ local function onMowIntent(player: Player, payload: any)
 		return
 	end
 
-	-- Position is taken from the server's own view of the character; the claimed
-	-- position only has to be close enough to be plausible.
+	-- The claimed position must be close enough to the server's own view of
+	-- the character to be plausible; anything further is discarded outright.
 	local actual = rootPosition(player)
 	if not actual then
 		return
@@ -289,6 +289,26 @@ local function onMowIntent(player: Player, payload: any)
 	if offset.X * offset.X + offset.Z * offset.Z > TOLERANCE_SQ then
 		return
 	end
+
+	--[[
+		Cut from where the client says it is, not from where the server sees it.
+
+		The two differ by a replication tick or two, and while walking that is
+		the front row of the swath: the client predicted it cut, the server
+		rasterised from a step behind and never touched it, and the next chunk
+		flush — a full chunk, not a diff — put the grass back until the server
+		caught up a tick later. Every swath tool left a strip in front of it
+		that cut, regrew and cut again. It surfaced as "the backyard grows
+		back", because the backyard is where the first swath tool gets bought.
+
+		The claim is still bounded: held within MOW_POSITION_LEAD studs of the
+		server's view, after the wider tolerance above has already thrown out
+		anything that could only be a cheat.
+	]]
+	local usedX, usedZ = Cutting.reconcilePosition(
+		actual.X, actual.Z, position.X, position.Z, GameConfig.MOW_POSITION_LEAD
+	)
+	local cutFrom = Vector3.new(usedX, actual.Y, usedZ)
 
 	local now = os.clock()
 	local previous = lastIntentAt[player]
@@ -307,7 +327,7 @@ local function onMowIntent(player: Player, payload: any)
 	local worldTiles = WorldService.tiles
 	local wet = worldGrid ~= nil
 		and worldTiles ~= nil
-		and Cutting.isWetAt(worldGrid, worldTiles, actual.X, actual.Z)
+		and Cutting.isWetAt(worldGrid, worldTiles, cutFrom.X, cutFrom.Z)
 	local rate = Balance.effectiveCutRate(tool, run.upgrades, wet)
 	if rate <= 0 then
 		return
@@ -326,7 +346,7 @@ local function onMowIntent(player: Player, payload: any)
 		return
 	end
 
-	local result = TileService.applyPasses(player, actual, look, tool, passes)
+	local result = TileService.applyPasses(player, cutFrom, look, tool, passes)
 
 	if result.blockedBySection and result.tilesTouched == 0 then
 		say(player, "locked", "You have not bought this zone yet")

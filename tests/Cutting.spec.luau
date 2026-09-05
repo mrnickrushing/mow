@@ -316,4 +316,49 @@ return function()
 			)
 		end)
 	end)
+
+	h.describe("Cutting — where the server cuts from", function()
+		local LEAD = GameConfig.MOW_POSITION_LEAD
+
+		h.it("honours a reported position a step ahead of the server's view", function()
+			-- Walking forward at 16 studs a second, two ticks of lag is about
+			-- three studs: the client's front row, which the server's own
+			-- view would miss.
+			local x, z = Cutting.reconcilePosition(100, 200, 100, 203, LEAD)
+			h.expectEqual(x, 100)
+			h.expectEqual(z, 203)
+		end)
+
+		h.it("honours the fastest deck's lead", function()
+			local x, z = Cutting.reconcilePosition(0, 0, 0, LEAD, LEAD)
+			h.expectEqual(z, LEAD, "exactly the allowance is still honoured")
+			h.expectEqual(x, 0)
+		end)
+
+		h.it("clamps a claim beyond the allowance to the allowance", function()
+			local x, z = Cutting.reconcilePosition(0, 0, 0, 40, LEAD)
+			h.expectClose(z, LEAD, 1e-6, "cannot reach further than the lead")
+			h.expectEqual(x, 0)
+		end)
+
+		h.it("clamps along the line towards the claim", function()
+			local x, z = Cutting.reconcilePosition(10, 10, 40, 50, LEAD)
+			local dx, dz = x - 10, z - 10
+			h.expectClose(math.sqrt(dx * dx + dz * dz), LEAD, 1e-6, "on the circle")
+			h.expectClose(dx / dz, 30 / 40, 1e-6, "same direction as the claim")
+		end)
+
+		h.it("returns the server's own view when the claim matches it", function()
+			local x, z = Cutting.reconcilePosition(7, 9, 7, 9, LEAD)
+			h.expectEqual(x, 7)
+			h.expectEqual(z, 9)
+		end)
+
+		h.it("stays inside the plausibility tolerance", function()
+			h.expectTrue(
+				LEAD < GameConfig.MOW_POSITION_TOLERANCE,
+				"a claim that is honoured must first have been accepted as plausible"
+			)
+		end)
+	end)
 end
