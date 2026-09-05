@@ -273,16 +273,38 @@ local equipped = MowController.equippedTool
 	they take one pile at a time. Getting this wrong on touch is the difference
 	between a player understanding a tool and mashing the screen.
 ]]
+--[[
+	The verb under the button, by what the tool is rather than how it cuts.
+
+	This read `mode`, and `mode` is not about the player — it is whether the
+	tool takes a tuft at a time or a swath. The Push Reel Mower is deliberately
+	tuft-by-tuft, because working one patch at a time early is what makes the
+	first ride-on feel like something; so the game's first mower had PICK UP
+	written under it while it mowed. Everything that was not tuft-by-tuft fell
+	through to MOW, which put the same word under a chainsaw.
+
+	Category is the question actually being asked. Anything without a verb of
+	its own says USE, which is the word already on the button beside it.
+]]
+local VERB: { [string]: string } = {
+	Hand = "PICK UP",
+	Rake = "RAKE",
+	Mower = "MOW",
+	Trimmer = "TRIM",
+	HedgeTrimmer = "TRIM",
+	Saw = "CUT",
+	Chainsaw = "CUT",
+	Grinder = "GRIND",
+}
+
 function MowController.actionLabel(): string
 	local tool = equipped()
 	if not tool then
 		return ""
 	elseif tool.toggle then
 		return if mowing then "ON" else "OFF"
-	elseif tool.mode == "pickup" then
-		return "PICK UP"
 	end
-	return "MOW"
+	return VERB[tool.category] or "USE"
 end
 
 MowController.setMowing = setMowing
