@@ -342,6 +342,10 @@ local function beginRun(id: string, partySize: number?)
 	-- Everyone starts from nothing. That is the whole shape of a run — except
 	-- for a rental, which was sold as minutes rather than as a lawn.
 	RunState.resetAll()
+	-- Both of these outlive the reset because both were bought with Robux:
+	-- a rental was sold as minutes, and a run-only tool bought in the lobby
+	-- was sold for the run that is only now starting.
+	RunState.applyHeldTools()
 	BoostService.carryRentals()
 	BagService.clearAll()
 

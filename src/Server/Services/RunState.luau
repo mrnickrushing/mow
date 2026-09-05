@@ -74,6 +74,66 @@ function RunState.fresh(player: Player?): State
 	}
 end
 
+--[[
+	Run-only tools bought while no run was under way, waiting for the next one.
+
+	The store is open in the lobby, and a tool bought there "for this run" had no
+	run to be bought for. `beginRun` calls `resetAll`, which rebuilds every
+	loadout from `permanentTools` alone, so the grant was written to a state that
+	was about to be thrown away — the player paid Robux, was told the tool was
+	unlocked, and started the run without it. Nothing said so.
+
+	Rentals already had this problem and already solved it, in `carryRentals`;
+	this is the same fix for the other thing you can buy that outlives a reset.
+	Held tools are applied to the fresh loadout the moment a run begins and then
+	forgotten, so "this run" means the next run rather than every run.
+]]
+local held: { [Player]: { [string]: boolean } } = {}
+
+--- Remembers a run-only tool until a run exists to put it in.
+function RunState.holdTool(player: Player, toolId: string)
+	local mine = held[player]
+	if not mine then
+		mine = {}
+		held[player] = mine
+	end
+	mine[toolId] = true
+end
+
+--- Whether anything is waiting for this player, so the caller can say so.
+function RunState.hasHeldTools(player: Player): boolean
+	return held[player] ~= nil
+end
+
+--[[
+	Hands the held tools to the loadouts a round rotation has just rebuilt.
+
+	Called after `resetAll`, beside `carryRentals`, for the same reason.
+]]
+function RunState.applyHeldTools()
+	for player, tools in held do
+		local state = states[player]
+		if state then
+			local bestId: string? = nil
+			local bestTier = -math.huge
+			for toolId in tools do
+				state.ownedTools[toolId] = true
+				local tool = Tools.get(toolId)
+				if tool and tool.tier > bestTier then
+					bestTier = tool.tier
+					bestId = toolId
+				end
+			end
+			-- Equipped, because a tool you paid for and cannot find is the
+			-- complaint this whole thing exists to answer.
+			if bestId then
+				state.equippedTool = bestId
+			end
+		end
+	end
+	table.clear(held)
+end
+
 --- The player's run state, creating one if the run has already started.
 function RunState.get(player: Player): State
 	local state = states[player]
@@ -134,6 +194,7 @@ end
 function RunState.start()
 	Players.PlayerRemoving:Connect(function(player)
 		states[player] = nil
+		held[player] = nil
 	end)
 
 	-- Someone arriving mid-run starts from nothing like everyone else did.
