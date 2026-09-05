@@ -1558,11 +1558,21 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 		unreadable smear — "Leaf BloweInfinite BUpgrade Bag". The labels are now
 		narrower than the gap between them, and the middle one rides higher, so
 		no two can collide from any direction you can stand in.
+
+		Both heights are then bounded by something the stagger did not account
+		for: the shed's own roof. Measured with markers along the counter, the
+		underside of the front lintel is at fourteen and a half studs, and the
+		middle sign was hung with its centre at fourteen point seven — so the
+		one item in the shop meant to be the loudest thing in it was drawn
+		entirely inside the roof and had never once been seen. The pair now
+		use the band beneath the lintel: shorter boxes, and a smaller step
+		between them, which costs nothing because at eight studs wide every
+		one of these labels is limited by its width and not its height.
 	]]
 	local displays = {
-		{ label = "Upgrade Bag", prop = "Sack", rainbow = false, color = Palette.rgb(96, 206, 140), offset = -10, lift = 2.8 },
-		{ label = "Infinite Bag", prop = "Sack", rainbow = true, color = Palette.ui.tips, offset = 0, lift = 5.2 },
-		{ label = "Leaf Blower", prop = "LeafBlower", rainbow = false, color = Palette.rgb(120, 168, 220), offset = 10, lift = 2.8 },
+		{ label = "Upgrade Bag", prop = "Sack", rainbow = false, color = Palette.rgb(96, 206, 140), offset = -10, lift = 2.1 },
+		{ label = "Infinite Bag", prop = "Sack", rainbow = true, color = Palette.ui.tips, offset = 0, lift = 4.0 },
+		{ label = "Leaf Blower", prop = "LeafBlower", rainbow = false, color = Palette.rgb(120, 168, 220), offset = 10, lift = 2.1 },
 	}
 	for _, display in displays do
 		-- The stock is the thing it sells, not a coloured cube standing for it.
@@ -1575,7 +1585,18 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 			canCollide = false,
 			parent = shed,
 		})
-		local sign = Build.billboard(item, UDim2.fromScale(8, 2.6), display.lift, 90)
+		--[[
+			Stood out in front of the shed rather than inside it.
+
+			Hung on the stock where it sits, these were cut off by the shed's
+			own frame: "Upgrade Bag" read as "pgrade Bag" and "Leaf Blower" as
+			"Leaf Blow", each losing exactly what stuck out past the opening.
+			Confirmed by hiding the shell, which made both whole. Five studs
+			forward clears the frame from every angle you can stand at, and
+			six and a half wide leaves the pair either side clear of the
+			middle one.
+		]]
+		local sign = Build.billboard(item, UDim2.fromScale(6.5, 1.5), display.lift, 90, 5)
 		if display.rainbow then
 			Build.rainbowText(sign, display.label, UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), 1.2)
 		else
@@ -1583,7 +1604,16 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 		end
 	end
 
-	local gui = Build.billboard(counter, UDim2.fromScale(13, 3.6), 14, 280)
+	--[[
+		Clear of the roof, rather than halfway through it.
+
+		Hung at fourteen studs above the counter this sign straddled the
+		roofline: "THE SHED" cleared it and "Tools & Upgrades" — the line that
+		says what the building is for — sat behind the shingles and was never
+		visible from anywhere on the property. Seventeen puts the whole board
+		above the ridge, which is where a shop hangs its sign anyway.
+	]]
+	local gui = Build.billboard(counter, UDim2.fromScale(13, 3.6), 17, 280)
 	Build.label(gui, "THE SHED", UDim2.fromScale(1, 0.56), UDim2.fromScale(0, 0), 2.4)
 	Build.label(gui, "Tools & Upgrades", UDim2.fromScale(1, 0.4), UDim2.fromScale(0, 0.58), 1.2)
 

@@ -20,6 +20,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local Props = require(Shared.Config.Props)
 local Types = require(Shared.Types)
@@ -234,20 +235,66 @@ end
 --------------------------------------------------------------------
 
 --[[
-	Turns a player who has just spawned in the lobby to face the yard.
+	Turns a player who has just been put somewhere to face what is there.
 
-	The lobby stands them at the gate looking north up the middle, and it does
-	it by rotating the character — which in a first-person camera is not where
-	facing comes from. The camera owns the yaw and the character is turned to
-	match it, so the server's rotation was overwritten within a frame and every
-	player arrived staring at the fence behind them with the pads, the boards
-	and the sign all out of shot. Setting the camera is what actually turns
-	somebody round; measured, it moves the character with it.
+	Both places that move a player rotate the character to do it — which in a
+	first-person camera is not where facing comes from. The camera owns the yaw
+	and the character is turned to match it, so the server's rotation is
+	overwritten within a frame: in the lobby that left everyone staring at the
+	fence behind them with the pads, the boards and the sign all out of shot,
+	and on a property it left them facing the road with the whole lot behind
+	them. Setting the camera is what actually turns somebody round; measured,
+	it moves the character with it.
 
-	Aimed at the marquee rather than at a compass direction, so it keeps
-	pointing at the right thing if the yard is ever laid out differently
-	again — which it has been twice.
+	Aimed at something standing in the world rather than at a compass
+	direction, so it keeps pointing at the right thing if a place is ever laid
+	out differently again — which the lobby has been twice.
 ]]
+--[[
+	What the camera should be pointed at from where the player is standing,
+	or nil while there is nothing to aim at yet.
+
+	Two places, one rule. In the lobby it is the marquee. On a property it is
+	whichever way the spawn pad is turned: the server aims that at the middle
+	of the section the run starts in, so following it needs no second copy of
+	the level layout on the client and it keeps pointing at the right thing if
+	a property is ever laid out differently.
+]]
+local function aimAt(): Vector3?
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not (root and root:IsA("BasePart")) then
+		return nil
+	end
+
+	local lobby = workspace:FindFirstChild("MowLobby")
+	local marquee = lobby and lobby:FindFirstChild("StatusBoard", true)
+	if marquee and marquee:IsA("BasePart") and (root.Position - marquee.Position).Magnitude <= 400 then
+		return marquee.Position
+	end
+
+	--[[
+		The property, and the reason this branch exists.
+
+		The rotation the server spawns you with does not survive: the camera
+		owns the yaw and turns the character to match it within a frame, so a
+		run began with the camera still holding the yaw it had in the lobby.
+		Measured on The House, that is due south — the road, with the lawn,
+		the trailer, the house and every section of the property behind you.
+		The lobby had this fixed and the run never did.
+
+		Kept to the pad, so it is the arrival being aimed and not somebody
+		walking back past their own spawn twenty minutes later.
+	]]
+	local world = workspace:FindFirstChild("MowWorld")
+	local pad = world and world:FindFirstChild("MowSpawn")
+	if pad and pad:IsA("BasePart") and (root.Position - pad.Position).Magnitude <= 40 then
+		return root.Position + pad.CFrame.LookVector * 100
+	end
+
+	return nil
+end
+
 local function faceTheYard()
 	task.spawn(function()
 		--[[
@@ -289,12 +336,8 @@ local function faceTheYard()
 		]]
 		for _ = 1, 166 do
 			task.wait(0.15)
-			local lobby = workspace:FindFirstChild("MowLobby")
-			local marquee = lobby and lobby:FindFirstChild("StatusBoard", true)
-			local character = player.Character
-			local root = character and character:FindFirstChild("HumanoidRootPart")
 			local camera = workspace.CurrentCamera
-			if not (marquee and root and root:IsA("BasePart") and camera) then
+			if not camera then
 				continue
 			end
 			--[[
@@ -309,24 +352,21 @@ local function faceTheYard()
 				continue
 			end
 			--[[
-				Waits for the lobby to seat them rather than giving up.
+				Waits to be put somewhere rather than giving up.
 
-				This guard is here so a run, which has its own spawn and its own
-				thing worth looking at, is left alone. It was a `return`, and
-				that is what defeated every version of this: the loop starts the
-				moment the client does, which is before the lobby has moved
-				anybody anywhere, so the first thing it saw was a player two and
-				a half thousand studs away at the world origin — reasonably
-				concluded they were not in the lobby, and quit for good.
-
-				Waiting instead costs nothing and is correct in both cases: in a
-				run it simply never comes true and the loop runs out.
+				It was a `return`, and that is what defeated every version of
+				this: the loop starts the moment the client does, which is
+				before anybody has been moved anywhere, so the first thing it
+				saw was a player two and a half thousand studs away at the world
+				origin — reasonably concluded there was nothing to aim at, and
+				quit for good. Waiting instead costs nothing.
 			]]
-			if (root.Position - marquee.Position).Magnitude > 400 then
+			local target = aimAt()
+			if not target then
 				continue
 			end
 			local eye = camera.CFrame.Position
-			local flat = Vector3.new(marquee.Position.X, eye.Y, marquee.Position.Z)
+			local flat = Vector3.new(target.X, eye.Y, target.Z)
 			local want = flat - eye
 			if want.Magnitude < 1 then
 				return
@@ -363,6 +403,25 @@ function ViewController.start()
 		moment, told rather than guessed at.
 	]]
 	Intro.CameraReturned:Connect(faceTheYard)
+
+	--[[
+		Aim again on arriving somewhere new.
+
+		Starting a run and coming back from one both move the player without
+		reloading the character — deliberately, so that choosing a property
+		does not cost you your avatar for a second — so `CharacterAdded` never
+		fires for either and nothing was aiming them. Phase is the moment: it
+		changes exactly when everybody has been put down somewhere else.
+	]]
+	local lastPhase = ""
+	Remotes.event(Remotes.ROUND_STATE).OnClientEvent:Connect(function(state: any)
+		local phase = if typeof(state) == "table" then tostring(state.phase) else ""
+		if phase ~= lastPhase then
+			lastPhase = phase
+			faceTheYard()
+		end
+	end)
+
 	faceTheYard()
 
 	RunService.RenderStepped:Connect(step)

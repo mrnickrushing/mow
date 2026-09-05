@@ -269,6 +269,34 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 	end
 end
 
+--[[
+	Since when the trigger has been held over nothing a pickup tool can take.
+
+	A pickup tool works on one tile, and it looks for that tile in a line
+	ahead of the player and then underfoot. Where a prop stands the ground is
+	bare, and a crate is wider than bare hands can reach past — so walking up
+	to the crate on the first lawn and pressing the button does nothing at
+	all, with PICK UP still written under the button and no other sign that
+	anything is wrong. That is the same "it does not register" the full bag
+	and the empty tank both used to produce, and it wants the same answer: say
+	so.
+]]
+local reachedNothingAt: number? = nil
+
+--[[
+	True once the trigger has been held for a moment over nothing in reach.
+
+	Delayed rather than immediate, because the target moves as the player
+	turns: a line that blinks on and off while somebody sweeps across a patch
+	of bare ground is worse than no line at all.
+]]
+local EMPTY_GRACE = 0.6
+
+function MowController.reachingNothing(): boolean
+	local since = reachedNothingAt
+	return mowing and since ~= nil and os.clock() - since >= EMPTY_GRACE
+end
+
 local function setMowing(value: boolean)
 	if mowing == value then
 		return
@@ -278,6 +306,7 @@ local function setMowing(value: boolean)
 		accumulator = 0
 		predictCarry = 0
 		lastPredictFrom = nil
+		reachedNothingAt = nil
 	end
 
 	-- Engine noise belongs to the machine, so it runs only while a mower is
@@ -510,6 +539,24 @@ local function step(delta: number)
 		-- it straight back.
 		local grid = GrassRenderer.grid()
 		local tiles = GrassRenderer.tiles()
+
+		--[[
+			Asked every tick rather than inside `predict`, which only runs on
+			a whole pass — bare hands earn a pass about once a second, so a
+			player holding the button at a crate would have waited that long
+			to be told anything.
+		]]
+		if tool.mode == "pickup" then
+			local target = grid ~= nil
+				and tiles ~= nil
+				and Cutting.pickupTarget(grid, tiles, root.Position.X, root.Position.Z, flat.X, flat.Z, tool, function(index)
+					return PlayerState.isSectionOpen(PlayerState.sectionIdAt(index))
+				end)
+			reachedNothingAt = if target then nil else reachedNothingAt or os.clock()
+		else
+			reachedNothingAt = nil
+		end
+
 		local wet = grid ~= nil
 			and tiles ~= nil
 			and Cutting.isWetAt(grid, tiles, root.Position.X, root.Position.Z)

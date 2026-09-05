@@ -1242,6 +1242,32 @@ local function standingOnSomething(character: Model): boolean
 	return workspace:Raycast(root.Position, Vector3.new(0, -VOID_DROP, 0), params) ~= nil
 end
 
+--[[
+	How far from the middle of the lobby still counts as being in it.
+
+	The room is a hundred and sixty studs across, so anything past a couple
+	of hundred is not in it by any reading. This exists because falling is
+	not the only way to end up nowhere: a build that dies partway through —
+	a script timeout, or anything else that throws — never seats anybody, and
+	they stay where a character loads with no spawn to go to, which is the
+	world origin. That is two and a half thousand studs from the lobby, on
+	solid ground, so the check below for something underneath them finds
+	something and is satisfied. The player sees empty sky.
+
+	The timeout that produced that has its own fix in `Build`. This is the
+	backstop for the next reason, whatever it turns out to be: during the
+	lobby phase, a player who is not in the lobby belongs in the lobby.
+]]
+local LOBBY_RADIUS = 260
+
+local function farFromTheLobby(character: Model): boolean
+	local root = character.PrimaryPart or character:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") then
+		return false
+	end
+	return (root.Position - CENTRE).Magnitude > LOBBY_RADIUS
+end
+
 local function rescue(player: Player)
 	local character = player.Character
 	if not character then
@@ -1251,7 +1277,9 @@ local function rescue(player: Player)
 	if not humanoid or humanoid.Health <= 0 then
 		return
 	end
-	if standingOnSomething(character) then
+	local lost = not standingOnSomething(character)
+		or (MowRunService.phase() == "lobby" and farFromTheLobby(character))
+	if not lost then
 		return
 	end
 	if MowRunService.phase() == "lobby" then
@@ -1263,7 +1291,7 @@ local function rescue(player: Player)
 			character:PivotTo(spawnAt)
 		end
 	end
-	warn(`[Lobby] {player.Name} had nothing underneath them; put back`)
+	warn(`[Lobby] {player.Name} was not anywhere they should be; put back`)
 end
 
 --------------------------------------------------------------------
