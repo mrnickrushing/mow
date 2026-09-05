@@ -667,7 +667,20 @@ function Worlds.pavingRects(world: Types.WorldDef): { Paving }
 	local tile = GameConfig.TILE_SIZE
 	local centreX = (hr.x + hr.w * 0.5) * tile + tile * 0.5
 	local frontZ = hr.z * tile + tile * 0.5
-	local kerbZ = 34
+	--[[
+		The drive starts at the pavement, not thirty-four studs short of it.
+
+		This was 34 — the line where the front section begins — so every
+		property's path and driveway stopped a third of the way up the garden
+		and the last stretch down to the road was lawn. A drive that does not
+		reach the street is a patio in the middle of a garden, and it is what
+		made the apron at the kerb read as a slab dropped on the grass rather
+		than as the place a car turns in.
+
+		Two studs is the inner edge of the pavement the street builder lays,
+		so the two meet.
+	]]
+	local kerbZ = 2
 
 	--[[
 		An estate is approached up a drive, not along a garden path.
