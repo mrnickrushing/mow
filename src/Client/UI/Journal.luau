@@ -43,6 +43,7 @@ local leftPage: Frame
 local rightPage: Frame
 local moneyLabel: TextLabel
 local tabButtons: { [string]: TextButton } = {}
+local bookTitle: TextLabel
 local activeTab = "objectives"
 local isOpen = false
 local questState: { any } = {}
@@ -325,8 +326,18 @@ local function renderPlayers()
 			mark.Parent = avatar
 		end
 
+		--[[
+			An empty seat says it is empty.
+
+			The party has four places and this draws all four, which is worth
+			doing — it is how a player learns there is room for friends. But
+			an unfilled one read `Player 2`, with a question mark for a face
+			and dashes for its numbers, which is not an empty seat: it is a
+			player called Player 2 whose score has not loaded. Three of those
+			under your own name make a working solo game look broken.
+		]]
 		local name = Instance.new("TextLabel")
-		name.Text = if subject then subject.DisplayName else `Player {order}`
+		name.Text = if subject then subject.DisplayName else "Waiting for a player"
 		name.Size = UDim2.new(1, -64, 0, 26)
 		name.Position = UDim2.fromOffset(60, 6)
 		name.BackgroundTransparency = 1
@@ -493,10 +504,21 @@ local function slotCard(parent: Instance, order: number, slot: any, owned: boole
 		})
 	end
 
+	--[[
+		A price reads like a price.
+
+		There are two money forms here on purpose: a running total is `$5.41`,
+		and a rate or a gain is `4.36$`, which is how the reference writes the
+		numbers that fly past while you work. These are neither — they are what
+		the upgrade costs — and they were printing in the rate form. The same
+		page shows the tool underneath at `Buy — $110` and your own money at
+		`$0`, so one card was writing money backwards from everything around
+		it.
+	]]
 	local cost = ToolUpgrades.costAt(slot, level)
 	local price = Instance.new("TextLabel")
 	price.Name = "Price"
-	price.Text = if not owned then "?" elseif cost then `{string.format("%.2f", cost)}$` else "MAX"
+	price.Text = if not owned then "?" elseif cost then Format.cash(cost) else "MAX"
 	price.Size = UDim2.new(1, 0, 0, 22)
 	price.Position = UDim2.new(0, 0, 0, 126)
 	price.BackgroundTransparency = 1
@@ -717,7 +739,7 @@ local function renderUpgrades()
 	end
 
 	local buyButton = Instance.new("TextButton")
-	buyButton.Text = if selectedCost then `BUY  —  {string.format("%.2f", selectedCost :: number)}$` else "BUY"
+	buyButton.Text = if selectedCost then `BUY  —  {Format.cash(selectedCost :: number)}` else "BUY"
 	buyButton.Size = UDim2.new(0.8, 0, 0, 48)
 	-- Green the instant the money lands, without the page being rebuilt under
 	-- the cursor to do it.
@@ -1149,14 +1171,14 @@ local function renderTips()
 		}
 		else {
 			"Hold the tool button — work",
-			"Tap the Book — open this journal",
+			"Tap the Journal — open this journal",
 			"Tap STORE — the Robux store",
 			"Tap Ride — mount a riding mower",
 			"Tap Trailer — park the portable trailer",
 			"",
 		}
 	for _, line in {
-		"Upgrades and tools are bought in this book,",
+		"Upgrades and tools are bought in this journal,",
 		"or at the boards outside the shed.",
 		"",
 		"• Hold to work. Your deck cuts a swath as wide as the tool.",
@@ -1350,6 +1372,14 @@ end
 
 local function setTab(id: string)
 	activeTab = id
+	if bookTitle then
+		for _, tab in TABS do
+			if tab.id == id then
+				bookTitle.Text = string.upper(tab.label)
+				break
+			end
+		end
+	end
 	for tabId, button in tabButtons do
 		local selected = tabId == id
 		button.TextColor3 = if selected then INK else Color3.fromRGB(120, 104, 84)
@@ -1449,18 +1479,21 @@ local function build()
 	Theme.fitToViewport(book, 940 + 220, 560 + 60)
 
 	--[[
-		The book says what it is for.
+		The title says which page you are on.
 
-		It had no title anywhere — five tabs down the spine and nothing to say
-		what the thing they hang off actually was. Most of what a player comes
-		in here to do is buy: the upgrade lines, the tool trees, and the tips
-		that make a tool permanent. Naming it that is the difference between
-		a book you open when you are stuck and one you open when you have
-		money.
+		It had no title at all once — five tabs down the spine and nothing to
+		say what they hang off — and then it had a fixed one, "UPGRADE
+		JOURNAL", chosen because most of what a player comes in here to do is
+		buy. Both of those are worse than this. The fixed one was wrong four
+		times out of five: you press a button labelled Journal, and a window
+		headed UPGRADE JOURNAL opens on a list of objectives.
+
+		Naming the open tab is right every time, and on the tab it opens on it
+		reads JOURNAL, which is the word on the button that got you here.
 	]]
-	local bookTitle = Instance.new("TextLabel")
+	bookTitle = Instance.new("TextLabel")
 	bookTitle.Name = "BookTitle"
-	bookTitle.Text = "UPGRADE JOURNAL"
+	bookTitle.Text = "JOURNAL"
 	bookTitle.Size = UDim2.new(1, -40, 0, 34)
 	bookTitle.Position = UDim2.new(0.5, 0, 0, -38)
 	bookTitle.AnchorPoint = Vector2.new(0.5, 0)
