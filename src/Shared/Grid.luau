@@ -190,6 +190,61 @@ function Grid.rasterizeSwath(
 	return out
 end
 
+--- Tiles already collected by the sweep in progress. Module-level so the
+--- server's hot path does not allocate a set per intent.
+local sweepSeen: { [number]: boolean } = {}
+
+--[[
+	Tiles covered by a deck dragged from one point to another.
+
+	One swath per intent assumes the intents arrive. They are sent unreliably,
+	on purpose, and a ride-on mower covers three to five studs between ticks —
+	so one lost tick was a deck-wide strip the server never cut, sitting
+	behind a machine the client had already shown clearing it. The next flush
+	put the grass back and it stayed back until the player turned round.
+
+	The deck is rasterised at every half-tile along the segment and the tiles
+	are unioned, so whatever happened to the intents in between, the path
+	the machine actually took is what gets cut. A gap shorter than half a
+	tile is just the swath at the far end. `out` receives one-based tile
+	indices with no duplicates; `scratch` is reused for each step's swath.
+]]
+function Grid.rasterizeSweep(
+	self: Grid,
+	fromX: number,
+	fromZ: number,
+	toX: number,
+	toZ: number,
+	dirX: number,
+	dirZ: number,
+	deckTiles: number,
+	reach: number,
+	out: { number },
+	scratch: { number }
+): { number }
+	local dx, dz = toX - fromX, toZ - fromZ
+	local distance = math.sqrt(dx * dx + dz * dz)
+	local step = self.tileSize * 0.5
+	if distance <= step then
+		return Grid.rasterizeSwath(self, toX, toZ, dirX, dirZ, deckTiles, reach, out)
+	end
+
+	table.clear(out)
+	table.clear(sweepSeen)
+	local steps = math.ceil(distance / step)
+	for i = 0, steps do
+		local t = i / steps
+		Grid.rasterizeSwath(self, fromX + dx * t, fromZ + dz * t, dirX, dirZ, deckTiles, reach, scratch)
+		for _, index in scratch do
+			if not sweepSeen[index] then
+				sweepSeen[index] = true
+				table.insert(out, index)
+			end
+		end
+	end
+	return out
+end
+
 --[[
 	The tile a player is looking at, for pickup tools.
 

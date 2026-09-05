@@ -70,11 +70,23 @@ local GameConfig = {
 		up — a strip of lawn that cuts, grows back and cuts again in front of
 		every swath tool. Cutting from the reported position, held within
 		this distance of the server's own, makes both sides rasterise the
-		same rectangle. Sized for the fastest deck: 52 studs a second over a
-		couple of ticks of lag. Well under MOW_POSITION_TOLERANCE, so a
-		reported position that could only be a cheat is still discarded.
+		same rectangle. Sized for the fastest deck: the commercial deck does
+		52 studs a second, and three tenths of a second of lag on it is
+		sixteen studs — twelve covered every walking tool and every ride-on
+		at a good connection, and not the top deck on an ordinary one. Well
+		under MOW_POSITION_TOLERANCE, so a reported position that could only
+		be a cheat is still discarded.
 	]]
-	MOW_POSITION_LEAD = 12,
+	MOW_POSITION_LEAD = 16,
+	--[[
+		The longest gap between two accepted intents that is still treated as
+		travel and swept, in studs.
+
+		Anything longer is a teleport, a respawn or a mount, and sweeping the
+		deck across it would mow a line through the property nobody drove.
+		The fastest deck over the half-second an intent may credit is 26.
+	]]
+	MOW_SWEEP_MAX = 30,
 	--- Only replicate live chunk deltas to clients within this many studs.
 	REPLICATION_RADIUS = 420,
 

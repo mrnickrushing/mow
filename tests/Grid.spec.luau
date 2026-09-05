@@ -99,6 +99,75 @@ return function()
 		end)
 	end)
 
+	h.describe("Grid — sweeping the deck along a path", function()
+		local out: { number } = {}
+		local scratch: { number } = {}
+
+		local function rows(grid: any, indices: { number }): { [number]: boolean }
+			local seen = {}
+			for _, index in indices do
+				local _, tz = Grid.fromIndex(grid, index)
+				seen[tz] = true
+			end
+			return seen
+		end
+
+		h.it("is exactly a swath when the machine has not moved", function()
+			local grid = Grid.new(30, 60)
+			local wx, wz = Grid.tileToWorld(grid, 15, 10)
+			local swath = Grid.rasterizeSwath(grid, wx, wz, 0, 1, 3, TILE * 3, {})
+			local sweep = Grid.rasterizeSweep(grid, wx, wz, wx, wz, 0, 1, 3, TILE * 3, out, scratch)
+			h.expectSameSet(sweep, swath, "no travel, no difference")
+		end)
+
+		h.it("leaves no row uncut across a gap longer than the deck's reach", function()
+			-- A ride-on at 48 studs a second loses three tenths of a second of
+			-- intents: fourteen studs of travel against a fourteen-stud reach.
+			-- Stamping the deck at each end would miss the rows in between.
+			local grid = Grid.new(30, 60)
+			local x0, z0 = Grid.tileToWorld(grid, 15, 10)
+			local reach = TILE * 3.5
+			local x1, z1 = x0, z0 + reach + TILE * 2
+			local sweep = Grid.rasterizeSweep(grid, x0, z0, x1, z1, 0, 1, 3, reach, out, scratch)
+
+			local covered = rows(grid, sweep)
+			local firstRow = select(2, Grid.worldToTile(grid, x0, z0))
+			local lastRow = select(2, Grid.worldToTile(grid, x1, z1 + reach))
+			for tz = firstRow, lastRow do
+				h.expectTrue(covered[tz] == true, `row {tz} was skipped`)
+			end
+		end)
+
+		h.it("never lists a tile twice", function()
+			local grid = Grid.new(30, 60)
+			local x0, z0 = Grid.tileToWorld(grid, 15, 10)
+			local sweep = Grid.rasterizeSweep(grid, x0, z0, x0, z0 + TILE * 6, 0, 1, 5, TILE * 3, out, scratch)
+			local seen = {}
+			for _, index in sweep do
+				h.expectFalse(seen[index] == true, `tile {index} listed twice`)
+				seen[index] = true
+			end
+		end)
+
+		h.it("covers everything either end's swath would have", function()
+			local grid = Grid.new(40, 40)
+			local x0, z0 = Grid.tileToWorld(grid, 10, 10)
+			local x1, z1 = Grid.tileToWorld(grid, 22, 18)
+			local dirX, dirZ = x1 - x0, z1 - z0
+			local sweep = Grid.rasterizeSweep(grid, x0, z0, x1, z1, dirX, dirZ, 3, TILE * 2, out, scratch)
+			local inSweep = {}
+			for _, index in sweep do
+				inSweep[index] = true
+			end
+			for _, index in Grid.rasterizeSwath(grid, x0, z0, dirX, dirZ, 3, TILE * 2, {}) do
+				h.expectTrue(inSweep[index] == true, `start swath tile {index} missing`)
+			end
+			for _, index in Grid.rasterizeSwath(grid, x1, z1, dirX, dirZ, 3, TILE * 2, {}) do
+				h.expectTrue(inSweep[index] == true, `end swath tile {index} missing`)
+			end
+		end)
+	end)
+
 	h.describe("Grid — swath rasterisation", function()
 		local scratch: { number } = {}
 
