@@ -256,7 +256,19 @@ local list: { Types.ToolDef } = {
 		clears = { Debris.Grass },
 		maxHeight = 3,
 		fuelBurn = 2.0,
-		vehicle = { speed = 34, turnSpeed = 2.4, seatOffset = 2.2 },
+		--[[
+			The hopper: what the machine carries so the rider's bag does not
+			have to.
+
+			A ride-on deck crosses eight tile rows a second and a full row is
+			up to sixty clippings, so against a twenty-five clipping bag the
+			riding mower cut two tiles, filled the bag, and sat there refused
+			— which is how "the riding mower doesn't work" was reported. The
+			hopper is sized for a trailer trip every quarter of a minute or
+			so at a realistic cutting pace, and a few seconds of the machine's
+			absolute worst case over full-height grass. There is a test.
+		]]
+		vehicle = { speed = 34, turnSpeed = 2.4, seatOffset = 2.2, hopper = 3000 },
 		robuxOnce = 199,
 		robuxPermanent = 599,
 		robuxWas = 1099,
@@ -296,7 +308,7 @@ local list: { Types.ToolDef } = {
 		clears = { Debris.Grass, Debris.Weeds },
 		maxHeight = 3,
 		fuelBurn = 3.0,
-		vehicle = { speed = 48, turnSpeed = 4.2, seatOffset = 2.4 },
+		vehicle = { speed = 48, turnSpeed = 4.2, seatOffset = 2.4, hopper = 5000 },
 		robuxOnce = 260,
 		robuxPermanent = 779,
 		robuxWas = 1399,
@@ -354,7 +366,7 @@ local list: { Types.ToolDef } = {
 		clears = { Debris.Grass, Debris.Weeds },
 		maxHeight = 3,
 		fuelBurn = 4.0,
-		vehicle = { speed = 52, turnSpeed = 3.0, seatOffset = 2.6 },
+		vehicle = { speed = 52, turnSpeed = 3.0, seatOffset = 2.6, hopper = 8000 },
 		robuxOnce = 380,
 		robuxPermanent = 1139,
 		robuxWas = 1999,

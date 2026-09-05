@@ -120,6 +120,31 @@ return function()
 				h.expectEqual(Tools.isVehicle(tool), expected, `{tool.id} vehicle flag`)
 			end
 		end)
+
+		h.it("gives every ride-on a hopper that outlasts a few seconds of its worst case", function()
+			--[[
+				A deck `deck` tiles wide crossing `speed / TILE_SIZE` rows a
+				second over full-height grass takes deck * MAX_HEIGHT * units
+				per level per row. A hopper smaller than a few seconds of that
+				is the twenty-five clipping bag all over again: two tiles,
+				"bag full", and a mower that reads as broken.
+			]]
+			local grassUnits = Debris.get(Debris.Grass).unitsPerLevel
+			local previous = 0
+			for _, tool in Tools.list do
+				local stats = tool.vehicle
+				if stats then
+					local rowsPerSecond = stats.speed / GameConfig.TILE_SIZE
+					local worstPerSecond = tool.deck * GameConfig.MAX_HEIGHT * grassUnits * rowsPerSecond
+					h.expectTrue(
+						stats.hopper >= worstPerSecond * 4,
+						`{tool.id} hopper {stats.hopper} holds under four seconds of its worst case ({worstPerSecond}/s)`
+					)
+					h.expectTrue(stats.hopper > previous, `{tool.id} hopper does not grow up the ladder`)
+					previous = stats.hopper
+				end
+			end
+		end)
 	end)
 
 	h.describe("Config — debris", function()

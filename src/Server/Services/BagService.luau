@@ -52,12 +52,27 @@ end
 
 BagService.get = bagFor
 
+--[[
+	The bag, plus the hopper of the machine the player is riding.
+
+	Required here rather than at the top: VehicleService reaches this service
+	through TileService, and a load-time require in both directions is a
+	cycle. By the time anyone asks for a capacity every module is loaded, so
+	the late require is a cache hit.
+]]
+local function hopperFor(player: Player): number
+	local VehicleService = require(script.Parent.VehicleService)
+	local riding = VehicleService.ridingTool(player)
+	local stats = riding and riding.vehicle
+	return if stats then stats.hopper else 0
+end
+
 function BagService.capacity(player: Player): number
 	local run = RunState.find(player)
 	if not run then
 		return 0
 	end
-	return Balance.bagCapacity(run.upgrades, EconomyService.modifiers(player))
+	return Balance.bagCapacity(run.upgrades, EconomyService.modifiers(player), hopperFor(player))
 end
 
 function BagService.weight(player: Player): number
