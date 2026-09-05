@@ -197,6 +197,9 @@ export type VehicleStats = {
 	speed: number,
 	turnSpeed: number,
 	seatOffset: number,
+	--- Clippings the machine's own hopper holds on top of the rider's bag,
+	--- while they are in the seat. See `Balance.bagCapacity`.
+	hopper: number,
 }
 
 export type UpgradeDef = {

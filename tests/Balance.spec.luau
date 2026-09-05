@@ -66,6 +66,14 @@ return function()
 			h.expectEqual(Balance.bagCapacity({}), GameConfig.BASE_BAG_CAPACITY)
 		end)
 
+		h.it("adds a machine's hopper on top of the bag, after the pass doubles it", function()
+			local plain = Balance.bagCapacity(levels(), nil, 3000)
+			h.expectEqual(plain, GameConfig.BASE_BAG_CAPACITY + 3000, "hopper adds to the bag")
+			local doubled = Balance.bagCapacity(levels(), { doubleBag = true }, 3000)
+			h.expectEqual(doubled, GameConfig.BASE_BAG_CAPACITY * 2 + 3000, "the pass doubles the bag, not the hopper")
+			h.expectEqual(Balance.bagCapacity(levels(), nil, nil), GameConfig.BASE_BAG_CAPACITY, "no machine, no hopper")
+		end)
+
 		h.it("prices each level above the last, and stops at the cap", function()
 			for _, def in Upgrades.list do
 				local previous = -1

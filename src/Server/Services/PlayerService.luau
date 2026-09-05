@@ -203,8 +203,12 @@ end
 local function stepPour(elapsed: number)
 	for _, player in Players:GetPlayers() do
 		if BagService.weight(player) > 0 and PlayerService.canDump(player) then
-			local capacity = math.max(BagService.capacity(player), 1)
-			local sip = capacity / GameConfig.BAG_EMPTY_SECONDS * elapsed
+			-- Whatever is carried pours in the same couple of seconds: a bag,
+			-- a hopper's worth, or a hopper's worth still in a walking bag
+			-- after the rider climbed off. Sipping at the bag's own size
+			-- would have taken a dismounted hopper load minutes to sell.
+			local load = math.max(BagService.capacity(player), BagService.weight(player), 1)
+			local sip = load / GameConfig.BAG_EMPTY_SECONDS * elapsed
 			local paid = BagService.sellUpTo(player, sip)
 			if paid > 0 then
 				EconomyService.notify(player, "tally", "", paid)

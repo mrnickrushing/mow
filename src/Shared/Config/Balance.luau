@@ -54,13 +54,21 @@ end
 -- Individual stats
 --------------------------------------------------------------------
 
-function Balance.bagCapacity(levels: UpgradeLevels, mods: Modifiers?): number
+--[[
+	How much a player can carry: the bag, doubled by the pass if held, plus the
+	hopper of whatever machine they are sitting on.
+
+	The hopper is added after the doubling, not before. It belongs to the
+	mower, not the bag, so a Double Bag pass makes the bag bigger and leaves the
+	machine's hopper exactly what the tool says it is.
+]]
+function Balance.bagCapacity(levels: UpgradeLevels, mods: Modifiers?, hopper: number?): number
 	local m = mods or EMPTY_MODIFIERS
 	local capacity = valueOf(levels, "bag")
 	if m.doubleBag then
 		capacity *= 2
 	end
-	return math.floor(capacity)
+	return math.floor(capacity) + (hopper or 0)
 end
 
 --- Multiplier applied to a tool's base passes-per-second. Cut speed belongs
