@@ -21,6 +21,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local ChunkCodec = require(Shared.ChunkCodec)
 local GameConfig = require(Shared.Config.GameConfig)
 local Grid = require(Shared.Grid)
+local Loop = require(Shared.Util.Loop)
 local Remotes = require(Shared.Remotes)
 
 local ReplicationService = {}
@@ -300,6 +301,74 @@ function ReplicationService.start()
 		if accumulator >= interval then
 			accumulator = 0
 			flush()
+		end
+	end)
+
+	--[[
+		A slow sweep that re-sends what a client already thinks it has.
+
+		Everything above only ever sends a tile the server *changed*, which is
+		right until the client is wrong about a tile the server did not change
+		— and the client is allowed to be wrong, because it predicts. It cuts
+		the grass on screen the instant the button is held and waits for the
+		server to agree. When the server does not agree there is nothing in
+		the stream to say so, and the mistake is permanent.
+
+		The server disagrees more often than the prediction admits. It drops
+		the whole intent when the rate limiter is empty, when the reported
+		position is outside the plausibility tolerance, and whenever the
+		player's run or tool does not check out; and when the report is merely
+		ahead of the server's view it clamps it, so a fast mower rasterises
+		one rectangle on the client and a shorter one here. Each of those
+		leaves a tile cut on screen and standing on the server.
+
+		The player cannot find those tiles, because there is nothing to find:
+		the lawn looks finished, the missed-spot beacons — which read the
+		client's own copy — see nothing to mark, and the section sits a
+		fraction short of a hundred per cent for the rest of the run with the
+		way out shut behind it. Reported twice: "I cleaned both the backyard
+		and the pool area and see NOTHING but it's at 99.8%", and then "the
+		beacons appeared but I got everything so they disappeared, still no
+		completion".
+
+		It also fixes the same thing happening to somebody else's cuts. A
+		flush only reaches players inside `REPLICATION_RADIUS`, and a client
+		only ever asks for a chunk it has never seen — so a chunk mown by one
+		player while another was across the property was never sent to them
+		and never asked for again.
+
+		Twelve chunks a tick puts the whole of The House back in front of
+		every player about every six seconds, at roughly a kilobyte a second
+		each. It is the same encoder and the same packet the client already
+		takes on arrival, so a correction costs no more than walking into the
+		chunk did.
+	]]
+	local RESYNC_PERIOD = 0.5
+	local RESYNC_CHUNKS = 12
+	local resyncCursor: { [Player]: number } = {}
+
+	Players.PlayerRemoving:Connect(function(player)
+		resyncCursor[player] = nil
+	end)
+
+	Loop.forever("ReplicationService.resync", function()
+		task.wait(RESYNC_PERIOD)
+		local theGrid = grid
+		if not theGrid then
+			return
+		end
+		local count = Grid.chunkCount(theGrid)
+		if count <= 0 then
+			return
+		end
+		for _, player in Players:GetPlayers() do
+			local cursor = resyncCursor[player] or 0
+			local batch = table.create(math.min(RESYNC_CHUNKS, count))
+			for step = 0, math.min(RESYNC_CHUNKS, count) - 1 do
+				table.insert(batch, (cursor + step) % count + 1)
+			end
+			resyncCursor[player] = (cursor + RESYNC_CHUNKS) % count
+			ReplicationService.sendChunks(player, batch)
 		end
 	end)
 end

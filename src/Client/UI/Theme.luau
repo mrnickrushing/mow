@@ -95,8 +95,23 @@ function Theme.dressActionButton(actionName: string, label: string?)
 		face.PressedImage = ""
 		face.BackgroundColor3 = Theme.colors.panelLight
 		face.BackgroundTransparency = 0.12
-		Theme.corner(face, 36)
-		Theme.stroke(face, 3, Theme.colors.outline, 0.05)
+		--[[
+			Dressed once, however many times this is called.
+
+			`Theme.corner` and `Theme.stroke` each add an instance, so calling
+			this again on the same button stacks another pair on it. One
+			caller was calling it about five times a second for the whole run,
+			which is a few thousand UICorners on a single button; that caller
+			is fixed, and so is this, because the engine hands back the same
+			button for the same action and nothing here should assume it is
+			the first to have touched it.
+		]]
+		if not face:FindFirstChildOfClass("UICorner") then
+			Theme.corner(face, 36)
+		end
+		if not face:FindFirstChildOfClass("UIStroke") then
+			Theme.stroke(face, 3, Theme.colors.outline, 0.05)
+		end
 		for _, child in face:GetDescendants() do
 			if child:IsA("TextLabel") then
 				child.Font = Theme.font
