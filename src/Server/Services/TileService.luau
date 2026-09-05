@@ -358,6 +358,24 @@ local function onMowIntent(player: Player, payload: any)
 		return
 	end
 
+	--[[
+		A full bag stops the machine, and a stopped machine burns nothing.
+
+		Fuel was charged before the cut was attempted, so a rider whose bag
+		had just filled — a ride-on deck fills a normal bag in about a second
+		— sat on the lawn cutting nothing and still burned the tank at two
+		to four fuel a second. The bag emptied at the trailer, the tank was
+		dry, and the mower that had taken six tiles was now also sending
+		them to the shed. Nothing should be paid for a pass that could not
+		happen: a full bag is answered before the tank is touched, and a
+		pass refused only because nothing more fits gives its fuel back.
+	]]
+	if BagService.weight(player) >= BagService.capacity(player) then
+		say(player, "bagFull", "Bag full — get to the trailer")
+		return
+	end
+	local fuelBefore = run.fuel
+
 	-- Fuel is spent on time actually cutting, not on time merely holding the
 	-- tool, so walking the long way round never costs anything.
 	if not FuelService.consume(player, tool.id, delta) then
@@ -383,6 +401,9 @@ local function onMowIntent(player: Player, payload: any)
 
 	local result = TileService.applyPasses(player, cutFrom, look, tool, passes, from)
 	lastCutFrom[player] = cutFrom
+	if result.tilesTouched == 0 and result.bagFull then
+		run.fuel = fuelBefore
+	end
 
 	if result.blockedBySection and result.tilesTouched == 0 then
 		say(player, "locked", "You have not bought this zone yet")
