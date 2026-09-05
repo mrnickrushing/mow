@@ -102,7 +102,7 @@ local BOARDS: { BoardDef } = {
 	},
 }
 
-type Row = { name: TextLabel, score: TextLabel }
+type Row = { name: TextLabel, score: TextLabel, face: ImageLabel }
 local rows: { [string]: { Row } } = {}
 local statusLabels: { [string]: TextLabel } = {}
 
@@ -204,6 +204,7 @@ local function buildBoard(parent: Instance, def: BoardDef, at: CFrame)
 		l.TextColor3 = colour
 		l.TextXAlignment = align
 		l.TextYAlignment = Enum.TextYAlignment.Center
+		l.ZIndex = 3
 		l.Parent = parent_
 		return l
 	end
@@ -215,15 +216,83 @@ local function buildBoard(parent: Instance, def: BoardDef, at: CFrame)
 	local built: { Row } = {}
 	local top = 0.13
 	local rowHeight = (0.97 - top) / ROWS
+
+	--[[
+		A face per row, because a wall of names is not a leaderboard.
+
+		Ten lines of small text on a dark board is what the reference does
+		not do: it puts everybody's avatar next to their name, and that is
+		the whole reason you can pick your own row out of it from across the
+		yard. It is also the only colour on the board.
+
+		Square, which takes some care on a `SurfaceGui`: scale on X measures
+		the face's width and on Y its height, and those are not the same
+		number of studs, so a portrait written as `fromScale(h, h)` comes out
+		a rectangle. The width is corrected by the board's own aspect.
+	]]
+	local portrait = rowHeight * 0.86
+	local portraitWide = portrait * (face.Size.Y / face.Size.X)
+
+	--[[
+		A plate behind each row, and a medal for the top three.
+
+		Without them the board is a black slab with small text down one edge
+		of it, which is what "the leaderboards need to be where you can see
+		the fucken things" was half about — moving them helped, but a wall of
+		unlit rows is still unreadable from six feet away. Plates give every
+		row an edge, and gold, silver and bronze say who is winning without
+		anybody reading a number.
+	]]
+	local MEDAL: { Color3 } = {
+		Color3.fromRGB(176, 134, 38),
+		Color3.fromRGB(126, 130, 138),
+		Color3.fromRGB(140, 92, 52),
+	}
+	local PLATE = { Color3.fromRGB(50, 43, 38), Color3.fromRGB(40, 34, 30) }
+
 	for i = 1, ROWS do
 		local y = top + rowHeight * (i - 1)
-		label(sheet, `{i}`, UDim2.fromScale(0.11, rowHeight), UDim2.fromScale(0.02, y), 30,
-			Color3.fromRGB(240, 186, 62), Enum.TextXAlignment.Center)
+
+		local plate = Instance.new("Frame")
+		plate.Name = "Plate"
+		plate.Size = UDim2.fromScale(0.96, rowHeight * 0.88)
+		plate.Position = UDim2.fromScale(0.02, y + rowHeight * 0.05)
+		plate.BackgroundColor3 = MEDAL[i] or PLATE[(i % 2) + 1]
+		plate.BorderSizePixel = 0
+		plate.ZIndex = 1
+		plate.Parent = sheet
+		local plateRound = Instance.new("UICorner")
+		plateRound.CornerRadius = UDim.new(0.28, 0)
+		plateRound.Parent = plate
+
+		label(sheet, `{i}`, UDim2.fromScale(0.085, rowHeight), UDim2.fromScale(0.015, y), 32,
+			if MEDAL[i] then Color3.fromRGB(255, 248, 230) else Color3.fromRGB(240, 186, 62),
+			Enum.TextXAlignment.Center)
+
+		local head = Instance.new("ImageLabel")
+		head.Name = "Face"
+		head.Size = UDim2.fromScale(portraitWide, portrait)
+		head.Position = UDim2.fromScale(0.105, y + rowHeight * 0.07)
+		-- Filled rather than transparent, so an empty row is still a row with
+		-- a place in it rather than a gap in the ranking.
+		head.BackgroundColor3 = Color3.fromRGB(58, 50, 44)
+		head.BorderSizePixel = 0
+		head.ScaleType = Enum.ScaleType.Fit
+		head.ZIndex = 3
+		head.Parent = sheet
+		local round = Instance.new("UICorner")
+		round.CornerRadius = UDim.new(0.18, 0)
+		round.Parent = head
+
 		built[i] = {
-			name = label(sheet, "—", UDim2.fromScale(0.55, rowHeight), UDim2.fromScale(0.14, y), 28,
+			face = head,
+			name = label(sheet, "—", UDim2.fromScale(0.46, rowHeight), UDim2.fromScale(0.105 + portraitWide + 0.02, y), 28,
 				Color3.fromRGB(246, 240, 228), Enum.TextXAlignment.Left),
-			score = label(sheet, "", UDim2.fromScale(0.28, rowHeight), UDim2.fromScale(0.70, y), 28,
-				Color3.fromRGB(126, 232, 106), Enum.TextXAlignment.Right),
+			-- Cream on a medal, green everywhere else: the green that reads as
+			-- a score against near-black goes muddy over gold and bronze.
+			score = label(sheet, "", UDim2.fromScale(0.28, rowHeight), UDim2.fromScale(0.68, y), 28,
+				if MEDAL[i] then Color3.fromRGB(255, 251, 238) else Color3.fromRGB(126, 232, 106),
+				Enum.TextXAlignment.Right),
 		}
 	end
 	rows[def.key] = built
@@ -338,14 +407,34 @@ local function refresh()
 					whole board down with it — a row that says the user id is a
 					worse board, not a broken one.
 				]]
+				local userId = tonumber(entry.key) or 0
 				local named, name = pcall(function()
-					return Players:GetNameFromUserIdAsync(tonumber(entry.key) or 0)
+					return Players:GetNameFromUserIdAsync(userId)
 				end)
 				row.name.Text = if named then name else "…"
 				row.score.Text = def.format(entry.value)
+
+				--[[
+					The portrait, on the same terms as the name above it.
+
+					Another web call per row, and it fails the same way: a
+					board that has lost one avatar should show nine and an
+					empty square, not stop. A head shot rather than a full
+					body, because at a tenth of a board's height a whole
+					avatar is a smudge and a face is still a face.
+				]]
+				local gotFace, thumb = pcall(function()
+					return Players:GetUserThumbnailAsync(
+						userId,
+						Enum.ThumbnailType.HeadShot,
+						Enum.ThumbnailSize.Size150x150
+					)
+				end)
+				row.face.Image = if gotFace then thumb else ""
 			else
 				row.name.Text = "—"
 				row.score.Text = ""
+				row.face.Image = ""
 			end
 		end
 	end
