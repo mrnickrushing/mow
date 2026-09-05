@@ -30,6 +30,23 @@ local announced: { [string]: boolean } = {}
 local lastCash = 0
 
 --[[
+	How long before the next one of these may be said.
+
+	Announcing one thing per check is not the same as announcing one thing.
+	`PlayerState.Changed` fires about five times a second, so "the cheapest
+	un-announced purchase, once per check" still put all five upgrade lines on
+	screen inside a second — the same wall as before, staggered by two hundred
+	milliseconds and no easier to read. Measured that way and it was still a
+	wall.
+
+	A toast lives about three seconds, so the next announcement waits slightly
+	longer than that. They arrive one at a time, each one legible on its own,
+	and a windfall unrolls over a few seconds instead of landing at once.
+]]
+local ANNOUNCE_GAP = 3.2
+local nextAnnounceAt = 0
+
+--[[
 	Whether something is worth announcing yet.
 
 	Only the next level of a line counts, and only the cheapest tool the player
@@ -42,8 +59,14 @@ local function check()
 	-- A fresh run zeroes the cash and the loadout, so everything is news again.
 	if state.cash < lastCash * 0.5 and state.cash < 1 then
 		table.clear(announced)
+		nextAnnounceAt = 0
 	end
 	lastCash = state.cash
+
+	-- One at a time means one at a time, not one per push.
+	if os.clock() < nextAnnounceAt then
+		return
+	end
 
 	--[[
 		One at a time, cheapest first.
@@ -133,6 +156,7 @@ local function check()
 	end)
 	local first = candidates[1]
 	announced[first.key] = true
+	nextAnnounceAt = os.clock() + ANNOUNCE_GAP
 	Hud.toast("afford", first.message)
 end
 
