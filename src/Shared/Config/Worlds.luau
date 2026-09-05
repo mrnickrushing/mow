@@ -80,7 +80,17 @@ local house: Types.WorldDef = {
 	art = "rbxassetid://82239772513005",
 	gridWidth = 96,
 	gridDepth = 96,
-	runSeconds = 5400,
+	--[[
+		Two hours, up from ninety minutes.
+
+		Ninety was tuned against a perfect solo run finishing in under half
+		an hour. A real party of three, sharing the trailer and the shed and
+		all starting on bare hands, ran the clock out with the backyard
+		barely finished — and that was with the wave cap already in. The
+		first property is the one that teaches the game; it should not be
+		the one that beats you on time.
+	]]
+	runSeconds = 7200,
 	payoutMultiplier = 1,
 	baseGround = Palette.ground.lawn,
 	style = "house",

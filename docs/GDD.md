@@ -7,7 +7,7 @@ clock, and turn clippings into better equipment.
 ## The shape of it
 
 **Not a tycoon.** You pick a world from the lobby, arrive with nothing, and
-clear it section by section against a ninety-minute clock. Cash, tools and
+clear it section by section against the clock — two hours on The House, less after. Cash, tools and
 upgrades live for the length of the run and no longer. Clear the last section
 and the grate opens: walk out and you have beaten the world.
 
@@ -150,14 +150,16 @@ can be beaten inside its clock, where a run stalls, and what gear you finish
 holding. Pass a player count to check wave scaling.
 
 Current: all three worlds beaten in 27–30 minutes by a player who never wastes a
-second, or about a third of the ninety-minute clock. Real players are nowhere
-near optimal, so the clock should feel tight rather than generous.
+second — about a quarter of The House's two-hour clock and a third to a half of
+the later worlds'. Real players are nowhere near optimal, so the clock should
+feel tight rather than generous; The House was lengthened from ninety minutes
+after a party of three ran out with the backyard barely done.
 
 Wave scaling is invariant up to the cap: a section holds U units per wave and
 needs one wave per player, so the total is N·U shared between N people and
 everybody does U. Past `Worlds.MAX_WAVES` (two) the share falls on purpose: a
-party of three owing three waves of every section ran out of the ninety-minute
-clock with the backyard barely done. There is a test for both halves.
+party of three owing three waves of every section ran out of the clock with the
+backyard barely done. There is a test for both halves.
 
 **Known tuning weakness:** the three worlds all sit near a third of the clock,
 so difficulty comes from length and complexity rather than from time pressure

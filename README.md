@@ -2,7 +2,7 @@
 
 A Roblox co-op yard-clearing game in the vein of *Clean all the leaves!*. Pick a
 world, arrive with nothing, and clear it section by section against a
-ninety-minute clock. Each section you finish opens the gate to the next; clear
+two-hour clock on the first property, tighter after. Each section you finish opens the gate to the next; clear
 the last one and the grate opens, you walk out, and you have beaten it.
 
 Work debris into your bag → walk to the trailer, it sells on approach → buy a
