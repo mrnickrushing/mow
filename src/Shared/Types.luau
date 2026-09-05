@@ -31,7 +31,17 @@ export type FillEntry = {
 export type ZoneUnlock = "start" | "completion" | "button" | "cash"
 
 --- Structures a zone generates around itself.
-export type ZoneKind = "open" | "room" | "pool" | "maze" | "roof"
+--[[
+	What a section is built out of.
+
+	The first three of these are the estate's, and exist because the second
+	property was structurally the first one: a grand lawn is an `open`, an
+	orangery was a `room`, and the cellars are a sunken `room` exactly like a
+	basement. A court is tarmac inside a mesh fence, a terrace is a raised
+	stone floor with a balustrade, and a glasshouse is the one building you
+	can see into.
+]]
+export type ZoneKind = "open" | "room" | "pool" | "maze" | "roof" | "court" | "terrace" | "glasshouse"
 
 export type ZoneDef = {
 	id: string,
@@ -112,7 +122,9 @@ export type WorldDef = {
 	--- Where the grate opens once the last section is clear.
 	exit: { x: number, z: number },
 	houseRect: Rect?,
-	style: ("house" | "lot")?,
+	--- Which builder raises the property: a suburban house, a stone estate,
+	--- or a filling station forecourt.
+	style: ("house" | "estate" | "lot")?,
 }
 
 --- Plain RGB triple so config modules never need the Roblox `Color3` global.

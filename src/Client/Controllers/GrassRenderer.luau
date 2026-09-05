@@ -315,6 +315,17 @@ local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
 	]]
 	driftByKind.roof = Palette.color(Palette.house.roof):Lerp(leaf, 0.5)
 	driftByKind.room = Palette.color(Palette.ground.stoneDark):Lerp(leaf, 0.5)
+	--[[
+		The estate's three, for the same reason.
+
+		A court is blue tarmac and a terrace is pale stone; a drift on either
+		painted from the world's lawn would be a green rectangle on a hard
+		surface, which is the exact fault the roof had. A glasshouse stands on
+		the same stone floor every room does.
+	]]
+	driftByKind.court = Palette.color(Palette.court.tarmac):Lerp(leaf, 0.25)
+	driftByKind.terrace = Palette.color(Palette.estate.stone):Lerp(leaf, 0.45)
+	driftByKind.glasshouse = driftByKind.room
 
 	for _, section in world.sections do
 		local r = section.rect
