@@ -2381,10 +2381,41 @@ local function buildExit(world: Types.WorldDef, parent: Folder)
 	-- Above the gate's raised position, not the block's top: opened, the gate
 	-- rises ten studs and a sign hung at eleven was read through its bars.
 	local gui = Build.billboard(frame, UDim2.fromScale(9, 3), 18, 220)
-	Build.label(gui, "WAY OUT", UDim2.fromScale(1, 0.55), UDim2.fromScale(0, 0), 2)
-	Build.label(gui, "Locked", UDim2.fromScale(1, 0.4), UDim2.fromScale(0, 0.58), 1.1)
+	Build.label(gui, "WAY OUT", UDim2.fromScale(1, 0.55), UDim2.fromScale(0, 0), 2).Name = "Title"
+	-- Named, because two things write to it and both used to find it by
+	-- reading what it currently said.
+	Build.label(gui, "Locked", UDim2.fromScale(1, 0.4), UDim2.fromScale(0, 0.58), 1.1).Name = "Status"
 
 	exitPart = grate
+end
+
+--- The line under WAY OUT, or nil when the exit has not been built.
+local function exitStatusLabel(): TextLabel?
+	local grate = exitPart
+	local frame = grate and grate.Parent and grate.Parent:FindFirstChild("ExitFrame")
+	local gui = frame and frame:FindFirstChildOfClass("BillboardGui")
+	local label = gui and gui:FindFirstChild("Status")
+	return if label and label:IsA("TextLabel") then label else nil
+end
+
+--[[
+	What is still holding the grate shut.
+
+	It said "Locked" and nothing else for a whole run. That is fine while
+	there is obviously work left, and it is a dead end at the point it
+	matters: The House's Pool Deck is a required section that sits off the
+	completion chain behind an eighteen dollar gate, so a player can clear
+	the front yard, the backyard, the maze, the farm and the basement — the
+	entire chain, in order, as the game led them — walk up to the way out
+	and be told "Locked" with no indication anywhere that a door they walked
+	past an hour ago is the reason. The sign is the one thing looking at them
+	when they ask the question, so it is the thing that answers.
+]]
+function WorldService.setExitStatus(text: string)
+	local label = exitStatusLabel()
+	if label then
+		label.Text = text
+	end
 end
 
 --[[
@@ -2436,18 +2467,7 @@ function WorldService.openExit()
 	})
 	doorway.CanQuery = false
 
-	local frame = grate.Parent and grate.Parent:FindFirstChild("ExitFrame")
-	if frame and frame:IsA("BasePart") then
-		local gui = frame:FindFirstChildOfClass("BillboardGui")
-		if gui then
-			local second = gui:FindFirstChild("Label", true)
-			for _, label in gui:GetChildren() do
-				if label:IsA("TextLabel") and label ~= second then
-					label.Text = label.Text == "Locked" and "Open — leave to finish" or label.Text
-				end
-			end
-		end
-	end
+	WorldService.setExitStatus("Open — leave to finish")
 
 	local prompt = Build.prompt(doorway, "Leave", "Way Out", 14)
 	prompt.HoldDuration = 0.6
