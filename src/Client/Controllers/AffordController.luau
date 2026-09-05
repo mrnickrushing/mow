@@ -45,23 +45,46 @@ local function check()
 	end
 	lastCash = state.cash
 
+	--[[
+		One at a time, cheapest first.
+
+		The rule this file states at the top — that announcing everything
+		affordable at once would be a wall of toasts the first time somebody
+		sells a full bag — was not the rule it followed. Each of the five
+		upgrade lines announced itself the moment its next level came into
+		reach, and so did each of the equipped tool's three slots, so a single
+		good sale could put eight of these on screen together. Measured in a
+		running game: five identical toasts stacked up the side of the HUD.
+
+		Every candidate is still remembered as announced only when it is
+		actually said, so nothing is silently swallowed — the rest arrive on
+		the next push, which is a second or two later. A windfall trickles
+		instead of flooding, and the cheapest thing is the one worth naming
+		first because it is the one they can act on now.
+	]]
+	type Candidate = { key: string, cost: number, message: string }
+	local candidates: { Candidate } = {}
+
 	for _, def in Upgrades.list do
 		local level = state.upgrades[def.id] or 0
 		local cost = Upgrades.costAt(def, level)
 		if cost and state.cash >= cost then
 			local key = `upgrade:{def.id}:{level}`
 			if not announced[key] then
-				announced[key] = true
 				-- Where, as well as what. Being told you can afford the Bag
 				-- without being told where the Bag is sold is the whole of the
 				-- complaint this line used to generate.
-				Hud.toast("afford", `You can now afford {def.name}! — Journal, Upgrades tab`)
+				table.insert(candidates, {
+					key = key,
+					cost = cost,
+					message = `You can now afford {def.name}! — Journal, Upgrades tab`,
+				})
 			end
 		end
 	end
 
 	-- The equipped tool's own three slots, by the tool's own names — "You can
-	-- now afford Throttle!" tells the player to open the book.
+	-- now afford Throttle!" tells the player to open the journal.
 	for toolId in state.ownedTools do
 		if toolId == state.equippedTool then
 			for _, slot in ToolUpgrades.treeFor(toolId) do
@@ -70,8 +93,11 @@ local function check()
 				if cost and state.cash >= cost then
 					local key = `slot:{slot.key}:{level}`
 					if not announced[key] then
-						announced[key] = true
-						Hud.toast("afford", `You can now afford {slot.name}!`)
+						table.insert(candidates, {
+							key = key,
+							cost = cost,
+							message = `You can now afford {slot.name}!`,
+						})
 					end
 				end
 			end
@@ -85,13 +111,29 @@ local function check()
 			if state.cash >= tool.cost then
 				local key = `tool:{tool.id}`
 				if not announced[key] then
-					announced[key] = true
-					Hud.toast("afford", `You can now afford the {tool.name}!`)
+					table.insert(candidates, {
+						key = key,
+						cost = tool.cost,
+						message = `You can now afford the {tool.name}!`,
+					})
 				end
 			end
 			break
 		end
 	end
+
+	if #candidates == 0 then
+		return
+	end
+	table.sort(candidates, function(a, b)
+		if a.cost ~= b.cost then
+			return a.cost < b.cost
+		end
+		return a.key < b.key
+	end)
+	local first = candidates[1]
+	announced[first.key] = true
+	Hud.toast("afford", first.message)
 end
 
 function AffordController.start()
