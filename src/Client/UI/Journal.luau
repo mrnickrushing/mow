@@ -271,7 +271,7 @@ local function renderObjectives()
 		live(function()
 			local current = questState[slot]
 			if current then
-				progress.Text = `({Format.count(current.progress)}/{Format.count(current.target)})`
+				progress.Text = `({Format.tally(current.progress)}/{Format.tally(current.target)})`
 			end
 		end)
 		progress.Size = UDim2.new(1, -50, 0, 22)

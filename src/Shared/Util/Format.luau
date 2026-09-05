@@ -58,6 +58,31 @@ function Format.count(value: number): string
 end
 
 --[[
+	A whole number with its thousands marked, for a goal being counted towards.
+
+	`Format.count` compacts, which is right for a bag that can hold tens of
+	thousands of leaves and wrong underneath a line that reads "Sell 1,000
+	units in total": the counter under it said `(0/1.00K)`, so the same goal
+	was written two different ways one line apart, one of them in a unit the
+	sentence above never used.
+
+	A target is a number you check yourself against, so it is spelled out.
+	Nothing here counts past a few thousand.
+]]
+function Format.tally(value: number): string
+	local n = math.floor(math.abs(value))
+	local grouped = tostring(n)
+	while true do
+		local next_, swaps = string.gsub(grouped, "^(%-?%d+)(%d%d%d)", "%1,%2")
+		grouped = next_
+		if swaps == 0 then
+			break
+		end
+	end
+	return (if value < 0 then "-" else "") .. grouped
+end
+
+--[[
 	A stat value on an upgrade card.
 
 	`Format.count` floors anything under a thousand, which is right for leaves
