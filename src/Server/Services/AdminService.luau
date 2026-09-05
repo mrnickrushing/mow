@@ -51,6 +51,10 @@ local AdminService = {}
 ]]
 local ADMINS: { [number]: string } = {
 	[1213625298] = "UncleNickRush",
+	-- Playtesters. Ids resolved through users.roblox.com on 2026-09-05; the
+	-- names are a reminder of who, never the thing that is checked.
+	[8772161919] = "zacksigma472",
+	[5481735034] = "Whisk2626",
 }
 
 --- The most one command may hand over. Not a security control — an admin can
