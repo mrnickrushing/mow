@@ -656,8 +656,21 @@ local function toolPanel(parent: Instance, order: number, tool: Types.ToolDef, o
 	end
 end
 
---- The three tools the spread shows: what is in your hands, then the next
---- two rungs of the ladder — the thing you have, and what it could become.
+--[[
+	The three tools the spread shows: what is in your hands, then the next
+	two rungs of the ladder — the thing you have, and what it could become.
+
+	It filled the other two panels with tools already owned before it looked
+	at anything for sale. Own the reel mower and the rake — the first two
+	things anybody buys — and the page was hands, reel mower, rake, with the
+	gas mower nowhere on it. Nothing else in the book sells tools, so the
+	fourth rung of the ladder could not be bought from the journal at all;
+	the shed was the only way, and the shed is the thing the journal exists
+	to save a walk to.
+
+	The rungs for sale come first now, cheapest unowned first, and owned
+	tools only fill whatever is left. The next purchase is always on the page.
+]]
 local function panelTools(): { Types.ToolDef }
 	local state = PlayerState.get()
 	local out: { Types.ToolDef } = {}
@@ -669,12 +682,12 @@ local function panelTools(): { Types.ToolDef }
 		seen[equipped.id] = true
 	end
 
-	-- Owned tools first, cheapest unowned after, until three panels stand.
+	-- What can be bought next, then what is already owned, until three stand.
 	for _, tool in Tools.list do
 		if #out >= 3 then
 			break
 		end
-		if not seen[tool.id] and state.ownedTools[tool.id] then
+		if not seen[tool.id] and not state.ownedTools[tool.id] and tool.currency == "Cash" then
 			table.insert(out, tool)
 			seen[tool.id] = true
 		end
@@ -683,7 +696,7 @@ local function panelTools(): { Types.ToolDef }
 		if #out >= 3 then
 			break
 		end
-		if not seen[tool.id] and tool.currency == "Cash" then
+		if not seen[tool.id] and state.ownedTools[tool.id] then
 			table.insert(out, tool)
 			seen[tool.id] = true
 		end
