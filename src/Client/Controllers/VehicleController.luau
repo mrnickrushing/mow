@@ -122,17 +122,49 @@ local TOUCH_ACTION = "MowAllTheLawns_VehicleTouch"
 	when a rideable tool is equipped or the player is already in the seat, and
 	its label says which of the two things pressing it will do.
 ]]
+--[[
+	What the button currently says, or nil when there is no button.
+
+	This is here because the refresh below is driven by `PlayerState.Changed`,
+	which fires every time the server pushes state — measured at 4.7 times a
+	second, all run. Each of those unbound the action and bound it straight
+	back, and Roblox's own touch UI decides whether to show its button frame
+	off the binding going away and coming back. Five times a second it loses
+	that race: after a single hop on and off, the frame was left hidden with
+	the button inside it still marked visible and titled "Ride", and it never
+	came back for the rest of the run. On a tablet, which is the only place
+	this button exists at all, that means you get on a riding mower once and
+	then cannot get off it — and cannot get back on afterwards.
+
+	Each refresh was also starting one of `dressActionButton`'s polls, which
+	runs for up to two and a half seconds, so a dozen of them overlapped at
+	any moment for the whole game.
+
+	Rebinding only when the label would actually change makes this happen
+	twice a run instead of ten thousand times.
+]]
+local buttonSays: string? = nil
+
 local function refreshTouchButton()
 	if not UserInputService.TouchEnabled then
 		return
 	end
+
+	local want: string? = if seated()
+		then "Hop Off"
+		elseif VehicleController.hasVehicleEquipped() then "Ride"
+		else nil
+	if want == buttonSays then
+		return
+	end
+	buttonSays = want
+
 	pcall(function()
 		ContextActionService:UnbindAction(TOUCH_ACTION)
 	end)
-	local inSeat = seated()
-	if inSeat or VehicleController.hasVehicleEquipped() then
+	if want then
 		ContextActionService:BindAction(TOUCH_ACTION, onToggleSeat, true)
-		ContextActionService:SetTitle(TOUCH_ACTION, if inSeat then "Hop Off" else "Ride")
+		ContextActionService:SetTitle(TOUCH_ACTION, want)
 		Theme.dressActionButton(TOUCH_ACTION)
 	end
 end

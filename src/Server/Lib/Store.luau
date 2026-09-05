@@ -24,8 +24,30 @@ Store.__index = Store
 local MAX_ATTEMPTS = 4
 local RETRY_BASE_SECONDS = 1
 --- Attempts to acquire a held lock before giving up and stealing it.
-local LOCK_ATTEMPTS = 5
-local LOCK_WAIT_SECONDS = 3
+--[[
+	How long to keep asking for the session lock before giving up on it.
+
+	Five tries three seconds apart is twelve seconds, and twelve seconds is
+	not long enough for the one thing that happens to every player in this
+	game: a teleport between the lobby and a run. The old server only lets go
+	of the lock when `PlayerRemoving` fires and its release write lands, and
+	that write queues behind everything else that server owes the datastore —
+	while the new server has already started counting. Run out and the player
+	is kicked with "We could not load your save", which is a player being
+	thrown out of a game they were in the middle of, at the exact moment they
+	chose a property.
+
+	Backing off rather than hammering, because the other way this fails is a
+	throttled datastore, and five requests in twelve seconds is the shape that
+	keeps it throttled. These waits add up to about three quarters of a
+	minute, which comfortably outlasts a slow handover and leaves the player
+	on the loading screen instead of on the front page of the game.
+
+	The lock is still never stolen while it is live: `lockIsLive` decides
+	that, and this only decides how long to wait for it to stop being.
+]]
+local LOCK_WAITS = { 1, 2, 3, 4, 5, 6, 8, 10, 12 }
+local LOCK_ATTEMPTS = #LOCK_WAITS + 1
 
 export type Entry = {
 	data: any,
@@ -176,7 +198,7 @@ function Store.load(self: Store, userId: number): (any?, boolean)
 		end
 
 		if tries < LOCK_ATTEMPTS then
-			task.wait(LOCK_WAIT_SECONDS)
+			task.wait(LOCK_WAITS[tries])
 		end
 	end
 
