@@ -114,9 +114,23 @@ local function giveTips(player: Player, arg: string?): string
 	return `Added {amount} tips.`
 end
 
---- Every tool, for good. The long way round is buying fifteen of them.
+--[[
+	Every tool, for good. The long way round is buying fifteen of them.
+
+	It writes the run as well as the profile, which it did not, and that made
+	it look broken. `permanentTools` is what a *new* run is built from, so
+	unlocking everything and then looking at the hotbar showed the one tool
+	you started with — the change did not appear until the run ended and
+	another began. Pressing a button called "Unlock every tool" and watching
+	nothing happen is indistinguishable from a command that does not work,
+	and it was reported as one.
+
+	Buying a tool permanently already does the whole thing: profile, then the
+	run in hand, then a push so the client redraws. This does the same, for
+	all of them at once. `resetProgress` was already reaching into the run to
+	take tools away, so the asymmetry was only ever in this direction.
+]]
 local function giveTools(player: Player): string
-	local Tools = require(Shared.Config.Tools)
 	local granted = 0
 	DataService.withProfile(player, function(profile)
 		for _, tool in Tools.list do
@@ -126,6 +140,15 @@ local function giveTools(player: Player): string
 			end
 		end
 	end)
+
+	local run = RunState.find(player)
+	if run then
+		for _, tool in Tools.list do
+			run.ownedTools[tool.id] = true
+		end
+	end
+	PlayerService.push(player)
+
 	return `Unlocked {granted} tools for good.`
 end
 
