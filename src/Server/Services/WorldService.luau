@@ -8,6 +8,7 @@
 	so there is no hand-built map to keep in step with the config.
 ]]
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
@@ -736,7 +737,10 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 	-- Windows, in stone surrounds
 	--------------------------------------------------------------------
 
-	local WINDOW_PITCH = 21
+	-- Close enough together to read as a frontage rather than as a wall
+	-- with a few holes in it: this elevation is two hundred and sixty studs
+	-- across, and at a twenty-one stud pitch it had six windows on it.
+	local WINDOW_PITCH = 16
 	local storeys = { 12, 25 }
 
 	local function windowsAlong(origin: Vector3, along: Vector3, span: number, yaw: number, clear: number?)
@@ -832,19 +836,27 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 		parent = portico,
 	})
 
-	--- The pediment: a triangle of stone over the entablature, stepped rather
-	--- than wedged so it needs no new primitive.
-	for step = 0, 4 do
-		local shrink = step * (porticoWidth + 8) * 0.11
-		Build.part({
-			name = "Pediment",
-			size = Vector3.new(porticoWidth + 8 - shrink, 2.2, porticoDepth + 4),
-			cframe = CFrame.new(centre.X, PLINTH + COLUMN_H + 4.5 + 1.1 + step * 2.2, porticoZ),
-			color = if step == 4 then lead else quoin,
-			material = Enum.Material.Sandstone,
-			parent = portico,
-		})
-	end
+	--[[
+		A flat roof with a balustrade on it, not a pediment.
+
+		The pediment was a stepped stack the full depth of the portico —
+		twenty-six studs of stone lying flat — so from the lawn it read as an
+		enormous grey awning bolted across the middle of the house, and it hid
+		the entire frontage behind it: the windows, the door, and the balcony
+		that was supposed to be the point of the storey above.
+
+		A balustraded portico roof is the other thing houses like this do with
+		that space, and it is the better one here: nothing blocks the front,
+		and the first floor gets somewhere to open onto.
+	]]
+	Build.part({
+		name = "PorticoRoof",
+		size = Vector3.new(porticoWidth + 10, 1.6, porticoDepth + 5),
+		cframe = CFrame.new(centre.X, PLINTH + COLUMN_H + 5.3, porticoZ),
+		color = lead,
+		material = Enum.Material.Metal,
+		parent = portico,
+	})
 
 	--- Steps the full width of the portico, which is how you arrive at one.
 	for step = 0, 2 do
@@ -863,17 +875,132 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 		})
 	end
 
+	--------------------------------------------------------------------
+	-- The frontage
+	--------------------------------------------------------------------
+
+	--[[
+		What a front door on a house this size actually looks like.
+
+		A single door leaf under a portico four columns wide reads as a shed
+		door on a hotel. This is the arrangement every building like this
+		has: a pair of tall doors, a fanlight over them, and a stone surround
+		around the whole opening.
+	]]
+	local doorZ = frontZ - wingOut - 0.5
+	Build.part({
+		name = "DoorCase",
+		size = Vector3.new(20, 22, 1.6),
+		cframe = CFrame.new(centre.X, PLINTH + 11, doorZ + 0.4),
+		color = quoin,
+		material = Enum.Material.Sandstone,
+		parent = manor,
+	})
+	for _, side in { -1, 1 } do
+		Build.mesh({
+			prop = "Door",
+			name = "Door",
+			untextured = true,
+			color = Palette.color(Palette.estate.door),
+			size = Vector3.new(7, 15, 0.9),
+			collisionSize = Vector3.new(7, 15, 0.6),
+			cframe = CFrame.new(centre.X + side * 3.7, PLINTH + 7.5, doorZ),
+			canCollide = false,
+			parent = manor,
+		})
+	end
+	--- The fanlight over them, which is the one round thing on the frontage.
 	Build.mesh({
-		prop = "Door",
-		name = "Door",
-		untextured = true,
-		color = Palette.color(Palette.estate.door),
-		size = Vector3.new(9, 14, 0.9),
-		collisionSize = Vector3.new(9, 14, 0.6),
-		cframe = CFrame.new(centre.X, PLINTH + 7, frontZ - wingOut - 0.5),
+		prop = "Window",
+		name = "Fanlight",
+		size = Vector3.new(13, 5, 0.9),
+		collisionSize = Vector3.new(13, 5, 0.6),
+		cframe = CFrame.new(centre.X, PLINTH + 17.5, doorZ),
 		canCollide = false,
 		parent = manor,
 	})
+
+	--[[
+		A balcony over the portico, with glazed doors onto it.
+
+		The portico's entablature is a flat stone shelf twenty-two studs deep
+		at first-floor height, and nothing stood on it — so the middle of the
+		frontage, the part the whole building is arranged around, was a blank
+		wall above the columns. A balustraded balcony with a pair of glass
+		doors behind it is what the room over the entrance opens onto, and it
+		gives the front a middle storey to look at.
+	]]
+	local balconyY = PLINTH + COLUMN_H + 6.1
+	local balconyZ = porticoZ + porticoDepth * 0.5 - 1.2
+	local balusters = math.max(math.floor((porticoWidth + 8) / 5), 6)
+	for index = 0, balusters - 1 do
+		local x = centre.X - (porticoWidth + 8) * 0.5 + (porticoWidth + 8) * ((index + 0.5) / balusters)
+		Build.part({
+			name = "Baluster",
+			size = Vector3.new(1.5, 4.2, 1.5),
+			cframe = CFrame.new(x, balconyY + 2.1, balconyZ),
+			color = quoin,
+			material = Enum.Material.Sandstone,
+			parent = portico,
+		})
+	end
+	Build.part({
+		name = "BalconyRail",
+		size = Vector3.new(porticoWidth + 9, 1, 2.6),
+		cframe = CFrame.new(centre.X, balconyY + 4.7, balconyZ),
+		color = quoin,
+		material = Enum.Material.Sandstone,
+		parent = portico,
+	})
+
+	--- The glazed doors it belongs to, in their own stone surround.
+	local frenchZ = frontZ - wingOut - 1.0
+	Build.part({
+		name = "BalconyCase",
+		size = Vector3.new(19, 19, 1.4),
+		cframe = CFrame.new(centre.X, balconyY + 8, frenchZ + 0.5),
+		color = quoin,
+		material = Enum.Material.Sandstone,
+		parent = manor,
+	})
+	for _, side in { -1, 1 } do
+		Build.mesh({
+			prop = "Window",
+			name = "FrenchDoor",
+			size = Vector3.new(7, 15, 0.9),
+			collisionSize = Vector3.new(7, 15, 0.6),
+			cframe = CFrame.new(centre.X + side * 3.8, balconyY + 7.5, frenchZ),
+			canCollide = false,
+			parent = manor,
+		})
+	end
+
+	--[[
+		A lamp on each of the two outer columns.
+
+		A frontage this wide needs something at eye level that is not stone,
+		and a pair of lanterns either side of the door is the thing every
+		house of this kind puts there.
+	]]
+	for _, side in { -1, 1 } do
+		local x = centre.X + side * (porticoWidth * 0.5 + 4)
+		local lamp = Build.mesh({
+			prop = "Lantern",
+			name = "Lamp",
+			untextured = true,
+			color = Palette.color(Palette.estate.iron),
+			size = Vector3.new(3.4, 4.4, 3.4),
+			collisionSize = Vector3.new(2, 4.4, 2),
+			cframe = CFrame.new(x, PLINTH + 13, doorZ - 1),
+			canCollide = false,
+			parent = manor,
+		})
+		local glow = Instance.new("PointLight")
+		glow.Color = Color3.fromRGB(255, 226, 170)
+		glow.Range = 26
+		glow.Brightness = 1.4
+		glow.Parent = lamp
+	end
 end
 
 local function buildHouse(world: Types.WorldDef, parent: Folder)
@@ -2859,10 +2986,30 @@ function WorldService.openExit()
 
 	WorldService.setExitStatus("Open — leave to finish")
 
-	local prompt = Build.prompt(doorway, "Leave", "Way Out", 14)
-	prompt.HoldDuration = 0.6
-	prompt.Triggered:Connect(function(player: Player)
-		exitSignal:Fire(player)
+	--[[
+		Walk out. There is nothing left to press.
+
+		This was a prompt with a hold on it, and the reasoning was that
+		leaving has to be deliberate so nobody ends the run for the server by
+		wandering past the grate while still working. That cannot happen: the
+		grate is shut, and solid, until every required section is clear —
+		which is to say until there is no work left to wander away from. Once
+		it is open, walking through the way out is the only thing left to do
+		on the property, and a door you have to stand at and hold a button on
+		is a door that does not behave like a door.
+
+		Once each, because a doorway is touched many times a second by every
+		limb that passes through it.
+	]]
+	local left: { [Player]: boolean } = {}
+	doorway.CanTouch = true
+	doorway.Touched:Connect(function(hit: BasePart)
+		local character = hit:FindFirstAncestorOfClass("Model")
+		local player = if character then Players:GetPlayerFromCharacter(character) else nil
+		if player and not left[player] then
+			left[player] = true
+			exitSignal:Fire(player)
+		end
 	end)
 end
 

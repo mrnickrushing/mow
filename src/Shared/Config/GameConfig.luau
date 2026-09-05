@@ -155,7 +155,17 @@ local GameConfig = {
 	--------------------------------------------------------------------
 	-- Round flow
 	--------------------------------------------------------------------
-	INTERMISSION_SECONDS = 45,
+	--[[
+		Ten seconds between the run ending and the trip back to the lobby.
+
+		It was forty-five, which is three quarters of a minute of standing in
+		a property you have finished with nothing left to do in it — and the
+		return teleport takes several seconds on top. The outro covers this
+		now: you walk out through the grate, the camera lifts off the estate
+		and the credits on the run play over it while the server hands you
+		back.
+	]]
+	INTERMISSION_SECONDS = 10,
 	--- Zone completion above this fraction switches on missed-spot markers.
 	-- Cash bonus each finished section adds to everyone's multiplier for the
 	-- rest of the run. This is the run's progression spine: the world literally
