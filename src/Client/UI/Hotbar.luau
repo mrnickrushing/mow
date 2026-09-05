@@ -28,6 +28,10 @@ local holder: Frame
 local slotFrames: { TextButton } = {}
 --- Tool ids currently laid out, in slot order.
 local layout: { string } = {}
+--- Everything owned in each slot's category, strongest first. A slot holds a
+--- category rather than a tool, and pressing it again walks down the list.
+local slotTools: { { string } } = {}
+local choose: (order: number) -> ()
 
 --- Slots shown. More than this and the bar starts covering the lawn.
 --[[
@@ -40,7 +44,15 @@ local layout: { string } = {}
 	which between them clear every kind of debris in the game with room to
 	spare.
 ]]
-local MAX_SLOTS = 8
+--[[
+	Ten, because there are ten categories of tool and there were eight slots.
+
+	Hand, Mower, Rake, Trimmer, Blower, HedgeTrimmer, Saw, Chainsaw, Grinder,
+	Chipper. At eight it was not possible to show one of each, so owning the
+	ladder pushed whole categories off the end — and the bar is the only thing
+	that fires the equip remote, so off the end means gone.
+]]
+local MAX_SLOTS = 10
 
 local function buildSlot(order: number): TextButton
 	local button = Instance.new("TextButton")
@@ -82,6 +94,26 @@ local function buildSlot(order: number): TextButton
 		parent = button,
 	})
 
+	--[[
+		How many more of this kind are in here.
+
+		Without it a slot that cycles looks exactly like one that does not, and
+		nobody presses a button twice to find out.
+	]]
+	local more = Instance.new("TextLabel")
+	more.Name = "More"
+	more.Text = ""
+	more.Size = UDim2.fromOffset(20, 16)
+	more.AnchorPoint = Vector2.new(1, 1)
+	more.Position = UDim2.new(1, -3, 1, -2)
+	more.BackgroundTransparency = 1
+	more.Font = Theme.font
+	more.TextColor3 = Theme.colors.text
+	more.TextSize = 14
+	more.Visible = false
+	more.Parent = button
+	Theme.outline(more, 2)
+
 	-- The selected slot fills in behind the icon and takes a white border. A
 	-- lift alone is easy to lose against a lawn covered in bright leaves on a
 	-- phone; a filled tile is not, and it is what tells you at a glance which
@@ -102,13 +134,31 @@ local function buildSlot(order: number): TextButton
 	selectedEdge.Parent = selected
 
 	button.Activated:Connect(function()
-		local toolId = layout[order]
-		if toolId then
-			equipRemote:FireServer(toolId)
-		end
+		choose(order)
 	end)
 
 	return button
+end
+
+--[[
+	Equips a slot, or walks to the next tool of its kind.
+
+	Pressing a slot you are not holding equips it. Pressing the one you are
+	holding moves to the next tool in that category and wraps, which is the only
+	way to reach a tool that is not the best of its kind.
+]]
+function choose(order: number)
+	local list = slotTools[order]
+	local current = layout[order]
+	if not list or not current then
+		return
+	end
+	if PlayerState.get().equippedTool == current and #list > 1 then
+		local at = table.find(list, current) or 1
+		equipRemote:FireServer(list[(at % #list) + 1])
+	else
+		equipRemote:FireServer(current)
+	end
 end
 
 --- Rebuilds the slot contents from what the player owns.
@@ -137,51 +187,69 @@ local function refresh()
 		does not shuffle every time they buy something.
 	]]
 	table.clear(layout)
+	table.clear(slotTools)
 
-	local taken: { [string]: boolean } = {}
-	local function add(toolId: string?)
-		if not toolId or toolId == "" or taken[toolId] then
-			return
-		end
-		if not state.ownedTools[toolId] or not Tools.get(toolId) or #layout >= MAX_SLOTS then
-			return
-		end
-		taken[toolId] = true
-		table.insert(layout, toolId)
-	end
+	--[[
+		A slot is a category, not a tool.
 
-	add(Tools.STARTER_ID)
-	add(state.equippedTool)
+		The bar used to be a pick of individual tools: your hands, whatever was
+		equipped, then the best of each category, then the strongest of
+		whatever was left. That guaranteed the strong things and quietly lost
+		the rest — with the whole ladder owned it came out as hands plus the
+		seven highest tiers, and the eight tools underneath them, the reel
+		mower and the rake and the gas mower among them, could not be selected
+		at all. Owned, listed in the book, unreachable.
 
-	local best: { [string]: any } = {}
+		Ten categories into ten slots fixes the arithmetic. Pressing a slot
+		that is already in your hand walks to the next tool of that kind, so
+		the mower slot goes commercial deck, zero turn, riding, self-propelled,
+		gas, reel and round again. Everything owned is two presses away and the
+		bar did not get any wider.
+	]]
+	local byCategory: { [string]: { string } } = {}
+	local categories: { string } = {}
 	for _, tool in Tools.list do
-		if state.ownedTools[tool.id] then
-			local current = best[tool.category]
-			if not current or tool.tier > current.tier then
-				best[tool.category] = tool
+		if state.ownedTools[tool.id] and Tools.get(tool.id) then
+			local list = byCategory[tool.category]
+			if not list then
+				list = {}
+				byCategory[tool.category] = list
+				table.insert(categories, tool.category)
 			end
+			table.insert(list, tool.id)
 		end
 	end
 
-	local ranked: { any } = {}
-	for _, tool in best do
-		table.insert(ranked, tool)
-	end
-	table.sort(ranked, function(a, b)
-		return a.tier > b.tier
-	end)
-	for _, tool in ranked do
-		add(tool.id)
+	-- Strongest first inside a slot, so one press still gets the best of its
+	-- kind and the walk is downhill from there.
+	for _, list in byCategory do
+		table.sort(list, function(a, b)
+			return Tools.expect(a).tier > Tools.expect(b).tier
+		end)
 	end
 
-	-- Any room left goes to the strongest thing still unlisted.
-	for index = #Tools.list, 1, -1 do
-		add(Tools.list[index].id)
+	-- Laid out weakest to strongest, so the order a player learns does not
+	-- shuffle every time they buy something.
+	table.sort(categories, function(a, b)
+		return Tools.expect(byCategory[a][1]).tier < Tools.expect(byCategory[b][1]).tier
+	end)
+
+	for _, category in categories do
+		if #layout >= MAX_SLOTS then
+			break
+		end
+		table.insert(slotTools, byCategory[category])
+		table.insert(layout, byCategory[category][1])
 	end
 
-	table.sort(layout, function(a, b)
-		return Tools.expect(a).tier < Tools.expect(b).tier
-	end)
+	-- A slot shows what is actually in your hand rather than the best of its
+	-- kind, or the bar would stop saying what you are holding the moment you
+	-- walked down one.
+	for index, list in slotTools do
+		if table.find(list, state.equippedTool) then
+			layout[index] = state.equippedTool
+		end
+	end
 
 	for order, button in slotFrames do
 		local toolId = layout[order]
@@ -201,6 +269,13 @@ local function refresh()
 			button.Size = if equipped then UDim2.fromOffset(72, 72) else UDim2.fromOffset(60, 60)
 			selected.Visible = equipped
 			icon.ZIndex = 2
+
+			local more = button:FindFirstChild("More") :: TextLabel?
+			local stack = slotTools[order]
+			if more then
+				more.Visible = stack ~= nil and #stack > 1
+				more.Text = if stack and #stack > 1 then `+{#stack - 1}` else ""
+			end
 		end
 	end
 end
@@ -263,6 +338,7 @@ function Hotbar.start()
 		table.insert(slotFrames, buildSlot(order))
 	end
 
+	-- Nine and zero for the last two, the way every game with ten slots does it.
 	local keys = {
 		Enum.KeyCode.One,
 		Enum.KeyCode.Two,
@@ -272,14 +348,13 @@ function Hotbar.start()
 		Enum.KeyCode.Six,
 		Enum.KeyCode.Seven,
 		Enum.KeyCode.Eight,
+		Enum.KeyCode.Nine,
+		Enum.KeyCode.Zero,
 	}
 	for order, key in keys do
 		ContextActionService:BindAction(`MowSlot{order}`, function(_, inputState)
 			if inputState == Enum.UserInputState.Begin then
-				local toolId = layout[order]
-				if toolId then
-					equipRemote:FireServer(toolId)
-				end
+				choose(order)
 			end
 			return Enum.ContextActionResult.Sink
 		end, false, key)

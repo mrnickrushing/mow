@@ -93,10 +93,26 @@ local function grantTool(player: Player, def: Monetization.ProductDef): boolean
 		return false
 	end
 
+	local waiting = false
 	if def.kind == "toolPermanent" then
 		DataService.withProfile(player, function(profile)
 			profile.permanentTools[toolId] = true
 		end)
+	elseif RunService.phase() ~= "running" then
+		--[[
+			Bought "for this run" when there is no run to buy it for.
+
+			The store is open in the lobby and sells the run-only unlock there
+			like anything else. `beginRun` calls `RunState.resetAll`, which
+			rebuilds every loadout from `permanentTools` alone, so this grant
+			was written to a state that was about to be discarded: the player
+			paid Robux, was told the tool was unlocked, and started the run
+			without it, with nothing anywhere saying why.
+
+			Held until a run exists, the way a rental already is.
+		]]
+		RunState.holdTool(player, toolId)
+		waiting = true
 	end
 
 	local run = RunState.find(player)
@@ -110,6 +126,7 @@ local function grantTool(player: Player, def: Monetization.ProductDef): boolean
 		"reward",
 		if def.kind == "toolPermanent"
 			then `{tool.name} unlocked for good`
+			elseif waiting then `{tool.name} is ready for your next run`
 			else `{tool.name} unlocked for this run`,
 		nil
 	)

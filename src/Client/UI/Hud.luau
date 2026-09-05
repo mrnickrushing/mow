@@ -225,7 +225,7 @@ local function buildRightColumn(gui: ScreenGui)
 	inner.AnchorPoint = Vector2.new(0.5, 0.5)
 
 	-- The journal, with a badge when something in it is waiting to be read.
-	-- Pressing it opens the book, which matters most on touch where Tab does
+	-- Pressing it opens the book, which matters most on touch where B does
 	-- not exist.
 	local book = Instance.new("TextButton")
 	book.Name = "Journal"
@@ -325,7 +325,7 @@ local function buildRightColumn(gui: ScreenGui)
 
 	-- Centred under a 62-wide tile whose right edge is 14 in from the screen:
 	-- the caption is 70 wide, so it hangs four pixels proud either side.
-	local bookLabel = caption("BookLabel", "Journal", "Tab", -8)
+	local bookLabel = caption("BookLabel", "Journal", "B", -8)
 
 	--[[
 		The store, which is a button and not a third icon.
