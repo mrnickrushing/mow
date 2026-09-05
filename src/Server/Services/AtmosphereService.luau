@@ -48,9 +48,28 @@ local function child<T>(className: string, name: string, parent: Instance): T
 end
 
 function AtmosphereService.start()
-	-- Late afternoon, sun low enough to throw long shadows across the lawn.
-	Lighting.ClockTime = 16.9
-	Lighting.GeographicLatitude = 24
+	--[[
+		Afternoon, with the sun on the front of the house.
+
+		These were 16.9 and 24, chosen for the length of the shadows, and the
+		shadow they threw longest was the one over everything the player looks
+		at. Measured, that sun points (-0.96, 0.28, 0.01): every property in
+		this game is entered from the road at low Z and faces the player back
+		down it, so every building's frontage has a normal of (0, 0, -1) — and
+		the light landing on that face came to `max(-0.01, 0)`, which is
+		nothing at all. The House's cream siding, its teal trim, the Mansion's
+		limestone and its portico were all lit by ambient alone and read as
+		flat grey slabs, whatever colour they had been painted.
+
+		A southern latitude swings the sun's arc round to the near side of the
+		sky. At -30 and quarter past three it points (-0.44, 0.40, -0.80):
+		four fifths of full strength on the frontages, a little under half on
+		the side walls — so a building has a lit face and a shaded one, which
+		is what makes it read as solid — and enough height left for the
+		shadows on the lawn to still be long.
+	]]
+	Lighting.ClockTime = 15.2
+	Lighting.GeographicLatitude = -30
 	Lighting.Brightness = 2.2
 	Lighting.ExposureCompensation = 0.05
 	Lighting.Ambient = Palette.color(Palette.sky.ambient)

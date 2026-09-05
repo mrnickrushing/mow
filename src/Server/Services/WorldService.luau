@@ -625,6 +625,43 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 		})
 	end
 
+	--[[
+		A string course between the storeys.
+
+		Thirty studs of unbroken wall two hundred and sixty long is a slab,
+		whatever it is painted: there is nothing in it for the light to catch,
+		so it flattens out at any distance and the windows read as holes
+		punched in a screen. A band at the floor line of the first storey is
+		the thing every building of this kind has there, and it gives the
+		elevation a horizontal to sit the two rows of windows either side of.
+
+		It follows the wings as well as the block, because a course that
+		stopped at the corners would look like a shelf rather than a course.
+	]]
+	local COURSE_Y = PLINTH + 17.5
+	Build.part({
+		name = "StringCourse",
+		size = Vector3.new(width + 1.6, 1.8, depth + 1.6),
+		cframe = CFrame.new(centre.X, COURSE_Y, centre.Z),
+		color = quoin,
+		material = Enum.Material.Sandstone,
+		parent = manor,
+	})
+	for _, side in { -1, 1 } do
+		Build.part({
+			name = "StringCourse",
+			size = Vector3.new(wingWidth + 1.6, 1.8, depth + wingOut + 1.6),
+			cframe = CFrame.new(
+				centre.X + side * (halfWidth - wingWidth * 0.5),
+				COURSE_Y,
+				centre.Z - wingOut * 0.5
+			),
+			color = quoin,
+			material = Enum.Material.Sandstone,
+			parent = manor,
+		})
+	end
+
 	--- The lead cornice the roof sits behind.
 	Build.part({
 		name = "Cornice",
@@ -774,6 +811,30 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 						canCollide = false,
 						parent = manor,
 					})
+					--[[
+						A sill under it and a head over it.
+
+						A window in a stone house is not a pane laid on a
+						wall, it is an opening with a cut stone shelf beneath
+						and a lintel above, and those two edges are what
+						catch the afternoon light and give the elevation its
+						texture. Sized off the surround so they read as part
+						of the same piece of masonry.
+					]]
+					local flat = math.abs(yaw) < 0.1 or math.abs(yaw - math.pi) < 0.1
+					for _, trim in { { -6.4, 12.5, 1.1 }, { 6.6, 11.5, 0.9 } } do
+						Build.part({
+							name = "WindowTrim",
+							size = if flat
+								then Vector3.new(trim[2], trim[3], 2.2)
+								else Vector3.new(2.2, trim[3], trim[2]),
+							cframe = CFrame.new(at.X, height + trim[1], at.Z),
+							color = quoin,
+							material = Enum.Material.Sandstone,
+							canCollide = false,
+							parent = manor,
+						})
+					end
 				end
 			end
 		end
