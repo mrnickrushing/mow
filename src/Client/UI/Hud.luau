@@ -168,7 +168,10 @@ local function buildRightColumn(gui: ScreenGui)
 	multiplierLabel = Theme.text({
 		name = "Multiplier",
 		text = "",
-		size = UDim2.fromOffset(200, 22),
+		-- Half the column each. At two hundred wide this box reached back
+		-- across the tips beside it; the words did not touch at the lengths
+		-- they happen to be, which is not the same as not overlapping.
+		size = UDim2.fromOffset(100, 22),
 		position = UDim2.new(1, -6, 0, 0),
 		anchor = Vector2.new(1, 0),
 		parent = column,
@@ -190,7 +193,7 @@ local function buildRightColumn(gui: ScreenGui)
 	tipsLabel = Theme.text({
 		name = "Tips",
 		text = "",
-		size = UDim2.fromOffset(120, 22),
+		size = UDim2.fromOffset(100, 22),
 		position = UDim2.fromOffset(4, 0),
 		parent = column,
 		align = Enum.TextXAlignment.Left,
@@ -509,9 +512,21 @@ local function buildRightColumn(gui: ScreenGui)
 		local fromRight, fromBottom
 		if jump and jump:IsA("GuiObject") and jump.AbsoluteSize.Y > 8 then
 			fromRight = area.X - (jump.AbsolutePosition.X + jump.AbsoluteSize.X * 0.5) + width * 0.5
-			-- Sixteen pixels of daylight over the jump button, so the two read
-			-- as a stack rather than as one control.
-			fromBottom = area.Y - jump.AbsolutePosition.Y + 16
+			--[[
+				The daylight over the jump button has to hold the word as well
+				as the button.
+
+				It was sixteen pixels, and the word that hangs under the button
+				— PICK UP, MOW — is twenty-six tall, so it was printed across
+				the top of Roblox's jump button: measured in the running game,
+				seventy-three pixels wide by ten deep of overlap.
+
+				The clearance is the label's own height plus a margin either
+				side, measured rather than assumed, so it still holds if the
+				text size changes.
+			]]
+			local stateRoom = toolStateLabel.AbsoluteSize.Y + 10
+			fromBottom = area.Y - jump.AbsolutePosition.Y + stateRoom
 		else
 			fromRight, fromBottom = 22, 240
 		end
@@ -527,8 +542,13 @@ local function buildRightColumn(gui: ScreenGui)
 		local centreFromRight = fromRight - width * 0.5
 		toolNameLabel.Position =
 			UDim2.new(1, -(centreFromRight - toolNameLabel.AbsoluteSize.X * 0.5), 1, -(fromBottom + height + 4))
-		toolStateLabel.Position =
-			UDim2.new(1, -(centreFromRight - toolStateLabel.AbsoluteSize.X * 0.5), 1, -(fromBottom - 28))
+		-- Its bottom edge, so it sits in the gap the button just reserved.
+		toolStateLabel.Position = UDim2.new(
+			1,
+			-(centreFromRight - toolStateLabel.AbsoluteSize.X * 0.5),
+			1,
+			-(fromBottom - (toolStateLabel.AbsoluteSize.Y + 2))
+		)
 		return jump ~= nil
 	end
 
