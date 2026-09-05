@@ -2487,17 +2487,23 @@ function WorldService.load(worldId: string)
 			Build.picketFence(fences, run[1], run[2], 9, index == 2)
 		end
 
-		-- The court wall and hedges that border the reference's side yard.
+		--[[
+			Hedges along the side yard. The court wall that used to run with
+			them is gone.
+
+			It was a brick retaining wall topped with chain-link, copied from
+			the reference, where it borders a court. There is no court here.
+			It stood ten studs inside the picket fence that already closes
+			that boundary, so what it actually made was a second barrier
+			parallel to the first with a strip of unreachable grass between
+			them — and because the chain-link panel above it is translucent
+			and thin, all that read at play distance was a brick wall with
+			green poles sticking out of the top of it for no reason.
+
+			Reported from the game as a wall next to the pool that does not do
+			anything, which is exactly what it was.
+		]]
 		local scenery = Build.folder("Scenery", parent)
-		-- Just outside the pool deck rather than on it, so the wall never
-		-- stands on tiles the player still has to clear.
-		Build.chainLinkWall(
-			scenery,
-			WorldService.tilePointFlat(2, 50),
-			WorldService.tilePointFlat(2, 78),
-			7,
-			12
-		)
 		Build.hedge(scenery, WorldService.tilePointFlat(72, 8), WorldService.tilePointFlat(72, 54), 13, 7)
 		Build.hedge(scenery, WorldService.tilePointFlat(24, 78), WorldService.tilePointFlat(72, 78), 13, 7)
 
