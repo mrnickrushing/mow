@@ -452,19 +452,120 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 		end
 	end
 
-	-- The road along the south edge, with the trailer parked at the curb.
-	-- Plain asphalt for the same reason the lawn is plain grass: a concrete
-	-- panel's texture stretched over six hundred studs is not concrete, it is
-	-- a smear.
+	--[[
+		The street: a kerb, a pavement, a carriageway and a centre line.
+
+		This was one flat strip of asphalt twenty-six studs wide, laid a
+		twentieth of a stud above the lawn — so the boundary between the
+		property and the road was a colour change on a single continuous
+		plane, and the road had no edge, no height and nothing on it. It is
+		the first thing anybody sees, because it is where they arrive and what
+		they are standing on when the property is first put in front of them,
+		and it read as a grey rectangle painted onto the grass.
+
+		Four parts instead of one, at the heights these things actually sit
+		at: the pavement a step up from the road, a kerb standing proud of it,
+		the carriageway sunk between them, and a dashed line down the middle
+		so the street has a direction. All of it still plain materials for the
+		reason the lawn is plain — a concrete panel's texture stretched over
+		six hundred studs is a smear, not concrete.
+	]]
+	local roadLength = width + 240
+	local roadX = width * 0.5
+	local ground = GameConfig.GROUND_Y
+	local street = Build.folder("Street", parent)
+
+	--- The pavement between the lawn and the kerb, a step above the road.
+	Build.part({
+		name = "Pavement",
+		size = Vector3.new(roadLength, 0.9, 12),
+		cframe = CFrame.new(roadX, ground + 0.35, -4),
+		color = Palette.color(Palette.ground.path),
+		material = Enum.Material.Concrete,
+		castShadow = false,
+		parent = street,
+	})
+	--- The kerb, which is the only reason a road has an edge at all.
+	Build.part({
+		name = "Kerb",
+		size = Vector3.new(roadLength, 1.4, 1.6),
+		cframe = CFrame.new(roadX, ground + 0.3, -9.2),
+		color = Palette.color(Palette.ground.stone),
+		material = Enum.Material.Concrete,
+		castShadow = false,
+		parent = street,
+	})
 	Build.part({
 		name = "Road",
-		size = Vector3.new(width + 240, 0.6, 26),
-		cframe = CFrame.new(width * 0.5, GameConfig.GROUND_Y + 0.05, -16),
+		size = Vector3.new(roadLength, 0.6, 26),
+		cframe = CFrame.new(roadX, ground - 0.1, -23),
 		color = Palette.color(Palette.ground.road),
 		material = Enum.Material.Asphalt,
 		castShadow = false,
-		parent = parent,
+		parent = street,
 	})
+	--- The far kerb, so the street has two sides rather than running off into
+	--- the neighbours' grass.
+	Build.part({
+		name = "Kerb",
+		size = Vector3.new(roadLength, 1.4, 1.6),
+		cframe = CFrame.new(roadX, ground + 0.3, -36.8),
+		color = Palette.color(Palette.ground.stone),
+		material = Enum.Material.Concrete,
+		castShadow = false,
+		parent = street,
+	})
+
+	--- A dashed centre line. Broken rather than solid, because a solid line
+	--- painted the length of the world reads as a stripe and not as a road.
+	local DASH, GAP = 14, 12
+	local dashes = math.floor(roadLength / (DASH + GAP))
+	for index = 0, dashes - 1 do
+		Build.part({
+			name = "RoadLine",
+			size = Vector3.new(DASH, 0.2, 0.9),
+			cframe = CFrame.new(
+				roadX - roadLength * 0.5 + (DASH + GAP) * (index + 0.5),
+				ground + 0.15,
+				-23
+			),
+			color = Palette.color(Palette.sky.cloud),
+			material = Enum.Material.SmoothPlastic,
+			castShadow = false,
+			canCollide = false,
+			parent = street,
+		})
+	end
+
+	--[[
+		A dropped kerb where the drive meets the street.
+
+		Every property has a hard surface running down to the road; without a
+		break in the kerb it ran into a six inch wall, which is the one detail
+		that gives away a street built out of rectangles.
+	]]
+	for _, slab in Worlds.pavingRects(world) do
+		if slab.z <= 36 then
+			Build.part({
+				name = "DroppedKerb",
+				size = Vector3.new(slab.w + 4, 1.4, 1.8),
+				cframe = CFrame.new(slab.x + slab.w * 0.5, ground - 0.25, -9.2),
+				color = Palette.color(Palette.ground.stone),
+				material = Enum.Material.Concrete,
+				castShadow = false,
+				parent = street,
+			})
+			Build.part({
+				name = "Apron",
+				size = Vector3.new(slab.w + 4, 0.9, 14),
+				cframe = CFrame.new(slab.x + slab.w * 0.5, ground + 0.3, -3),
+				color = Palette.color(Palette.ground.path),
+				material = Enum.Material.Concrete,
+				castShadow = false,
+				parent = street,
+			})
+		end
+	end
 end
 
 --[[
