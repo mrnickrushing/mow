@@ -2571,7 +2571,23 @@ function WorldService.load(worldId: string)
 			anything, which is exactly what it was.
 		]]
 		local scenery = Build.folder("Scenery", parent)
-		Build.hedge(scenery, WorldService.tilePointFlat(72, 8), WorldService.tilePointFlat(72, 54), 13, 7)
+		--[[
+			The side hedge is thick enough to meet the house.
+
+			At seven studs deep its west face stood three and a half studs
+			clear of the house's foundation, and it runs the whole length of
+			that wall — so between the two there was a crevice the length of
+			the building, narrower than a player and open at the front. Walk
+			east along the house and you slide into it and wedge, and the only
+			way out is backwards. Measured in the running game at 3.5 studs;
+			a character is four.
+
+			Twelve closes it against the foundation without moving the run, so
+			the corner where this meets the back hedge is untouched and the
+			east path to the roof stairs — thirty studs wide out there — is
+			unchanged. A deeper hedge is also just a hedge.
+		]]
+		Build.hedge(scenery, WorldService.tilePointFlat(72, 8), WorldService.tilePointFlat(72, 54), 13, 12)
 		Build.hedge(scenery, WorldService.tilePointFlat(24, 78), WorldService.tilePointFlat(72, 78), 13, 7)
 
 		--[[
