@@ -212,7 +212,66 @@ function Build.mesh(options: MeshOptions): Part
 	return part
 end
 
+--[[
+	Lets the scheduler have a turn when this thread has been running a while.
+
+	Roblox kills a script that runs for about ten seconds without yielding,
+	and a build is one straight line of instance creation with nothing in it
+	that yields. Building the property makes twelve hundred parts and the
+	lobby follows it on the same thread, so how close the pair come to that
+	limit is a question about the machine rather than about the code — and on
+	a slow boot they cross it. Caught here doing exactly that:
+
+		Build:572: Script timeout: exhausted allowed execution time
+		Build, Line 212 - function mesh
+		Build, Line 572 - function picketFence
+		LobbyService, Line 382 - function build
+
+	which left the lobby with its lawn, its ground and three sides of fence
+	and nothing else: no pads, no boards, no sign — and, because `build`
+	never returned, nobody seated. Every player stayed at the world origin
+	two and a half thousand studs from anything, looking at empty sky.
+	Reported as "it does this instead of going to the lobby", and it is the
+	same fault whether it happens to the lobby or to a property.
+
+	Every part in the game is made here, so a check here cannot miss a loop —
+	which matters, because the loops that make many parts are scattered
+	across three files and finding them all by eye is exactly the kind of
+	audit that misses one. It yields a handful of times across a whole build
+	and costs a clock read per part.
+]]
+--[[
+	Only a sustained run of building yields.
+
+	A gap between calls means the thread went back to the scheduler on its
+	own — one prop dropped during play, a station rebuilt when somebody buys
+	something — and its allowance is long since reset. Starting the clock
+	again on a gap keeps `Build.part` a plain non-yielding call everywhere
+	except inside a build, which is the only place the allowance is at risk.
+]]
+local BREATH_SECONDS = 3
+local IDLE_GAP = 0.25
+local lastBreath = os.clock()
+local lastCall = os.clock()
+
+function Build.breathe()
+	local now = os.clock()
+	if now - lastCall > IDLE_GAP then
+		lastBreath = now
+	end
+	lastCall = now
+
+	if now - lastBreath < BREATH_SECONDS then
+		return
+	end
+	lastBreath = now
+	task.wait()
+	lastCall = os.clock()
+end
+
 function Build.part(options: PartOptions): Part
+	Build.breathe()
+
 	local part = Instance.new("Part")
 	part.Name = options.name or "Part"
 	part.Size = options.size
@@ -255,13 +314,28 @@ function Build.folder(name: string, parent: Instance): Folder
 	return folder
 end
 
---- A billboard sign that stays readable from across the lawn.
-function Build.billboard(adornee: BasePart, size: UDim2, offsetY: number, maxDistance: number): BillboardGui
+--[[
+	A billboard sign that stays readable from across the lawn.
+
+	`forward` moves it towards +Z, which every building in the game faces.
+	A sign hung inside a recess is cut off by whatever frames the recess —
+	a billboard always faces the camera, so any part of it wider than the
+	opening disappears behind the edge — and there is nothing a colour or an
+	outline can do about that. Standing it out in front of the building is
+	what fixes it.
+]]
+function Build.billboard(
+	adornee: BasePart,
+	size: UDim2,
+	offsetY: number,
+	maxDistance: number,
+	forward: number?
+): BillboardGui
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Sign"
 	gui.Adornee = adornee
 	gui.Size = size
-	gui.StudsOffsetWorldSpace = Vector3.new(0, offsetY, 0)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, offsetY, forward or 0)
 	gui.MaxDistance = maxDistance
 	gui.AlwaysOnTop = false
 	gui.LightInfluence = 0
@@ -278,10 +352,29 @@ function Build.label(parent: Instance, text: string, size: UDim2, position: UDim
 	label.Font = Enum.Font.GothamBold
 	label.TextScaled = true
 	label.TextColor3 = Color3.fromRGB(255, 255, 255)
-	label.TextStrokeTransparency = 0.35
-	label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 	label.RichText = true
 	label.Parent = parent
+
+	--[[
+		An outline that is actually opaque.
+
+		These are white letters hung in the world, in front of whatever
+		happens to be behind them, and the only thing separating them from it
+		was `TextStrokeTransparency = 0.35` — a one-pixel line at two thirds
+		strength. Against the shed, which is bright cream wood, that is not a
+		separation at all: "Upgrade Bag" read as "pgrade Bag" and "Leaf
+		Blower" as "Leaf Blow", each losing exactly the letters that crossed
+		the frame around the opening. A `UIStroke` is drawn thicker and takes
+		a colour and an opacity that mean what they say.
+	]]
+	label.TextStrokeTransparency = 1
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(24, 18, 10)
+	stroke.Thickness = math.max(2 * scale, 1.5)
+	stroke.Transparency = 0
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.Parent = label
+
 	local constraint = Instance.new("UITextSizeConstraint")
 	constraint.MaxTextSize = math.floor(28 * scale)
 	constraint.Parent = label
@@ -618,9 +711,8 @@ function Build.rainbowText(parent: Instance, text: string, size: UDim2, position
 		end
 	end
 
-	local label = Build.label(parent, table.concat(pieces), size, position, scale)
-	label.TextStrokeTransparency = 0.1
-	return label
+	-- The outline comes from `Build.label`, which draws a real one.
+	return Build.label(parent, table.concat(pieces), size, position, scale)
 end
 
 --- A blocky hedge, the green wall that borders most of the reference's yards.

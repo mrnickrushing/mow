@@ -79,15 +79,33 @@ type Species = { name: string, layers: { Layer }, trunk: Trunk? }
 --- Transcribed layer by layer from the Creator Store models they came from,
 --- so the assembly is the author's and only the placement is ours.
 local SPECIES: { Species } = {
+	--[[
+		The crown rides seven studs higher than the meshes were laid out.
+
+		Drawn as authored, the lowest leaf sits at 6.23 against a model just
+		under thirty tall — so once a tree is scaled down to the twenty-odd
+		studs one stands at in a garden, the crown begins about four studs off
+		the grass. That is below head height. Walking across the front lawn
+		you did not pass under a tree, you pushed through it, and from any
+		distance the pair either side of the path read as two bushes with a
+		peg under them rather than as trees. Lifting the layers and running
+		the trunk up to meet them puts the crown at nearly two fifths of the
+		tree's height, which is where a maple's actually starts, and leaves
+		room to walk beneath one.
+
+		Every number below is in the species' own unscaled studs and is
+		scaled together when the tree is planted, so the proportion holds at
+		any height a caller asks for.
+	]]
 	{
 		name = "SugarMaple",
-		-- Up to 7.2, where the lowest mesh begins at 6.23, so the two meet
-		-- with a stud of overlap rather than a seam.
-		trunk = { height = 7.2, across = 2.7, flare = 3.5, colour = Color3.fromRGB(104, 74, 51) },
+		-- Up to 14.2, where the lowest mesh now begins at 13.18, so the two
+		-- meet with a stud of overlap rather than a seam.
+		trunk = { height = 14.2, across = 2.7, flare = 3.5, colour = Color3.fromRGB(104, 74, 51) },
 		layers = {
-			{ mesh = 10066618419, texture = 10066748571, size = Vector3.new(3.0, 5.0, 2.8), at = Vector3.new(0.74, 8.73, 1.38) },
-			{ mesh = 10066618421, texture = 3919199672, size = Vector3.new(11.3, 14.5, 13.2), at = Vector3.new(1.38, 15.48, 0.23) },
-			{ mesh = 10066618436, texture = 3919199672, size = Vector3.new(22.0, 23.4, 24.7), at = Vector3.new(0, 17.88, 0) },
+			{ mesh = 10066618419, texture = 10066748571, size = Vector3.new(3.0, 5.0, 2.8), at = Vector3.new(0.74, 15.73, 1.38) },
+			{ mesh = 10066618421, texture = 3919199672, size = Vector3.new(11.3, 14.5, 13.2), at = Vector3.new(1.38, 22.48, 0.23) },
+			{ mesh = 10066618436, texture = 3919199672, size = Vector3.new(22.0, 23.4, 24.7), at = Vector3.new(0, 24.88, 0) },
 		},
 	},
 }

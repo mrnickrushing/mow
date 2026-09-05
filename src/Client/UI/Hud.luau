@@ -1210,6 +1210,17 @@ local function refresh()
 		hintLabel.Text = "Bag full — head to the trailer"
 	elseif burnsFuel and state.fuel <= 0 then
 		hintLabel.Text = "Out of fuel — refill at the shed"
+	--[[
+		Held down over nothing.
+
+		A pickup tool takes one tile, and the ground where a prop stands is
+		bare — so pressing the button while stood against the crate on the
+		first lawn does nothing whatever, which is indistinguishable from the
+		game being broken. Same complaint the full bag and the empty tank
+		produced, same answer.
+	]]
+	elseif MowController.reachingNothing() then
+		hintLabel.Text = "Nothing in reach — stand over the grass"
 	elseif rideable and not seated() then
 		--[[
 			Only while they are still off it.
