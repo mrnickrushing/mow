@@ -196,14 +196,41 @@ local function dependentsOf(world: Types.WorldDef, sectionId: string): { Types.Z
 	return out
 end
 
---- True once every section on the critical path has had all its waves cleared.
-local function requiredSectionsDone(world: Types.WorldDef): boolean
+--- Sections on the critical path that still owe waves, in world order.
+local function remainingRequired(world: Types.WorldDef): { Types.ZoneDef }
+	local out = {}
 	for _, section in Worlds.requiredSections(world) do
 		if (wavesCleared[section.id] or 0) < (wavesNeeded[section.id] or 1) then
-			return false
+			table.insert(out, section)
 		end
 	end
-	return true
+	return out
+end
+
+--- True once every section on the critical path has had all its waves cleared.
+local function requiredSectionsDone(world: Types.WorldDef): boolean
+	return #remainingRequired(world) == 0
+end
+
+--[[
+	Writes what is still holding the grate shut onto the grate.
+
+	Named while there is one left, counted while there are several. The one
+	that matters is the last: The House's Pool Deck is required and sits off
+	the completion chain behind a paid gate, so following the chain to its
+	end leaves exactly one section outstanding and no indication anywhere of
+	which. "Locked — clear the Pool Deck" is the whole fix.
+]]
+local function refreshExitSign(world: Types.WorldDef)
+	local left = remainingRequired(world)
+	if #left == 0 then
+		-- `openExit` writes the open line; saying it twice is not this job.
+		return
+	elseif #left == 1 then
+		WorldService.setExitStatus(`Locked — clear the {left[1].name}`)
+	else
+		WorldService.setExitStatus(`Locked — {#left} places left`)
+	end
 end
 
 --[[
@@ -275,6 +302,8 @@ local function onSectionCleared(world: Types.WorldDef, section: Types.ZoneDef)
 		exitOpen = true
 		WorldService.openExit()
 		EconomyService.notifyAll("round", "The grate is open. Get out.", nil)
+	else
+		refreshExitSign(world)
 	end
 
 	broadcast()
@@ -352,6 +381,10 @@ local function beginRun(id: string, partySize: number?)
 	phase = "running"
 	startedAt = os.clock()
 	endsAt = startedAt + world.runSeconds
+
+	-- So the grate is honest from the first minute rather than only after the
+	-- first section falls.
+	refreshExitSign(world)
 
 	EconomyService.notifyAll("round", `{world.name} — {world.tagline}`, nil)
 	broadcast()
