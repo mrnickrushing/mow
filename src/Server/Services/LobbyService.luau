@@ -34,6 +34,7 @@ local MowEconomyService = require(script.Parent.EconomyService)
 local MowRunService = require(script.Parent.RunService)
 local MatchmakingService = require(script.Parent.MatchmakingService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
+local VehicleService = require(script.Parent.VehicleService)
 
 local LobbyService = {}
 
@@ -1164,6 +1165,36 @@ function LobbyService.place(player: Player)
 	if not character or not character.PrimaryPart then
 		return
 	end
+
+	--[[
+		Get them off whatever they were riding first.
+
+		A seated character is welded to its seat, so moving the character moves
+		the seat and everything bolted to it. Finish a run sitting on the
+		riding mower and the mower comes home with you: parked across the
+		middle of the lobby, you still on it, a Hop Off button on screen and
+		the machine filling the bottom third of the view of the map boards you
+		came back to read. Measured — back at the right spot in the lobby, with
+		a Seat underfoot.
+
+		`VehicleService` already clears a ride when a world loads, when a
+		character is removed and when a player leaves. Coming back from a run
+		is none of those: the world is not reloaded and the character is the
+		same one, so the ride simply survived the end of the run that paid for
+		it.
+
+		Every way into the lobby comes through here, so this is where it
+		belongs rather than at any one of them.
+	]]
+	VehicleService.dismount(player)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.SeatPart then
+		-- Anything else with a seat in it, and the belt-and-braces case where
+		-- the ride has already gone but the weld has not been broken yet.
+		humanoid.Sit = false
+		task.wait()
+	end
+
 	local at = CENTRE + Vector3.new(0, 5, 62)
 	character:PivotTo(CFrame.lookAt(at, at - Vector3.new(0, 0, 20)))
 end
