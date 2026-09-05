@@ -286,11 +286,13 @@ function RoundBar.start()
 
 				Units sold is a running float, and the bar was showing it
 				exactly: "Sell 1,000 units in total (140.72765566000004/1000)".
-				The journal has always run these through `Format.count`; this
-				line was the one place a quest's own progress reached a player
-				as a fourteen-decimal number.
+				This was the one place a quest's own progress reached a
+				player as a fourteen-decimal number. It and the journal now
+				both spell the number out rather than compacting it, so the
+				counter agrees with the sentence above it — a goal written
+				"Sell 1,000 units" was being counted in `1.00K`.
 			]]
-			objectiveLabel.Text = `{text} ({Format.count(progress)}/{Format.count(target)})`
+			objectiveLabel.Text = `{text} ({Format.tally(progress)}/{Format.tally(target)})`
 			objectiveLabel.TextColor3 = Theme.colors.text
 			objectiveBox.Visible = true
 		else
