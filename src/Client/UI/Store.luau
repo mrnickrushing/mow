@@ -198,15 +198,29 @@ local function build()
 	shade.BorderSizePixel = 0
 	shade.Parent = gui
 
+	--[[
+		Tall, because there are forty-five things to buy in here.
+
+		At 440 the list showed five rows of forty-five — three sections and
+		eleven tools, each sold twice — so finding the chainsaw meant nine
+		screens of scrolling past everything else. Nothing was broken; there
+		was simply no reason for the window to be that short, and on a tablet
+		it left six hundred pixels of shaded background under it.
+
+		`fitToViewport` only ever shrinks, never grows, so the authored size is
+		the largest this is ever drawn: asking for more height costs nothing on
+		a small screen, where it scales down exactly as before.
+	]]
+	local WINDOW = Vector2.new(600, 760)
 	local window = Theme.panel({
 		name = "Window",
-		size = UDim2.fromOffset(600, 440),
+		size = UDim2.fromOffset(WINDOW.X, WINDOW.Y),
 		position = UDim2.fromScale(0.5, 0.5),
 		anchor = Vector2.new(0.5, 0.5),
 		parent = gui,
 		transparency = 0.02,
 	})
-	Theme.fitToViewport(window, 600 + 40, 440 + 40)
+	Theme.fitToViewport(window, WINDOW.X + 40, WINDOW.Y + 40)
 
 	Theme.text({
 		name = "Title",
