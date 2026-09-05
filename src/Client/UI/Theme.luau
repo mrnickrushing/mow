@@ -9,6 +9,7 @@
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ContextActionService = game:GetService("ContextActionService")
 local Palette = require(ReplicatedStorage:WaitForChild("Shared").Config.Palette)
 local Props = require(ReplicatedStorage:WaitForChild("Shared").Config.Props)
 
@@ -50,6 +51,66 @@ function Theme.outline(label: TextLabel | TextButton, thickness: number?): UIStr
 	stroke.LineJoinMode = Enum.LineJoinMode.Round
 	stroke.Parent = label
 	return stroke
+end
+
+--[[
+	Dresses one of Roblox's touch buttons as one of ours.
+
+	`ContextActionService` will draw a button for a bound action on a touch
+	screen, and that is how Ride and Trailer reach a tablet at all. What it
+	draws is a forty-five pixel grey ring in the engine's own style, which
+	next to this game's chrome — an eighty-six pixel tool button with a thick
+	ink outline, a hotbar of seventy-two pixel slots — reads as a piece of
+	Roblox that wandered into the game. The two most expensive things a player
+	can do, getting on the mower and parking the trailer, were the two that
+	looked least like the game.
+
+	The button belongs to the engine, so it is dressed rather than replaced:
+	its ring image is dropped and our own panel, corner, outline and font go
+	on instead. Its place in the corner is left alone — that part the engine
+	already gets right, and it is where a thumb is.
+
+	It is fetched rather than assumed, because the button does not exist on
+	the frame the action is bound, and a rebind makes a new one — so every
+	bind calls this again.
+]]
+function Theme.dressActionButton(actionName: string, label: string?)
+	task.spawn(function()
+		local button: ImageButton? = nil
+		for _ = 1, 24 do
+			button = ContextActionService:GetButton(actionName)
+			if button then
+				break
+			end
+			task.wait(0.1)
+		end
+		if not button then
+			return
+		end
+		local face = button :: ImageButton
+		face.Size = UDim2.fromOffset(72, 72)
+		-- The engine's ring goes; ours is a filled disc like every other
+		-- control on the screen.
+		face.Image = ""
+		face.PressedImage = ""
+		face.BackgroundColor3 = Theme.colors.panelLight
+		face.BackgroundTransparency = 0.12
+		Theme.corner(face, 36)
+		Theme.stroke(face, 3, Theme.colors.outline, 0.05)
+		for _, child in face:GetDescendants() do
+			if child:IsA("TextLabel") then
+				child.Font = Theme.font
+				child.TextSize = 17
+				child.TextColor3 = Theme.colors.text
+				child.TextScaled = false
+				child.Size = UDim2.fromScale(1, 1)
+				child.Position = UDim2.fromScale(0, 0)
+				if label then
+					child.Text = label
+				end
+			end
+		end
+	end)
 end
 
 function Theme.corner(parent: Instance, radius: number): UICorner

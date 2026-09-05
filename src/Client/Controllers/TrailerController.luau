@@ -19,6 +19,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
 local PlayerState = require(script.Parent.Parent.PlayerState)
+local Theme = require(script.Parent.Parent.UI.Theme)
 
 local TrailerController = {}
 
@@ -49,6 +50,7 @@ local function refreshTouchButton()
 	if owned then
 		ContextActionService:BindAction(TOUCH_ACTION, onPark, true)
 		ContextActionService:SetTitle(TOUCH_ACTION, "Trailer")
+		Theme.dressActionButton(TOUCH_ACTION)
 	else
 		pcall(function()
 			ContextActionService:UnbindAction(TOUCH_ACTION)
