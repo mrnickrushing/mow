@@ -508,12 +508,27 @@ function Worlds.unlockKind(section: Types.ZoneDef): Types.ZoneUnlock
 	return section.unlock or "completion"
 end
 
---- Waves needed to finish a section: one per player unless it says otherwise.
+--[[
+	The most waves a section asks of any headcount.
+
+	One wave per player kept the work per person constant, which was the
+	point — and it was also unwinnable. A party of three on The House owed
+	three waves of every section against the same ninety-minute clock, and
+	the run ended with the backyard barely finished. Three people do not
+	really cut three times as fast: they share the gates, the trailer trips
+	and the shed queue, and they spend the first stretch on the same bare
+	hands. Two waves keeps a full server from finishing in a fraction of a
+	solo run's time without asking a team for more than the clock holds.
+]]
+Worlds.MAX_WAVES = 2
+
+--- Waves needed to finish a section: one per player, capped at MAX_WAVES,
+--- unless the section pins its own count.
 function Worlds.wavesFor(section: Types.ZoneDef, playerCount: number): number
 	if section.waves then
 		return section.waves
 	end
-	return math.max(playerCount, 1)
+	return math.clamp(playerCount, 1, Worlds.MAX_WAVES)
 end
 
 --- The section the run begins in.

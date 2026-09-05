@@ -440,27 +440,44 @@ return function()
 			end
 		end)
 
-		h.it("scales waves with the players present", function()
+		h.it("scales waves with the players present, up to the cap", function()
 			local world = Worlds.expect(Worlds.STARTER_ID)
 			local main = Worlds.startSection(world)
 			h.expectEqual(Worlds.wavesFor(main, 1), 1, "solo should be one wave")
-			h.expectEqual(Worlds.wavesFor(main, 3), 3, "three players, three waves")
+			h.expectEqual(Worlds.wavesFor(main, 2), 2, "two players, two waves")
+			h.expectEqual(Worlds.wavesFor(main, 3), 2, "three players still owe only two waves")
+			h.expectEqual(Worlds.wavesFor(main, 8), Worlds.MAX_WAVES, "a full server owes the cap")
 
 			local garage = Worlds.section(world, "garage")
 			h.expectTrue(garage ~= nil)
 			h.expectEqual(Worlds.wavesFor(garage :: any, 4), 1, "a pinned section ignores headcount")
 		end)
 
-		h.it("keeps the work per player the same however many are playing", function()
-			-- The point of waves. A section holds U units per wave and needs one
-			-- wave per player, so the run's total work is N*U shared between N
-			-- people: everyone does U regardless. A full server takes as long as
-			-- a solo run rather than finishing in a fraction of the time.
+		h.it("never asks a section for more than the cap", function()
+			-- Three players owed three waves of every section against the same
+			-- clock and ran out of time with the backyard barely done. Whatever
+			-- the headcount, no unpinned section may owe more than MAX_WAVES.
+			for _, world in Worlds.list do
+				for _, section in world.sections do
+					for players = 1, 12 do
+						h.expectTrue(
+							Worlds.wavesFor(section, players) <= math.max(Worlds.MAX_WAVES, section.waves or 0),
+							`{world.id}/{section.id} owes too many waves at {players} players`
+						)
+					end
+				end
+			end
+		end)
+
+		h.it("keeps the work per player the same up to the cap", function()
+			-- The point of waves: a section holds U units per wave and needs one
+			-- wave per player, so N*U is shared between N people and everyone
+			-- does U. Past the cap the share falls — deliberately, see MAX_WAVES.
 			local world = Worlds.expect(Worlds.STARTER_ID)
 			local section = Worlds.startSection(world)
 
 			local solo = Worlds.wavesFor(section, 1) / 1
-			for players = 2, 8 do
+			for players = 2, Worlds.MAX_WAVES do
 				local share = Worlds.wavesFor(section, players) / players
 				h.expectClose(share, solo, 1e-9, `work per player changed at {players} players`)
 			end

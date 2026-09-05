@@ -24,8 +24,8 @@ worlds you have beaten, and anything bought with Robux. Nothing you can grind.
 dollars, because you started this run with nothing twenty minutes ago.
 
 **One section.** Clear it and the gate to the next opens. On a busy server it
-fills back up first: one wave per player, so eight people do eight times the
-work rather than finishing in an eighth of the time.
+fills back up first: one wave per player, capped at two, so a team does more
+work than a solo player rather than finishing in a fraction of the time.
 
 **One run.** Six sections, a grate, and a time on the board.
 
@@ -153,10 +153,11 @@ Current: all three worlds beaten in 27–30 minutes by a player who never wastes
 second, or about a third of the ninety-minute clock. Real players are nowhere
 near optimal, so the clock should feel tight rather than generous.
 
-Wave scaling is invariant by construction: a section holds U units per wave and
+Wave scaling is invariant up to the cap: a section holds U units per wave and
 needs one wave per player, so the total is N·U shared between N people and
-everybody does U regardless. A full server takes as long as a solo run rather
-than finishing in a fraction of the time. There is a test for it.
+everybody does U. Past `Worlds.MAX_WAVES` (two) the share falls on purpose: a
+party of three owing three waves of every section ran out of the ninety-minute
+clock with the backyard barely done. There is a test for both halves.
 
 **Known tuning weakness:** the three worlds all sit near a third of the clock,
 so difficulty comes from length and complexity rather than from time pressure

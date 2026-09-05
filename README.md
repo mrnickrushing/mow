@@ -9,8 +9,9 @@ Work debris into your bag → walk to the trailer, it sells on approach → buy 
 wider tool and a bigger bag → open the next gate. Cash and gear last for the run
 and no longer, so every world starts from bare hands.
 
-On a busy server a section fills back up once per player, so eight people do
-eight times the work rather than finishing eight times faster.
+On a busy server a section fills back up once per player, to a cap of two
+waves, so a team does more work than a solo player rather than finishing in a
+fraction of the time — without owing more than the clock holds.
 
 ## Getting started
 
