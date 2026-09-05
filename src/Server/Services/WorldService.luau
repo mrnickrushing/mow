@@ -1699,8 +1699,25 @@ local function buildSectionSigns(world: Types.WorldDef, parent: Folder): { [stri
 				name = section.id,
 				size = Vector3.new(7, 12, 1.4),
 				collisionSize = Vector3.new(1, 12, 1),
-				-- Beside the gate rather than on top of it, on the approach side.
-				cframe = basis * CFrame.new(8, 6, -2),
+				--[[
+					Beside the gate rather than on top of it, and on the side
+					you are standing when you decide.
+
+					`gateBasis` looks *into* the section it gates, so its -Z
+					is the far side of the door and its +Z is the approach.
+					This read -2 and so put the board two studs past the gate,
+					facing away from anyone walking up to it: the one thing on
+					the property that says what eighteen dollars buys was only
+					legible once you had already bought it. From the backyard
+					there was a shut door with a price on it and nothing else.
+
+					The half turn is the other half of the same mistake — the
+					post inherits the basis' facing, which is inwards too. It
+					is applied after the offset so the offset stays in the
+					gate's frame and the board keeps the side of the doorway
+					it was put on.
+				]]
+				cframe = basis * CFrame.new(8, 6, 2) * CFrame.Angles(0, math.pi, 0),
 				canCollide = false,
 				parent = folder,
 			})
@@ -1724,30 +1741,45 @@ local function buildSectionSigns(world: Types.WorldDef, parent: Folder): { [stri
 				`post.CFrame * CFrame.new(...)` turns with it, whereas the
 				two kinds of studs-offset differ in exactly this case.
 			]]
-			local face = Build.part({
+			--[[
+				Painted on the plank, not floated in front of it.
+
+				This was a marker standing a stud and a half proud of the
+				wood with a billboard on it, and a billboard turns to face
+				the camera — so the moment you looked at the sign from
+				anywhere but square on, its far half swung behind the plank
+				and the name lost a letter at each end. Walking up the path
+				to it, "Pool Deck" read "ool Dec". Confirmed by hiding the
+				post, which made the name whole. No clearance fixes that: at
+				a shallow enough angle any width is too wide.
+
+				A plate sitting just proud of the plank's front face, with
+				the name painted onto it, cannot be cut by the plank because
+				it never leaves its plane. The plate faces the same way the
+				sign does, which is the way the player walks up to it.
+			]]
+			local plate = Build.part({
 				name = "Face",
-				size = Vector3.new(0.2, 0.2, 0.2),
-				-- Measured against the mesh rather than assumed: the plank
-				-- hangs a little off the post's centre, and the marker sits
-				-- half a stud proud of the wood so the writing clears it.
-				cframe = post.CFrame * CFrame.new(0.6, 0, -1.6),
+				-- The plank inside the seven-stud envelope, measured against
+				-- the mesh: a little off the post's centre, and just proud of
+				-- the wood so the paint does not fight it for the same pixels.
+				size = Vector3.new(4.9, 1.7, 0.1),
+				cframe = post.CFrame * CFrame.new(0.6, 0, -0.78),
 				color = Color3.fromRGB(255, 255, 255),
 				material = Enum.Material.SmoothPlastic,
 				transparency = 1,
 				canCollide = false,
 				parent = post,
 			})
-			face.CastShadow = false
+			plate.CastShadow = false
 
-			-- Narrower than the plank looks, because the marker stands a
-			-- stud and a half nearer than the post and a billboard sized in
-			-- studs grows as it comes towards you.
-			local board = Build.billboard(face, UDim2.fromScale(4.9, 1.7), 0, 140)
-			local label = Build.label(board, section.name, UDim2.fromScale(1, 1), UDim2.new(), 1.1)
+			-- `Front` is the face along the plate's LookVector, which is the
+			-- way the post was turned to meet whoever walks up to it.
+			local label = Build.painted(plate, Enum.NormalId.Front, 0.92)
+			label.Text = section.name
 			-- Paint on pale wood, not a label floating over a bush: the white
 			-- and its black stroke belong to the things that hang in the air.
 			label.TextColor3 = Color3.fromRGB(78, 52, 30)
-			label.TextStrokeTransparency = 1
 
 			signs[section.id] = post
 		end
@@ -1922,7 +1954,31 @@ local function buildCashGates(world: Types.WorldDef, parent: Folder): { [string]
 			parent = gate,
 		})
 
-		local gui = Build.billboard(door, UDim2.fromOffset(160, 70), 4, 90)
+		--[[
+			Stood out in front of the door, not inside it.
+
+			The billboard hung on the door itself, which is a mesh nearly two
+			studs deep — so the writing sat in the middle of the wood it was
+			labelling, and a billboard turns to face the camera: walk up to
+			the gate from either side and half of it is behind the door.
+			"Unlock" read as "nlock". The marker goes on the approach side,
+			through the gate's own basis so it is the right side whichever
+			way round the gate was built — `gateBasis` looks into the section
+			it gates, so +Z is the side you walk up from and -Z is past the
+			door. Below the arch, too: at nine studs the top line ran into the
+			crossbeam and lost the same word to it instead.
+		]]
+		local front = Build.part({
+			name = "SignFace",
+			size = Vector3.new(0.2, 0.2, 0.2),
+			cframe = basis * CFrame.new(0, 7.5, 2.4),
+			transparency = 1,
+			canCollide = false,
+			castShadow = false,
+			parent = gate,
+		})
+
+		local gui = Build.billboard(front, UDim2.fromOffset(160, 70), 0, 90)
 		Build.label(gui, "Unlock", UDim2.fromScale(1, 0.5), UDim2.fromScale(0, 0), 0.8)
 		local price = Build.label(
 			gui,
@@ -2618,7 +2674,20 @@ function WorldService.load(worldId: string)
 			unchanged. A deeper hedge is also just a hedge.
 		]]
 		Build.hedge(scenery, WorldService.tilePointFlat(72, 8), WorldService.tilePointFlat(72, 54), 13, 12)
-		Build.hedge(scenery, WorldService.tilePointFlat(24, 78), WorldService.tilePointFlat(72, 78), 13, 7)
+		--[[
+			The back hedge stops short of the pool gate.
+
+			It ran from tile 24, which put its first block seven studs in
+			front of the gate's door and dead on its centre line — thirteen
+			studs of hedge standing in a doorway. Walk at the gate from the
+			backyard and you meet a wall, and have to go round the end of it
+			and back again to reach a door you were looking straight at.
+
+			From 27 the run still separates the backyard from the maze along
+			every part of that edge anybody walks, and the west end of it is
+			now the way through to the pool, which is what that corner is.
+		]]
+		Build.hedge(scenery, WorldService.tilePointFlat(27, 78), WorldService.tilePointFlat(72, 78), 13, 7)
 
 		--[[
 			A flagstone path from the kerb to the porch, and a driveway from

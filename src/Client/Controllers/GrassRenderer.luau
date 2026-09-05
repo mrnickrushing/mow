@@ -93,6 +93,26 @@ local tileSection: { string } = {}
 ]]
 local groundColor = Palette.color(Palette.ground.lawn)
 local driftColor = Palette.color(Palette.ground.lawn)
+
+--[[
+	The same blend again, for the surfaces inside a world that are not its
+	ground.
+
+	The rule above is right and was applied one level too coarsely: it takes
+	the world's `baseGround`, and a world is not all one surface. The House's
+	Rooftop is a slab of brown slate twenty-nine studs up and its Basement is
+	a stone floor eighteen studs down, and both are filled with leaves — so
+	both were carpeted in a colour worked out from the lawn. Standing anywhere
+	on the property, the house had a bright green lawn on its roof, and the
+	one thing the drift colour exists to tell you from a distance — that there
+	is litter up there worth going up for — it said in the colour of grass.
+
+	Keyed by section kind, because that is what decides the surface: a roof is
+	roofing, a room has the stone floor every room in the game is built with,
+	and everything else is standing on the lot.
+]]
+local driftByKind: { [string]: Color3 } = {}
+local tileKind: { string } = {}
 local tileElevation: { number } = {}
 
 local requestChunks: RemoteEvent
@@ -267,6 +287,8 @@ end
 local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
 	table.clear(tileSection)
 	table.clear(tileElevation)
+	table.clear(tileKind)
+	table.clear(driftByKind)
 	local world = Worlds.get(worldId)
 	if not world then
 		return
@@ -276,7 +298,23 @@ local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
 	-- A fifth of the way toward the leaves and no further: the carpet is smooth
 	-- where the lot around it is full of clumps, so its shape already gives it
 	-- away and its colour has to stay quiet.
-	driftColor = groundColor:Lerp(Palette.color(Palette.leafAverage), 0.2)
+	local leaf = Palette.color(Palette.leafAverage)
+	driftColor = groundColor:Lerp(leaf, 0.2)
+
+	--[[
+		The same fifth, from each surface's own colour.
+
+		These are the two the world builds out of something other than its
+		ground: `WorldService` lays a roof deck in `house.roof` and every room
+		floor in `ground.stoneDark`. Both are hard, dark surfaces with nothing
+		growing on them, so a drift on either has more to say than a drift on
+		a lawn and is carried further — half the way rather than a fifth. On
+		grass a quiet drift is right because the grass is already telling you
+		what the ground is; on a bare roof the litter is the only thing there
+		is to see.
+	]]
+	driftByKind.roof = Palette.color(Palette.house.roof):Lerp(leaf, 0.5)
+	driftByKind.room = Palette.color(Palette.ground.stoneDark):Lerp(leaf, 0.5)
 
 	for _, section in world.sections do
 		local r = section.rect
@@ -286,6 +324,7 @@ local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
 				local index = Grid.toIndex(theGrid, tx, tz)
 				tileSection[index] = section.id
 				tileElevation[index] = elevation
+				tileKind[index] = section.kind or ""
 			end
 		end
 	end
@@ -599,6 +638,7 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	local weight: { [number]: number } = {}
 	local debrisId = DebrisConfig.Grass
 	local best = 0
+	local surface = ""
 
 	for lz = 0, theGrid.chunkTiles - 1, 2 do
 		for lx = 0, theGrid.chunkTiles - 1, 2 do
@@ -618,6 +658,7 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 						debrisId = kind
 					end
 					floor = GameConfig.GROUND_Y + (tileElevation[index] or 0)
+					surface = tileKind[index] or ""
 				end
 			end
 		end
@@ -674,7 +715,9 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		their own colour because a drift genuinely is the thing you can see from
 		across a property.
 	]]
-	local color = if debrisId == DebrisConfig.Leaves then driftColor else groundColor
+	local color = if debrisId == DebrisConfig.Leaves
+		then driftByKind[surface] or driftColor
+		else groundColor
 
 	part.Size = Vector3.new(studs, thickness, studs)
 	part.CFrame = CFrame.new(x, floor + thickness * 0.5, z)

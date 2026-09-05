@@ -381,6 +381,42 @@ function Build.label(parent: Instance, text: string, size: UDim2, position: UDim
 	return label
 end
 
+--[[
+	Writing painted onto a surface rather than hung in front of it.
+
+	A BillboardGui always turns to face the camera, so as soon as you look at
+	one from an angle it swings out of the plane it was placed in and the far
+	half of it goes behind whatever it was standing proud of. On a sign that
+	is its own board that is fatal: "Pool Deck" reads as "ool Dec" from the
+	path you actually walk up it, losing a letter at each end, and no amount
+	of clearance fixes it — at a shallow enough angle any width is too wide.
+
+	A board is a board. It shrinks with distance, it stays where it was put,
+	and it cannot be cut by the thing it is written on. The lobby's game
+	boards use the same reasoning.
+]]
+function Build.painted(part: BasePart, face: Enum.NormalId, inset: number): TextLabel
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Painted"
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 40
+	gui.LightInfluence = 0
+	gui.Parent = part
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(inset, inset)
+	label.Position = UDim2.fromScale((1 - inset) * 0.5, (1 - inset) * 0.5)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBold
+	label.TextScaled = true
+	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.RichText = true
+	label.Text = ""
+	label.Parent = gui
+	return label
+end
+
 function Build.prompt(parent: BasePart, actionText: string, objectText: string, distance: number): ProximityPrompt
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.ActionText = actionText
