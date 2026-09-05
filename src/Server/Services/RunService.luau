@@ -45,6 +45,9 @@ local phase: Phase = "lobby"
 local worldId = Worlds.STARTER_ID
 local endsAt = 0
 local startedAt = 0
+--- How long the finished run took, held still after it ends so the outro can
+--- read it. `elapsed()` keeps counting; this is the number on the board.
+local finishedElapsed = 0
 
 --- When the current run began, so wave counts are not relaxed before the team
 --- that justified them has finished teleporting in.
@@ -146,6 +149,8 @@ local function broadcast()
 		worldId = if world then world.id else "",
 		worldName = if world then world.name else "",
 		exitOpen = exitOpen,
+		-- What the run took, for the outro. Zero until it is over.
+		elapsed = finishedElapsed,
 		worlds = worldChoices(),
 		sections = sectionSnapshot(),
 	})
@@ -380,6 +385,7 @@ local function beginRun(id: string, partySize: number?)
 
 	phase = "running"
 	startedAt = os.clock()
+	finishedElapsed = 0
 	endsAt = startedAt + world.runSeconds
 
 	-- So the grate is honest from the first minute rather than only after the
@@ -399,6 +405,7 @@ local function winRun()
 	end
 	phase = "won"
 	local elapsed = RunService.elapsed()
+	finishedElapsed = elapsed
 	endsAt = os.clock() + GameConfig.INTERMISSION_SECONDS
 
 	EconomyService.notifyAll("round", `Beaten in {Format.clock(elapsed)}`, nil)
@@ -476,6 +483,7 @@ local function loseRun()
 		return
 	end
 	phase = "lost"
+	finishedElapsed = RunService.elapsed()
 	endsAt = os.clock() + GameConfig.INTERMISSION_SECONDS
 	EconomyService.notifyAll("round", "Out of time. The grass wins this one.", nil)
 	broadcast()

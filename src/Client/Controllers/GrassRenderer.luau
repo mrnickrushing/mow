@@ -323,8 +323,20 @@ local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
 		surface, which is the exact fault the roof had. A glasshouse stands on
 		the same stone floor every room does.
 	]]
-	driftByKind.court = Palette.color(Palette.court.tarmac):Lerp(leaf, 0.25)
-	driftByKind.terrace = Palette.color(Palette.estate.stone):Lerp(leaf, 0.45)
+	--[[
+		Carried most of the way to the leaves, not a fifth of it.
+
+		The quiet blend above is right on a lawn, where the grass beside the
+		drift is already telling you what the ground is. On a hard floor the
+		litter is the only thing there is to see, and a slab a quarter of the
+		way from blue tarmac towards orange is a grey lid: it hid the leaves
+		*and* the painted lines, so a court came out as one lit strip of
+		leaves near the player and a flat grey rectangle beyond, with a hard
+		edge between them. Reported as only a small square of the court having
+		leaves on it.
+	]]
+	driftByKind.court = Palette.color(Palette.court.tarmac):Lerp(leaf, 0.72)
+	driftByKind.terrace = Palette.color(Palette.estate.stone):Lerp(leaf, 0.6)
 	driftByKind.glasshouse = driftByKind.room
 
 	for _, section in world.sections do
@@ -690,8 +702,26 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		A drift still gets one, because a lawn covered in leaves genuinely does
 		look different from across a property and that is worth being able to
 		see. Bare grass does not, so it is left to the ground to draw.
+
+		That reasoning is about a lawn, and it goes wrong the moment the floor
+		is not one. On the tennis court the ground is blue tarmac: a chunk of
+		leaves got a carpet, a chunk of fallen branches got nothing and showed
+		bare court, and the near end showed real leaves — so a single court
+		came out in three different finishes in thirty-two stud squares, with
+		one patch dark and littered and the rest of it bare. Reported as only
+		one section of the court being black with leaves.
+
+		Litter on a hard floor is not the floor, whatever it is made of. So on
+		any surface with a drift colour of its own — a court, a terrace, a
+		roof, a room — every chunk holding anything gets the same carpet, and
+		the court reads as one court.
 	]]
-	if samples == 0 or remaining == 0 or debrisId ~= DebrisConfig.Leaves then
+	local floorDrift: Color3? = driftByKind[surface]
+	local hardFloor = floorDrift ~= nil
+	local nothingToDraw = samples == 0
+		or remaining == 0
+		or (not hardFloor and debrisId ~= DebrisConfig.Leaves)
+	if nothingToDraw then
 		if existing then
 			existing.Parent = nil
 		end
@@ -709,8 +739,10 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	local studs = theGrid.chunkTiles * TILE
 	local averageHeight = remaining / samples * HEIGHT_STUD
 
-	-- A leaf drift has no real height, so its stand-in stays a thin carpet.
-	local thickness = if debrisId == DebrisConfig.Leaves
+	-- A leaf drift has no real height, so its stand-in stays a thin carpet —
+	-- and so does anything lying on a hard floor, which is litter rather than
+	-- something growing out of it.
+	local thickness = if debrisId == DebrisConfig.Leaves or hardFloor
 		then 0.3
 		else math.max(averageHeight, 0.2)
 	local x, z = Grid.chunkCentre(theGrid, cx, cz)
@@ -726,15 +758,30 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		their own colour because a drift genuinely is the thing you can see from
 		across a property.
 	]]
-	local color = if debrisId == DebrisConfig.Leaves
-		then driftByKind[surface] or driftColor
+	local color = if floorDrift
+		then floorDrift
+		elseif debrisId == DebrisConfig.Leaves then driftColor
 		else groundColor
 
 	part.Size = Vector3.new(studs, thickness, studs)
 	part.CFrame = CFrame.new(x, floor + thickness * 0.5, z)
 	part.Color = color
-	part.Material = if debrisId == DebrisConfig.Leaves then Enum.Material.SmoothPlastic else Enum.Material.Grass
-	part.Transparency = 0
+	--[[
+		Litter on a hard floor is laid over it, not instead of it.
+
+		Opaque, the stand-in covers the court: its markings, its colour and
+		the shape of it all disappear behind a solid rectangle, and the seam
+		against the detailed tiles beside it is a straight line across the
+		middle of the section. Left partly transparent, the tarmac and the
+		white lines carry on underneath and the carpet reads as what it is —
+		the same leaves, drawn more cheaply.
+
+		A lawn keeps its opaque slab, because there the slab *is* the ground.
+	]]
+	part.Material = if debrisId == DebrisConfig.Leaves or hardFloor
+		then Enum.Material.SmoothPlastic
+		else Enum.Material.Grass
+	part.Transparency = if hardFloor then 0.34 else 0
 	part.Parent = lodFolder
 end
 
