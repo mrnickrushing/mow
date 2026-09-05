@@ -43,6 +43,10 @@ local progress: { [Player]: number } = {}
 local lastIntentAt: { [Player]: number } = {}
 --- Reused per call to avoid churning a table every tick per player.
 local scratch: { number } = {}
+local sweepScratch: { number } = {}
+--- Where each player's last accepted swath was cut from, so the next one can
+--- sweep the ground covered in between. See `Grid.rasterizeSweep`.
+local lastCutFrom: { [Player]: Vector3 } = {}
 
 --- Fired as (player, tileIndex, debrisId, levels) for stripe and stat tracking.
 local cutSignal = Instance.new("BindableEvent")
@@ -106,13 +110,19 @@ export type CutResult = {
 	`passes` is how many swings the tool managed this tick, derived from its rate
 	and the time since the last intent. Each pass removes up to `power` height
 	levels from every tile in the swath.
+
+	`from` is where the previous accepted swath was cut from. When it is given,
+	a swath tool sweeps the deck along the path from there to `position`
+	rather than stamping it once at the end, so the ground crossed between
+	two intents — or across a lost one — is cut too.
 ]]
 function TileService.applyPasses(
 	player: Player,
 	position: Vector3,
 	look: Vector3,
 	tool: Types.ToolDef,
-	passes: number
+	passes: number,
+	from: Vector3?
 ): CutResult
 	local result: CutResult = {
 		tilesTouched = 0,
@@ -145,6 +155,10 @@ function TileService.applyPasses(
 			scratch[1] = target
 		end
 		indices = scratch
+	elseif from then
+		indices = Grid.rasterizeSweep(
+			grid, from.X, from.Z, position.X, position.Z, look.X, look.Z, tool.deck, tool.reach, scratch, sweepScratch
+		)
 	else
 		indices = Grid.rasterizeSwath(grid, position.X, position.Z, look.X, look.Z, tool.deck, tool.reach, scratch)
 	end
@@ -321,6 +335,17 @@ local function onMowIntent(player: Player, payload: any)
 		return
 	end
 
+	--[[
+		Whether this intent continues the last one.
+
+		A gap longer than the interval an intent may credit is a stroke that
+		ended and another that began, not travel; so is a jump further than
+		any machine covers in that time. Either way the deck is not dragged
+		across it. Decided here, before the position is reconciled, so the
+		reconciled point below is what gets remembered.
+	]]
+	local continues = previous ~= nil and now - previous <= 0.5
+
 	-- The tile underfoot decides the rate: a sprinkler that has just passed
 	-- over you stalls a cheap tool and halves a good one.
 	local worldGrid = WorldService.grid
@@ -339,14 +364,25 @@ local function onMowIntent(player: Player, payload: any)
 		return
 	end
 
+	local from = if continues then lastCutFrom[player] else nil
+	if from and (cutFrom - from).Magnitude > GameConfig.MOW_SWEEP_MAX then
+		from = nil
+	end
+
 	local carried = (progress[player] or 0) + rate * delta
 	local passes = math.floor(carried)
 	progress[player] = carried - passes
 	if passes <= 0 then
+		-- No swing yet, but the stroke has a start: the swing that comes will
+		-- sweep from here, so a slow tool still covers the ground it crossed.
+		if from == nil then
+			lastCutFrom[player] = cutFrom
+		end
 		return
 	end
 
-	local result = TileService.applyPasses(player, cutFrom, look, tool, passes)
+	local result = TileService.applyPasses(player, cutFrom, look, tool, passes, from)
+	lastCutFrom[player] = cutFrom
 
 	if result.blockedBySection and result.tilesTouched == 0 then
 		say(player, "locked", "You have not bought this zone yet")
@@ -384,6 +420,7 @@ function TileService.start()
 		limiters[player] = nil
 		progress[player] = nil
 		lastIntentAt[player] = nil
+		lastCutFrom[player] = nil
 		lastNotice[player] = nil
 	end)
 end

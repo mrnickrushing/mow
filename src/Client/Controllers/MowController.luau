@@ -48,6 +48,10 @@ local nextCutSound = 0
 --- Shortest gap between two cut cues, in seconds.
 local CUT_SOUND_GAP = 0.11
 local predictScratch: { number } = {}
+local predictSweepScratch: { number } = {}
+--- Where the last prediction was made from, so the next one sweeps the ground
+--- covered since — the same path the server cuts. See `Grid.rasterizeSweep`.
+local lastPredictFrom: Vector3? = nil
 --- Clippings bagged since the last popup, and when that popup went up.
 local pendingUnits = 0
 local lastPopupAt = 0
@@ -174,16 +178,41 @@ local function predict(root: BasePart, look: Vector3, toolId: string, passes: nu
 		end
 		indices = predictScratch
 	else
-		indices = Grid.rasterizeSwath(
-			grid,
-			root.Position.X,
-			root.Position.Z,
-			look.X,
-			look.Z,
-			tool.deck,
-			tool.reach,
-			predictScratch
-		)
+		-- Dragged from the last prediction, as the server drags it from the
+		-- last intent it accepted: a ride-on covers several studs a tick,
+		-- and stamping the deck once at the end left the ground in between
+		-- predicted by nobody and cut by the server a flush later.
+		local from = lastPredictFrom
+		if from and (root.Position - from).Magnitude > GameConfig.MOW_SWEEP_MAX then
+			from = nil
+		end
+		if from then
+			indices = Grid.rasterizeSweep(
+				grid,
+				from.X,
+				from.Z,
+				root.Position.X,
+				root.Position.Z,
+				look.X,
+				look.Z,
+				tool.deck,
+				tool.reach,
+				predictScratch,
+				predictSweepScratch
+			)
+		else
+			indices = Grid.rasterizeSwath(
+				grid,
+				root.Position.X,
+				root.Position.Z,
+				look.X,
+				look.Z,
+				tool.deck,
+				tool.reach,
+				predictScratch
+			)
+		end
+		lastPredictFrom = root.Position
 	end
 
 	local bagged = 0
@@ -248,6 +277,7 @@ local function setMowing(value: boolean)
 	if not value then
 		accumulator = 0
 		predictCarry = 0
+		lastPredictFrom = nil
 	end
 
 	-- Engine noise belongs to the machine, so it runs only while a mower is
