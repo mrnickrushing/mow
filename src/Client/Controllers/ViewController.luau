@@ -74,7 +74,29 @@ local function held(tool: Types.ToolDef): Held
 	local category = tool.category
 
 	if category == "Hand" then
-		return { prop = "Gloves", size = Vector3.new(1.1, 0.5, 0.9), at = CFrame.new(0, -0.06, 0.1) }
+		--[[
+			In frame, and in the mesh's own proportions.
+
+			`HOLD` puts a tool's centre outside the frustum on purpose: a rake
+			is three studs long and reaches in from the corner, and its middle
+			being off screen is what makes it read as held rather than
+			floated. The gloves are half a stud tall, so the same offset put
+			them entirely outside the shot — measured, they projected to
+			x 1036..5333 and y 926..3710 on a 1375 by 1031 screen, which is a
+			sliver of one corner. Bare hands are what every player holds for
+			the first several minutes of the game and there was nothing in
+			their hands at all.
+
+			The old size also stretched the mesh four times deeper than wide
+			— 1.1 by 0.5 by 0.9 against a model that is 0.557 by 0.5 by 0.213
+			— so what would have been drawn was a plank rather than a pair of
+			hands. Sized off the model instead, so it keeps its shape.
+		]]
+		return {
+			prop = "Gloves",
+			size = Vector3.new(0.557, 0.500, 0.213) * 0.78,
+			at = CFrame.new(-0.52, 0.26, -0.5) * CFrame.Angles(math.rad(-24), 0, 0),
+		}
 	elseif category == "Rake" then
 		--[[
 			Tines down.
@@ -118,16 +140,35 @@ local function held(tool: Types.ToolDef): Held
 			at = CFrame.new(0.05, -0.1, -0.45),
 		}
 	elseif category == "HedgeTrimmer" then
+		--[[
+			The blade is a thin plate, and it was drawn as a slab.
+
+			The model is 0.143 across against 0.8 by 0.892 — a flat blade with
+			a housing on the back of it — and it was hung at 0.8 by 0.9 by
+			2.8, which stretches it five and a half times in one direction and
+			three in another. What reached the screen was a shapeless green
+			mass in the corner with nothing about it that said hedge trimmer.
+			Sized off the model, tipped forward so the blade lies along the
+			line of sight the way it is actually held.
+		]]
 		return {
 			prop = "HedgeTool",
-			size = Vector3.new(0.8, 0.9, 2.8),
-			at = CFrame.new(0, -0.1, -0.5),
+			size = Vector3.new(0.143, 0.800, 0.892) * 2.1,
+			at = CFrame.new(-0.26, 0.22, -0.44) * CFrame.Angles(math.rad(-58), math.rad(12), 0),
 		}
-	elseif category == "Grinder" then
-		return { prop = "GrinderTool", size = Vector3.new(1.6, 1.2, 2.2), at = CFrame.new(0, -0.35, -0.6) }
-	elseif category == "Chipper" then
-		return { prop = "ChipperTool", size = Vector3.new(1.6, 1.4, 2.2), at = CFrame.new(0, -0.35, -0.6) }
 	end
+
+	--[[
+		Machines you walk behind, which is the handlebar and not the machine.
+
+		A stump grinder and a wood chipper are wheeled things you push, and
+		both were drawn the way a hand tool is: a two-stud box held out in
+		front, stretched two and three times out of shape by a size that
+		bore no relation to the model. On screen they were a pale wedge and a
+		flat green slab. They belong with the mowers, for the reason the
+		mowers are already there — the machine is under the camera, so what
+		you see of it is what you are holding on to.
+	]]
 
 	-- Mowers and everything on wheels: the handlebar, since the machine itself
 	-- is under the camera rather than in front of it.
