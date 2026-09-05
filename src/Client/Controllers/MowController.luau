@@ -316,11 +316,43 @@ MowController.setMowing = setMowing
 	else works while held, which is what makes mowing a line feel like one
 	continuous action rather than a string of clicks.
 ]]
---- True when there is no room for another clipping, which is the one state
---- where the server refuses every cut and the screen cannot show it.
+--- True when there is no room for another clipping.
 local function bagFull(): boolean
 	local state = PlayerState.get()
 	return state.bagCapacity > 0 and state.bagWeight >= state.bagCapacity - 0.001
+end
+
+--[[
+	True when the tool burns fuel and the tank is empty.
+
+	The other state where the server refuses every cut and the screen cannot
+	show it, and the one that was actually being reported. `FuelService.consume`
+	returns false on an empty tank and `onMowIntent` returns there and then, so
+	nothing is cut, nothing is banked and no tile is sent back — while the
+	client goes on predicting, because prediction never knew about fuel. The
+	grass falls on screen, the bag does not move, the percentage does not move,
+	and a moment later the server's own state replicates and the grass is back.
+
+	Which is exactly what was described: it cuts the grass like it should, but
+	nothing goes to the bag and nothing goes to the percentage, and the grass
+	grows right back immediately.
+
+	It goes unnoticed for a while because the three tools a player starts with
+	— hands, the reel mower and the rake — burn nothing at all and can never
+	hit this. Every mower past the first one can: the gas mower drains a full
+	tank in under three minutes of cutting, and the commercial deck in
+	twenty-five seconds.
+
+	`infiniteFuel` is safe here without a special case, because the server
+	stops draining the tank when that pass is held, so the reading this
+	watches never falls.
+]]
+local function outOfFuel(): boolean
+	local tool = equipped()
+	if not tool or tool.fuelBurn <= 0 then
+		return false
+	end
+	return PlayerState.get().fuel <= 0
 end
 
 function MowController.press()
@@ -384,7 +416,8 @@ local function step(delta: number)
 		return
 	end
 	--[[
-		A full bag stops the mower rather than running it for nothing.
+		A full bag or an empty tank stops the mower rather than running it for
+		nothing.
 
 		The server refuses a cut with no room for it, and says so — but the
 		client predicts the cut anyway, and a prediction the server never
@@ -394,7 +427,7 @@ local function step(delta: number)
 		reads exactly like the game being broken rather than the bag being
 		full. Stopping is also what the machine would do.
 	]]
-	if bagFull() then
+	if bagFull() or outOfFuel() then
 		setMowing(false)
 		return
 	end
