@@ -184,6 +184,41 @@ function Cutting.pickupTarget(
 	end)
 end
 
+--[[
+	Where the server should cut from: the position the client reported, held
+	within `maxLead` studs of where the server sees the character.
+
+	The client predicts from its own character, which leads the server's view
+	by a tick or two of replication while moving. Cutting from the server's
+	view made the server rasterise a rectangle one row behind the client's, so
+	the client's front row was predicted cut, put back by the next chunk flush,
+	and cut for real a tick later — a strip that visibly regrew in front of
+	every swath tool. Pickup tools never showed it, because both sides pick
+	"the first tile ahead with something on it" and land on the same tile
+	either way.
+
+	Honouring the report within a short radius keeps the server's bound on
+	what a client can claim (it still discards anything outside the wider
+	plausibility tolerance) while making both sides agree on the swath.
+	Returns the reported point when it is within reach, otherwise the point
+	`maxLead` studs from the actual one along the line towards the report.
+]]
+function Cutting.reconcilePosition(
+	actualX: number,
+	actualZ: number,
+	reportedX: number,
+	reportedZ: number,
+	maxLead: number
+): (number, number)
+	local dx, dz = reportedX - actualX, reportedZ - actualZ
+	local distance = math.sqrt(dx * dx + dz * dz)
+	if distance <= maxLead or distance < 1e-6 then
+		return reportedX, reportedZ
+	end
+	local scale = maxLead / distance
+	return actualX + dx * scale, actualZ + dz * scale
+end
+
 --- Units a tile still holds, for completion accounting. Ignores yield bonuses,
 --- because completion must not move when a player buys Mulching Blades.
 function Cutting.unitsOnTile(byte: number): number

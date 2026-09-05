@@ -59,6 +59,22 @@ local GameConfig = {
 	--- An intent whose claimed position is further than this from the player's
 	--- actual root part is discarded, in studs.
 	MOW_POSITION_TOLERANCE = 28,
+	--[[
+		How far ahead of the server's view of a player their reported position
+		is honoured, in studs.
+
+		The client predicts its swath from where its character is; the server
+		sees that character a replication tick or two behind. Walking forward,
+		the client's front row is one the server has not reached yet, and the
+		next chunk flush puts that row's grass back until the server catches
+		up — a strip of lawn that cuts, grows back and cuts again in front of
+		every swath tool. Cutting from the reported position, held within
+		this distance of the server's own, makes both sides rasterise the
+		same rectangle. Sized for the fastest deck: 52 studs a second over a
+		couple of ticks of lag. Well under MOW_POSITION_TOLERANCE, so a
+		reported position that could only be a cheat is still discarded.
+	]]
+	MOW_POSITION_LEAD = 12,
 	--- Only replicate live chunk deltas to clients within this many studs.
 	REPLICATION_RADIUS = 420,
 
