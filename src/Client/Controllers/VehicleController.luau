@@ -165,7 +165,7 @@ local function refreshTouchButton()
 	if want then
 		ContextActionService:BindAction(TOUCH_ACTION, onToggleSeat, true)
 		ContextActionService:SetTitle(TOUCH_ACTION, want)
-		Theme.dressActionButton(TOUCH_ACTION)
+		Theme.dressActionButton(TOUCH_ACTION, 0)
 	end
 end
 

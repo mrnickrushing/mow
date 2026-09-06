@@ -67,14 +67,25 @@ end
 
 	The button belongs to the engine, so it is dressed rather than replaced:
 	its ring image is dropped and our own panel, corner, outline and font go
-	on instead. Its place in the corner is left alone — that part the engine
-	already gets right, and it is where a thumb is.
+	on instead.
+
+	Its place in the corner is not left alone, though it used to be. The
+	engine stacks these where a thumb is, which is the same corner this
+	game's own tool button parks in — and the tool button carries a word
+	under it, PICK UP or MOW. Photographed on a phone: "Trailer" sitting
+	squarely on top of "PICK UP", with the tool button's icon behind it.
+	`parkTool` measures Roblox's jump button and keeps clear of that, but
+	nothing was keeping Roblox's context buttons clear of `parkTool`.
+
+	So the caller says which slot it wants and they are stacked up the right
+	edge above the tool button, where nothing else of ours goes. `slot` is
+	counted from the bottom.
 
 	It is fetched rather than assumed, because the button does not exist on
 	the frame the action is bound, and a rebind makes a new one — so every
 	bind calls this again.
 ]]
-function Theme.dressActionButton(actionName: string, label: string?)
+function Theme.dressActionButton(actionName: string, slot: number?, label: string?)
 	task.spawn(function()
 		local button: ImageButton? = nil
 		for _ = 1, 24 do
@@ -89,6 +100,28 @@ function Theme.dressActionButton(actionName: string, label: string?)
 		end
 		local face = button :: ImageButton
 		face.Size = UDim2.fromOffset(72, 72)
+		--[[
+			Stacked down from the top of the engine's own button frame.
+
+			Measured against that frame rather than the screen, because that
+			is what these are parented to: a position given in screen
+			fractions comes out somewhere else entirely, since the frame is
+			only the bottom-right corner of the display. Anchored to its top
+			edge, the buttons land above where `parkTool` puts the tool button
+			and its word, which is the collision this is here to stop, and
+			they stay above it however the screen is shaped — the frame and
+			the tool button both hang off the same corner.
+		]]
+		if slot then
+			--[[
+				Stacked upward from the top edge of that frame, not downward
+				from it: at the second slot a downward stack finishes one
+				pixel into the top of the tool button, and the frame does not
+				clip, so going up costs nothing and leaves a clear gap.
+			]]
+			face.AnchorPoint = Vector2.new(1, 1)
+			face.Position = UDim2.new(1, -26, 0, -slot * 84)
+		end
 		-- The engine's ring goes; ours is a filled disc like every other
 		-- control on the screen.
 		face.Image = ""
