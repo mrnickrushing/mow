@@ -874,65 +874,202 @@ end
 	reads as a maze from inside, costs a handful of parts, and never traps a
 	player in a dead end they have to walk all the way back out of.
 ]]
-function Structures.maze(context: Context, zone: Types.ZoneDef)
+--[[
+	A hedge maze, carved rather than striped.
+
+	This built parallel rows across the section with two gaps punched in each
+	one. From the ground that is a fence you walk round; from the air it is a
+	nursery — twelve straight lines of hedge with nothing between them but
+	more straight lines. Nothing in it turns, nothing in it ends, and the
+	route through is "walk to the nearest gap" repeated until you are out.
+
+	It is now a real maze: a grid of cells with a wall on every side, carved
+	into a single connected route by a randomised depth-first walk. That is
+	the standard method and it is the one that produces what a maze looks
+	like — long corridors, corners, and dead ends you have to come back out
+	of. Being a spanning tree, every cell is reachable from every other, so
+	no debris can be walled off from the player.
+
+	Corridors are three tiles across and the walls one thick, which is what
+	keeps the section mowable: every tile under a hedge is next to a corridor,
+	so it is still inside the reach of whatever the player is swinging.
+
+	The perimeter is closed but for one gap a side, which is decoration on top
+	of a guarantee — the carve already connects everything, so a single way in
+	would do.
+]]
+--- How bright a tinted hedge is drawn against its own texture. Four fifths
+--- rather than all of it, because yew is dark and a normalised tint is not.
+local YEW_BRIGHTNESS = 0.62
+
+function Structures.maze(context: Context, zone: Types.ZoneDef, tint: Color3?, height: number?)
 	local r = zone.rect
 	local tile = context.tileSize
 	local folder = Build.folder(`Maze_{zone.id}`, context.parent)
 
-	local rows = math.max(math.floor(r.d / 4), 1)
-	for row = 1, rows - 1 do
-		local tz = r.z + math.floor(r.d * row / rows)
-		-- Two gaps per row, offset each time, so the route weaves.
-		local gapA = r.x + ((row * 5) % math.max(r.w - 6, 1)) + 1
-		local gapB = r.x + ((row * 11) % math.max(r.w - 6, 1)) + 1
+	--- Three tiles of corridor and one of hedge.
+	local PITCH = 4
+	local cols = math.max(math.floor((r.w - 1) / PITCH), 1)
+	local rows = math.max(math.floor((r.d - 1) / PITCH), 1)
+	local wallHeight = height or 9
 
-		local tx = r.x
-		while tx < r.x + r.w do
-			local inGap = (tx >= gapA and tx < gapA + 3) or (tx >= gapB and tx < gapB + 3)
-			if not inGap then
-				local at = context.flat(tx, tz)
-				Build.mesh({
-					prop = "Hedge",
-					name = "Hedge",
-					size = Vector3.new(tile + 1, 9, tile * 0.9 + 1),
-					collisionSize = Vector3.new(tile, 9, tile * 0.9),
-					cframe = CFrame.new(at + Vector3.new(0, 4.5, 0)),
-					parent = folder,
-				})
+	--[[
+		Walls between cells, indexed by the cell on their low side.
+
+		`down[cx][cz]` is the wall on the far z edge of cell (cx, cz), and
+		`right[cx][cz]` the one on its far x edge, so the section's own two
+		outer edges are `down[.][-1]` and `right[-1][.]`. Everything starts
+		standing and the carve takes pieces out.
+	]]
+	local down: { { boolean } } = {}
+	local right: { { boolean } } = {}
+	for cx = -1, cols do
+		down[cx] = {}
+		right[cx] = {}
+		for cz = -1, rows do
+			down[cx][cz] = true
+			right[cx][cz] = true
+		end
+	end
+
+	--[[
+		Seeded off where the maze is, so a property built twice is the same
+		property. A maze that reshuffled on every join would make the route
+		somebody just learned worthless, and it would not match the one their
+		friend on the same run is walking.
+	]]
+	local rng = Random.new(r.x * 73856093 + r.z * 19349663 + r.w * 83492791 + r.d)
+
+	local visited: { { boolean } } = {}
+	for cx = 0, cols - 1 do
+		visited[cx] = {}
+	end
+
+	local stack = { { 0, 0 } }
+	visited[0][0] = true
+	while #stack > 0 do
+		local top = stack[#stack]
+		local cx, cz = top[1], top[2]
+
+		local open: { { number } } = {}
+		if cx > 0 and not visited[cx - 1][cz] then
+			table.insert(open, { cx - 1, cz })
+		end
+		if cx < cols - 1 and not visited[cx + 1][cz] then
+			table.insert(open, { cx + 1, cz })
+		end
+		if cz > 0 and not visited[cx][cz - 1] then
+			table.insert(open, { cx, cz - 1 })
+		end
+		if cz < rows - 1 and not visited[cx][cz + 1] then
+			table.insert(open, { cx, cz + 1 })
+		end
+
+		if #open == 0 then
+			table.remove(stack)
+			continue
+		end
+
+		local pick = open[rng:NextInteger(1, #open)]
+		local nx, nz = pick[1], pick[2]
+		if nx > cx then
+			right[cx][cz] = false
+		elseif nx < cx then
+			right[nx][cz] = false
+		elseif nz > cz then
+			down[cx][cz] = false
+		else
+			down[cx][nz] = false
+		end
+		visited[nx][nz] = true
+		table.insert(stack, pick)
+	end
+
+	--- One way in on each side, so the maze is not a sealed box to look at.
+	down[rng:NextInteger(0, cols - 1)][-1] = false
+	down[rng:NextInteger(0, cols - 1)][rows - 1] = false
+	right[-1][rng:NextInteger(0, rows - 1)] = false
+	right[cols - 1][rng:NextInteger(0, rows - 1)] = false
+
+	--[[
+		One hedge per tile rather than one per wall.
+
+		A three-tile wall could be a single stretched part, but a `SpecialMesh`
+		stretches its texture with it, so a long hedge comes out smeared. Tile
+		by tile it repeats instead, which is what a clipped hedge does.
+	]]
+	local function hedge(tx: number, tz: number)
+		if tx < r.x or tx >= r.x + r.w or tz < r.z or tz >= r.z + r.d then
+			return
+		end
+		local part = Build.mesh({
+			prop = "Hedge",
+			name = "Hedge",
+			size = Vector3.new(tile + 1, wallHeight, tile * 0.9 + 1),
+			collisionSize = Vector3.new(tile, wallHeight, tile * 0.9),
+			cframe = CFrame.new(context.flat(tx, tz) + Vector3.new(0, wallHeight * 0.5, 0)),
+			color = tint,
+			parent = folder,
+		})
+
+		--[[
+			Darkened on purpose, which a tint alone cannot do.
+
+			`Build.mesh` normalises a tint to its brightest channel so that
+			asking for a colour moves the hue and leaves the texture's own
+			light and shade alone — right for a roof, wrong for yew, whose
+			whole character is that it is nearly black. Normalised, the
+			estate's maze came out the same bright garden green as The
+			House's. Scaled to four fifths of the texture's brightness in the
+			colour's strongest channel instead, it goes dark without going
+			grey.
+		]]
+		local mesh = if tint then part:FindFirstChildOfClass("SpecialMesh") else nil
+		if tint and mesh and mesh.TextureId ~= "" then
+			local shade = tint :: Color3
+			local strongest = math.max(shade.R, shade.G, shade.B, 0.001)
+			mesh.VertexColor = Vector3.new(shade.R, shade.G, shade.B) * (YEW_BRIGHTNESS / strongest)
+		end
+	end
+
+	for cx = -1, cols - 1 do
+		for cz = -1, rows - 1 do
+			-- The post where four walls could meet, which always stands.
+			hedge(r.x + (cx + 1) * PITCH, r.z + (cz + 1) * PITCH)
+			if cz >= 0 and cx >= 0 and down[cx][cz] then
+				local tz = r.z + (cz + 1) * PITCH
+				for step = 1, PITCH - 1 do
+					hedge(r.x + cx * PITCH + step, tz)
+				end
 			end
-			tx += 1
+			if cx >= 0 and cz >= 0 and right[cx][cz] then
+				local tx = r.x + (cx + 1) * PITCH
+				for step = 1, PITCH - 1 do
+					hedge(tx, r.z + cz * PITCH + step)
+				end
+			end
+		end
+	end
+
+	-- The two outer edges the loop above indexes from the other side.
+	for cx = 0, cols - 1 do
+		if down[cx][-1] then
+			for step = 1, PITCH - 1 do
+				hedge(r.x + cx * PITCH + step, r.z)
+			end
+		end
+	end
+	for cz = 0, rows - 1 do
+		if right[-1][cz] then
+			for step = 1, PITCH - 1 do
+				hedge(r.x, r.z + cz * PITCH + step)
+			end
 		end
 	end
 
 	return folder
 end
 
---------------------------------------------------------------------
--- The estate's own sections
---------------------------------------------------------------------
-
---[[
-	Three kinds of place that exist only on The Mansion.
-
-	The first property is a lawn, a garage, a roof, a pool, a maze and a
-	cellar, and until now the second one was the same six things with longer
-	names — a "Grand Lawn" is an open section, an "Orangery" is a room, "The
-	Cellars" is a sunken room. Reported as the second property looking
-	identical to the first, which it structurally was.
-
-	A court, a terrace and a glasshouse are not dressings on those: each is a
-	surface you have never mown on before, with its own way in and its own
-	reason to be somewhere.
-]]
-
---[[
-	A tennis court: tarmac, painted lines, a net, and a mesh surround.
-
-	The debris still lies on the section's tiles exactly as it does on grass,
-	so nothing about clearing it changes — what changes is that you are doing
-	it on a hard blue court between two fences, which looks nothing like a
-	lawn and reads from the far side of the estate.
-]]
 function Structures.court(context: Context, zone: Types.ZoneDef)
 	local tile = context.tileSize
 	local folder = Build.folder(`Court_{zone.id}`, context.parent)

@@ -3062,7 +3062,23 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 			elseif kind == "pool" then
 				Structures.pool(context, section)
 			elseif kind == "maze" then
-				Structures.maze(context, section)
+				--[[
+					An estate's maze is yew, and taller than a garden one.
+
+					The Mansion's maze was the same bright garden hedge at the
+					same nine studs as The House's, which is most of what made
+					"the mansion looks identical to the first level" true from
+					the air. A parterre maze is clipped out of something almost
+					black and it is over your head, so you cannot see the way
+					out by standing on your toes.
+				]]
+				local estate = world.style == "estate"
+				Structures.maze(
+					context,
+					section,
+					if estate then Palette.color(Palette.estate.yew) else nil,
+					if estate then 13 else nil
+				)
 			elseif kind == "roof" then
 				-- The roof slab is the floor the rooftop's debris rests on.
 				local r = section.rect
