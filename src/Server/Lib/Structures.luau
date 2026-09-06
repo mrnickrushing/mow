@@ -145,6 +145,43 @@ local YARD_PROPS: { PropSpec } = {
 	{ prop = "Rock", size = Vector3.new(4, 3, 4) },
 }
 
+--[[
+	What is lying about, per property.
+
+	Every yard on every property was scattered from the one list above: a
+	wheelie bin, a plastic garden chair, a terracotta planter, a packing
+	crate, an oil drum, a shrub and a stone. That is a suburban back garden's
+	contents, and it was being strewn across an estate's parterres and a
+	filling station's back lot alike — a garden chair on the forecourt, a
+	planter in the storage yard, a wheelie bin on the lawn of a house with a
+	carriage drive.
+
+	The scatter, the caps and the placement are all unchanged. Only the
+	contents differ, which is the whole of what makes a lot look like a lot.
+]]
+local ESTATE_PROPS: { PropSpec } = {
+	{ prop = "Planter", size = Vector3.new(5, 4.5, 5) },
+	{ prop = "Bush", size = Vector3.new(6, 6, 6) },
+	{ prop = "Rock", size = Vector3.new(4, 3, 4) },
+	{ prop = "Lantern", size = Vector3.new(3.4, 7, 3) },
+	{ prop = "Log", size = Vector3.new(6, 3, 3) },
+}
+
+local LOT_PROPS: { PropSpec } = {
+	{ prop = "Barrel", size = Vector3.new(4, 5.5, 4) },
+	{ prop = "Crate", size = Vector3.new(5, 3.4, 4.5) },
+	{ prop = "Bin", size = Vector3.new(4, 6.5, 4) },
+	{ prop = "Sack", size = Vector3.new(4, 4, 4) },
+	{ prop = "Rock", size = Vector3.new(4, 3, 4) },
+}
+
+--- The yard set for a property's style, falling back to the house's.
+Structures.clutterSets = {
+	house = YARD_PROPS,
+	estate = ESTATE_PROPS,
+	lot = LOT_PROPS,
+}
+
 local ROOM_PROPS: { PropSpec } = {
 	{ prop = "Crate", size = Vector3.new(5, 3.4, 4.5) },
 	{ prop = "Barrel", size = Vector3.new(4, 6, 4) },
@@ -159,13 +196,15 @@ local ROOM_PROPS: { PropSpec } = {
 	player off from a tile they still have to clear — they only make it harder
 	to spot, which is the whole point.
 ]]
-function Structures.clutter(context: Context, zone: Types.ZoneDef, count: number)
+function Structures.clutter(context: Context, zone: Types.ZoneDef, count: number, yard: { PropSpec }?)
 	if count <= 0 then
 		return
 	end
 
 	local elevation = zone.elevation or 0
-	local set = if zone.kind == "room" then ROOM_PROPS else YARD_PROPS
+	-- A room's four things are crates and drums whatever the property is;
+	-- what is scattered outdoors is where a lot shows its character.
+	local set = if zone.kind == "room" then ROOM_PROPS else (yard or YARD_PROPS)
 	local folder = Build.folder(`Clutter_{zone.id}`, context.parent)
 	local r = zone.rect
 
@@ -216,7 +255,8 @@ function Structures.clutter(context: Context, zone: Types.ZoneDef, count: number
 		ceiling it leaves the pool; when the pool is empty the scatter
 		stops, which is what quietly retires the twenty-item counts.
 	]]
-	local YARD_CAP: { [string]: number } = { Bin = 1, Crate = 1, Barrel = 1, Chair = 1, Planter = 2, Bush = 3, Rock = 3 }
+	local YARD_CAP: { [string]: number } =
+		{ Bin = 1, Crate = 1, Barrel = 1, Chair = 1, Sack = 2, Lantern = 2, Log = 2, Planter = 2, Bush = 3, Rock = 3 }
 	local pool: { PropSpec } = table.clone(set)
 	local placed: { [string]: number } = {}
 	for _ = 1, count do
