@@ -3085,9 +3085,33 @@ end
 -- Where a stairway or a doorway can go
 --------------------------------------------------------------------
 
+--[[
+	Where the way out goes when the property has a cellar.
+
+	Recorded while the sunken room is built, because that is the only place
+	that knows which wall the stairs came through — the way out belongs in the
+	opposite one. Cleared on every load, so a property without a cellar falls
+	back to the tile in its config.
+]]
+local cellarExit: { position: Vector3, facing: Vector3 }? = nil
+
 --- Width of a flight of steps, and of the gap left in a wall for one.
-local STAIR_WIDTH = 10
+--[[
+	As wide as the doorway it comes through, and not a stud less.
+
+	The wall a stairway passes through is broken `DOOR_WIDTH` wide and the
+	flight was built ten, so there was a two stud slot down each side of every
+	staircase in the game. On a sunken room that slot runs from the lawn to
+	the cellar floor sixteen studs below — and the near half of it is past the
+	edge of the floor slab, so squeezing into it drops you out of the world
+	entirely. Reported as "next to the staircase there is a hole in each side
+	where you can squeeze through and fall out".
+
+	The flight fills the opening now, which closes it by construction rather
+	than by patching a hole either side.
+]]
 local DOOR_WIDTH = 14
+local STAIR_WIDTH = DOOR_WIDTH
 --- Studs of run per stud of climb: about a thirty-degree staircase.
 local STAIR_RUN_PER_RISE = 1.6
 local STAIR_MIN_RUN = 12
@@ -3416,6 +3440,30 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 						roof = Palette.color(Palette.house.roof),
 					}
 				Structures.room(context, section, 16, elevation < 0, opening, skin)
+
+				--[[
+					A cellar's far wall is where the way out goes.
+
+					`approach.normal` points out of the room on the side the
+					stairs come down, so its opposite is the wall furthest
+					from them — which is the one worth walking the length of
+					the room to reach, and the one that reads as a back door
+					rather than a second way onto the same staircase.
+				]]
+				if elevation < 0 and approach then
+					local roomCentre = WorldService.tilePointFlat(
+						section.rect.x + section.rect.w * 0.5,
+						section.rect.z + section.rect.d * 0.5
+					)
+					local facing = -approach.normal
+					local reach = if math.abs(facing.X) > 0.5
+						then section.rect.w * TILE * 0.5
+						else section.rect.d * TILE * 0.5
+					cellarExit = {
+						position = roomCentre + facing * (reach - 0.4) + Vector3.new(0, elevation, 0),
+						facing = facing,
+					}
+				end
 			elseif kind == "court" then
 				Structures.court(context, section)
 			elseif kind == "terrace" then
@@ -3483,7 +3531,15 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 		Structures.clutter(
 			context,
 			section,
-			section.clutter or 0,
+			--[[
+				Nothing loose in a maze.
+
+				A corridor is three tiles across and a crate dropped in one is
+				a wall you have to back out of — the props were making a
+				section whose whole difficulty is already the route harder in
+				the one way that is no fun. The hedges are the obstacle.
+			]]
+			if (section.kind or "open") == "maze" then 0 else (section.clutter or 0),
 			Structures.clutterSets[world.style or "house"]
 		)
 	end
@@ -3496,14 +3552,73 @@ end
 local exitPart: BasePart? = nil
 
 --- Builds the grate, shut. It opens when the last section is clear.
-local function buildExit(world: Types.WorldDef, parent: Folder)
-	local at = WorldService.tilePointFlat(world.exit.x, world.exit.z)
+--[[
+	The way out, in the cellar where there is one.
 
+	It used to stand on the lawn: a brick arch in the middle of the grass with
+	WAY OUT over it, which is a gate to nowhere in particular. A property with
+	a cellar has a better answer already built — the room at the bottom of the
+	stairs has a wall nobody uses, furthest from the way in, and a back door
+	in it turns the last thing you do on a job into walking the length of the
+	cellar and out. Asked for exactly that.
+
+	`cellarExit` is set while the sunken room is built, because that is the
+	only place that knows which wall the stairs came through. Without one —
+	a property with no cellar — this falls back to the tile in the config and
+	the arch on the lawn it has always been.
+]]
+local function buildExit(world: Types.WorldDef, parent: Folder)
+	local underground = cellarExit
+	local at = if underground
+		then underground.position
+		else WorldService.tilePointFlat(world.exit.x, world.exit.z)
+	--- Turned so its own -Z looks into the room, which is the side you arrive
+	--- from and the side the grate hangs on.
+	local basis = if underground
+		then CFrame.lookAt(at, at - underground.facing)
+		else CFrame.new(at)
+
+	--[[
+		Behind the bars is a hole, not a wall.
+
+		The gate hung on a solid brick block, so the one door on the property
+		that means "you are finished" was a grille bolted to masonry — you
+		could see it was shut, and you could also see there was nothing on the
+		other side of it. Asked for a black hole behind the gate until it
+		opens, which is right: a way out has to look like somewhere before it
+		looks like a door.
+
+		So the panel behind the grate is a dark void, and the brick is cut
+		back to a surround — a jamb either side and a lintel over — which is
+		what holds the gate and what the sign hangs on.
+	]]
+	Build.part({
+		name = "ExitVoid",
+		size = Vector3.new(12.4, 14.6, 1.2),
+		cframe = basis * CFrame.new(0, 7.3, 0.7),
+		color = Color3.fromRGB(9, 8, 10),
+		material = Enum.Material.SmoothPlastic,
+		parent = parent,
+	})
+
+	local brick = Palette.color(Palette.house.brickDark)
+	for _, jamb in { -1, 1 } do
+		Build.part({
+			name = "ExitJamb",
+			size = Vector3.new(1.6, 16, 2),
+			cframe = basis * CFrame.new(jamb * 7, 8, 0),
+			color = brick,
+			material = Enum.Material.Brick,
+			parent = parent,
+		})
+	end
+
+	--- The lintel, which is also what the sign hangs from.
 	local frame = Build.part({
 		name = "ExitFrame",
-		size = Vector3.new(14, 16, 2),
-		cframe = CFrame.new(at + Vector3.new(0, 8, 0)),
-		color = Palette.color(Palette.house.brickDark),
+		size = Vector3.new(15.6, 2.2, 2),
+		cframe = basis * CFrame.new(0, 15, 0),
+		color = brick,
 		material = Enum.Material.Brick,
 		parent = parent,
 	})
@@ -3513,14 +3628,15 @@ local function buildExit(world: Types.WorldDef, parent: Folder)
 		name = "ExitGrate",
 		size = Vector3.new(11, 13, 2),
 		collisionSize = Vector3.new(11, 13, 1),
-		cframe = CFrame.new(at + Vector3.new(0, 6.5, -0.8)),
+		cframe = basis * CFrame.new(0, 6.5, -0.8),
 		parent = parent,
 	})
 	grate:SetAttribute("Shut", true)
 
 	-- Above the gate's raised position, not the block's top: opened, the gate
 	-- rises ten studs and a sign hung at eleven was read through its bars.
-	local gui = Build.billboard(frame, UDim2.fromScale(9, 3), 18, 220)
+	-- Lower underground, where eighteen would put it out through the lawn.
+	local gui = Build.billboard(frame, UDim2.fromScale(9, 3), if underground then 4 else 11, 220)
 	Build.label(gui, "WAY OUT", UDim2.fromScale(1, 0.55), UDim2.fromScale(0, 0), 2).Name = "Title"
 	-- Named, because two things write to it and both used to find it by
 	-- reading what it currently said.
@@ -3803,6 +3919,9 @@ function WorldService.load(worldId: string)
 	WorldService.sectionSigns = buildSectionSigns(world, parent)
 	cashGates = buildCashGates(world, parent)
 	buildUpgradeStations(world, parent)
+	-- Cleared before the sections are built, because building the sunken room
+	-- is what fills it in.
+	cellarExit = nil
 	buildSectionStructures(world, parent)
 	buildSwitches(world, parent)
 	exitPart = nil

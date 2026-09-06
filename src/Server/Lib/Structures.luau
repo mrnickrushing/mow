@@ -660,19 +660,363 @@ function Structures.room(
 		parent = folder,
 	})
 
+	--[[
+		A sunken room's walls reach the lawn, not sixteen studs of the way.
+
+		The height passed in is a room's height, and a cellar's is however
+		deep it is dug — with a fixed sixteen against an eighteen stud drop
+		the wall stopped two studs short of the surface and left a slot all
+		the way round, daylight and a view of the grass coming in over the top
+		of every wall. Once there is a ceiling on it that slot is the one
+		thing saying "pit" rather than "room".
+	]]
+	local rise = if sunken then math.abs(elevation) else wallHeight
 	local wallColor = if sunken then dressing.wallSunken else dressing.wall
 	Structures.wallRing({
 		name = "Wall",
 		centre = centre,
 		width = width,
 		depth = depth,
-		height = wallHeight,
+		height = rise,
 		thickness = 1.5,
 		color = wallColor,
 		material = Enum.Material.Concrete,
 		parent = folder,
 		opening = opening,
 	})
+
+	--[[
+		A cellar has a ceiling, and a hole in it where the stairs come down.
+
+		This was left open at the top on the reasoning that you have to see
+		the floor to know what is still on it. What that produced was a
+		rectangle of brick with a tan floor at the bottom — a pit, reported as
+		"it just looks like a hole in the ground" — and the thing that makes a
+		cellar a cellar is precisely that it is under something.
+
+		So it gets a real ceiling with a stairwell cut in it, which is how you
+		see in and how the daylight gets down. Four slabs around the opening
+		rather than one with a hole, because a part cannot have a hole in it.
+
+		Piers down the walls at intervals, because that is how anything
+		holding a house up is built and it stops fifty studs of brick reading
+		as a sheet. And lamps in a grid under the ceiling, because a roofed
+		cellar is dark and because a cellar is somewhere that was wired.
+
+		None of it touches the floor or the tiles on it: the ceiling is named
+		`Ceiling`, which the buried-tile sweep already knows never buries
+		anything, and everything else sits at the top of a sixteen stud wall.
+	]]
+	if sunken then
+		--[[
+			Where the stairs come through, in the room's own axes.
+
+			The flight lands `STAIRWELL_RUN` studs in from the wall it comes
+			through; the ceiling stops short of that so the whole flight is
+			under open sky rather than emerging from beneath a lid.
+		]]
+		local STAIRWELL_RUN = 38
+		local half = math.max(math.min((opening and opening.width or 0), math.huge), 0) * 0.5
+		local alongX = opening ~= nil and math.abs(opening.normal.Z) > 0.5
+		local at = if opening then (opening.offset or 0) else 0
+		local wellLowX, wellHighX, wellLowZ, wellHighZ
+		if not opening then
+			wellLowX, wellHighX, wellLowZ, wellHighZ = 0, 0, 0, 0
+		elseif alongX then
+			local far = opening.normal.Z > 0
+			wellLowX, wellHighX = at - half, at + half
+			wellLowZ = if far then depth * 0.5 - STAIRWELL_RUN else -depth * 0.5
+			wellHighZ = if far then depth * 0.5 else -depth * 0.5 + STAIRWELL_RUN
+		else
+			local far = opening.normal.X > 0
+			wellLowZ, wellHighZ = at - half, at + half
+			wellLowX = if far then width * 0.5 - STAIRWELL_RUN else -width * 0.5
+			wellHighX = if far then width * 0.5 else -width * 0.5 + STAIRWELL_RUN
+		end
+
+		--[[
+			Tucked just under the lawn, and wider than the room.
+
+			The hole cut in the ground is the section's rect and the walls
+			stand on the tile centres inside it, so the two are a couple of
+			studs out of step — a ceiling sized to the walls left a strip of
+			open sky along one edge, which from the floor is a green line
+			round the top of the room. Four studs of overhang on every side
+			puts the edge of the slab under solid ground instead of trying to
+			meet it, and a fifth of a stud of clearance under the surface
+			keeps the two from flickering against each other.
+
+			It is also as thick as the ground is deep. A thin slab left the
+			cut face of the lawn — four studs of it, and grass-green — on show
+			all the way round the room above the ceiling line, which is the
+			green stripe that kept coming back. The ceiling now fills that
+			depth, so what you see where the wall ends is the ceiling and not
+			the underside of the garden.
+		]]
+		local CEILING_DEEP = 4.6
+		local ceilingY = rise - 2.5
+		local function slab(lowX: number, highX: number, lowZ: number, highZ: number)
+			if highX - lowX < 0.5 or highZ - lowZ < 0.5 then
+				return
+			end
+			Build.part({
+				name = "Ceiling",
+				size = Vector3.new(highX - lowX, CEILING_DEEP, highZ - lowZ),
+				cframe = CFrame.new(
+					centre + Vector3.new((lowX + highX) * 0.5, ceilingY, (lowZ + highZ) * 0.5)
+				),
+				color = dressing.roof,
+				material = Enum.Material.Concrete,
+				parent = folder,
+			})
+		end
+
+		local halfW, halfD = width * 0.5 + 4, depth * 0.5 + 4
+		if not opening then
+			slab(-halfW, halfW, -halfD, halfD)
+		else
+			-- The four pieces around the stairwell.
+			slab(-halfW, halfW, -halfD, wellLowZ)
+			slab(-halfW, halfW, wellHighZ, halfD)
+			slab(-halfW, wellLowX, wellLowZ, wellHighZ)
+			slab(wellHighX, halfW, wellLowZ, wellHighZ)
+		end
+
+		--- Piers, spaced along whichever way the wall runs.
+		local PIER = 22
+		for _, side in {
+			{ along = "x", span = width, at = Vector3.new(0, 0, -depth * 0.5), size = Vector3.new(4, rise, 2.4) },
+			{ along = "x", span = width, at = Vector3.new(0, 0, depth * 0.5), size = Vector3.new(4, rise, 2.4) },
+			{ along = "z", span = depth, at = Vector3.new(-width * 0.5, 0, 0), size = Vector3.new(2.4, rise, 4) },
+			{ along = "z", span = depth, at = Vector3.new(width * 0.5, 0, 0), size = Vector3.new(2.4, rise, 4) },
+		} do
+			local count = math.max(math.floor(side.span / PIER), 1)
+			for index = 1, count - 1 do
+				local slide = -side.span * 0.5 + side.span * (index / count)
+				local offset = if side.along == "x"
+					then Vector3.new(slide, 0, 0)
+					else Vector3.new(0, 0, slide)
+				Build.part({
+					name = "Pier",
+					size = side.size,
+					cframe = CFrame.new(centre + side.at + offset + Vector3.new(0, rise * 0.5, 0)),
+					color = dressing.wall,
+					material = Enum.Material.Concrete,
+					canCollide = false,
+					parent = folder,
+				})
+			end
+		end
+
+		--[[
+			What is down here besides the leaves.
+
+			A cellar with nothing in it is a room, not a cellar. The two walls
+			the stairs and the way out do not use get the furniture: shelves
+			of books down one, and a fireplace on the other with something
+			actually burning in it, which is the only warm light in the game
+			that is not the sun.
+
+			Solid, so the buried-tile sweep takes the strip of floor they
+			stand on out of the section's total — you cannot mow inside a
+			bookcase and the property should not count it.
+		]]
+		local alongZWalls = opening ~= nil and math.abs(opening.normal.Z) > 0.5
+		--- The two walls nothing else is using, and which way they face.
+		local freeWalls = if alongZWalls
+			then {
+				{ at = Vector3.new(-width * 0.5, 0, 0), facing = Vector3.new(1, 0, 0), span = depth },
+				{ at = Vector3.new(width * 0.5, 0, 0), facing = Vector3.new(-1, 0, 0), span = depth },
+			}
+			else {
+				{ at = Vector3.new(0, 0, -depth * 0.5), facing = Vector3.new(0, 0, 1), span = width },
+				{ at = Vector3.new(0, 0, depth * 0.5), facing = Vector3.new(0, 0, -1), span = width },
+			}
+
+		local BOOK_COLOURS = {
+			Color3.fromRGB(142, 46, 40),
+			Color3.fromRGB(46, 78, 118),
+			Color3.fromRGB(96, 84, 46),
+			Color3.fromRGB(58, 92, 62),
+			Color3.fromRGB(120, 74, 38),
+		}
+		local timber = Color3.fromRGB(74, 50, 34)
+
+		--- One bookcase, stood against a wall and facing into the room.
+		local function bookcase(base: CFrame)
+			Build.part({
+				name = "BookcaseBack",
+				size = Vector3.new(14, 13, 1),
+				cframe = base * CFrame.new(0, 6.5, 0),
+				color = timber,
+				material = Enum.Material.WoodPlanks,
+				parent = folder,
+			})
+			for _, side in { -1, 1 } do
+				Build.part({
+					name = "BookcaseSide",
+					size = Vector3.new(1, 13, 3.4),
+					cframe = base * CFrame.new(side * 6.5, 6.5, -1.7),
+					color = timber,
+					material = Enum.Material.WoodPlanks,
+					parent = folder,
+				})
+			end
+			for shelf = 0, 3 do
+				local y = 1 + shelf * 3.7
+				Build.part({
+					name = "Shelf",
+					size = Vector3.new(14, 0.7, 3.4),
+					cframe = base * CFrame.new(0, y, -1.7),
+					color = timber,
+					material = Enum.Material.WoodPlanks,
+					parent = folder,
+				})
+				if shelf < 3 then
+					--- Books, in runs of a colour, leaning where they thin out.
+					for slot = 0, 8 do
+						if (slot + shelf) % 4 ~= 3 then
+							Build.part({
+								name = "Books",
+								size = Vector3.new(1.2, 2.4, 2.2),
+								cframe = base
+									* CFrame.new(-6 + slot * 1.5, y + 1.55, -1.7)
+									* CFrame.Angles(0, 0, if (slot + shelf) % 7 == 2 then math.rad(11) else 0),
+								color = BOOK_COLOURS[(slot + shelf * 3) % #BOOK_COLOURS + 1],
+								material = Enum.Material.SmoothPlastic,
+								canCollide = false,
+								parent = folder,
+							})
+						end
+					end
+				end
+			end
+		end
+
+		--- The fireplace, with a fire in it.
+		local function fireplace(base: CFrame)
+			local stone = dressing.wall
+			Build.part({
+				name = "Chimneybreast",
+				size = Vector3.new(20, rise, 3),
+				cframe = base * CFrame.new(0, rise * 0.5, -1.5),
+				color = stone,
+				material = Enum.Material.Brick,
+				parent = folder,
+			})
+			-- The opening: black, with the fire sitting inside it.
+			Build.part({
+				name = "Firebox",
+				size = Vector3.new(11, 8, 2.6),
+				cframe = base * CFrame.new(0, 4.4, -2.6),
+				color = Color3.fromRGB(12, 10, 10),
+				material = Enum.Material.SmoothPlastic,
+				parent = folder,
+			})
+			Build.part({
+				name = "Hearth",
+				size = Vector3.new(16, 0.8, 5),
+				cframe = base * CFrame.new(0, 0.4, -3.4),
+				color = Palette.color(Palette.ground.stone),
+				material = Enum.Material.Slate,
+				parent = folder,
+			})
+			Build.part({
+				name = "Mantel",
+				size = Vector3.new(19, 1.4, 4.4),
+				cframe = base * CFrame.new(0, 9.4, -3),
+				color = Palette.color(Palette.ground.stone),
+				material = Enum.Material.Slate,
+				parent = folder,
+			})
+			for log = -1, 1 do
+				Build.part({
+					name = "Firelog",
+					size = Vector3.new(1.8, 1.8, 3.6),
+					cframe = base * CFrame.new(log * 2.4, 1.5, -3) * CFrame.Angles(0, math.rad(log * 14), 0),
+					color = Color3.fromRGB(58, 38, 26),
+					material = Enum.Material.Wood,
+					canCollide = false,
+					parent = folder,
+				})
+			end
+			local fire = Build.part({
+				name = "Fire",
+				size = Vector3.new(7, 3.4, 2.6),
+				cframe = base * CFrame.new(0, 2.4, -3),
+				color = Color3.fromRGB(255, 156, 52),
+				material = Enum.Material.Neon,
+				canCollide = false,
+				parent = folder,
+			})
+			local glow = Instance.new("PointLight")
+			glow.Color = Color3.fromRGB(255, 168, 82)
+			glow.Range = 42
+			glow.Brightness = 2.4
+			glow.Parent = fire
+		end
+
+		--[[
+			Shelves down one free wall, the fireplace centred on the other.
+
+			Placed with `lookAt` rather than a yaw worked out by hand: both
+			pieces are built along their own -Z, and the first attempt turned
+			them by `atan2(facing.X, facing.Z)`, which is the angle that points
+			them the other way — every bookcase stood with its shelves through
+			the brick and the chimneybreast ended up two studs outside the
+			room. `lookAt(at, at + facing)` cannot be got backwards.
+		]]
+		local shelfWall, fireWall = freeWalls[1], freeWalls[2]
+		local runs = math.max(math.floor(shelfWall.span / 34), 1)
+		for index = 1, runs do
+			local slide = -shelfWall.span * 0.5 + shelfWall.span * (index / (runs + 1))
+			local offset = if alongZWalls then Vector3.new(0, 0, slide) else Vector3.new(slide, 0, 0)
+			local at = centre + shelfWall.at + offset
+			bookcase(CFrame.lookAt(at, at + shelfWall.facing))
+		end
+		local fireAt = centre + fireWall.at
+		fireplace(CFrame.lookAt(fireAt, fireAt + fireWall.facing))
+
+		--[[
+			Lamps under the ceiling, on a grid.
+
+			Two on the walls lit a pit well enough because the sky was doing
+			the work. Under a lid they are the only light there is, so there
+			is one about every thirty studs and they reach far enough to
+			overlap — a cellar you cannot see the far end of is a cellar you
+			cannot mow.
+		]]
+		local LAMP_PITCH = 30
+		local acrossX = math.max(math.floor(width / LAMP_PITCH), 1)
+		local acrossZ = math.max(math.floor(depth / LAMP_PITCH), 1)
+		for ix = 1, acrossX do
+			for iz = 1, acrossZ do
+				local at = centre
+					+ Vector3.new(
+						-width * 0.5 + width * ((ix - 0.5) / acrossX),
+						rise - 2.6,
+						-depth * 0.5 + depth * ((iz - 0.5) / acrossZ)
+					)
+				local lamp = Build.part({
+					name = "CellarLamp",
+					size = Vector3.new(4.2, 0.8, 1.6),
+					cframe = CFrame.new(at),
+					color = Color3.fromRGB(255, 240, 205),
+					material = Enum.Material.Neon,
+					canCollide = false,
+					parent = folder,
+				})
+				local glow = Instance.new("PointLight")
+				-- Enough to read the floor by from anywhere in the room, and
+				-- not so much that eight of them overlap into daylight: the
+				-- first pass at this washed the whole cellar orange.
+				glow.Color = Color3.fromRGB(255, 232, 186)
+				glow.Range = 38
+				glow.Brightness = 1.15
+				glow.Parent = lamp
+			end
+		end
+	end
 
 	-- An above-ground room gets a roof; a sunken one stays open so you can see in.
 	if not sunken then
@@ -1058,6 +1402,59 @@ function Structures.maze(context: Context, zone: Types.ZoneDef, tint: Color3?, h
 		end
 		visited[nx][nz] = true
 		table.insert(stack, pick)
+	end
+
+	--[[
+		Then the dead ends are opened out, so the maze can be run.
+
+		A depth-first carve produces a perfect maze: exactly one route between
+		any two cells, and every wrong turn a dead end you have to reverse out
+		of. That is a fine puzzle and a bad lawn. Clearing one means visiting
+		every corridor, and in a perfect maze that is retracing your steps over
+		and over — reported as having to leave the maze and come back in by
+		another way to reach the rest of it.
+
+		Braiding is the usual answer: find every cell with only one way out and
+		open a second. What is left has no dead ends at all, so every corridor
+		is part of a loop and the whole section can be walked in a continuous
+		run without doubling back.
+	]]
+	local function openSides(cx: number, cz: number): ({ { number } }, number)
+		local shut, open = {}, 0
+		local function look(isOpen: boolean, kind: string, ax: number, az: number)
+			if isOpen then
+				open += 1
+			else
+				table.insert(shut, { if kind == "down" then 0 else 1, ax, az })
+			end
+		end
+		if cz > 0 then
+			look(not down[cx][cz - 1], "down", cx, cz - 1)
+		end
+		if cz < rows - 1 then
+			look(not down[cx][cz], "down", cx, cz)
+		end
+		if cx > 0 then
+			look(not right[cx - 1][cz], "right", cx - 1, cz)
+		end
+		if cx < cols - 1 then
+			look(not right[cx][cz], "right", cx, cz)
+		end
+		return shut, open
+	end
+
+	for cz = 0, rows - 1 do
+		for cx = 0, cols - 1 do
+			local shut, open = openSides(cx, cz)
+			if open <= 1 and #shut > 0 then
+				local pick = shut[rng:NextInteger(1, #shut)]
+				if pick[1] == 0 then
+					down[pick[2]][pick[3]] = false
+				else
+					right[pick[2]][pick[3]] = false
+				end
+			end
+		end
 	end
 
 	--- One way in on each side, so the maze is not a sealed box to look at.
