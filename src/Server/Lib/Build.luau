@@ -909,7 +909,20 @@ function Build.fence(
 	height: number,
 	color: Color3,
 	spacing: number,
-	openSouth: boolean?
+	openSouth: boolean?,
+	--[[
+		Chain-link instead of picket panels, for a lot that is not a garden.
+
+		The Gas Station's boundary was the same picket panel The House's back
+		fence is made of: a hundred and thirty-five lengths of white garden
+		fencing round a filling station's five hundred stud forecourt. What
+		encloses a commercial lot is wire on steel posts, which is a
+		translucent sheet, three rails and a post per panel — the same
+		construction the tennis court's surround uses, and for the same
+		reason: a pane of grey haze between two posts reads as a gap unless
+		the rails are there to be seen.
+	]]
+	chainLink: { mesh: Color3, frame: Color3 }?
 )
 	--[[
 		The boundary of a lot, in fence panels.
@@ -933,17 +946,57 @@ function Build.fence(
 		local count = math.max(math.floor(length / spacing + 0.5), 1)
 		local span = length / count
 
+		local wire = chainLink
 		for index = 0, count - 1 do
 			local at = from + direction * (span * (index + 0.5))
+			local facing = CFrame.lookAt(
+				at + Vector3.new(0, height * 0.5, 0),
+				at + direction + Vector3.new(0, height * 0.5, 0)
+			) * CFrame.Angles(0, math.rad(90), 0)
+
+			if wire then
+				Build.part({
+					name = "Mesh",
+					size = Vector3.new(span, height, 0.4),
+					cframe = facing,
+					color = wire.mesh,
+					material = Enum.Material.DiamondPlate,
+					transparency = 0.55,
+					castShadow = false,
+					parent = parent,
+				})
+				for _, up in { 0.4, height * 0.5, height } do
+					Build.part({
+						name = "Rail",
+						size = Vector3.new(span, 0.5, 0.55),
+						cframe = facing * CFrame.new(0, up - height * 0.5, 0),
+						color = wire.frame,
+						material = Enum.Material.Metal,
+						canCollide = false,
+						castShadow = false,
+						parent = parent,
+					})
+				end
+				Build.part({
+					name = "Post",
+					size = Vector3.new(1.1, height + 1, 1.1),
+					cframe = CFrame.new(
+						from + direction * (span * index) + Vector3.new(0, (height + 1) * 0.5, 0)
+					),
+					color = wire.frame,
+					material = Enum.Material.Metal,
+					castShadow = false,
+					parent = parent,
+				})
+				continue
+			end
+
 			Build.mesh({
 				prop = "Fence",
 				name = "Picket",
 				size = Vector3.new(span + 0.2, height, 0.6),
 				collisionSize = Vector3.new(span, height, 0.6),
-				cframe = CFrame.lookAt(
-					at + Vector3.new(0, height * 0.5, 0),
-					at + direction + Vector3.new(0, height * 0.5, 0)
-				) * CFrame.Angles(0, math.rad(90), 0),
+				cframe = facing,
 				castShadow = false,
 				parent = parent,
 			})
