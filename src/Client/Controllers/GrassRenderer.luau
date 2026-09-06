@@ -963,6 +963,10 @@ end
 
 local pendingRequest: { number } = {}
 
+--- Seconds of tile building one frame may do before it leaves the rest to
+--- the next one. Five milliseconds is a third of a frame at sixty.
+local DRAW_BUDGET = 0.005
+
 local function refresh()
 	local theGrid = grid
 	local theTiles = tiles
@@ -983,6 +987,32 @@ local function refresh()
 
 	local visibleDetail: { [number]: boolean } = {}
 	table.clear(pendingRequest)
+
+	--[[
+		How long one frame may spend building tiles.
+
+		`refresh` runs off `RenderStepped` and walks every tile inside the
+		detail radius — around a thousand of them — drawing each. Once they
+		are built that is cheap repositioning, but on the frame a property
+		finishes loading every one of them is new, and a thousand fresh parts
+		in a single uninterrupted callback is enough to be killed outright:
+
+			GrassRenderer:284: Script timeout: exhausted allowed execution time
+			GrassRenderer, Line 235 - function newPart
+			GrassRenderer, Line 284 - function slots
+			GrassRenderer, Line 648 - function drawBlock
+			GrassRenderer, Line 733 - function drawTile
+			GrassRenderer, Line 1021 - function refresh
+
+		Past the budget the walk carries on but stops drawing, so a tile that
+		should be visible is still marked visible and the sweep below does not
+		tear down what has already been built — it simply gets its parts on a
+		later frame. The lawn fills in over two or three frames instead of
+		arriving whole, which nobody can see, and the renderer cannot be
+		killed part way through leaving the grass half drawn.
+	]]
+	local deadline = now + DRAW_BUDGET
+	local overBudget = false
 
 	for cz = ccz - reachChunks, ccz + reachChunks do
 		for cx = ccx - reachChunks, ccx + reachChunks do
@@ -1018,7 +1048,12 @@ local function refresh()
 									local tdx, tdz = tileX - focus.X, tileZ - focus.Z
 									if tdx * tdx + tdz * tdz <= DETAIL_SQ then
 										visibleDetail[index] = true
-										drawTile(theGrid, theTiles, index, isLocked(index))
+										if not overBudget then
+											drawTile(theGrid, theTiles, index, isLocked(index))
+											if os.clock() > deadline then
+												overBudget = true
+											end
+										end
 									end
 								end
 							end
