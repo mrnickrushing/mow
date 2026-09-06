@@ -3810,6 +3810,16 @@ function WorldService.setSectionOpen(sectionId: string, open: boolean)
 	end
 	if open then
 		openSections[sectionId] = true
+		--[[
+			A fenced court's gate swings when the court unlocks.
+
+			The fence goes all the way round, so until this happens it reads
+			as a boundary; the gate opening is what turns it into a way in.
+			Harmless on a section that has no court in it.
+		]]
+		if container then
+			Structures.openCourtGate(container, sectionId)
+		end
 		-- An open section has no door: the purchase consumes it.
 		local gate = cashGates[sectionId]
 		if gate then

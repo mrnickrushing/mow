@@ -305,7 +305,21 @@ local mansion: Types.WorldDef = {
 	baseGround = Palette.ground.lawn,
 	style = "estate",
 	houseRect = { x = 42, z = 50, w = 66, d = 30 },
-	shed = { x = 124, z = 82 },
+	--[[
+		On the verge by the gates, not against the east terrace.
+
+		It stood at tile 124, 82 — world (498, 330) — and the terrace's rect
+		reaches z=310 at x 450..550, so the five upgrade boards, which are
+		built sixteen studs in front of the shed counter, were raised at
+		(479..517, 314): inside the terrace's own mass and under its deck.
+		Photographed with Reserve, Fortune and Bag standing half-buried in a
+		grey wall with their prices cut off.
+
+		Here it is on the verge between the road and the grand lawn, a hundred
+		studs along from the gates, on flat ground outside every section — the
+		same place The House keeps its shed, and for the same reasons.
+	]]
+	shed = { x = 100, z = 5 },
 	trailer = { x = 67, z = 5 },
 	spawn = { x = 74, z = 2 },
 	exit = { x = 124, z = 130 },
