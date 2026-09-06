@@ -557,7 +557,142 @@ local gasStation: Types.WorldDef = {
 	},
 }
 
-local list: { Types.WorldDef } = { house, mansion, gasStation }
+--[[
+	The fourth property, and the one worked in the dark.
+
+	Every rung so far has been somebody's grass in the afternoon. This one is
+	a churchyard at night in late October: the same job, done between the
+	stones, by lantern light. It is the hardest ground in the game — the rows
+	are the densest obstacle field there is, and a mower is very nearly the
+	wrong tool for them.
+]]
+local cemetery: Types.WorldDef = {
+	id = "cemetery",
+	name = "The Cemetery",
+	tagline = "Nobody has cut it since the last funeral.",
+	difficulty = "Nightmare",
+	requiresWorld = "gas_station",
+	gridWidth = 144,
+	gridDepth = 144,
+	--[[
+		Three and a half hours, for about a third more ground than the Gas
+		Station.
+
+		The rule the ladder tests hold is that every rung gives less clock per
+		unit of work than the one before it. The Gas Station sits at 0.104
+		seconds a unit; this lands near 0.09, which is the tightest margin in
+		the game — and it should be, because it is the last property and the
+		one where a wide deck spends half its time reversing out from between
+		two headstones.
+	]]
+	runSeconds = 12600,
+	payoutMultiplier = 2.5,
+	baseGround = Palette.churchyard.turf,
+	style = "churchyard",
+	mood = "night",
+	shed = { x = 40, z = 3 },
+	trailer = { x = 100, z = 3 },
+	spawn = { x = 72, z = 2 },
+	--[[
+		The config's way out is a legal patch of open ground, which is all
+		this has to be: a property with a cellar has its exit rebuilt into
+		that room's far wall at load, and this one has the crypt.
+	]]
+	exit = { x = 72, z = 122 },
+
+	sections = {
+		{
+			id = "the_lawns",
+			name = "The Lawns",
+			cost = 0,
+			unlock = "start",
+			rect = { x = 4, z = 6, w = 136, d = 42 },
+			density = 0.95,
+			-- Open ground with a whole autumn on it, and nothing in the way.
+			fill = { grass(2, 3), mix(Debris.Leaves, 1.2, 2, 3), mix(Debris.Sticks, 0.4, 2, 3) },
+			kind = "open",
+			trees = 7,
+			clutter = 12,
+			hazards = { "sprinkler" },
+		},
+		{
+			id = "the_rows",
+			name = "The Rows",
+			cost = 0,
+			unlock = "completion",
+			requires = "the_lawns",
+			rect = { x = 4, z = 50, w = 66, d = 48 },
+			density = 0.96,
+			--[[
+				Grass and leaves only, and both of them tall.
+
+				A required section may not hold anything a player who has
+				spent everything cannot clear, and the rows are required —
+				so whatever is between the stones has to come out with bare
+				hands if it comes to that. The difficulty here is the stones,
+				not the debris.
+			]]
+			fill = { grass(2, 3, 4), mix(Debris.Leaves, 1.4, 2, 3) },
+			kind = "graves",
+			clutter = 0,
+		},
+		{
+			id = "the_walks",
+			name = "The Walks",
+			--- Gravel paths gone to weed. Bought, because it is the one part
+			--- of the ground you could argue is not your job.
+			cost = 240,
+			unlock = "cash",
+			requires = "the_lawns",
+			rect = { x = 74, z = 50, w = 66, d = 48 },
+			density = 0.94,
+			fill = { mix(Debris.Weeds, 1.6, 2, 3), mix(Debris.Leaves, 0.9, 2, 3), mix(Debris.Sticks, 0.5, 2, 3) },
+			kind = "open",
+			trees = 4,
+			clutter = 14,
+		},
+		{
+			id = "yew_walk",
+			name = "The Yew Walk",
+			cost = 0,
+			unlock = "completion",
+			requires = "the_rows",
+			rect = { x = 4, z = 100, w = 136, d = 22 },
+			density = 0.95,
+			fill = { grass(2, 3, 3), mix(Debris.Leaves, 1.2, 3, 3) },
+			kind = "maze",
+			clutter = 0,
+			hazards = { "dog" },
+		},
+		{
+			id = "chapel",
+			name = "The Chapel",
+			cost = 0,
+			unlock = "completion",
+			requires = "yew_walk",
+			rect = { x = 16, z = 124, w = 34, d = 18 },
+			density = 0.93,
+			fill = { mix(Debris.Leaves, 1.6, 2, 3), mix(Debris.Sticks, 0.8, 2, 3) },
+			kind = "room",
+			clutter = 8,
+		},
+		{
+			id = "the_crypt",
+			name = "The Crypt",
+			cost = 0,
+			unlock = "completion",
+			requires = "chapel",
+			rect = { x = 92, z = 124, w = 34, d = 18 },
+			density = 0.95,
+			fill = { mix(Debris.Sticks, 1.6, 3, 3), mix(Debris.Leaves, 1.4, 3, 3) },
+			kind = "room",
+			elevation = BASEMENT_ELEVATION,
+			clutter = 10,
+		},
+	},
+}
+
+local list: { Types.WorldDef } = { house, mansion, gasStation, cemetery }
 
 Worlds.list = list
 Worlds.STARTER_ID = "house"

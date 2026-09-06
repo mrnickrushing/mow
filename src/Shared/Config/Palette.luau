@@ -191,6 +191,53 @@ Palette.court = {
 	mesh = rgb(96, 112, 108),
 }
 
+--[[
+	The churchyard, which is the only property worked after dark.
+
+	Cold where every other palette is warm: wet granite and lichen rather than
+	limestone and lead, grass with the blue of night in it rather than the
+	green of an afternoon, and iron for the railings. The two colours that are
+	not cold are the ones that are meant to be looked at — candlelight in a
+	lantern and the light coming out of the chapel — because on a property
+	this dark the warm things are the landmarks.
+]]
+Palette.churchyard = {
+	granite = rgb(150, 152, 158),
+	graniteDark = rgb(112, 114, 122),
+	lichen = rgb(126, 138, 116),
+	--- Grass at night: still grass, with the blue the moon puts in it. Kept
+	--- well up from a true night green, because this is the surface the whole
+	--- job is played on and a lawn nobody can make out is not atmosphere.
+	turf = rgb(96, 128, 100),
+	turfDark = rgb(74, 104, 80),
+	gravel = rgb(120, 118, 116),
+	iron = rgb(28, 30, 34),
+	yew = rgb(30, 54, 38),
+	--- Candle in a lantern, and the glow out of a chapel window.
+	candle = rgb(255, 196, 104),
+	window = rgb(255, 206, 128),
+	pumpkin = rgb(232, 120, 34),
+}
+
+--- The night this property is worked under.
+Palette.night = {
+	fog = rgb(30, 38, 58),
+	ambient = rgb(68, 74, 94),
+	--[[
+		Bright enough to find the grass by.
+
+		A churchyard nobody can see is not frightening, it is a black screen
+		with a percentage on it. The first pass at this was a real midnight
+		and the lawn came out very nearly black — so the moon does almost
+		nothing and this does the work, sitting far above what a true night
+		would give. Everything warm on the property is a local light on top of
+		it, which is what carries the atmosphere.
+	]]
+	outdoorAmbient = rgb(124, 132, 158),
+	tint = rgb(150, 168, 214),
+	decay = rgb(16, 20, 34),
+}
+
 Palette.fence = {
 	picket = rgb(214, 168, 108),
 	picketShade = rgb(184, 138, 84),

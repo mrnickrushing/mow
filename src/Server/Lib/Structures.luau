@@ -175,11 +175,27 @@ local LOT_PROPS: { PropSpec } = {
 	{ prop = "Rock", size = Vector3.new(4, 3, 4) },
 }
 
+--[[
+	A churchyard's yard set.
+
+	Stone, fallen wood and the odd urn — the things that accumulate in a
+	place nobody has tidied — plus lanterns, which are the only reason you can
+	see anything after dark.
+]]
+local CHURCHYARD_PROPS: { PropSpec } = {
+	{ prop = "Rock", size = Vector3.new(4, 3, 4) },
+	{ prop = "Log", size = Vector3.new(6, 3, 3) },
+	{ prop = "Planter", size = Vector3.new(5, 4.5, 5) },
+	{ prop = "Lantern", size = Vector3.new(3.4, 7, 3) },
+	{ prop = "Bush", size = Vector3.new(6, 6, 6) },
+}
+
 --- The yard set for a property's style, falling back to the house's.
 Structures.clutterSets = {
 	house = YARD_PROPS,
 	estate = ESTATE_PROPS,
 	lot = LOT_PROPS,
+	churchyard = CHURCHYARD_PROPS,
 }
 
 local ROOM_PROPS: { PropSpec } = {
@@ -1320,6 +1336,143 @@ end
 --- How bright a tinted hedge is drawn against its own texture. Four fifths
 --- rather than all of it, because yew is dark and a normalised tint is not.
 local YEW_BRIGHTNESS = 0.62
+
+--[[
+	A churchyard's plots, which is the hardest ground in the game to mow.
+
+	Every other section is open ground with things dropped on it. This one is
+	an obstacle field, so a wide deck spends as much time lining up as cutting
+	and the mowers that turn on the spot finally earn their price.
+
+	The first cut of this was a solid grid at every third tile, and it came
+	back as "too many headstones" — which it was, and worse, it was regular:
+	four hundred identical stones in ranks reads as a car park with markers
+	in it rather than as a burial ground.
+
+	A real churchyard is laid out in blocks with walks between them, the
+	plots inside a block are generously spaced, and a good third of them are
+	either empty or hold nothing but a kerb. So: five plots to a block, a
+	three tile walk between blocks, sixteen and twenty studs between stones,
+	and a seeded roll deciding what stands on each — four shapes across two
+	granites, some leaning, some sunk to a kerb, some nothing at all.
+
+	The stones are solid, so the buried-tile sweep takes the tile each one
+	stands on out of the section's total. You cannot mow through granite, and
+	the property should not count it.
+]]
+function Structures.graves(context: Context, zone: Types.ZoneDef)
+	local r = zone.rect
+	local folder = Build.folder(`Graves_{zone.id}`, context.parent)
+	local elevation = zone.elevation or 0
+
+	--- Tiles between plots, and how many plots before a walk.
+	local PITCH_X, PITCH_Z = 4, 5
+	local BLOCK_X, BLOCK_Z = 5, 4
+	local WALK = 3
+
+	local granite = Palette.color(Palette.churchyard.granite)
+	local darker = Palette.color(Palette.churchyard.graniteDark)
+	local lichen = Palette.color(Palette.churchyard.lichen)
+	--- Seeded off where the plot is, so a churchyard built twice is the same
+	--- churchyard and two people on the same run see the same stones.
+	local rng = Random.new(r.x * 7919 + r.z * 104729 + r.w * 15485863 + r.d)
+
+	local ix = 0
+	while true do
+		local tx = r.x + 3 + ix * PITCH_X + (ix // BLOCK_X) * WALK
+		if tx > r.x + r.w - 3 then
+			break
+		end
+		local iz = 0
+		while true do
+			local tz = r.z + 3 + iz * PITCH_Z + (iz // BLOCK_Z) * WALK
+			if tz > r.z + r.d - 4 then
+				break
+			end
+			iz += 1
+
+			local roll = rng:NextNumber()
+			local at = context.flat(tx, tz) + Vector3.new(0, elevation, 0)
+			local lean = if rng:NextNumber() < 0.28 then math.rad(rng:NextNumber(-11, 11)) else 0
+			local turn = math.rad(rng:NextNumber(-8, 8))
+			local stone = if rng:NextNumber() < 0.35 then lichen else granite
+
+			--[[
+				A third of the ground carries nothing.
+
+				Empty plots are what stops a burial ground reading as a grid,
+				and they are also the only places a wide deck can turn — which
+				is the difference between this section being hard and being
+				unfair.
+			]]
+			if roll < 0.30 then
+				-- Nothing here but grass.
+			elseif roll < 0.42 then
+				--- A kerbed plot whose stone is long gone.
+				Build.part({
+					name = "Plot",
+					size = Vector3.new(4.2, 0.6, 6.4),
+					cframe = CFrame.new(at + Vector3.new(0, 0.3, 1.6)) * CFrame.Angles(0, turn, 0),
+					color = darker,
+					material = Enum.Material.Slate,
+					canCollide = false,
+					castShadow = false,
+					parent = folder,
+				})
+			elseif roll < 0.60 then
+				Build.mesh({
+					prop = "Headstone",
+					name = "Headstone",
+					size = Vector3.new(3.6, 5.4, 1.2),
+					collisionSize = Vector3.new(3.6, 5.4, 1.2),
+					cframe = CFrame.new(at + Vector3.new(0, 2.7, 0)) * CFrame.Angles(lean, turn, 0),
+					parent = folder,
+				})
+			elseif roll < 0.78 then
+				Build.mesh({
+					prop = "HeadstonePlain",
+					name = "Headstone",
+					color = stone,
+					size = Vector3.new(3.2, 3.8, 1.1),
+					collisionSize = Vector3.new(3.2, 3.8, 1.1),
+					cframe = CFrame.new(at + Vector3.new(0, 1.9, 0)) * CFrame.Angles(lean, turn, 0),
+					parent = folder,
+				})
+			elseif roll < 0.92 then
+				Build.mesh({
+					prop = "GraveCross",
+					name = "GraveCross",
+					color = stone,
+					size = Vector3.new(3.4, 6.2, 0.9),
+					collisionSize = Vector3.new(1.4, 6.2, 0.9),
+					cframe = CFrame.new(at + Vector3.new(0, 3.1, 0)) * CFrame.Angles(lean, turn, 0),
+					parent = folder,
+				})
+			else
+				--- The occasional family monument, which is what gives a
+				--- churchyard a skyline.
+				Build.mesh({
+					prop = "Tombstone",
+					name = "Monument",
+					color = darker,
+					size = Vector3.new(4.6, 11, 3.4),
+					collisionSize = Vector3.new(4.6, 11, 3.4),
+					cframe = CFrame.new(at + Vector3.new(0, 5.5, 0)) * CFrame.Angles(0, turn, 0),
+					parent = folder,
+				})
+			end
+			if iz > 200 then
+				break
+			end
+		end
+		ix += 1
+		if ix > 200 then
+			break
+		end
+	end
+
+	return folder
+end
 
 function Structures.maze(context: Context, zone: Types.ZoneDef, tint: Color3?, height: number?)
 	local r = zone.rect

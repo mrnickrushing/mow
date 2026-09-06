@@ -163,13 +163,57 @@ function AtmosphereService.applyWorld(world: Types.WorldDef?)
 	-- House should not end up in a fog bank.
 	local reach = math.max(tiles / TUNED_FOR_TILES, 1)
 
-	Lighting.FogStart = 180 * reach
-	Lighting.FogEnd = 1400 * reach
+	--[[
+		Night, for a property worked after dark.
+
+		The whole of this service is one afternoon, tuned for lawns; the
+		churchyard is the first property that wants a different sky, so the
+		daylight moves with the world the same way the haze already does.
+
+		The hard part is that it has to stay playable. A cemetery you cannot
+		see is not frightening, it is a black screen with a percentage on it —
+		so the moon does very little and the outdoor ambient does the work: it
+		is lifted well above what a real night would give, and everything warm
+		on the property (the chapel windows, the lanterns, the pumpkins) is a
+		local light on top of it. The result reads as night without ever
+		hiding the grass, which is the only thing the player is actually
+		looking for.
+	]]
+	local night = world ~= nil and world.mood == "night"
+	if night then
+		Lighting.ClockTime = 1.0
+		Lighting.Brightness = 1.6
+		Lighting.ExposureCompensation = 0.4
+		Lighting.Ambient = Palette.color(Palette.night.ambient)
+		Lighting.OutdoorAmbient = Palette.color(Palette.night.outdoorAmbient)
+		Lighting.ColorShift_Top = Palette.color(Palette.night.tint)
+		Lighting.ColorShift_Bottom = Palette.color(Palette.night.fog)
+		Lighting.FogColor = Palette.color(Palette.night.fog)
+	else
+		Lighting.ClockTime = 15.2
+		Lighting.Brightness = 2.2
+		Lighting.ExposureCompensation = 0.05
+		Lighting.Ambient = Palette.color(Palette.sky.ambient)
+		Lighting.OutdoorAmbient = Palette.color(Palette.sky.outdoorAmbient)
+		Lighting.ColorShift_Top = Palette.color(Palette.sky.tint)
+		Lighting.ColorShift_Bottom = Palette.color(Palette.sky.fog)
+		Lighting.FogColor = Palette.color(Palette.sky.fog)
+	end
+
+	-- Night draws its horizon in closer, which is most of what makes a big
+	-- flat property feel like somewhere you cannot see the end of.
+	Lighting.FogStart = (if night then 90 else 180) * reach
+	Lighting.FogEnd = (if night then 620 else 1400) * reach
 
 	local atmosphere = Lighting:FindFirstChild("MowAtmosphere")
 	if atmosphere and atmosphere:IsA("Atmosphere") then
-		atmosphere.Density = 0.38 / reach
-		atmosphere.Haze = 2.4 / reach
+		atmosphere.Density = (if night then 0.44 else 0.38) / reach
+		atmosphere.Haze = (if night then 1.2 else 2.4) / reach
+		atmosphere.Glare = if night then 0.1 else 0.45
+		atmosphere.Color = Palette.color(if night then Palette.night.fog else Palette.sky.fog)
+		atmosphere.Decay = Palette.color(
+			if night then Palette.night.decay else Palette.rgb(196, 116, 58)
+		)
 	end
 end
 

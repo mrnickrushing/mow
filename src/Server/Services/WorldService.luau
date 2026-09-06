@@ -3425,6 +3425,13 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 						fascia = Palette.color(Palette.estate.lead),
 						floor = Palette.color(Palette.estate.gravelDark),
 					}
+					elseif world.style == "churchyard" then {
+						wall = Palette.color(Palette.churchyard.granite),
+						wallSunken = Palette.color(Palette.churchyard.graniteDark),
+						roof = Palette.color(Palette.churchyard.graniteDark),
+						fascia = Palette.color(Palette.churchyard.iron),
+						floor = Palette.color(Palette.churchyard.gravel),
+					}
 					elseif world.style == "lot" then {
 						wall = Palette.color(Palette.station.body),
 						wallSunken = Palette.color(Palette.station.dark),
@@ -3472,6 +3479,8 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 				Structures.glasshouse(context, section, opening)
 			elseif kind == "pool" then
 				Structures.pool(context, section)
+			elseif kind == "graves" then
+				Structures.graves(context, section)
 			elseif kind == "maze" then
 				--[[
 					An estate's maze is yew, and taller than a garden one.
@@ -3567,6 +3576,211 @@ local exitPart: BasePart? = nil
 	a property with no cellar — this falls back to the tile in the config and
 	the arch on the lawn it has always been.
 ]]
+--[[
+	The churchyard: a wall you cannot see over, and a chapel you can.
+
+	The other three properties are entered off a road and fenced with whatever
+	suits them — pickets, estate stone, chain-link. A churchyard is walled in
+	rubble with iron on top of it and got into through a lychgate, and the one
+	thing standing above the wall is the chapel. At night that tower is the
+	only landmark on the property, so it is lit from inside and its windows are
+	the warmest thing in the world.
+
+	Dead trees and lanterns are scattered over the top: the trees because a
+	bare silhouette is what says late October, and the lanterns because a
+	property this dark needs somewhere for the eye to rest between the graves.
+]]
+local function buildChurchyard(world: Types.WorldDef, parent: Folder)
+	local yard = Build.folder("Churchyard", parent)
+	local granite = Palette.color(Palette.churchyard.granite)
+	local graniteDark = Palette.color(Palette.churchyard.graniteDark)
+	local iron = Palette.color(Palette.churchyard.iron)
+	local candle = Palette.color(Palette.churchyard.candle)
+	local width = world.gridWidth * TILE
+	local depth = world.gridDepth * TILE
+	local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)
+
+	----------------------------------------------------------------
+	-- The boundary: rubble wall, iron above it, open at the road
+	----------------------------------------------------------------
+	local WALL_H, RAIL_H = 9, 7
+	local runs = {
+		{ from = Vector3.new(0, 0, depth), to = Vector3.new(width, 0, depth) },
+		{ from = Vector3.new(0, 0, 0), to = Vector3.new(0, 0, depth) },
+		{ from = Vector3.new(width, 0, 0), to = Vector3.new(width, 0, depth) },
+	}
+	for _, run in runs do
+		local delta = run.to - run.from
+		local length = delta.Magnitude
+		local along = delta.Unit
+		local mid = run.from + along * (length * 0.5)
+		local alongX = math.abs(delta.X) > math.abs(delta.Z)
+		Build.part({
+			name = "YardWall",
+			size = if alongX then Vector3.new(length, WALL_H, 3) else Vector3.new(3, WALL_H, length),
+			cframe = CFrame.new(mid + Vector3.new(0, WALL_H * 0.5, 0)),
+			color = granite,
+			material = Enum.Material.Rock,
+			parent = yard,
+		})
+		Build.part({
+			name = "YardCoping",
+			size = if alongX then Vector3.new(length, 1, 4) else Vector3.new(4, 1, length),
+			cframe = CFrame.new(mid + Vector3.new(0, WALL_H + 0.5, 0)),
+			color = graniteDark,
+			material = Enum.Material.Slate,
+			parent = yard,
+		})
+		--- Railings above the coping, in panels.
+		local panels = math.max(math.floor(length / 16), 1)
+		for index = 0, panels - 1 do
+			local at = run.from + along * (length * (index + 0.5) / panels)
+			Build.mesh({
+				prop = "Railing",
+				name = "YardRail",
+				untextured = true,
+				color = iron,
+				size = Vector3.new(length / panels, RAIL_H, 0.8),
+				collisionSize = Vector3.new(length / panels, RAIL_H, 0.8),
+				cframe = CFrame.new(at + Vector3.new(0, WALL_H + 1 + RAIL_H * 0.5, 0))
+					* CFrame.Angles(0, if alongX then 0 else math.rad(90), 0),
+				parent = yard,
+			})
+		end
+	end
+
+	----------------------------------------------------------------
+	-- The lychgate, over the way in
+	----------------------------------------------------------------
+	local gateZ = 6
+	for _, side in { -1, 1 } do
+		Build.part({
+			name = "LychPost",
+			size = Vector3.new(2.6, 16, 2.6),
+			cframe = CFrame.new(spawnAt.X + side * 11, 8, gateZ),
+			color = Palette.color(Palette.house.porch),
+			material = Enum.Material.WoodPlanks,
+			parent = yard,
+		})
+	end
+	for _, pitch in { -1, 1 } do
+		Build.part({
+			name = "LychRoof",
+			size = Vector3.new(30, 1.4, 12),
+			cframe = CFrame.new(spawnAt.X, 18.4, gateZ + pitch * 4.6)
+				* CFrame.Angles(math.rad(pitch * 26), 0, 0),
+			color = Palette.color(Palette.house.roofDark),
+			material = Enum.Material.Slate,
+			parent = yard,
+		})
+	end
+	for _, side in { -1, 1 } do
+		local lamp = Build.mesh({
+			prop = "JackOLantern",
+			name = "JackOLantern",
+			size = Vector3.new(4, 3.4, 4.2),
+			collisionSize = Vector3.new(3, 3.4, 3),
+			cframe = CFrame.new(spawnAt.X + side * 11, 1.7, gateZ + 4),
+			parent = yard,
+		})
+		local glow = Instance.new("PointLight")
+		glow.Color = Palette.color(Palette.churchyard.pumpkin)
+		glow.Range = 26
+		glow.Brightness = 2
+		glow.Parent = lamp
+	end
+
+	----------------------------------------------------------------
+	-- The chapel's tower, which is the only thing above the wall
+	----------------------------------------------------------------
+	local chapel
+	for _, section in world.sections do
+		if section.id == "chapel" then
+			chapel = section
+		end
+	end
+	if chapel then
+		local r = chapel.rect
+		local at = WorldService.tilePointFlat(r.x + r.w * 0.5, r.z + r.d * 0.5)
+		local towerAt = at + Vector3.new(-(r.w * TILE) * 0.5 + 8, 0, 0)
+		local TOWER = 34
+		Build.part({
+			name = "Tower",
+			size = Vector3.new(16, TOWER, 16),
+			cframe = CFrame.new(towerAt + Vector3.new(0, TOWER * 0.5, 0)),
+			color = granite,
+			material = Enum.Material.Rock,
+			parent = yard,
+		})
+		--- The spire: three narrowing blocks, which reads as a point from the
+		--- far end of the property and costs three parts.
+		for step = 0, 2 do
+			local wide = 13 - step * 4
+			Build.part({
+				name = "Spire",
+				size = Vector3.new(wide, 7, wide),
+				cframe = CFrame.new(towerAt + Vector3.new(0, TOWER + 3.5 + step * 6.6, 0)),
+				color = graniteDark,
+				material = Enum.Material.Slate,
+				parent = yard,
+			})
+		end
+		--- Lit windows, on all four faces, so the tower is a lantern.
+		for _, face in {
+			Vector3.new(0, 0, 1), Vector3.new(0, 0, -1),
+			Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0),
+		} do
+			local window = Build.part({
+				name = "ChapelWindow",
+				size = if math.abs(face.X) > 0.5
+					then Vector3.new(0.8, 9, 5)
+					else Vector3.new(5, 9, 0.8),
+				cframe = CFrame.new(towerAt + face * 8.1 + Vector3.new(0, TOWER - 12, 0)),
+				color = Palette.color(Palette.churchyard.window),
+				material = Enum.Material.Neon,
+				canCollide = false,
+				parent = yard,
+			})
+			local glow = Instance.new("PointLight")
+			glow.Color = candle
+			glow.Range = 40
+			glow.Brightness = 1.8
+			glow.Parent = window
+		end
+	end
+
+	----------------------------------------------------------------
+	-- Dead trees and lanterns, kept off the sections' own ground
+	----------------------------------------------------------------
+	local rng = Random.new(20261031)
+	local placed = 0
+	for _ = 1, 60 do
+		if placed >= 18 then
+			break
+		end
+		local tx = rng:NextInteger(4, world.gridWidth - 5)
+		local tz = rng:NextInteger(4, world.gridDepth - 5)
+		local index = Grid.toIndex(WorldService.grid :: Grid.Grid, tx, tz)
+		local owner = WorldService.tileSection
+		-- Only on ground nobody has to mow, so nothing is ever hidden under one.
+		if owner ~= nil and (owner[index] or "") == "" then
+			placed += 1
+			local at = WorldService.tilePointFlat(tx, tz)
+			local tall = rng:NextNumber(26, 40)
+			Build.mesh({
+				prop = "DeadTree",
+				name = "DeadTree",
+				untextured = false,
+				size = Vector3.new(tall * 0.7, tall, tall * 0.6),
+				collisionSize = Vector3.new(3, tall, 3),
+				cframe = CFrame.new(at + Vector3.new(0, tall * 0.5, 0))
+					* CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0),
+				parent = yard,
+			})
+		end
+	end
+end
+
 local function buildExit(world: Types.WorldDef, parent: Folder)
 	local underground = cellarExit
 	local at = if underground
@@ -4266,6 +4480,8 @@ function WorldService.load(worldId: string)
 				})
 			end
 		end
+	elseif world.style == "churchyard" then
+		buildChurchyard(world, parent)
 	else
 		local lot = world.style == "lot"
 		Build.fence(
