@@ -50,7 +50,7 @@ local function refreshTouchButton()
 	if owned then
 		ContextActionService:BindAction(TOUCH_ACTION, onPark, true)
 		ContextActionService:SetTitle(TOUCH_ACTION, "Trailer")
-		Theme.dressActionButton(TOUCH_ACTION)
+		Theme.dressActionButton(TOUCH_ACTION, 1)
 	else
 		pcall(function()
 			ContextActionService:UnbindAction(TOUCH_ACTION)
