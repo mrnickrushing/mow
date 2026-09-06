@@ -128,14 +128,30 @@ local MAX_TILE_HEIGHT = 3
 ]]
 local COVERAGE: { [number]: number } = {
 	[DebrisConfig.Leaves] = 0.95,
-	[DebrisConfig.Chips] = 0.80,
-	[DebrisConfig.Hedge] = 0.55,
-	[DebrisConfig.Grass] = 0.40,
-	[DebrisConfig.Weeds] = 0.40,
-	[DebrisConfig.Log] = 0.35,
-	[DebrisConfig.Sticks] = 0.28,
+	[DebrisConfig.Chips] = 0.85,
+	[DebrisConfig.Hedge] = 0.70,
+	[DebrisConfig.Grass] = 0.62,
+	[DebrisConfig.Weeds] = 0.62,
+	[DebrisConfig.Log] = 0.40,
+	[DebrisConfig.Sticks] = 0.35,
 }
-local DEFAULT_COVERAGE = 0.5
+local DEFAULT_COVERAGE = 0.6
+
+--[[
+	How solid the stand-in is drawn, from how much it covers.
+
+	Not the coverage itself. Read literally, a lot sown with scattered weeds
+	is nine tenths bare floor, and nine tenths transparent is invisible: the
+	Gas Station's whole forecourt came out as clean grey concrete from the
+	back of the lot while every tile of it was still full, which is a worse
+	lie than the flat sheet this replaced. The plane is a stand-in for
+	something you cannot draw at that range, and it has to be seen.
+
+	So a floor is never less than a quarter covered while anything is left on
+	it, and coverage decides the rest.
+]]
+local LOD_FLOOR = 0.25
+local LOD_RANGE = 0.68
 
 --- How much of its floor each section's own mix hides, by the same reasoning.
 local coverBySection: { [string]: number } = {}
@@ -891,7 +907,8 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	if hardFloor then
 		part.Color = litter
 		local cover = coverBySection[zone] or COVERAGE[debrisId] or DEFAULT_COVERAGE
-		part.Transparency = math.clamp(1 - cover * fullness, 0.22, 0.92)
+		local solidity = LOD_FLOOR + LOD_RANGE * cover * fullness
+		part.Transparency = math.clamp(1 - solidity, 0.16, 0.80)
 	else
 		part.Color = groundColor:Lerp(litter, 0.06 + 0.16 * fullness)
 		part.Transparency = 0

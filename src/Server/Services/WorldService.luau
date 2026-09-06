@@ -3646,6 +3646,12 @@ function WorldService.load(worldId: string)
 			`Worlds.pavingRects` reports the same rectangles to the tree and
 			clutter scatters, so nothing is planted through the drive for the
 			same reason nothing is planted through The House's path.
+
+			Pebble, not Sand. Roblox's sand carries a heavy rolling ripple in
+			its normal map, which on a hundred and eighty studs of pale drive
+			straight up to the front door read as a beach — dunes across the
+			whole approach to the house. Pebble is the small hard chip a
+			carriage drive is actually made of.
 		]]
 		for _, slab in Worlds.pavingRects(world) do
 			Build.part({
@@ -3653,7 +3659,7 @@ function WorldService.load(worldId: string)
 				size = Vector3.new(slab.w, 0.5, slab.d),
 				cframe = CFrame.new(slab.x + slab.w * 0.5, ground + 0.25, slab.z + slab.d * 0.5),
 				color = Palette.color(Palette.estate.gravel),
-				material = Enum.Material.Sand,
+				material = Enum.Material.Pebble,
 				castShadow = false,
 				parent = estate,
 			})
