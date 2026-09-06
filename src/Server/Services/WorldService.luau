@@ -3073,7 +3073,38 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 			end
 
 			if kind == "room" then
-				Structures.room(context, section, 16, elevation < 0, opening)
+				--[[
+					A room in the colours of the property it stands on.
+
+					The cellars under an estate are stone vaults, not the red
+					brick cellar of a suburban house, and a filling station's
+					wash bay is built out of the station's own cream and dark
+					grey rather than out of lap siding. Same builder, three
+					sets of materials.
+				]]
+				local skin: Structures.RoomSkin = if world.style == "estate"
+					then {
+						wall = Palette.color(Palette.estate.stone),
+						wallSunken = Palette.color(Palette.estate.stoneShade),
+						roof = Palette.color(Palette.estate.roof),
+						fascia = Palette.color(Palette.estate.lead),
+						floor = Palette.color(Palette.estate.gravelDark),
+					}
+					elseif world.style == "lot" then {
+						wall = Palette.color(Palette.station.body),
+						wallSunken = Palette.color(Palette.station.dark),
+						-- Dark roof, red band. The fascia stripe is the
+						-- station's livery; the whole roof painted in it is a
+						-- forty-stud red slab visible from the far fence.
+						roof = Palette.color(Palette.station.dark),
+						fascia = Palette.color(Palette.station.fascia),
+					}
+					else {
+						wall = Palette.color(Palette.house.siding),
+						wallSunken = Palette.color(Palette.house.brickDark),
+						roof = Palette.color(Palette.house.roof),
+					}
+				Structures.room(context, section, 16, elevation < 0, opening, skin)
 			elseif kind == "court" then
 				Structures.court(context, section)
 			elseif kind == "terrace" then

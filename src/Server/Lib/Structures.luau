@@ -531,7 +531,44 @@ function Structures.parapet(context: Context, zone: Types.ZoneDef, height: numbe
 	})
 end
 
-function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: number, sunken: boolean, opening: Opening?)
+--[[
+	What a room is built out of, which is not the same on every property.
+
+	Every room in the game was a House room: cream lap siding above ground,
+	dark red brick below, and a brown shingle roof. That is the first
+	property's palette and it was hardcoded here, so the Mansion's cellars
+	came out as the same red-brick pit as The House's basement — on the
+	property whose entire complaint was that it looked like the first one —
+	and the filling station's wash bay was built out of house siding on a
+	forecourt done in cream and red.
+
+	The builder is shared; the colours no longer are.
+]]
+export type RoomSkin = {
+	wall: Color3,
+	wallSunken: Color3,
+	roof: Color3,
+	--- The band round the eaves, where a property has one. Defaults to the
+	--- roof's own colour, which is what a house wants: the stripe is a filling
+	--- station's idea, and a whole roof painted in it is a red slab.
+	fascia: Color3?,
+	floor: Color3?,
+}
+
+function Structures.room(
+	context: Context,
+	zone: Types.ZoneDef,
+	wallHeight: number,
+	sunken: boolean,
+	opening: Opening?,
+	skin: RoomSkin?
+)
+	local dressing: RoomSkin = skin
+		or {
+			wall = Palette.color(Palette.house.siding),
+			wallSunken = Palette.color(Palette.house.brickDark),
+			roof = Palette.color(Palette.house.roof),
+		}
 	local r = zone.rect
 	local elevation = zone.elevation or 0
 	local tile = context.tileSize
@@ -578,14 +615,12 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 			enough below to be safe, but it costs nothing to lift both.
 		]]
 		cframe = CFrame.new(centre - Vector3.new(0, 1 - lift - FLOOR_LIFT, 0)),
-		color = Palette.color(Palette.ground.stoneDark),
+		color = dressing.floor or Palette.color(Palette.ground.stoneDark),
 		material = Enum.Material.Concrete,
 		parent = folder,
 	})
 
-	local wallColor = if sunken
-		then Palette.color(Palette.house.brickDark)
-		else Palette.color(Palette.house.siding)
+	local wallColor = if sunken then dressing.wallSunken else dressing.wall
 	Structures.wallRing({
 		name = "Wall",
 		centre = centre,
@@ -619,7 +654,7 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 			name = "Ceiling",
 			size = Vector3.new(width + OVERHANG * 2, 1.5, depth + OVERHANG * 2),
 			cframe = CFrame.new(centre + Vector3.new(0, wallHeight, 0)),
-			color = Palette.color(Palette.house.roof),
+			color = dressing.roof,
 			material = Enum.Material.Slate,
 			parent = folder,
 		})
@@ -631,10 +666,10 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 				cframe = CFrame.new(
 					centre + Vector3.new(0, fasciaY, sz * (depth * 0.5 + OVERHANG - 0.7))
 				),
-				-- The roof's own colour: a fascia belongs to the roof, and the
-				-- trim teal that suits a house is a stranger on a filling
-				-- station's wash bay.
-				color = Palette.color(Palette.house.roof),
+				-- The roof's own colour unless the property has a band of its
+				-- own: a fascia belongs to the roof, and the trim teal that
+				-- suits a house is a stranger on a filling station's wash bay.
+				color = dressing.fascia or dressing.roof,
 				material = Enum.Material.SmoothPlastic,
 				canCollide = false,
 				parent = folder,
@@ -647,10 +682,10 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 				cframe = CFrame.new(
 					centre + Vector3.new(sx * (width * 0.5 + OVERHANG - 0.7), fasciaY, 0)
 				),
-				-- The roof's own colour: a fascia belongs to the roof, and the
-				-- trim teal that suits a house is a stranger on a filling
-				-- station's wash bay.
-				color = Palette.color(Palette.house.roof),
+				-- The roof's own colour unless the property has a band of its
+				-- own: a fascia belongs to the roof, and the trim teal that
+				-- suits a house is a stranger on a filling station's wash bay.
+				color = dressing.fascia or dressing.roof,
 				material = Enum.Material.SmoothPlastic,
 				canCollide = false,
 				parent = folder,
