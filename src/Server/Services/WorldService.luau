@@ -740,6 +740,47 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 		stopped at the corners would look like a shelf rather than a course.
 	]]
 	local COURSE_Y = PLINTH + 17.5
+
+	--[[
+		A rusticated ground storey: the lower half in a darker course,
+		standing a little proud of the wall above it.
+
+		Ashlar is one flat plane however long the elevation is, and at two
+		hundred and sixty studs a single plane has nothing in it for a low
+		sun to catch — the string course gave the wall a horizontal, and this
+		gives it a front and a back. Heavier stone below and finer above is
+		how every building of this kind is put together, and the half stud of
+		relief is what draws the line between them without needing a line
+		drawn.
+	]]
+	local RUSTIC = 0.6
+	Build.part({
+		name = "Rustication",
+		size = Vector3.new(width + RUSTIC * 2, COURSE_Y - PLINTH, depth + RUSTIC * 2),
+		cframe = CFrame.new(centre.X, (COURSE_Y + PLINTH) * 0.5, centre.Z),
+		color = stoneShade,
+		material = Enum.Material.Sandstone,
+		parent = manor,
+	})
+	for _, side in { -1, 1 } do
+		Build.part({
+			name = "Rustication",
+			size = Vector3.new(
+				wingWidth + RUSTIC * 2,
+				COURSE_Y - PLINTH,
+				depth + wingOut + RUSTIC * 2
+			),
+			cframe = CFrame.new(
+				centre.X + side * (halfWidth - wingWidth * 0.5),
+				(COURSE_Y + PLINTH) * 0.5,
+				centre.Z - wingOut * 0.5
+			),
+			color = stoneShade,
+			material = Enum.Material.Sandstone,
+			parent = manor,
+		})
+	end
+
 	Build.part({
 		name = "StringCourse",
 		size = Vector3.new(width + 1.6, 1.8, depth + 1.6),
@@ -881,7 +922,16 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 	local WINDOW_PITCH = 16
 	local storeys = { 12, 25 }
 
-	local function windowsAlong(origin: Vector3, along: Vector3, span: number, yaw: number, clear: number?)
+	--- `outward` is the way the wall faces, so the glass can stand proud of
+	--- its own surround rather than inside it.
+	local function windowsAlong(
+		origin: Vector3,
+		along: Vector3,
+		span: number,
+		yaw: number,
+		outward: Vector3,
+		clear: number?
+	)
 		local usable = span - 20
 		if usable <= 0 then
 			return
@@ -903,12 +953,24 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 						material = Enum.Material.Sandstone,
 						parent = manor,
 					})
+					--[[
+						The glass in front of the stone, not inside it.
+
+						The surround is a stud and two fifths deep and the
+						window not quite one, and both were built on the same
+						plane — so every pane on the building was sitting
+						inside its own dressing, which is opaque. The manor
+						had two rows of blank stone panels where its windows
+						should have been, and it had them from the day the
+						surrounds were added.
+					]]
+					local glass = at + outward * 0.55
 					Build.mesh({
 						prop = "Window",
 						name = "Window",
 						size = Vector3.new(8, 9.5, 0.9),
 						collisionSize = Vector3.new(8, 9.5, 0.6),
-						cframe = CFrame.new(Vector3.new(at.X, height, at.Z)) * CFrame.Angles(0, yaw, 0),
+						cframe = CFrame.new(Vector3.new(glass.X, height, glass.Z)) * CFrame.Angles(0, yaw, 0),
 						canCollide = false,
 						parent = manor,
 					})
@@ -921,6 +983,11 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 						catch the afternoon light and give the elevation its
 						texture. Sized off the surround so they read as part
 						of the same piece of masonry.
+					]]
+					--[[
+						The lower storey stands six tenths proud, so anything
+						hung on the wall at the old depth is now inside it.
+						Both the glass and its dressing move out with it.
 					]]
 					local flat = math.abs(yaw) < 0.1 or math.abs(yaw - math.pi) < 0.1
 					for _, trim in { { -6.4, 12.5, 1.1 }, { 6.6, 11.5, 0.9 } } do
@@ -943,10 +1010,20 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 
 	local sideways = Vector3.new(1, 0, 0)
 	local frontways = Vector3.new(0, 0, 1)
-	windowsAlong(Vector3.new(centre.X, 0, frontZ - wingOut - 1.2), sideways, width, 0, width * 0.19)
-	windowsAlong(centre + frontways * (halfDepth + 1.2), sideways, width, math.pi, nil)
-	windowsAlong(Vector3.new(centre.X - halfWidth - 1.2, 0, centre.Z - wingOut * 0.5), frontways, depth, math.rad(-90), nil)
-	windowsAlong(Vector3.new(centre.X + halfWidth + 1.2, 0, centre.Z - wingOut * 0.5), frontways, depth, math.rad(90), nil)
+	--[[
+		Set out from the wall far enough to clear the rusticated storey.
+
+		The lower half of the building now stands six tenths of a stud proud
+		of the upper, so a window hung at the old depth sits inside the stone
+		on the ground floor and on the face of it upstairs. Both rows are set
+		to the outer plane instead, which is where a window in a stone wall
+		is anyway: in the face of the dressing, not behind it.
+	]]
+	local FACE = 1.2 + RUSTIC
+	windowsAlong(Vector3.new(centre.X, 0, frontZ - wingOut - FACE), sideways, width, 0, -frontways, width * 0.19)
+	windowsAlong(centre + frontways * (halfDepth + FACE), sideways, width, math.pi, frontways, nil)
+	windowsAlong(Vector3.new(centre.X - halfWidth - FACE, 0, centre.Z - wingOut * 0.5), frontways, depth, math.rad(-90), -sideways, nil)
+	windowsAlong(Vector3.new(centre.X + halfWidth + FACE, 0, centre.Z - wingOut * 0.5), frontways, depth, math.rad(90), sideways, nil)
 
 	--------------------------------------------------------------------
 	-- The portico
