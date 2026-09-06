@@ -414,8 +414,41 @@ local function outOfFuel(): boolean
 	return PlayerState.get().fuel <= 0
 end
 
+--- True when the local player is sitting on a vehicle seat.
+local function seated(): boolean
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return humanoid ~= nil and humanoid.SeatPart ~= nil
+end
+
+--- The server rate limits mounting, so asking twice a frame is wasted breath.
+local lastMountAsk = 0
+
+--[[
+	Pressing mow with a riding mower equipped gets you onto it.
+
+	A ride-on cuts with the deck under the seat, so the server refuses an
+	intent from somebody standing next to one — correctly, but silently as far
+	as the lawn is concerned. There is a line on the HUD saying to tap Ride,
+	and it is one line among a dozen on a busy screen. Equipping a mower and
+	pressing mow is not an ambiguous request; the Ride button still does what
+	it always did, and now nobody has to know about it first.
+]]
+local function mountIfRidden(tool: Types.ToolDef?)
+	if not tool or not tool.vehicle or seated() then
+		return
+	end
+	local now = os.clock()
+	if now - lastMountAsk < 1 then
+		return
+	end
+	lastMountAsk = now
+	Remotes.event(Remotes.VEHICLE):FireServer("mount")
+end
+
 function MowController.press()
 	local tool = equipped()
+	mountIfRidden(tool)
 	if tool and tool.toggle then
 		setMowing(not mowing)
 	else
@@ -452,6 +485,7 @@ local tapCount = 0
 
 function MowController.tap()
 	local tool = equipped()
+	mountIfRidden(tool)
 	if tool and tool.toggle then
 		MowController.press()
 		return
@@ -582,10 +616,30 @@ function MowController.start()
 	-- Bound without a touch button of its own: the HUD draws the round tool
 	-- button, so that one control shows the tool, its state and its name rather
 	-- than a generic square with a word on it.
+	--[[
+		Sitting on the mower is not letting go of the button.
+
+		`Cancel` was treated as a release, and the one thing that reliably
+		produces a `Cancel` here is getting onto a riding mower: the engine
+		binds its own vehicle controls the moment the humanoid sits, and the
+		mow action is cancelled as it does. So mowing stopped on the frame the
+		player mounted — and a ride-on only cuts while mounted, which is why
+		every mower above the self-propelled push mower cut nothing at all.
+		Measured: two hundred and seventy-two of two hundred and seventy-five
+		ticks after pressing were spent not mowing, and the traceback for the
+		`setMowing(false)` that did it came from this handler.
+
+		`End` is the player letting go and still stops it. A `Cancel` while
+		seated is the engine reshuffling its bindings and is ignored; a
+		`Cancel` on foot is a genuinely lost input and still stops, as do
+		losing the window and losing the character.
+	]]
 	ContextActionService:BindAction(ACTION_NAME, function(_, inputState)
+		local letGo = inputState == Enum.UserInputState.End
+			or (inputState == Enum.UserInputState.Cancel and not seated())
 		if inputState == Enum.UserInputState.Begin then
 			MowController.press()
-		elseif inputState == Enum.UserInputState.End or inputState == Enum.UserInputState.Cancel then
+		elseif letGo then
 			MowController.release()
 		end
 		return Enum.ContextActionResult.Pass
