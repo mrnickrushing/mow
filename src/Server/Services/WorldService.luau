@@ -3169,7 +3169,12 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 			end
 		end
 
-		Structures.clutter(context, section, section.clutter or 0)
+		Structures.clutter(
+			context,
+			section,
+			section.clutter or 0,
+			Structures.clutterSets[world.style or "house"]
+		)
 	end
 end
 
