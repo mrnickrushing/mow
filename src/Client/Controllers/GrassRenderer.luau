@@ -127,7 +127,15 @@ local MAX_TILE_HEIGHT = 3
 	flagstones with green through the joints.
 ]]
 local COVERAGE: { [number]: number } = {
-	[DebrisConfig.Leaves] = 0.95,
+	--[[
+		Measured against the detailed half of the tennis court, which is the
+		one place in the game you can see both halves of this decision in a
+		single shot. At 0.95 the far half was drawn about half again as
+		covered as the near half — the court went from dark blue with leaves
+		on it to a solid warm tan across the streaming boundary. A leaf clump
+		covers most of its own tile and not all of it.
+	]]
+	[DebrisConfig.Leaves] = 0.72,
 	[DebrisConfig.Chips] = 0.85,
 	[DebrisConfig.Hedge] = 0.70,
 	[DebrisConfig.Grass] = 0.62,

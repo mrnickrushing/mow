@@ -1176,14 +1176,39 @@ function Structures.court(context: Context, zone: Types.ZoneDef)
 		material = Enum.Material.Asphalt,
 		parent = folder,
 	})
-	Build.part({
-		name = "CourtApron",
-		size = Vector3.new(width + 5, 0.9, depth + 5),
-		cframe = CFrame.new(centre + Vector3.new(0, context.groundY - 0.42, 0)),
-		color = Palette.color(Palette.court.apron),
-		material = Enum.Material.Asphalt,
-		parent = folder,
-	})
+	--[[
+		The apron is a ring, not a slab under the court.
+
+		It was a rectangle five studs larger than the court in both
+		directions, which means it also ran underneath it — with its top face
+		three hundredths of a stud below the court's own. Two surfaces that
+		close flicker against each other, and this pair did it across the
+		whole playing area: ninety-seven of a hundred and twenty sample points
+		on the Mansion came back with the apron and the court within four
+		hundredths of each other.
+
+		There is no height that fixes it. The apron has to sit above the lawn
+		to read as a kerb and below the court to read as an apron, and the
+		court is only six hundredths above the lawn to begin with. So it stops
+		going under the court: four bars round the outside, which is the only
+		part of it that was ever visible.
+	]]
+	local APRON = 2.5
+	for _, bar in {
+		{ size = Vector3.new(width + APRON * 2, 0.9, APRON), at = Vector3.new(0, 0, -(depth + APRON) * 0.5) },
+		{ size = Vector3.new(width + APRON * 2, 0.9, APRON), at = Vector3.new(0, 0, (depth + APRON) * 0.5) },
+		{ size = Vector3.new(APRON, 0.9, depth), at = Vector3.new(-(width + APRON) * 0.5, 0, 0) },
+		{ size = Vector3.new(APRON, 0.9, depth), at = Vector3.new((width + APRON) * 0.5, 0, 0) },
+	} do
+		Build.part({
+			name = "CourtApron",
+			size = bar.size,
+			cframe = CFrame.new(centre + bar.at + Vector3.new(0, context.groundY - 0.42, 0)),
+			color = Palette.color(Palette.court.apron),
+			material = Enum.Material.Asphalt,
+			parent = folder,
+		})
+	end
 
 	--[[
 		The painted lines, which are the whole reason this reads as a court.
