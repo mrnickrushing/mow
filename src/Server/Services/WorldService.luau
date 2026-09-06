@@ -2506,28 +2506,49 @@ local function buildSectionSigns(world: Types.WorldDef, parent: Folder): { [stri
 				it never leaves its plane. The plate faces the same way the
 				sign does, which is the way the player walks up to it.
 			]]
-			local plate = Build.part({
-				name = "Face",
-				-- The plank inside the seven-stud envelope, measured against
-				-- the mesh: a little off the post's centre, and just proud of
-				-- the wood so the paint does not fight it for the same pixels.
-				size = Vector3.new(4.9, 1.7, 0.1),
-				cframe = post.CFrame * CFrame.new(0.6, 0, -0.78),
-				color = Color3.fromRGB(255, 255, 255),
-				material = Enum.Material.SmoothPlastic,
-				transparency = 1,
-				canCollide = false,
-				parent = post,
-			})
-			plate.CastShadow = false
+			--[[
+				Written on both sides, because one side was the wrong one.
 
-			-- `Front` is the face along the plate's LookVector, which is the
-			-- way the post was turned to meet whoever walks up to it.
-			local label = Build.painted(plate, Enum.NormalId.Front, 0.92)
-			label.Text = section.name
-			-- Paint on pale wood, not a label floating over a bush: the white
-			-- and its black stroke belong to the things that hang in the air.
-			label.TextColor3 = Color3.fromRGB(78, 52, 30)
+				The plank carried a single painted plate on the post's front
+				face, on the reasoning that `gateBasis` looks into the section
+				and the half turn above therefore leaves the sign meeting
+				whoever walks up to it. Measured on the Mansion, it does not:
+				the Orangery's post ends up facing +Z, into the section, so
+				the one board on the property that says what a hundred and
+				forty dollars buys was blank from the lawn and legible only
+				from inside the glasshouse you had not paid for yet. Two
+				sections of the first property had it the right way round and
+				one did not, which is how it survived.
+
+				A hanging board is double sided in life and there is no reason
+				for this one not to be. Painted both ways it does not matter
+				which way the basis happens to point, on this property or on
+				the next one somebody adds.
+			]]
+			for _, side in { { forward = -0.78, face = Enum.NormalId.Front }, { forward = 0.78, face = Enum.NormalId.Back } } do
+				local plate = Build.part({
+					name = "Face",
+					-- The plank inside the seven-stud envelope, measured
+					-- against the mesh: a little off the post's centre, and
+					-- just proud of the wood so the paint does not fight it
+					-- for the same pixels.
+					size = Vector3.new(4.9, 1.7, 0.1),
+					cframe = post.CFrame * CFrame.new(0.6, 0, side.forward),
+					color = Color3.fromRGB(255, 255, 255),
+					material = Enum.Material.SmoothPlastic,
+					transparency = 1,
+					canCollide = false,
+					parent = post,
+				})
+				plate.CastShadow = false
+
+				local label = Build.painted(plate, side.face, 0.92)
+				label.Text = section.name
+				-- Paint on pale wood, not a label floating over a bush: the
+				-- white and its black stroke belong to the things that hang
+				-- in the air.
+				label.TextColor3 = Color3.fromRGB(78, 52, 30)
+			end
 
 			signs[section.id] = post
 		end
