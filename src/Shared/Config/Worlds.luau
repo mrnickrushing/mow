@@ -571,6 +571,17 @@ local cemetery: Types.WorldDef = {
 	name = "The Cemetery",
 	tagline = "Nobody has cut it since the last funeral.",
 	difficulty = "Nightmare",
+	--[[
+		The card, drawn rather than photographed like the other three.
+
+		A world with no `art` falls back to a flat wash of its own ground
+		colour, which is the exact fault the other three cards were given
+		pictures to fix — two properties sharing a green and the card saying
+		nothing the name did not. This one is the churchyard at night: the
+		chapel with its windows lit, the moon behind a bare tree, and the
+		stones going back into the dark.
+	]]
+	art = "rbxassetid://78179810909493",
 	requiresWorld = "gas_station",
 	gridWidth = 144,
 	gridDepth = 144,
