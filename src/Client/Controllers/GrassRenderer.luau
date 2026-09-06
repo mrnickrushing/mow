@@ -92,7 +92,6 @@ local tileSection: { string } = {}
 	own `baseGround`.
 ]]
 local groundColor = Palette.color(Palette.ground.lawn)
-local driftColor = Palette.color(Palette.ground.lawn)
 
 --[[
 	The same blend again, for the surfaces inside a world that are not its
@@ -111,7 +110,10 @@ local driftColor = Palette.color(Palette.ground.lawn)
 	roofing, a room has the stone floor every room in the game is built with,
 	and everything else is standing on the lot.
 ]]
-local driftByKind: { [string]: Color3 } = {}
+local surfaceByKind: { [string]: Color3 } = {}
+--- False on a lot floored with something other than grass, which changes what
+--- has to be drawn at distance and what can be left to the ground.
+local groundIsLawn = true
 local tileKind: { string } = {}
 local tileElevation: { number } = {}
 
@@ -288,56 +290,45 @@ local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
 	table.clear(tileSection)
 	table.clear(tileElevation)
 	table.clear(tileKind)
-	table.clear(driftByKind)
+	table.clear(surfaceByKind)
 	local world = Worlds.get(worldId)
 	if not world then
 		return
 	end
 	local ground = world.baseGround
 	groundColor = Color3.new(ground[1], ground[2], ground[3])
-	-- A fifth of the way toward the leaves and no further: the carpet is smooth
-	-- where the lot around it is full of clumps, so its shape already gives it
-	-- away and its colour has to stay quiet.
-	local leaf = Palette.color(Palette.leafAverage)
-	driftColor = groundColor:Lerp(leaf, 0.2)
 
 	--[[
-		The same fifth, from each surface's own colour.
+		Whether this property's ground is a lawn, which decides the whole rule
+		below.
 
-		These are the two the world builds out of something other than its
-		ground: `WorldService` lays a roof deck in `house.roof` and every room
-		floor in `ground.stoneDark`. Both are hard, dark surfaces with nothing
-		growing on them, so a drift on either has more to say than a drift on
-		a lawn and is carried further — half the way rather than a fifth. On
-		grass a quiet drift is right because the grass is already telling you
-		what the ground is; on a bare roof the litter is the only thing there
-		is to see.
+		Grass seen from far enough away is the ground it grows on, so on a
+		lawn a chunk of uncut grass needs nothing drawn for it — that is why
+		only leaves ever got a stand-in. On The Gas Station the ground is
+		stone, and a forecourt thick with weeds is not stone: past the detail
+		radius the weeds simply stopped being drawn and the lot came out as a
+		vast empty slab of concrete with a band of green around the player.
+		The same complaint as the tennis court, one property along, and the
+		same cause — a rule written for grass on grass, applied to everything.
 	]]
-	driftByKind.roof = Palette.color(Palette.house.roof):Lerp(leaf, 0.5)
-	driftByKind.room = Palette.color(Palette.ground.stoneDark):Lerp(leaf, 0.5)
+	local lawn = Palette.color(Palette.ground.lawn)
+	groundIsLawn = math.abs(groundColor.R - lawn.R)
+			+ math.abs(groundColor.G - lawn.G)
+			+ math.abs(groundColor.B - lawn.B)
+		< 0.03
+
 	--[[
-		The estate's three, for the same reason.
+		The surface each kind of section is floored with, unblended.
 
-		A court is blue tarmac and a terrace is pale stone; a drift on either
-		painted from the world's lawn would be a green rectangle on a hard
-		surface, which is the exact fault the roof had. A glasshouse stands on
-		the same stone floor every room does.
+		`WorldService` lays a roof deck in `house.roof`, every room floor in
+		`ground.stoneDark`, a court in tarmac and a terrace in estate stone.
+		Anything not listed stands on the lot itself.
 	]]
-	--[[
-		Carried most of the way to the leaves, not a fifth of it.
-
-		The quiet blend above is right on a lawn, where the grass beside the
-		drift is already telling you what the ground is. On a hard floor the
-		litter is the only thing there is to see, and a slab a quarter of the
-		way from blue tarmac towards orange is a grey lid: it hid the leaves
-		*and* the painted lines, so a court came out as one lit strip of
-		leaves near the player and a flat grey rectangle beyond, with a hard
-		edge between them. Reported as only a small square of the court having
-		leaves on it.
-	]]
-	driftByKind.court = Palette.color(Palette.court.tarmac):Lerp(leaf, 0.72)
-	driftByKind.terrace = Palette.color(Palette.estate.stone):Lerp(leaf, 0.6)
-	driftByKind.glasshouse = driftByKind.room
+	surfaceByKind.roof = Palette.color(Palette.house.roof)
+	surfaceByKind.room = Palette.color(Palette.ground.stoneDark)
+	surfaceByKind.court = Palette.color(Palette.court.tarmac)
+	surfaceByKind.terrace = Palette.color(Palette.estate.stone)
+	surfaceByKind.glasshouse = surfaceByKind.room
 
 	for _, section in world.sections do
 		local r = section.rect
@@ -711,16 +702,17 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		one patch dark and littered and the rest of it bare. Reported as only
 		one section of the court being black with leaves.
 
-		Litter on a hard floor is not the floor, whatever it is made of. So on
-		any surface with a drift colour of its own — a court, a terrace, a
-		roof, a room — every chunk holding anything gets the same carpet, and
-		the court reads as one court.
+		Litter on a hard floor is not the floor, whatever it is made of and
+		whatever the litter is. The test is not which kind of section this is
+		but whether what is lying here looks like what it is lying on: grass
+		on a lawn does, and nothing else does. So a chunk is skipped only when
+		it is grass on grass, and everything else — leaves on a lawn, weeds on
+		a forecourt, branches on a court — gets a stand-in.
 	]]
-	local floorDrift: Color3? = driftByKind[surface]
-	local hardFloor = floorDrift ~= nil
-	local nothingToDraw = samples == 0
-		or remaining == 0
-		or (not hardFloor and debrisId ~= DebrisConfig.Leaves)
+	local floorColour: Color3? = surfaceByKind[surface]
+	local hardFloor = floorColour ~= nil or not groundIsLawn
+	local growsFromTheGround = not hardFloor and debrisId ~= DebrisConfig.Leaves
+	local nothingToDraw = samples == 0 or remaining == 0 or growsFromTheGround
 	if nothingToDraw then
 		if existing then
 			existing.Parent = nil
@@ -748,20 +740,24 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	local x, z = Grid.chunkCentre(theGrid, cx, cz)
 
 	--[[
-		Far enough away, a lawn is two things: lawn, and leaves on it.
+		The floor, carried towards what is lying on it.
 
-		Weeds, hedge clippings and fallen sticks each had their own colour out
-		here, and the hedge green and the stick brown are dark enough that a
-		chunk of either landed as a distinct dark rectangle among the green
-		ones. You cannot tell a weed from a hedge clipping at four hundred
-		studs, so pretending to is only a way of drawing tile edges. Leaves stay
-		their own colour because a drift genuinely is the thing you can see from
-		across a property.
+		Two numbers rather than a table of special cases. On a lawn the blend
+		is a fifth, because the grass beside the drift is already saying what
+		the ground is and a loud carpet would read as paint; anywhere else it
+		is most of the way, because there the litter is the only thing to see
+		and a quiet blend is a grey lid that hides the surface as well as the
+		debris.
+
+		Leaves are blended towards the average of the nine shades a drift is
+		actually made of rather than towards any one of them. Everything else
+		uses its own colour, which is what puts green weeds on a grey
+		forecourt instead of nothing at all.
 	]]
-	local color = if floorDrift
-		then floorDrift
-		elseif debrisId == DebrisConfig.Leaves then driftColor
-		else groundColor
+	local litter = if debrisId == DebrisConfig.Leaves
+		then Palette.color(Palette.leafAverage)
+		else Palette.color(DebrisConfig.get(debrisId).color)
+	local color = (floorColour or groundColor):Lerp(litter, if hardFloor then 0.7 else 0.2)
 
 	part.Size = Vector3.new(studs, thickness, studs)
 	part.CFrame = CFrame.new(x, floor + thickness * 0.5, z)
