@@ -10,12 +10,24 @@
 	planters and patio furniture makes it a hunt. Clutter is the mechanic.
 ]]
 
+local TweenService = game:GetService("TweenService")
+
 local Palette = require(game:GetService("ReplicatedStorage").Shared.Config.Palette)
 local Types = require(game:GetService("ReplicatedStorage").Shared.Types)
 local Worlds = require(game:GetService("ReplicatedStorage").Shared.Config.Worlds)
 local Build = require(script.Parent.Build)
 
 local Structures = {}
+
+--[[
+	How far a built floor stands above the ground it is laid on.
+
+	Small enough to be invisible and to leave the debris resting on it looking
+	as though it is resting on it, large enough to win the depth test against
+	the lawn slab underneath — which tops out at exactly `GROUND_Y`, the same
+	height a room's floor was being built at.
+]]
+local FLOOR_LIFT = 0.06
 
 export type Context = {
 	parent: Instance,
@@ -60,6 +72,8 @@ export type WallRingOptions = {
 	material: Enum.Material,
 	--- Opaque unless asked otherwise, so a ring can be glazing as well as wall.
 	transparency: number?,
+	--- Glazing throws no shadow; a wall does.
+	castShadow: boolean?,
 	parent: Instance,
 	opening: Opening?,
 }
@@ -482,6 +496,7 @@ function Structures.wallRing(options: WallRingOptions)
 					color = options.color,
 					material = options.material,
 					transparency = options.transparency,
+					castShadow = options.castShadow,
 					parent = options.parent,
 				})
 			end
@@ -551,7 +566,18 @@ function Structures.room(context: Context, zone: Types.ZoneDef, wallHeight: numb
 	Build.part({
 		name = "Floor",
 		size = Vector3.new(width, 2, depth),
-		cframe = CFrame.new(centre - Vector3.new(0, 1 - lift, 0)),
+		--[[
+			A shade proud of the ground, not flush with it.
+
+			The lawn slab's own top face is at `GROUND_Y`, and a room built at
+			ground level put its floor there too — two surfaces at exactly the
+			same height across the whole of a room, which flicker against each
+			other and show through one another in patches. Photographed in the
+			Orangery: a floor that was dark soil in one place, grass in
+			another, and changed as the player walked. A sunken room is far
+			enough below to be safe, but it costs nothing to lift both.
+		]]
+		cframe = CFrame.new(centre - Vector3.new(0, 1 - lift - FLOOR_LIFT, 0)),
 		color = Palette.color(Palette.ground.stoneDark),
 		material = Enum.Material.Concrete,
 		parent = folder,
@@ -1017,37 +1043,63 @@ function Structures.court(context: Context, zone: Types.ZoneDef)
 	end
 
 	--[[
-		The surround: posts and mesh, open on the side the player walks in.
+		The surround: four sides of mesh with one gate in it.
 
-		Left open rather than gated, because a court is not a gated section —
-		it is somewhere on the estate you walk onto. The mesh is a thin
-		translucent panel between real posts, which is what chain-link reads
-		as at any distance worth drawing it from.
+		This was three sides with the fourth left open, on the reasoning that
+		a court is somewhere you walk onto rather than a gated section. A
+		court with a side missing is not a court — a tennis court is a box,
+		and the fence is the single thing that says so from across an estate.
+
+		So it closes all the way round and the way in is a gate. The gate is
+		built shut and `Structures.openCourtGate` swings it, which the run
+		calls when the section unlocks: the fence reads as a boundary while
+		the court is locked, and as a door once it is not.
 	]]
 	local FENCE_H = 20
 	local halfW, halfD = width * 0.5 + 2.5, depth * 0.5 + 2.5
+	local GATE = 16
+
+	--- The gate goes in the middle of whichever side is longest, which is the
+	--- side an estate this shape is walked at from.
+	local gateOnX = width >= depth
 	local sides = {
-		{ from = Vector3.new(-halfW, 0, -halfD), to = Vector3.new(halfW, 0, -halfD) },
-		{ from = Vector3.new(-halfW, 0, halfD), to = Vector3.new(halfW, 0, halfD) },
-		{ from = Vector3.new(-halfW, 0, -halfD), to = Vector3.new(-halfW, 0, halfD) },
+		{ from = Vector3.new(-halfW, 0, -halfD), to = Vector3.new(halfW, 0, -halfD), gate = gateOnX },
+		{ from = Vector3.new(-halfW, 0, halfD), to = Vector3.new(halfW, 0, halfD), gate = false },
+		{ from = Vector3.new(-halfW, 0, -halfD), to = Vector3.new(-halfW, 0, halfD), gate = not gateOnX },
+		{ from = Vector3.new(halfW, 0, -halfD), to = Vector3.new(halfW, 0, halfD), gate = false },
 	}
+
 	for _, run in sides do
 		local delta = run.to - run.from
 		local length = delta.Magnitude
-		local mid = centre + run.from + delta * 0.5
+		local along = delta.Unit
 		local alongX = math.abs(delta.X) > math.abs(delta.Z)
-		Build.part({
-			name = "CourtMesh",
-			size = if alongX then Vector3.new(length, FENCE_H, 0.4) else Vector3.new(0.4, FENCE_H, length),
-			cframe = CFrame.new(mid + Vector3.new(0, context.groundY + FENCE_H * 0.5, 0)),
-			color = Palette.color(Palette.court.mesh),
-			material = Enum.Material.DiamondPlate,
-			transparency = 0.55,
-			parent = folder,
-		})
+
+		--- Where the gate breaks this side, as a stretch along its own length.
+		local runs: { { number } } = if run.gate
+			then { { 0, (length - GATE) * 0.5 }, { (length + GATE) * 0.5, length } }
+			else { { 0, length } }
+
+		for _, span in runs do
+			local low, high = span[1], span[2]
+			local panel = high - low
+			if panel > 0.5 then
+				local mid = centre + run.from + along * ((low + high) * 0.5)
+				Build.part({
+					name = "CourtMesh",
+					size = if alongX then Vector3.new(panel, FENCE_H, 0.4) else Vector3.new(0.4, FENCE_H, panel),
+					cframe = CFrame.new(mid + Vector3.new(0, context.groundY + FENCE_H * 0.5, 0)),
+					color = Palette.color(Palette.court.mesh),
+					material = Enum.Material.DiamondPlate,
+					transparency = 0.55,
+					parent = folder,
+				})
+			end
+		end
+
 		local posts = math.max(math.floor(length / 22), 1)
 		for index = 0, posts do
-			local at = centre + run.from + delta.Unit * (length * index / posts)
+			local at = centre + run.from + along * (length * index / posts)
 			Build.part({
 				name = "CourtPost",
 				size = Vector3.new(1.3, FENCE_H + 1, 1.3),
@@ -1057,9 +1109,78 @@ function Structures.court(context: Context, zone: Types.ZoneDef)
 				parent = folder,
 			})
 		end
+
+		--- The gate itself: two leaves and a post either side of the opening.
+		if run.gate then
+			for _, side in { -1, 1 } do
+				local jamb = centre + run.from + along * ((length + side * GATE) * 0.5)
+				Build.part({
+					name = "GatePost",
+					size = Vector3.new(2, FENCE_H + 3, 2),
+					cframe = CFrame.new(jamb + Vector3.new(0, context.groundY + (FENCE_H + 3) * 0.5, 0)),
+					color = Palette.color(Palette.estate.iron),
+					material = Enum.Material.Metal,
+					parent = folder,
+				})
+				local leafMid = centre
+					+ run.from
+					+ along * ((length + side * GATE * 0.5) * 0.5)
+				local leaf = Build.part({
+					name = "CourtGate",
+					size = if alongX
+						then Vector3.new(GATE * 0.5, FENCE_H, 0.6)
+						else Vector3.new(0.6, FENCE_H, GATE * 0.5),
+					cframe = CFrame.new(leafMid + Vector3.new(0, context.groundY + FENCE_H * 0.5, 0)),
+					color = Palette.color(Palette.estate.iron),
+					material = Enum.Material.DiamondPlate,
+					transparency = 0.35,
+					parent = folder,
+				})
+				--- Remembered so the gate can be swung about the right jamb.
+				leaf:SetAttribute("HingeX", jamb.X)
+				leaf:SetAttribute("HingeZ", jamb.Z)
+				leaf:SetAttribute("Swing", side * (if alongX then 1 else -1))
+			end
+		end
 	end
 
 	return folder
+end
+
+--[[
+	Swings a court's gate open, once, when its section unlocks.
+
+	The leaves are hinged on their own jamb rather than slid aside, because a
+	gate that vanishes is a hole and a gate that swings is a gate — and the
+	swing is the only part of a fence anybody actually watches.
+]]
+function Structures.openCourtGate(container: Instance, sectionId: string)
+	local folder = container:FindFirstChild(`Court_{sectionId}`)
+	if not folder then
+		return
+	end
+	for _, leaf in folder:GetChildren() do
+		if leaf:IsA("BasePart") and leaf.Name == "CourtGate" and not leaf:GetAttribute("Open") then
+			leaf:SetAttribute("Open", true)
+			local hinge = Vector3.new(
+				leaf:GetAttribute("HingeX") :: number,
+				leaf.Position.Y,
+				leaf:GetAttribute("HingeZ") :: number
+			)
+			local swing = (leaf:GetAttribute("Swing") :: number) or 1
+			local turned = CFrame.new(hinge)
+				* CFrame.Angles(0, math.rad(-100 * swing), 0)
+				* CFrame.new(hinge):Inverse()
+				* leaf.CFrame
+			TweenService:Create(leaf, TweenInfo.new(1.1, Enum.EasingStyle.Quad), { CFrame = turned }):Play()
+			-- Nothing to walk into once it has swung out of the way.
+			task.delay(1.1, function()
+				if leaf.Parent then
+					leaf.CanCollide = false
+				end
+			end)
+		end
+	end
 end
 
 --[[
@@ -1181,10 +1302,12 @@ function Structures.glasshouse(context: Context, zone: Types.ZoneDef, opening: O
 	local width, depth = r.w * tile, r.d * tile
 	local HEIGHT = 26
 
+	--- Proud of the lawn by the same hair a room's floor is, and for the same
+	--- reason: two surfaces at one height flicker against each other.
 	Build.part({
 		name = "Floor",
 		size = Vector3.new(width + 4, 2, depth + 4),
-		cframe = CFrame.new(centre + Vector3.new(0, context.groundY - 1, 0)),
+		cframe = CFrame.new(centre + Vector3.new(0, context.groundY - 1 + FLOOR_LIFT, 0)),
 		color = Palette.color(Palette.ground.stoneDark),
 		material = Enum.Material.Slate,
 		parent = folder,
@@ -1214,6 +1337,7 @@ function Structures.glasshouse(context: Context, zone: Types.ZoneDef, opening: O
 		color = Palette.color(Palette.estate.glass),
 		material = Enum.Material.Glass,
 		transparency = 0.62,
+		castShadow = false,
 		parent = folder,
 		opening = opening,
 	})
@@ -1261,6 +1385,15 @@ function Structures.glasshouse(context: Context, zone: Types.ZoneDef, opening: O
 		color = Palette.color(Palette.estate.glass),
 		material = Enum.Material.SmoothPlastic,
 		transparency = 0.72,
+		--[[
+			Glass does not throw a shadow, and here it was throwing the only
+			one that mattered. Roblox shades a translucent part exactly as it
+			shades a brick, so the roof of the glasshouse put the whole floor
+			of it in the dark: a building whose entire purpose is that the sun
+			gets in, and the one section on the property you could not see the
+			debris in.
+		]]
+		castShadow = false,
 		parent = folder,
 	})
 	local ridgeAlongX = width >= depth
@@ -1271,6 +1404,7 @@ function Structures.glasshouse(context: Context, zone: Types.ZoneDef, opening: O
 		color = Palette.color(Palette.estate.glass),
 		material = Enum.Material.SmoothPlastic,
 		transparency = 0.62,
+		castShadow = false,
 		parent = folder,
 	})
 	Build.part({

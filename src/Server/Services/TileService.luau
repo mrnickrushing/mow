@@ -246,7 +246,20 @@ local lastNotice: { [Player]: { kind: string, text: string, at: number } } = {}
 local function say(player: Player, kind: string, text: string)
 	local now = os.clock()
 	local last = lastNotice[player]
-	if last and last.kind == kind and last.text == text and now - last.at < NOTICE_GAP then
+	--[[
+		A kind that carries a colon throttles on the kind alone.
+
+		The plain rule — same kind *and* same words — exists so a genuinely
+		new problem is never swallowed, and it is right for the fixed
+		messages. It is wrong for one that names whatever it happened to
+		find, because then every tick is a new problem. Those pass a keyed
+		kind instead, and the key is what is throttled.
+	]]
+	local keyed = string.find(kind, ":") ~= nil
+	local repeated = last ~= nil
+		and last.kind == kind
+		and (keyed or last.text == text)
+	if repeated and now - (last :: any).at < NOTICE_GAP then
 		return
 	end
 	lastNotice[player] = { kind = kind, text = text, at = now }
@@ -419,11 +432,24 @@ local function onMowIntent(player: Player, payload: any)
 			silence. The cheapest tool that can actually clear it is usually
 			bare hands, which every player already owns.
 		]]
+		--[[
+			One of these at a time, whichever debris it happens to name.
+
+			`say` lets a changed message through immediately, so that a
+			genuinely new problem is never swallowed — and a swath tool over
+			mixed ground produces a new one every tick, because the tile it
+			reports is whichever the pass happened to end on. Photographed on
+			the estate: two of these stacked on top of each other, one for
+			fallen branches and one for grass clippings, both from the same
+			blower on the same patch. Keyed on the tool rather than the debris,
+			so a player who swaps tools is still told, and a player standing on
+			a mixed lawn is told once.
+		]]
 		local def = DebrisConfig.get(result.wrongTool)
 		local fix = Tools.cheapestFor(result.wrongTool)
 		say(
 			player,
-			"stall",
+			`wrongTool:{tool.id}`,
 			if fix and fix.id ~= tool.id
 				then `{tool.name} will not shift {def.name} — your hands will, or a {fix.name}`
 				else `{tool.name} will not shift {def.name} — your hands will`

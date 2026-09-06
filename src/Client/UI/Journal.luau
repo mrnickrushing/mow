@@ -657,19 +657,20 @@ local function toolPanel(parent: Instance, order: number, tool: Types.ToolDef, o
 end
 
 --[[
-	The three tools the spread shows: what is in your hands, then the next
-	two rungs of the ladder — the thing you have, and what it could become.
+	Every tool, on one page.
 
-	It filled the other two panels with tools already owned before it looked
-	at anything for sale. Own the reel mower and the rake — the first two
-	things anybody buys — and the page was hands, reel mower, rake, with the
-	gas mower nowhere on it. Nothing else in the book sells tools, so the
-	fourth rung of the ladder could not be bought from the journal at all;
-	the shed was the only way, and the shed is the thing the journal exists
-	to save a walk to.
+	This showed three: what was in your hands, and the next two rungs of the
+	ladder. Sixteen tools exist and the book is the only place in the game
+	that sells them without a walk to the shed, so fourteen of them could not
+	be looked at, compared or bought from here — you got whichever two the
+	list happened to hand you, and to reach the one you actually wanted you
+	had to buy your way up to it.
 
-	The rungs for sale come first now, cheapest unowned first, and owned
-	tools only fill whatever is left. The next purchase is always on the page.
+	The right page is a scrolling column now and it holds all of them. Order
+	still matters, because the top of a list is where a page is read from: the
+	rungs you do not own come first, in the order the ladder climbs, and the
+	ones you already have follow. The next purchase is on the page, and so is
+	every purchase after it.
 ]]
 local function panelTools(): { Types.ToolDef }
 	local state = PlayerState.get()
@@ -682,21 +683,14 @@ local function panelTools(): { Types.ToolDef }
 		seen[equipped.id] = true
 	end
 
-	-- What can be bought next, then what is already owned, until three stand.
 	for _, tool in Tools.list do
-		if #out >= 3 then
-			break
-		end
 		if not seen[tool.id] and not state.ownedTools[tool.id] and tool.currency == "Cash" then
 			table.insert(out, tool)
 			seen[tool.id] = true
 		end
 	end
 	for _, tool in Tools.list do
-		if #out >= 3 then
-			break
-		end
-		if not seen[tool.id] and state.ownedTools[tool.id] then
+		if not seen[tool.id] then
 			table.insert(out, tool)
 			seen[tool.id] = true
 		end
@@ -782,13 +776,11 @@ local function renderUpgrades()
 		end)
 	end
 
-	-- Right page: the next two rungs of the ladder.
+	-- Right page: everything else there is, in a column you scroll.
 	local right = body(rightPage)
-	for index = 2, 3 do
+	for index = 2, #shown do
 		local tool = shown[index]
-		if tool then
-			toolPanel(right, index, tool, state.ownedTools[tool.id] == true)
-		end
+		toolPanel(right, index, tool, state.ownedTools[tool.id] == true)
 	end
 end
 
