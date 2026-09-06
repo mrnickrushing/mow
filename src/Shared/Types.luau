@@ -41,7 +41,16 @@ export type ZoneUnlock = "start" | "completion" | "button" | "cash"
 	stone floor with a balustrade, and a glasshouse is the one building you
 	can see into.
 ]]
-export type ZoneKind = "open" | "room" | "pool" | "maze" | "roof" | "court" | "terrace" | "glasshouse"
+export type ZoneKind =
+	"open"
+	| "room"
+	| "pool"
+	| "maze"
+	| "roof"
+	| "court"
+	| "terrace"
+	| "glasshouse"
+	| "graves"
 
 export type ZoneDef = {
 	id: string,
@@ -124,7 +133,15 @@ export type WorldDef = {
 	houseRect: Rect?,
 	--- Which builder raises the property: a suburban house, a stone estate,
 	--- or a filling station forecourt.
-	style: ("house" | "estate" | "lot")?,
+	style: ("house" | "estate" | "lot" | "churchyard")?,
+	--[[
+		The light this property is worked under.
+
+		Every property until the fourth was the same autumn afternoon, which
+		is right for a lawn and wrong for a churchyard — so a world can ask
+		for night instead. Absent means the afternoon.
+	]]
+	mood: ("day" | "night")?,
 }
 
 --- Plain RGB triple so config modules never need the Roblox `Color3` global.

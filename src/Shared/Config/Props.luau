@@ -242,6 +242,30 @@ local catalogue: { [string]: Prop } = {
 	Tick = prop("rbxassetid://79879909336133", "rbxassetid://120486020368339", 1.223, 1.261, 0.500),
 	Cross = prop("rbxassetid://99413284614654", "rbxassetid://71908766239251", 1.574, 1.575, 0.400),
 
+	--[[
+		The churchyard, which is the one property built out of bought assets.
+
+		Everything else in this catalogue was generated to order and matches
+		the game's own hand. Nothing in that hand looks like a headstone, and
+		mesh generation would not upload — so these four come from the Creator
+		Store: a textured gravestone, a second plain one so a row is not the
+		same stone thirty times, a bare tree and a jack-o'-lantern. Their
+		native sizes are what the imported `MeshPart` reported, which is why
+		three of them are enormous: they are scaled to the size the world
+		wants at every call site.
+	]]
+	Headstone = prop("rbxassetid://9780693854", "rbxassetid://9780694145", 35.330, 50.000, 8.577),
+	--- Untextured on purpose; it takes the part's colour and reads as a
+	--- different stone from the one above without a second texture fetch.
+	HeadstonePlain = prop("rbxassetid://13249892662", "", 2.860, 2.400, 0.858),
+	--- A taller tombstone and a cross, for the same reason: four shapes in a
+	--- churchyard rather than one repeated, and both take a colour so the
+	--- granite can vary without another texture.
+	Tombstone = prop("rbxassetid://491287963", "", 179.568, 426.676, 119.712),
+	GraveCross = prop("rbxassetid://11119626610", "", 2.000, 3.678, 0.460),
+	DeadTree = prop("rbxassetid://519096150", "rbxassetid://519096175", 385.670, 634.431, 319.603),
+	JackOLantern = prop("rbxassetid://475201433", "rbxassetid://475201512", 17.162, 14.540, 18.038),
+
 	-- The stock on the shed shelf.
 	Sack = prop("rbxassetid://138022973254032", "rbxassetid://92817985554289", 2.943, 4.000, 3.277),
 	LeafBlower = prop("rbxassetid://120198329733477", "rbxassetid://127839085444983", 2.114, 3.000, 4.231),
