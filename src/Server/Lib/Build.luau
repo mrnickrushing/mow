@@ -245,30 +245,56 @@ end
 	and costs a clock read per part.
 ]]
 --[[
-	Only a sustained run of building yields.
+	Two limits, because the clock on its own could be talked out of firing.
 
-	A gap between calls means the thread went back to the scheduler on its
-	own — one prop dropped during play, a station rebuilt when somebody buys
-	something — and its allowance is long since reset. Starting the clock
-	again on a gap keeps `Build.part` a plain non-yielding call everywhere
-	except inside a build, which is the only place the allowance is at risk.
+	The rule used to be time alone: yield after three seconds of building,
+	and treat a quarter-second gap between calls as proof the thread had gone
+	back to the scheduler by itself — one prop dropped during play, a station
+	rebuilt when somebody buys something — and start the clock again.
+
+	That premise is false. A gap between two `Build` calls means the thread
+	did something else in between, and doing something else is not yielding:
+	sowing a section's debris, scattering its trees and carving its maze are
+	all long stretches of work with no `task.wait` in them. Every one of those
+	gaps reset the clock, so on a property with enough of them the yield never
+	came at all. Caught doing exactly that on this build:
+
+		WorldService:1438: Script timeout: exhausted allowed execution time
+		Build, Line 216 - function mesh
+		WorldService, Line 1438 - function windowsAlong
+		WorldService, Line 1465 - function buildHouse
+		RunService, Line 709 - function start
+
+	— which is the boot-time build of the first property, so a server could
+	come up with half a house on it.
+
+	So the count is the limit that cannot be argued with: a run of eight
+	hundred parts yields whatever the clock says, and thirty thousand parts
+	therefore yield thirty-seven times however the gaps fall. The clock stays
+	as the second limit, for a build that is slow rather than large, and an
+	idle gap still resets the clock so a lone prop dropped mid-game is a plain
+	non-yielding call.
 ]]
-local BREATH_SECONDS = 3
+local BREATH_SECONDS = 1.5
+local BREATH_PARTS = 800
 local IDLE_GAP = 0.25
 local lastBreath = os.clock()
 local lastCall = os.clock()
+local sinceBreath = 0
 
 function Build.breathe()
 	local now = os.clock()
+	sinceBreath += 1
 	if now - lastCall > IDLE_GAP then
 		lastBreath = now
 	end
 	lastCall = now
 
-	if now - lastBreath < BREATH_SECONDS then
+	if sinceBreath < BREATH_PARTS and now - lastBreath < BREATH_SECONDS then
 		return
 	end
 	lastBreath = now
+	sinceBreath = 0
 	task.wait()
 	lastCall = os.clock()
 end
