@@ -29,6 +29,7 @@ local Loop = require(Shared.Util.Loop)
 local BoostService = require(script.Parent.BoostService)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
+local LeaderboardService = require(script.Parent.LeaderboardService)
 local PlayerService = require(script.Parent.PlayerService)
 local RewardService = require(script.Parent.RewardService)
 local QuestService = require(script.Parent.QuestService)
@@ -444,6 +445,18 @@ local function winRun()
 		end)
 
 		--[[
+			Onto the ladder now, not at the next heartbeat.
+
+			This is the one moment a player's board number changes for a
+			reason they can name, and they are about to walk back into a lobby
+			and look for it. The leaderboard's own minute-long loop would get
+			there eventually — but on a run server "eventually" competes with
+			the teleport home, and a player who finishes and quits inside that
+			minute is never published from here at all.
+		]]
+		LeaderboardService.publish(player)
+
+		--[[
 			The reward for a first clean sweep, which nothing ever called.
 
 			`RewardService.awardFirstCompletion` was written, tested against a
@@ -705,12 +718,45 @@ function RunService.start()
 		nobody picks for long enough, so an unattended public server never
 		sits on a menu forever.
 	]]
-	ReplicationService.reset()
-	WorldService.load(Worlds.STARTER_ID)
-	ReplicationService.broadcastWorldInfo()
-	WorldService.closeAllSections()
+	--[[
+		The starter world is built on a thread of its own.
+
+		`RunService.start()` is line 83 of the server script and this load was
+		the slowest thing in it, so every service after that line waited on a
+		property being built: the leaderboard, the prices, the admin commands
+		and — on a public server — the lobby itself, with its map pads and its
+		two record boards.
+
+		Waiting is the good case. Caught in the console on this build:
+
+			WorldService:1616: Script timeout: exhausted allowed execution time
+			Build, Line 216 - function mesh
+			WorldService, Line 1616 - function windowsAlong
+			WorldService, Line 1643 - function buildHouse
+			WorldService, Line 3799 - function load
+			RunService, Line 709 - function start
+			Script 'ServerScriptService.Server', Line 83
+
+		A killed thread does not return, so `RunService.start()` never
+		returned, so nothing below line 83 ever ran. That server came up with
+		no lobby at all — no pads, no leaderboards — and no leaderboard loop to
+		publish anybody's score either. It is intermittent by nature, because
+		whether a build crosses the limit is a question about the machine.
+
+		Spawned, the worst a slow or failed build can do is leave the property
+		missing for a few seconds. The phase and the clock are set here rather
+		than in the thread, so the tick below is never looking at a half-set
+		run, and it already guards on the world existing.
+	]]
 	phase = "lobby"
 	endsAt = os.clock() + LOBBY_SECONDS
+	task.spawn(function()
+		ReplicationService.reset()
+		WorldService.load(Worlds.STARTER_ID)
+		ReplicationService.broadcastWorldInfo()
+		WorldService.closeAllSections()
+		broadcast()
+	end)
 	broadcast()
 
 	Loop.forever("RunService.tick", function()

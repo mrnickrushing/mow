@@ -366,6 +366,43 @@ local function publishEveryone()
 	end
 end
 
+--[[
+	One player's scores, written now rather than at the next heartbeat.
+
+	The heartbeat is a minute, and a minute is the wrong unit for the moment
+	that matters most: a player finishes a property and walks back into the
+	lobby wanting to see their name, and on the old cadence the run server had
+	up to sixty seconds to publish them and the lobby server another sixty to
+	notice. Two minutes of standing in front of a board that does not know
+	what you just did — reported as "we beat the first level but our names
+	aren't on the board".
+
+	The loop stays as the backstop for everyone who is simply playing.
+]]
+function LeaderboardService.publish(player: Player)
+	local profile = DataService.get(player)
+	if not profile then
+		return
+	end
+	for _, def in BOARDS do
+		local store = stores[def.key]
+		if not store or available[def.key] == false then
+			continue
+		end
+		local value = math.floor(def.value(profile))
+		if value > 0 then
+			local ok, err = pcall(function()
+				store:SetAsync(tostring(player.UserId), value)
+			end)
+			if not ok then
+				warn(`[Leaderboard] could not publish {player.Name} to {def.key}: {err}`)
+			end
+		end
+	end
+end
+
+local refreshing = false
+
 local function refresh()
 	for _, def in BOARDS do
 		local built = rows[def.key]
@@ -457,6 +494,33 @@ function LeaderboardService.start()
 		publishEveryone()
 		refresh()
 		task.wait(REFRESH)
+	end)
+
+	--[[
+		Somebody walking in is worth a read, on top of the minute.
+
+		The lobby is where the boards are and arriving is when people look at
+		them — most often straight after a run, carrying a number that was not
+		there when the boards were last read. Publishing them first means the
+		read that follows can actually see it.
+
+		Guarded, because four people teleporting in together would otherwise
+		ask for four reads of the same two ladders inside a second.
+	]]
+	Players.PlayerAdded:Connect(function(player)
+		task.spawn(function()
+			if not DataService.await(player, 20) then
+				return
+			end
+			LeaderboardService.publish(player)
+			if refreshing then
+				return
+			end
+			refreshing = true
+			task.wait(3)
+			refreshing = false
+			refresh()
+		end)
 	end)
 end
 

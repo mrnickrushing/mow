@@ -681,6 +681,8 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 	]]
 	local wingWidth = width * 0.22
 	local wingOut = 12
+	--- The projecting centre of the garden front, at the back.
+	local bayWidth = width * 0.26
 	for _, side in { -1, 1 } do
 		local x = centre.X + side * (halfWidth - wingWidth * 0.5)
 		Build.part({
@@ -1021,7 +1023,14 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 	]]
 	local FACE = 1.2 + RUSTIC
 	windowsAlong(Vector3.new(centre.X, 0, frontZ - wingOut - FACE), sideways, width, 0, -frontways, width * 0.19)
-	windowsAlong(centre + frontways * (halfDepth + FACE), sideways, width, math.pi, frontways, nil)
+	windowsAlong(
+		centre + frontways * (halfDepth + FACE),
+		sideways,
+		width,
+		math.pi,
+		frontways,
+		bayWidth * 0.5 + 6
+	)
 	windowsAlong(Vector3.new(centre.X - halfWidth - FACE, 0, centre.Z - wingOut * 0.5), frontways, depth, math.rad(-90), -sideways, nil)
 	windowsAlong(Vector3.new(centre.X + halfWidth + FACE, 0, centre.Z - wingOut * 0.5), frontways, depth, math.rad(90), sideways, nil)
 
@@ -1239,6 +1248,175 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 		glow.Range = 26
 		glow.Brightness = 1.4
 		glow.Parent = lamp
+	end
+
+	--------------------------------------------------------------------
+	-- The garden front
+	--------------------------------------------------------------------
+
+	--[[
+		The back of the house, which is the side you spend the run looking at.
+
+		The front got a portico, a balcony, French doors, dormers, quoins and
+		a flight of steps. The back got twenty-eight identical windows in two
+		rows across a hundred and eighty studs of flat wall, no door, and a
+		plain slab of roof over it — and the back is the side that faces the
+		maze, the terrace and the whole walk to the exit, so it is what a
+		player actually looks at for most of two and a half minutes.
+
+		On a house of this kind the garden front is usually the better of the
+		two. This one gets what one has: a centre bay standing proud of the
+		wall its full height, dressed at the corners, carrying an attic and a
+		balustrade above the cornice; French doors at ground level; and a
+		perron of steps down to the lawn between balustraded cheeks. The rear
+		roof slope gets the dormers the front slope already had.
+	]]
+	local backZ = centre.Z + halfDepth
+	local BAY_OUT = 5
+	local bayFace = backZ + BAY_OUT
+
+	--- The bay, set into the wall by a stud so no two faces are coplanar.
+	Build.part({
+		name = "GardenBay",
+		size = Vector3.new(bayWidth, wallTop, BAY_OUT + 2),
+		cframe = CFrame.new(centre.X, wallTop * 0.5, backZ + BAY_OUT * 0.5 - 1),
+		color = stone,
+		material = Enum.Material.Sandstone,
+		parent = manor,
+	})
+
+	--- Dressed corners, the same language the building's own corners use.
+	for _, side in { -1, 1 } do
+		Build.part({
+			name = "Quoin",
+			size = Vector3.new(3.4, wallTop, BAY_OUT + 2.6),
+			cframe = CFrame.new(
+				centre.X + side * (bayWidth * 0.5 - 1.7),
+				wallTop * 0.5,
+				backZ + BAY_OUT * 0.5 - 1
+			),
+			color = quoin,
+			material = Enum.Material.Sandstone,
+			parent = manor,
+		})
+	end
+
+	--- Cornice, attic and balustrade over the bay.
+	Build.part({
+		name = "Cornice",
+		size = Vector3.new(bayWidth + 5, 2.4, BAY_OUT + 4),
+		cframe = CFrame.new(centre.X, wallTop + 1.2, backZ + BAY_OUT * 0.5 - 1),
+		color = lead,
+		material = Enum.Material.Metal,
+		parent = manor,
+	})
+	Build.part({
+		name = "BayAttic",
+		size = Vector3.new(bayWidth - 8, 7, BAY_OUT + 1),
+		cframe = CFrame.new(centre.X, wallTop + 5.9, backZ + BAY_OUT * 0.5 - 1.4),
+		color = quoin,
+		material = Enum.Material.Sandstone,
+		parent = manor,
+	})
+	local balustradeCount = math.max(math.floor(bayWidth / 5), 4)
+	for index = 0, balustradeCount do
+		local x = centre.X - bayWidth * 0.5 + bayWidth * (index / balustradeCount)
+		if math.abs(x - centre.X) > bayWidth * 0.5 - 6 then
+			Build.part({
+				name = "Baluster",
+				size = Vector3.new(1.5, 4.5, 1.5),
+				cframe = CFrame.new(x, wallTop + 4.6, bayFace - 1),
+				color = quoin,
+				material = Enum.Material.Sandstone,
+				canCollide = false,
+				parent = manor,
+			})
+		end
+	end
+
+	--- French doors onto the garden, with their surround.
+	local doorTop = PLINTH + 17
+	Build.part({
+		name = "DoorCase",
+		size = Vector3.new(23, 21, 1.4),
+		cframe = CFrame.new(centre.X, PLINTH + 10.5, bayFace - 0.3),
+		color = quoin,
+		material = Enum.Material.Sandstone,
+		parent = manor,
+	})
+	for _, side in { -1, 1 } do
+		Build.mesh({
+			prop = "Window",
+			name = "FrenchDoor",
+			size = Vector3.new(8, 16, 0.9),
+			collisionSize = Vector3.new(8, 16, 0.6),
+			cframe = CFrame.new(centre.X + side * 4.4, PLINTH + 9, bayFace + 0.4)
+				* CFrame.Angles(0, math.pi, 0),
+			canCollide = false,
+			parent = manor,
+		})
+	end
+	Build.part({
+		name = "StringCourse",
+		size = Vector3.new(27, 1.6, 2.6),
+		cframe = CFrame.new(centre.X, doorTop + 4.4, bayFace),
+		color = lead,
+		material = Enum.Material.Metal,
+		canCollide = false,
+		parent = manor,
+	})
+
+	--[[
+		A threshold rather than a flight of steps.
+
+		A garden front of this size wants a perron — three broad steps down
+		between balustraded cheeks. It does not fit: the long maze begins ten
+		studs behind the house and the bay eats five of them, so the steps
+		came out standing inside the first row of hedge. What fits in five
+		studs is a threshold slab the width of the doors, which is what the
+		doors need anyway to open onto something other than grass.
+	]]
+	Build.part({
+		name = "Threshold",
+		size = Vector3.new(30, PLINTH, 4),
+		cframe = CFrame.new(centre.X, PLINTH * 0.5, bayFace + 2),
+		color = quoin,
+		material = Enum.Material.Sandstone,
+		parent = manor,
+	})
+
+	--- Dormers in the rear slope, to match the front's.
+	for index = 0, dormerCount - 1 do
+		local t = (index + 0.5) / dormerCount
+		local x = centre.X - halfWidth + width * t
+		if math.abs(x - centre.X) > bayWidth * 0.5 + 4 then
+			local z = backZ - 1
+			Build.part({
+				name = "Dormer",
+				size = Vector3.new(9, 9, 5),
+				cframe = CFrame.new(x, mansardY + 5.5, z),
+				color = quoin,
+				material = Enum.Material.Sandstone,
+				parent = manor,
+			})
+			Build.part({
+				name = "DormerRoof",
+				size = Vector3.new(10.5, 1.6, 6),
+				cframe = CFrame.new(x, mansardY + 10.8, z),
+				color = lead,
+				material = Enum.Material.Metal,
+				parent = manor,
+			})
+			Build.mesh({
+				prop = "Window",
+				name = "Window",
+				size = Vector3.new(5, 6, 0.9),
+				collisionSize = Vector3.new(5, 6, 0.6),
+				cframe = CFrame.new(x, mansardY + 5.5, z + 2.7) * CFrame.Angles(0, math.pi, 0),
+				canCollide = false,
+				parent = manor,
+			})
+		end
 	end
 end
 
