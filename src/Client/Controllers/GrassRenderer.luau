@@ -114,6 +114,31 @@ local surfaceByKind: { [string]: Color3 } = {}
 --- One colour per section for what is lying on it, so a chunk never picks its
 --- own and a section never comes out as a patchwork.
 local litterBySection: { [string]: Color3 } = {}
+--- The tallest a tile can be, which is all `ChunkCodec` has room to say.
+local MAX_TILE_HEIGHT = 3
+
+--[[
+	How much of the floor a kind of debris actually hides, per unit of height.
+
+	A leaf drift lies flat and covers what it lands on; a clump of weeds is a
+	tall thing with floor all round it, and a scatter of branches is mostly
+	gaps. Height is not coverage, and treating it as though it were painted
+	the east terrace as a solid sheet of tan when what is on it is pale
+	flagstones with green through the joints.
+]]
+local COVERAGE: { [number]: number } = {
+	[DebrisConfig.Leaves] = 0.95,
+	[DebrisConfig.Chips] = 0.80,
+	[DebrisConfig.Hedge] = 0.55,
+	[DebrisConfig.Grass] = 0.40,
+	[DebrisConfig.Weeds] = 0.40,
+	[DebrisConfig.Log] = 0.35,
+	[DebrisConfig.Sticks] = 0.28,
+}
+local DEFAULT_COVERAGE = 0.5
+
+--- How much of its floor each section's own mix hides, by the same reasoning.
+local coverBySection: { [string]: number } = {}
 --- False on a lot floored with something other than grass, which changes what
 --- has to be drawn at distance and what can be left to the ground.
 local groundIsLawn = true
@@ -345,23 +370,43 @@ local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
 		cannot tell a branch from a weed at that range, and pretending to is
 		only a way of drawing tile edges.
 
-		The section's heaviest fill entry is the honest answer and it does not
-		change from square to square, so a terrace reads as one terrace and a
-		forecourt as one forecourt.
+		What the whole section is sown with, averaged, is the honest answer
+		and it does not change from square to square — so a terrace reads as
+		one terrace and a forecourt as one forecourt.
+
+		Averaged rather than won outright. Taking only the heaviest entry is
+		the same mistake one step up: the east terrace is sown grass, leaves
+		and sticks, leaves win on weight, and the terrace was drawn in flat
+		gold — while standing on it you are looking at pale flagstones with
+		green weeds through the joints and brown branches across them. The
+		near half of the section and the far half were two different places.
+
+		Each entry counts for its weight times how tall it is sown, because a
+		tall weed covers more of the floor than a leaf does, and that is what
+		you can see from two hundred studs away.
 	]]
 	table.clear(litterBySection)
+	table.clear(coverBySection)
 	for _, section in world.sections do
-		local heaviest, best = nil, -1
+		local red, green, blue, total = 0, 0, 0, 0
+		local hides, weights = 0, 0
 		for _, entry in section.fill do
-			if entry.weight > best then
-				best = entry.weight
-				heaviest = entry.debris
-			end
-		end
-		if heaviest then
-			litterBySection[section.id] = if heaviest == DebrisConfig.Leaves
+			local colour = if entry.debris == DebrisConfig.Leaves
 				then Palette.color(Palette.leafAverage)
-				else Palette.color(DebrisConfig.get(heaviest).color)
+				else Palette.color(DebrisConfig.get(entry.debris).color)
+			local mass = entry.weight * (entry.heightMin + entry.heightMax) * 0.5
+			red += colour.R * mass
+			green += colour.G * mass
+			blue += colour.B * mass
+			total += mass
+			hides += (COVERAGE[entry.debris] or DEFAULT_COVERAGE) * entry.weight
+			weights += entry.weight
+		end
+		if total > 0 then
+			litterBySection[section.id] = Color3.new(red / total, green / total, blue / total)
+		end
+		if weights > 0 then
+			coverBySection[section.id] = hides / weights
 		end
 	end
 
@@ -795,11 +840,22 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		or (if debrisId == DebrisConfig.Leaves
 			then Palette.color(Palette.leafAverage)
 			else Palette.color(DebrisConfig.get(debrisId).color))
-	local color = (floorColour or groundColor):Lerp(litter, if hardFloor then 0.7 else 0.2)
+
+	--[[
+		How far towards the litter, by how much of it is still there.
+
+		A flat fraction paints a chunk with one leaf left in it exactly as
+		loudly as an untouched one, so a section you have half cleared still
+		reads as full from the other end of it — and the moment the last tile
+		goes the whole square vanishes at once. Scaling by what the chunk
+		actually holds means the distance fades as you work, which is both
+		true and the only feedback you get on a section you are not standing
+		in.
+	]]
+	local fullness = math.clamp(remaining / (samples * MAX_TILE_HEIGHT), 0, 1)
 
 	part.Size = Vector3.new(studs, thickness, studs)
 	part.CFrame = CFrame.new(x, floor + thickness * 0.5, z)
-	part.Color = color
 	--[[
 		Litter on a hard floor is laid over it, not instead of it.
 
@@ -815,7 +871,31 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	part.Material = if debrisId == DebrisConfig.Leaves or hardFloor
 		then Enum.Material.SmoothPlastic
 		else Enum.Material.Grass
-	part.Transparency = if hardFloor then 0.34 else 0
+
+	--[[
+		On a hard floor the stand-in is the litter, thinned to how much of the
+		floor it covers — not the floor mixed with the litter.
+
+		Mixing them is what a lerp does, and mixing two colours from opposite
+		sides of the wheel gives mud: the tennis court is blue tarmac, autumn
+		leaves are gold, and every blend of the two came out a flat grey. From
+		the terrace the court read as swept clean while it was still buried,
+		and the only way to find out otherwise was to walk down there. Drawn
+		as gold at a transparency that says how much of it there is, the blue
+		underneath shows through the gaps instead of being averaged away, and
+		neither colour has to be a lie.
+
+		A lawn keeps its opaque slab and its gentle blend, because there the
+		slab *is* the ground rather than something lying on it.
+	]]
+	if hardFloor then
+		part.Color = litter
+		local cover = coverBySection[zone] or COVERAGE[debrisId] or DEFAULT_COVERAGE
+		part.Transparency = math.clamp(1 - cover * fullness, 0.22, 0.92)
+	else
+		part.Color = groundColor:Lerp(litter, 0.06 + 0.16 * fullness)
+		part.Transparency = 0
+	end
 	part.Parent = lodFolder
 end
 

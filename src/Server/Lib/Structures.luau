@@ -1055,7 +1055,16 @@ function Structures.court(context: Context, zone: Types.ZoneDef)
 		calls when the section unlocks: the fence reads as a boundary while
 		the court is locked, and as a door once it is not.
 	]]
-	local FENCE_H = 20
+	--[[
+		Thirteen studs, not twenty.
+
+		Twenty is three and a half people tall — from anywhere above head
+		height the four panels closed over the court like a lid, and the shot
+		from the terrace looked as though the tennis court had been roofed
+		in. Thirteen still cannot be jumped (a Roblox jump tops out around
+		seven) and still reads as a cage from outside it.
+	]]
+	local FENCE_H = 13
 	local halfW, halfD = width * 0.5 + 2.5, depth * 0.5 + 2.5
 	local GATE = 16
 
@@ -1094,6 +1103,30 @@ function Structures.court(context: Context, zone: Types.ZoneDef)
 					transparency = 0.55,
 					parent = folder,
 				})
+
+				--[[
+					Top, middle and bottom rails.
+
+					Chain-link at this scale is a pane of grey haze, and a pane
+					of grey haze between two posts reads as a gap: from the
+					court the fence was posts with nothing in between, and from
+					above the panel's own top edge was the only line in it,
+					which is what made four upright panels look like a roof.
+					The rails are the part of a fence the eye actually finds.
+				]]
+				for _, height in { 0.4, FENCE_H * 0.5, FENCE_H } do
+					Build.part({
+						name = "CourtRail",
+						size = if alongX
+							then Vector3.new(panel, 0.5, 0.55)
+							else Vector3.new(0.55, 0.5, panel),
+						cframe = CFrame.new(mid + Vector3.new(0, context.groundY + height, 0)),
+						color = Palette.color(Palette.estate.iron),
+						material = Enum.Material.Metal,
+						canCollide = false,
+						parent = folder,
+					})
+				end
 			end
 		end
 
@@ -1369,15 +1402,32 @@ function Structures.glasshouse(context: Context, zone: Types.ZoneDef, opening: O
 		end
 	end
 
-	--- Eaves, and the lantern along the ridge.
-	Build.part({
-		name = "Eaves",
-		size = Vector3.new(width + 8, 1.6, depth + 8),
-		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + HEIGHT, 0)),
-		color = Palette.color(Palette.estate.iron),
-		material = Enum.Material.Metal,
-		parent = folder,
-	})
+	--[[
+		Eaves, and the lantern along the ridge.
+
+		Four beams round the edge, not one slab across the middle. This was
+		built as a single part the full footprint plus eight — an opaque iron
+		lid laid over a glazed roof, so the one building on the estate you are
+		supposed to be able to see into was a black rectangle from anywhere
+		above eye level, and the glass roof under it was never visible at all.
+		A cornice is a frame; what goes between it is the glass.
+	]]
+	local EAVE = 4
+	for _, beam in {
+		{ size = Vector3.new(width + EAVE * 2, 1.6, EAVE), at = Vector3.new(0, 0, -(depth + EAVE) * 0.5) },
+		{ size = Vector3.new(width + EAVE * 2, 1.6, EAVE), at = Vector3.new(0, 0, (depth + EAVE) * 0.5) },
+		{ size = Vector3.new(EAVE, 1.6, depth + EAVE * 2), at = Vector3.new(-(width + EAVE) * 0.5, 0, 0) },
+		{ size = Vector3.new(EAVE, 1.6, depth + EAVE * 2), at = Vector3.new((width + EAVE) * 0.5, 0, 0) },
+	} do
+		Build.part({
+			name = "Eaves",
+			size = beam.size,
+			cframe = CFrame.new(centre + beam.at + Vector3.new(0, context.groundY + HEIGHT, 0)),
+			color = Palette.color(Palette.estate.iron),
+			material = Enum.Material.Metal,
+			parent = folder,
+		})
+	end
 	Build.part({
 		name = "Glasshouse",
 		size = Vector3.new(width, 1, depth),
