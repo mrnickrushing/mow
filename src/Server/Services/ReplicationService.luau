@@ -79,6 +79,28 @@ function ReplicationService.attach(newGrid: Grid.Grid, newTiles: buffer, newInfo
 	grid = newGrid
 	tiles = newTiles
 	info = newInfo
+
+	--[[
+		Tell everybody now, not when the build finishes.
+
+		`WorldService.load` attaches here as soon as the tiles are seeded and
+		then spends several seconds raising the geometry, and only after that
+		does the run broadcast the world. Everything in between is sent
+		against a grid the client does not have yet: the sweep goes out twice
+		a second whatever happens, and the buried-tile pass marks chunks dirty
+		while it runs, so a client is handed the new world's bytes and decodes
+		them into the old world's buffer. It is bounds-checked, so nothing
+		crashes — it simply paints one property's grass into another's, and
+		between two worlds of the same size (both the later ones are 144) it
+		does it silently and completely.
+
+		Broadcasting from here is the ordering that makes that impossible:
+		the client resets its grid on the same event that gives the server a
+		new one, before a single chunk of it can be sent. The run broadcasts
+		again when it is ready, which is harmless — the client is already on
+		the right world by then.
+	]]
+	ReplicationService.broadcastWorldInfo()
 end
 
 --- Keeps the joiner payload current when the world's totals move — a section
