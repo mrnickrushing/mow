@@ -2506,28 +2506,49 @@ local function buildSectionSigns(world: Types.WorldDef, parent: Folder): { [stri
 				it never leaves its plane. The plate faces the same way the
 				sign does, which is the way the player walks up to it.
 			]]
-			local plate = Build.part({
-				name = "Face",
-				-- The plank inside the seven-stud envelope, measured against
-				-- the mesh: a little off the post's centre, and just proud of
-				-- the wood so the paint does not fight it for the same pixels.
-				size = Vector3.new(4.9, 1.7, 0.1),
-				cframe = post.CFrame * CFrame.new(0.6, 0, -0.78),
-				color = Color3.fromRGB(255, 255, 255),
-				material = Enum.Material.SmoothPlastic,
-				transparency = 1,
-				canCollide = false,
-				parent = post,
-			})
-			plate.CastShadow = false
+			--[[
+				Written on both sides, because one side was the wrong one.
 
-			-- `Front` is the face along the plate's LookVector, which is the
-			-- way the post was turned to meet whoever walks up to it.
-			local label = Build.painted(plate, Enum.NormalId.Front, 0.92)
-			label.Text = section.name
-			-- Paint on pale wood, not a label floating over a bush: the white
-			-- and its black stroke belong to the things that hang in the air.
-			label.TextColor3 = Color3.fromRGB(78, 52, 30)
+				The plank carried a single painted plate on the post's front
+				face, on the reasoning that `gateBasis` looks into the section
+				and the half turn above therefore leaves the sign meeting
+				whoever walks up to it. Measured on the Mansion, it does not:
+				the Orangery's post ends up facing +Z, into the section, so
+				the one board on the property that says what a hundred and
+				forty dollars buys was blank from the lawn and legible only
+				from inside the glasshouse you had not paid for yet. Two
+				sections of the first property had it the right way round and
+				one did not, which is how it survived.
+
+				A hanging board is double sided in life and there is no reason
+				for this one not to be. Painted both ways it does not matter
+				which way the basis happens to point, on this property or on
+				the next one somebody adds.
+			]]
+			for _, side in { { forward = -0.78, face = Enum.NormalId.Front }, { forward = 0.78, face = Enum.NormalId.Back } } do
+				local plate = Build.part({
+					name = "Face",
+					-- The plank inside the seven-stud envelope, measured
+					-- against the mesh: a little off the post's centre, and
+					-- just proud of the wood so the paint does not fight it
+					-- for the same pixels.
+					size = Vector3.new(4.9, 1.7, 0.1),
+					cframe = post.CFrame * CFrame.new(0.6, 0, side.forward),
+					color = Color3.fromRGB(255, 255, 255),
+					material = Enum.Material.SmoothPlastic,
+					transparency = 1,
+					canCollide = false,
+					parent = post,
+				})
+				plate.CastShadow = false
+
+				local label = Build.painted(plate, side.face, 0.92)
+				label.Text = section.name
+				-- Paint on pale wood, not a label floating over a bush: the
+				-- white and its black stroke belong to the things that hang
+				-- in the air.
+				label.TextColor3 = Color3.fromRGB(78, 52, 30)
+			end
 
 			signs[section.id] = post
 		end
@@ -3052,7 +3073,38 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 			end
 
 			if kind == "room" then
-				Structures.room(context, section, 16, elevation < 0, opening)
+				--[[
+					A room in the colours of the property it stands on.
+
+					The cellars under an estate are stone vaults, not the red
+					brick cellar of a suburban house, and a filling station's
+					wash bay is built out of the station's own cream and dark
+					grey rather than out of lap siding. Same builder, three
+					sets of materials.
+				]]
+				local skin: Structures.RoomSkin = if world.style == "estate"
+					then {
+						wall = Palette.color(Palette.estate.stone),
+						wallSunken = Palette.color(Palette.estate.stoneShade),
+						roof = Palette.color(Palette.estate.roof),
+						fascia = Palette.color(Palette.estate.lead),
+						floor = Palette.color(Palette.estate.gravelDark),
+					}
+					elseif world.style == "lot" then {
+						wall = Palette.color(Palette.station.body),
+						wallSunken = Palette.color(Palette.station.dark),
+						-- Dark roof, red band. The fascia stripe is the
+						-- station's livery; the whole roof painted in it is a
+						-- forty-stud red slab visible from the far fence.
+						roof = Palette.color(Palette.station.dark),
+						fascia = Palette.color(Palette.station.fascia),
+					}
+					else {
+						wall = Palette.color(Palette.house.siding),
+						wallSunken = Palette.color(Palette.house.brickDark),
+						roof = Palette.color(Palette.house.roof),
+					}
+				Structures.room(context, section, 16, elevation < 0, opening, skin)
 			elseif kind == "court" then
 				Structures.court(context, section)
 			elseif kind == "terrace" then
@@ -3062,7 +3114,23 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 			elseif kind == "pool" then
 				Structures.pool(context, section)
 			elseif kind == "maze" then
-				Structures.maze(context, section)
+				--[[
+					An estate's maze is yew, and taller than a garden one.
+
+					The Mansion's maze was the same bright garden hedge at the
+					same nine studs as The House's, which is most of what made
+					"the mansion looks identical to the first level" true from
+					the air. A parterre maze is clipped out of something almost
+					black and it is over your head, so you cannot see the way
+					out by standing on your toes.
+				]]
+				local estate = world.style == "estate"
+				Structures.maze(
+					context,
+					section,
+					if estate then Palette.color(Palette.estate.yew) else nil,
+					if estate then 13 else nil
+				)
 			elseif kind == "roof" then
 				-- The roof slab is the floor the rooftop's debris rests on.
 				local r = section.rect
@@ -3646,6 +3714,12 @@ function WorldService.load(worldId: string)
 			`Worlds.pavingRects` reports the same rectangles to the tree and
 			clutter scatters, so nothing is planted through the drive for the
 			same reason nothing is planted through The House's path.
+
+			Pebble, not Sand. Roblox's sand carries a heavy rolling ripple in
+			its normal map, which on a hundred and eighty studs of pale drive
+			straight up to the front door read as a beach — dunes across the
+			whole approach to the house. Pebble is the small hard chip a
+			carriage drive is actually made of.
 		]]
 		for _, slab in Worlds.pavingRects(world) do
 			Build.part({
@@ -3653,7 +3727,7 @@ function WorldService.load(worldId: string)
 				size = Vector3.new(slab.w, 0.5, slab.d),
 				cframe = CFrame.new(slab.x + slab.w * 0.5, ground + 0.25, slab.z + slab.d * 0.5),
 				color = Palette.color(Palette.estate.gravel),
-				material = Enum.Material.Sand,
+				material = Enum.Material.Pebble,
 				castShadow = false,
 				parent = estate,
 			})

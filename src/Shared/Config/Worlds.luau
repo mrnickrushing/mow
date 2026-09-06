@@ -336,6 +336,16 @@ local mansion: Types.WorldDef = {
 			kind = "open",
 			trees = 5,
 			clutter = 14,
+			--[[
+				Something loose on the lawn.
+
+				The dog goes where it can run. It closes on whoever is
+				carrying the most and tows itself home again, which is a
+				straight line through whatever is in the way — so it belongs
+				on open ground and not in the maze, where it would glide
+				through six hedges on its way to you.
+			]]
+			hazards = { "dog" },
 		},
 		--[[
 			The tennis court, which is the first hard surface anybody mows.
@@ -410,6 +420,8 @@ local mansion: Types.WorldDef = {
 			fill = { grass(2, 3, 3), mix(Debris.Leaves, 1, 3, 3), mix(Debris.Sticks, 0.5, 2, 3) },
 			kind = "glasshouse",
 			clutter = 16,
+			--- Glasshouses are misted. This one still is.
+			hazards = { "sprinkler" },
 		},
 		{
 			id = "long_maze",
@@ -422,6 +434,8 @@ local mansion: Types.WorldDef = {
 			fill = { grass(2, 3), mix(Debris.Hedge, 1.5, 3, 3), mix(Debris.Leaves, 0.4, 3, 3) },
 			kind = "maze",
 			clutter = 8,
+			--- Irrigation in the hedges, which you meet a corner at a time.
+			hazards = { "sprinkler" },
 		},
 		{
 			id = "cellars",
