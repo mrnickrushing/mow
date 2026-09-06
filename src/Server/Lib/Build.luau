@@ -268,15 +268,26 @@ end
 	— which is the boot-time build of the first property, so a server could
 	come up with half a house on it.
 
-	So the count is the limit that cannot be argued with: a run of eight
-	hundred parts yields whatever the clock says, and thirty thousand parts
-	therefore yield thirty-seven times however the gaps fall. The clock stays
-	as the second limit, for a build that is slow rather than large, and an
-	idle gap still resets the clock so a lone prop dropped mid-game is a plain
+	So the count is the limit that cannot be argued with: a run of two hundred
+	parts yields whatever the clock says, and thirty thousand parts therefore
+	yield a hundred and fifty times however the gaps fall. The clock stays as
+	the second limit, for a build that is slow rather than large, and an idle
+	gap still resets the clock so a lone prop dropped mid-game is a plain
 	non-yielding call.
+
+	Two hundred and four tenths, not eight hundred and a second and a half.
+	Measured on this machine, six hundred `Build.mesh` calls take two seconds
+	and yielded once — three and a half milliseconds each, because a mesh part
+	is an asset reference rather than a box — so a limit of eight hundred is
+	nearly three seconds of unbroken work on the meshiest stretch of a build,
+	and the boot-time build of The House was still being killed inside
+	`windowsAlong` with those numbers in place. The cost of the tighter pair is
+	about a hundred extra frames across a whole property, which is a second and
+	a half of build time nobody is waiting on, against a server that comes up
+	with half a house and no lobby.
 ]]
-local BREATH_SECONDS = 1.5
-local BREATH_PARTS = 800
+local BREATH_SECONDS = 0.4
+local BREATH_PARTS = 200
 local IDLE_GAP = 0.25
 local lastBreath = os.clock()
 local lastCall = os.clock()
