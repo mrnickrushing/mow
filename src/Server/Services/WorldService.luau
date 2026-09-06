@@ -3838,7 +3838,23 @@ function WorldService.load(worldId: string)
 		end
 	else
 		local lot = world.style == "lot"
-		Build.fence(parent, 0, 0, width, depth, 6, Palette.color(Palette.fence.rail), 14, lot)
+		Build.fence(
+			parent,
+			0,
+			0,
+			width,
+			depth,
+			if lot then 11 else 6,
+			Palette.color(Palette.fence.rail),
+			14,
+			lot,
+			-- A filling station is fenced with wire on steel, not with the
+			-- back garden's picket panels. Eleven studs rather than six,
+			-- because a boundary that keeps people out is over head height.
+			if lot
+				then { mesh = Palette.color(Palette.court.mesh), frame = Palette.color(Palette.station.dark) }
+				else nil
+		)
 		if lot then
 			buildGasStation(world, parent)
 		end
