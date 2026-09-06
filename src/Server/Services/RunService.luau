@@ -433,7 +433,23 @@ local function winRun()
 	end
 
 	for _, player in Players:GetPlayers() do
-		DataService.withProfile(player, function(profile)
+		--[[
+			Said out loud when somebody misses their own win.
+
+			`withProfile` does nothing at all if that player's profile is not
+			loaded, and returns false to say so — which nothing was reading.
+			The one place that silence costs something is here: a player can
+			finish a property and come away with no completion, no best time
+			and no round counted, and the only trace is a profile that says
+			`roundsCompleted = 0` next to twenty thousand units sold. That is
+			exactly what one of the three profiles on the live game looks like
+			after a run its owner was part of.
+
+			This does not fix the load — there is nothing sensible to do about
+			it from here — but a warning in the log is the difference between
+			a bug somebody can find and one they cannot.
+		]]
+		local credited = DataService.withProfile(player, function(profile)
 			profile.worldsBeaten[worldId] = true
 			profile.stats.roundsCompleted += 1
 
@@ -454,6 +470,13 @@ local function winRun()
 			the teleport home, and a player who finishes and quits inside that
 			minute is never published from here at all.
 		]]
+		if not credited then
+			warn(
+				`[Run] {player.Name} finished {worldId} with no profile loaded; `
+					.. `no completion, no best time and no round counted for them`
+			)
+		end
+
 		LeaderboardService.publish(player)
 
 		--[[
