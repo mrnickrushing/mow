@@ -64,11 +64,28 @@ end
 	now holds the tool it is actually holding, at the size and angle it reads
 	best from behind.
 ]]
-type Held = {
-	prop: string,
+--[[
+	A viewmodel is a list of pieces rather than one.
+
+	Every tool used to be exactly one mesh, which is fine for a rake and wrong
+	for anything the catalogue has no model of: the chainsaw and the pole saw
+	both drew `SawTool`, a handsaw, so two tools four hundred cash apart were
+	the same picture in your hands. Neither is a handsaw. A pole saw is a head
+	on a long pole and a chainsaw is a motor with a bar, and both of those are
+	a mesh plus a few blocks — so a viewmodel can now be assembled instead of
+	only picked.
+]]
+type Piece = {
+	--- A catalogue model, or nil for a plain block.
+	prop: string?,
 	size: Vector3,
 	at: CFrame,
+	color: Color3?,
+	shape: Enum.PartType?,
+	material: Enum.Material?,
 }
+
+type Held = { Piece }
 
 local function held(tool: Types.ToolDef): Held
 	local category = tool.category
@@ -92,11 +109,11 @@ local function held(tool: Types.ToolDef): Held
 			— so what would have been drawn was a plank rather than a pair of
 			hands. Sized off the model instead, so it keeps its shape.
 		]]
-		return {
-			prop = "Gloves",
-			size = Vector3.new(0.557, 0.500, 0.213) * 0.78,
-			at = CFrame.new(-0.52, 0.26, -0.5) * CFrame.Angles(math.rad(-24), 0, 0),
-		}
+		return { {
+				prop = "Gloves",
+				size = Vector3.new(0.557, 0.500, 0.213) * 0.78,
+				at = CFrame.new(-0.52, 0.26, -0.5) * CFrame.Angles(math.rad(-24), 0, 0),
+		} }
 	elseif category == "Rake" then
 		--[[
 			Tines down.
@@ -108,17 +125,17 @@ local function held(tool: Types.ToolDef): Held
 			tines on the ground side, which is the only way anyone has ever
 			held a rake.
 		]]
-		return {
-			prop = "RakeTool",
-			size = Vector3.new(1.0, 0.5, 3.0),
-			at = CFrame.new(0, -0.1, -0.5) * CFrame.Angles(math.rad(-8), 0, math.pi),
-		}
+		return { {
+				prop = "RakeTool",
+				size = Vector3.new(1.0, 0.5, 3.0),
+				at = CFrame.new(0, -0.1, -0.5) * CFrame.Angles(math.rad(-8), 0, math.pi),
+		} }
 	elseif category == "Blower" then
-		return {
-			prop = "LeafBlower",
-			size = Vector3.new(1.0, 0.9, 2.2),
-			at = CFrame.new(0.1, -0.12, -0.35),
-		}
+		return { {
+				prop = "LeafBlower",
+				size = Vector3.new(1.0, 0.9, 2.2),
+				at = CFrame.new(0.1, -0.12, -0.35),
+		} }
 	elseif category == "Trimmer" then
 		--[[
 			The trimmer model stands upright — its shaft is its height — so it
@@ -127,34 +144,104 @@ local function held(tool: Types.ToolDef): Held
 			The old numbers squashed it four to one into a box shaped like the
 			previous model.
 		]]
-		return {
-			prop = "TrimmerTool",
-			size = Vector3.new(0.76, 3.2, 0.83),
-			at = CFrame.new(0.05, -0.28, -0.62) * CFrame.Angles(math.rad(-64), 0, 0),
-		}
-	elseif category == "Saw" or category == "Chainsaw" then
-		-- In the saw's own proportions: a wide flat blade, not a box.
-		return {
-			prop = "SawTool",
-			size = Vector3.new(0.31, 1.35, 2.6),
-			at = CFrame.new(0.05, -0.1, -0.45),
-		}
-	elseif category == "HedgeTrimmer" then
+		return { {
+				prop = "TrimmerTool",
+				size = Vector3.new(0.76, 3.2, 0.83),
+				at = CFrame.new(0.05, -0.28, -0.62) * CFrame.Angles(math.rad(-64), 0, 0),
+		} }
+	elseif category == "Saw" then
 		--[[
-			The blade is a thin plate, and it was drawn as a slab.
+			A pole saw is the pole.
 
-			The model is 0.143 across against 0.8 by 0.892 — a flat blade with
-			a housing on the back of it — and it was hung at 0.8 by 0.9 by
-			2.8, which stretches it five and a half times in one direction and
-			three in another. What reached the screen was a shapeless green
-			mass in the corner with nothing about it that said hedge trimmer.
-			Sized off the model, tipped forward so the blade lies along the
-			line of sight the way it is actually held.
+			Held at the same length as a handsaw it was a handsaw, and the one
+			thing a pole saw is for — reaching a branch you cannot reach — was
+			nowhere on screen. The head now sits three studs out and well above
+			the sightline, on a shaft that runs back past the camera, so what
+			you are holding is plainly the bottom of something long.
 		]]
+		local up = CFrame.Angles(math.rad(18), 0, 0)
 		return {
-			prop = "HedgeTool",
-			size = Vector3.new(0.143, 0.800, 0.892) * 2.1,
-			at = CFrame.new(-0.26, 0.22, -0.44) * CFrame.Angles(math.rad(-58), math.rad(12), 0),
+			{
+				prop = "SawTool",
+				size = Vector3.new(0.24, 0.78, 1.45),
+				at = CFrame.new(0.05, 0.46, -2.95) * up,
+			},
+			{
+				size = Vector3.new(3.4, 0.15, 0.15),
+				at = CFrame.new(0.05, -0.15, -1.2) * up * CFrame.Angles(0, math.rad(90), 0),
+				color = rgb(176, 178, 184),
+				shape = Enum.PartType.Cylinder,
+				material = Enum.Material.Metal,
+			},
+		}
+	elseif category == "Chainsaw" then
+		--[[
+			Motor, bar and the two handles you hold it by.
+
+			None of it is the saw mesh. That mesh is a handsaw — a blade with
+			a wooden grip on one end — and whichever way round it is hung the
+			grip lands somewhere a chainsaw does not have one: at the nose of
+			the bar, or hanging off the back of the motor. A guide bar is a
+			flat rectangle with a dark chain running round its rim, which is
+			two blocks, and two blocks that are right beat a model that is
+			wrong.
+
+			Nothing here is subtle. At arm's length in first person the
+			silhouette is the whole message, and an orange body behind a long
+			grey blade is a chainsaw at a glance.
+		]]
+		local body = rgb(226, 106, 30)
+		local dark = rgb(34, 34, 38)
+		local steel = rgb(158, 162, 170)
+		return {
+			-- The chain: a dark plate the bar sits inside, so its rim shows.
+			{
+				size = Vector3.new(0.07, 0.28, 1.64),
+				at = CFrame.new(-0.34, 0.12, -1.70),
+				color = dark,
+				material = Enum.Material.Metal,
+			},
+			{
+				size = Vector3.new(0.09, 0.20, 1.51),
+				at = CFrame.new(-0.34, 0.12, -1.68),
+				color = steel,
+				material = Enum.Material.Metal,
+			},
+			-- Motor housing.
+			{
+				size = Vector3.new(0.49, 0.57, 0.78),
+				at = CFrame.new(-0.34, 0.08, -0.36),
+				color = body,
+			},
+			-- The mount, narrowing from the housing to the bar.
+			{
+				size = Vector3.new(0.28, 0.30, 0.28),
+				at = CFrame.new(-0.34, 0.12, -0.82),
+				color = body,
+			},
+			-- Top handle: the bar you carry it by, over the motor.
+			{
+				size = Vector3.new(0.10, 0.09, 0.71),
+				at = CFrame.new(-0.34, 0.56, -0.44),
+				color = dark,
+			},
+			-- The two legs it stands on, which is what makes it read as a loop.
+			{
+				size = Vector3.new(0.09, 0.20, 0.09),
+				at = CFrame.new(-0.34, 0.44, -0.82),
+				color = dark,
+			},
+			{
+				size = Vector3.new(0.09, 0.20, 0.09),
+				at = CFrame.new(-0.34, 0.44, -0.06),
+				color = dark,
+			},
+			-- Rear handle, canted back into the hand.
+			{
+				size = Vector3.new(0.12, 0.43, 0.21),
+				at = CFrame.new(-0.34, 0.18, 0.22) * CFrame.Angles(math.rad(-24), 0, 0),
+				color = dark,
+			},
 		}
 	end
 
@@ -172,7 +259,7 @@ local function held(tool: Types.ToolDef): Held
 
 	-- Mowers and everything on wheels: the handlebar, since the machine itself
 	-- is under the camera rather than in front of it.
-	return { prop = "Handlebar", size = Vector3.new(2.0, 1.0, 1.6), at = CFrame.new(0, -0.5, -0.3) }
+	return { { prop = "Handlebar", size = Vector3.new(2.0, 1.0, 1.6), at = CFrame.new(0, -0.5, -0.3) } }
 end
 
 --- The folder the held model lives in, hung off the camera.
@@ -206,36 +293,39 @@ local function build(toolId: string)
 	end
 
 	local folder = ensureContainer()
-	local spec = held(tool)
-	local def = Props.get(spec.prop)
 
-	local part = Instance.new("Part")
-	part.Anchored = true
-	part.CanCollide = false
-	part.CanQuery = false
-	part.CanTouch = false
-	part.CastShadow = false
-	part.Size = spec.size
-	part.Color = Color3.fromRGB(255, 255, 255)
-	part.Material = Enum.Material.SmoothPlastic
+	for _, piece in held(tool) do
+		local part = Instance.new("Part")
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+		part.Size = piece.size
+		part.Shape = piece.shape or Enum.PartType.Block
+		-- White under a mesh, because the mesh's own texture is the colour.
+		part.Color = piece.color or Color3.fromRGB(255, 255, 255)
+		part.Material = piece.material or Enum.Material.SmoothPlastic
 
-	if def then
-		local mesh = Instance.new("SpecialMesh")
-		mesh.MeshType = Enum.MeshType.FileMesh
-		mesh.MeshId = def.mesh
-		if def.texture then
-			mesh.TextureId = def.texture
+		local def = if piece.prop then Props.get(piece.prop) else nil
+		if def then
+			local mesh = Instance.new("SpecialMesh")
+			mesh.MeshType = Enum.MeshType.FileMesh
+			mesh.MeshId = def.mesh
+			if def.texture then
+				mesh.TextureId = def.texture
+			end
+			mesh.Scale = Vector3.new(
+				piece.size.X / def.native.X,
+				piece.size.Y / def.native.Y,
+				piece.size.Z / def.native.Z
+			)
+			mesh.Parent = part
 		end
-		mesh.Scale = Vector3.new(
-			spec.size.X / def.native.X,
-			spec.size.Y / def.native.Y,
-			spec.size.Z / def.native.Z
-		)
-		mesh.Parent = part
-	end
 
-	part.Parent = folder
-	table.insert(parts, { part = part, offset = spec.at })
+		part.Parent = folder
+		table.insert(parts, { part = part, offset = piece.at })
+	end
 end
 
 --------------------------------------------------------------------
