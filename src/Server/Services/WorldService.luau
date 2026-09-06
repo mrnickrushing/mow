@@ -2110,6 +2110,139 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 	end
 
 	----------------------------------------------------------------
+	-- The yards behind, which were bare concrete with weeds on it.
+	----------------------------------------------------------------
+
+	--[[
+		Everything built on this property stood on the front thirty studs.
+
+		The forecourt has a canopy, two pump islands, a glazed shop and a
+		sign at the kerb; behind it the back lot and the storage yard are
+		five hundred studs of empty slab, and counted against the other two
+		properties this one had the fewest parts on the largest ground. From
+		anywhere past the canopy it read as a field with a fence round it.
+
+		What a working yard has is paint and things stacked in it, and both
+		are cheap. The bays are flat parts that bury nothing — paint does not
+		hide a tile, so the weeds still grow through it and the markings come
+		out from under them as you clear, which is the one place on the
+		property where finishing a patch shows you something.
+	]]
+	local yard = Build.folder("Yard", station)
+
+	local function rectOf(id: string): Types.Rect?
+		for _, section in world.sections do
+			if section.id == id then
+				return section.rect
+			end
+		end
+		return nil
+	end
+
+	local paint = Palette.color(Palette.court.line)
+	local function marking(at: Vector3, size: Vector3)
+		Build.part({
+			name = "BayLine",
+			size = size,
+			-- Clear of the slab rather than flush with it: two surfaces at
+			-- the same height flicker against each other, which is what the
+			-- tennis court's apron was doing.
+			cframe = CFrame.new(at + Vector3.new(0, 0.2, 0)),
+			color = paint,
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			castShadow = false,
+			parent = yard,
+		})
+	end
+
+	--- Parking bays across the back lot, with a stop line along the head.
+	local backLot = rectOf("back_lot")
+	if backLot then
+		local BAY, DEPTH, BAYS = 11, 22, 10
+		local low = WorldService.tilePointFlat(backLot.x + 3, backLot.z + 3)
+		for index = 0, BAYS do
+			marking(low + Vector3.new(index * BAY, 0, DEPTH * 0.5), Vector3.new(0.7, 0.25, DEPTH))
+		end
+		marking(low + Vector3.new(BAYS * BAY * 0.5, 0, 0), Vector3.new(BAYS * BAY, 0.25, 0.7))
+
+		--- Lamp standards, one to a corner of the bays.
+		for _, sx in { 0, BAYS * BAY } do
+			for _, sz in { -6, DEPTH + 6 } do
+				local at = low + Vector3.new(sx, 0, sz)
+				Build.part({
+					name = "LampPost",
+					size = Vector3.new(1, 22, 1),
+					cframe = CFrame.new(at + Vector3.new(0, 11, 0)),
+					color = dark,
+					material = Enum.Material.Metal,
+					parent = yard,
+				})
+				Build.part({
+					name = "LampHead",
+					size = Vector3.new(5, 1.2, 2.6),
+					cframe = CFrame.new(at + Vector3.new(0, 22.2, 0)),
+					color = trim,
+					material = Enum.Material.SmoothPlastic,
+					canCollide = false,
+					parent = yard,
+				})
+			end
+		end
+	end
+
+	--[[
+		Containers in the storage yard, which is what a storage yard is for.
+
+		Solid, so the tiles under them are swept out of the section's total
+		the way the shed's are — you cannot mow under a shipping container and
+		the property should not ask you to.
+	]]
+	local storage = rectOf("storage_yard")
+	if storage then
+		local shells = {
+			{ colour = fascia, at = Vector3.new(-14, 0, -30), yaw = 0 },
+			{ colour = Palette.color(Palette.court.tarmac), at = Vector3.new(10, 0, -6), yaw = math.rad(8) },
+			{ colour = Palette.color(Palette.props.binLid), at = Vector3.new(10, 11.6, -6), yaw = math.rad(8) },
+			{ colour = dark, at = Vector3.new(-10, 0, 26), yaw = math.rad(-12) },
+		}
+		local centre = WorldService.tilePointFlat(storage.x + storage.w * 0.5, storage.z + storage.d * 0.5)
+		for _, shell in shells do
+			local basis = CFrame.new(centre + shell.at + Vector3.new(0, 5.8, 0)) * CFrame.Angles(0, shell.yaw, 0)
+			Build.part({
+				name = "Container",
+				size = Vector3.new(11, 11.5, 26),
+				cframe = basis,
+				color = shell.colour,
+				material = Enum.Material.CorrodedMetal,
+				parent = yard,
+			})
+			-- The door end, and a rib either side of it, so it is a container
+			-- rather than a painted box.
+			Build.part({
+				name = "ContainerDoors",
+				size = Vector3.new(11.2, 9.5, 0.6),
+				cframe = basis * CFrame.new(0, 0, 13),
+				color = dark,
+				material = Enum.Material.CorrodedMetal,
+				canCollide = false,
+				parent = yard,
+			})
+			for _, edge in { -1, 1 } do
+				Build.part({
+					name = "ContainerRib",
+					size = Vector3.new(11.3, 1.1, 1),
+					cframe = basis * CFrame.new(0, edge * 5.2, 0),
+					color = dark,
+					material = Enum.Material.CorrodedMetal,
+					canCollide = false,
+					parent = yard,
+				})
+			end
+		end
+	end
+
+	----------------------------------------------------------------
 	-- The road sign at the kerb, badge facing both ways.
 	----------------------------------------------------------------
 	local signAt = Vector3.new(spawnAt.X + 22, 0, 4)
