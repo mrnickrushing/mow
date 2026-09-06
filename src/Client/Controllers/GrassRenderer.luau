@@ -733,6 +733,9 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 
 	local remaining, samples = 0, 0
 	local floor = GameConfig.GROUND_Y
+	--- The corner tiles of what in this chunk actually has something on it.
+	local lowX, highX = math.huge, -math.huge
+	local lowZ, highZ = math.huge, -math.huge
 
 	--[[
 		What kind of debris this chunk is, by weight rather than by whichever
@@ -751,8 +754,19 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	local surface = ""
 	local zone = ""
 
-	for lz = 0, theGrid.chunkTiles - 1, 2 do
-		for lx = 0, theGrid.chunkTiles - 1, 2 do
+	--[[
+		Every tile, not every other one.
+
+		The sampler stepped two at a time, which is enough for "roughly how
+		much is left" and not enough for "where exactly is it" — and the
+		stand-in is now cut to the tiles that hold something, so a sampler
+		that can miss the outermost row would need a row of margin to be
+		safe, and a row of margin is four studs of carpet laid over whatever
+		is next to the section. Sixty-four reads a chunk instead of sixteen
+		buys an exact answer and costs nothing worth measuring.
+	]]
+	for lz = 0, theGrid.chunkTiles - 1 do
+		for lx = 0, theGrid.chunkTiles - 1 do
 			local tx, tz = baseX + lx, baseZ + lz
 			if Grid.inBounds(theGrid, tx, tz) then
 				local index = Grid.toIndex(theGrid, tx, tz)
@@ -771,6 +785,10 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 					floor = GameConfig.GROUND_Y + (tileElevation[index] or 0)
 					surface = tileKind[index] or ""
 					zone = tileSection[index] or ""
+					lowX = math.min(lowX, tx)
+					highX = math.max(highX, tx)
+					lowZ = math.min(lowZ, tz)
+					highZ = math.max(highZ, tz)
 				end
 			end
 		end
@@ -826,7 +844,6 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		lodParts[chunkIndex] = part
 	end
 
-	local studs = theGrid.chunkTiles * TILE
 	local averageHeight = remaining / samples * HEIGHT_STUD
 
 	-- A leaf drift has no real height, so its stand-in stays a thin carpet —
@@ -835,7 +852,23 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	local thickness = if debrisId == DebrisConfig.Leaves or hardFloor
 		then 0.3
 		else math.max(averageHeight, 0.2)
-	local x, z = Grid.chunkCentre(theGrid, cx, cz)
+	--[[
+		Only as big as what it is standing in for.
+
+		The plane used to be the whole chunk, thirty-two studs square, however
+		little of that chunk had anything on it. A chunk that catches the edge
+		of the pool laid an opaque lawn-green slab straight across the water,
+		and every chunk on a section's boundary spilled its carpet out onto
+		whatever was next door. The stand-in is now cut down to exactly the
+		tiles that hold something.
+	]]
+	local fromX, toX = lowX, highX
+	local fromZ, toZ = lowZ, highZ
+	local nearX, nearZ = Grid.tileToWorld(theGrid, fromX, fromZ)
+	local farX, farZ = Grid.tileToWorld(theGrid, toX, toZ)
+	local wide = (toX - fromX + 1) * TILE
+	local deep = (toZ - fromZ + 1) * TILE
+	local x, z = (nearX + farX) * 0.5, (nearZ + farZ) * 0.5
 
 	--[[
 		The floor, carried towards what is lying on it.
@@ -870,7 +903,7 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	]]
 	local fullness = math.clamp(remaining / (samples * MAX_TILE_HEIGHT), 0, 1)
 
-	part.Size = Vector3.new(studs, thickness, studs)
+	part.Size = Vector3.new(wide, thickness, deep)
 	part.CFrame = CFrame.new(x, floor + thickness * 0.5, z)
 	--[[
 		Litter on a hard floor is laid over it, not instead of it.
