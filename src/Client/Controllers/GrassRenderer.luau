@@ -111,6 +111,9 @@ local groundColor = Palette.color(Palette.ground.lawn)
 	and everything else is standing on the lot.
 ]]
 local surfaceByKind: { [string]: Color3 } = {}
+--- One colour per section for what is lying on it, so a chunk never picks its
+--- own and a section never comes out as a patchwork.
+local litterBySection: { [string]: Color3 } = {}
 --- False on a lot floored with something other than grass, which changes what
 --- has to be drawn at distance and what can be left to the ground.
 local groundIsLawn = true
@@ -329,6 +332,38 @@ local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
 	surfaceByKind.court = Palette.color(Palette.court.tarmac)
 	surfaceByKind.terrace = Palette.color(Palette.estate.stone)
 	surfaceByKind.glasshouse = surfaceByKind.room
+
+	--[[
+		One litter colour for a whole section, taken from what it is sown
+		with rather than from what happens to be left in each chunk.
+
+		Colouring a chunk by whichever debris weighs most *in that chunk* puts
+		the chequerboard back: the east terrace is sown with grass, leaves and
+		branches, so each thirty-two stud square picked a different winner and
+		the terrace came out as a patchwork of green, tan and olive rectangles
+		— the exact fault the original leaves-only rule existed to avoid. You
+		cannot tell a branch from a weed at that range, and pretending to is
+		only a way of drawing tile edges.
+
+		The section's heaviest fill entry is the honest answer and it does not
+		change from square to square, so a terrace reads as one terrace and a
+		forecourt as one forecourt.
+	]]
+	table.clear(litterBySection)
+	for _, section in world.sections do
+		local heaviest, best = nil, -1
+		for _, entry in section.fill do
+			if entry.weight > best then
+				best = entry.weight
+				heaviest = entry.debris
+			end
+		end
+		if heaviest then
+			litterBySection[section.id] = if heaviest == DebrisConfig.Leaves
+				then Palette.color(Palette.leafAverage)
+				else Palette.color(DebrisConfig.get(heaviest).color)
+		end
+	end
 
 	for _, section in world.sections do
 		local r = section.rect
@@ -653,6 +688,7 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	local debrisId = DebrisConfig.Grass
 	local best = 0
 	local surface = ""
+	local zone = ""
 
 	for lz = 0, theGrid.chunkTiles - 1, 2 do
 		for lx = 0, theGrid.chunkTiles - 1, 2 do
@@ -673,6 +709,7 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 					end
 					floor = GameConfig.GROUND_Y + (tileElevation[index] or 0)
 					surface = tileKind[index] or ""
+					zone = tileSection[index] or ""
 				end
 			end
 		end
@@ -754,9 +791,10 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		uses its own colour, which is what puts green weeds on a grey
 		forecourt instead of nothing at all.
 	]]
-	local litter = if debrisId == DebrisConfig.Leaves
-		then Palette.color(Palette.leafAverage)
-		else Palette.color(DebrisConfig.get(debrisId).color)
+	local litter = litterBySection[zone]
+		or (if debrisId == DebrisConfig.Leaves
+			then Palette.color(Palette.leafAverage)
+			else Palette.color(DebrisConfig.get(debrisId).color))
 	local color = (floorColour or groundColor):Lerp(litter, if hardFloor then 0.7 else 0.2)
 
 	part.Size = Vector3.new(studs, thickness, studs)
