@@ -671,6 +671,67 @@ end
 	Nothing here is shared with the suburban builder except the window model,
 	and that is set in a stone surround.
 ]]
+--[[
+	A window, with something behind the glass.
+
+	The `Window` prop is a frame and its glazing bars, and its panes are
+	empty: whatever stands behind it shows straight through. On the manor
+	that is the ashlar the window is hung on — reported as "you can see the
+	wall behind it" — so every opening on a hundred-and-eighty-stud frontage
+	read as a frame drawn on the stone rather than as a hole cut in it. The
+	suburban house, the French doors, the fanlight and both rows of dormers
+	had it too, because all seven of them are the same model.
+
+	So a pane goes in. Centred in the frame's own depth rather than behind
+	it, which is where the glass in a sash actually sits and which also
+	means it is right whichever way round a caller has turned the model —
+	the bars end up half in front of it and half behind, as they should.
+
+	Darker than the wall, because a window seen from outside in daylight
+	always is, whatever colour the glass is; and reflective, because
+	catching the sky is the one thing that says glass from across a lawn.
+]]
+local function glazed(options: {
+	name: string,
+	size: Vector3,
+	cframe: CFrame,
+	glass: Types.Color3Like,
+	parent: Instance,
+})
+	Build.mesh({
+		prop = "Window",
+		name = options.name,
+		size = options.size,
+		collisionSize = Vector3.new(options.size.X, options.size.Y, 0.6),
+		cframe = options.cframe,
+		canCollide = false,
+		parent = options.parent,
+	})
+	local tint = Palette.color(options.glass)
+	local pane = Build.part({
+		name = "WindowPane",
+		size = Vector3.new(options.size.X - 0.9, options.size.Y - 0.9, 0.32),
+		cframe = options.cframe,
+		color = Color3.new(tint.R * 0.26, tint.G * 0.3, tint.B * 0.34),
+		material = Enum.Material.SmoothPlastic,
+		castShadow = false,
+		canCollide = false,
+		parent = options.parent,
+	})
+	--[[
+		Most of what you see in it is the sky.
+
+		A pane only a little darker than the wall, at a third of a
+		reflectance, came out as a flat panel of pale blue paint: the wall no
+		longer showed through it, which was the fault, but nothing showed in
+		it either. Dark glass reflecting half of what is in front of it is a
+		window — near black where it faces a hedge, the colour of the
+		afternoon where it faces the sky, and different on two elevations of
+		the same building, which is what glass does and paint does not.
+	]]
+	pane.Reflectance = 0.5
+end
+
 local function buildManor(world: Types.WorldDef, parent: Folder)
 	local rect = world.houseRect
 	if not rect then
@@ -917,13 +978,11 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 				material = Enum.Material.Metal,
 				parent = manor,
 			})
-			Build.mesh({
-				prop = "Window",
+			glazed({
 				name = "Window",
 				size = Vector3.new(5, 6, 0.9),
-				collisionSize = Vector3.new(5, 6, 0.6),
 				cframe = CFrame.new(x, mansardY + 5.5, z - 2.7),
-				canCollide = false,
+				glass = Palette.estate.window,
 				parent = manor,
 			})
 		end
@@ -1017,13 +1076,11 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 						surrounds were added.
 					]]
 					local glass = at + outward * 0.55
-					Build.mesh({
-						prop = "Window",
+					glazed({
 						name = "Window",
 						size = Vector3.new(8, 9.5, 0.9),
-						collisionSize = Vector3.new(8, 9.5, 0.6),
 						cframe = CFrame.new(Vector3.new(glass.X, height, glass.Z)) * CFrame.Angles(0, yaw, 0),
-						canCollide = false,
+						glass = Palette.estate.window,
 						parent = manor,
 					})
 					--[[
@@ -1208,13 +1265,11 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 		})
 	end
 	--- The fanlight over them, which is the one round thing on the frontage.
-	Build.mesh({
-		prop = "Window",
+	glazed({
 		name = "Fanlight",
 		size = Vector3.new(13, 5, 0.9),
-		collisionSize = Vector3.new(13, 5, 0.6),
 		cframe = CFrame.new(centre.X, PLINTH + 17.5, doorZ),
-		canCollide = false,
+		glass = Palette.estate.window,
 		parent = manor,
 	})
 
@@ -1262,13 +1317,11 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 		parent = manor,
 	})
 	for _, side in { -1, 1 } do
-		Build.mesh({
-			prop = "Window",
+		glazed({
 			name = "FrenchDoor",
 			size = Vector3.new(7, 15, 0.9),
-			collisionSize = Vector3.new(7, 15, 0.6),
 			cframe = CFrame.new(centre.X + side * 3.8, balconyY + 7.5, frenchZ),
-			canCollide = false,
+			glass = Palette.estate.window,
 			parent = manor,
 		})
 	end
@@ -1433,14 +1486,12 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 		parent = manor,
 	})
 	for _, side in { -1, 1 } do
-		Build.mesh({
-			prop = "Window",
+		glazed({
 			name = "FrenchDoor",
 			size = Vector3.new(8, 16, 0.9),
-			collisionSize = Vector3.new(8, 16, 0.6),
 			cframe = CFrame.new(centre.X + side * 4.4, PLINTH + 9, bayFace + 0.4)
 				* CFrame.Angles(0, math.pi, 0),
-			canCollide = false,
+			glass = Palette.estate.window,
 			parent = manor,
 		})
 	end
@@ -1495,13 +1546,11 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 				material = Enum.Material.Metal,
 				parent = manor,
 			})
-			Build.mesh({
-				prop = "Window",
+			glazed({
 				name = "Window",
 				size = Vector3.new(5, 6, 0.9),
-				collisionSize = Vector3.new(5, 6, 0.6),
 				cframe = CFrame.new(x, mansardY + 5.5, z + 2.7) * CFrame.Angles(0, math.pi, 0),
-				canCollide = false,
+				glass = Palette.estate.window,
 				parent = manor,
 			})
 		end
@@ -1701,13 +1750,11 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 				end
 				if not hidden then
 					local at = origin + along * offset
-					Build.mesh({
-						prop = "Window",
+					glazed({
 						name = "Window",
 						size = Vector3.new(WINDOW_WIDTH, WINDOW_HEIGHT, 0.9),
-						collisionSize = Vector3.new(WINDOW_WIDTH, WINDOW_HEIGHT, 0.6),
 						cframe = CFrame.new(Vector3.new(at.X, height, at.Z)) * CFrame.Angles(0, yaw, 0),
-						canCollide = false,
+						glass = Palette.house.window,
 						parent = house,
 					})
 				end
