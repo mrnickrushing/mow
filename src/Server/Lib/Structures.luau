@@ -567,7 +567,15 @@ end
 	so the gap lines up with a flight that climbs to the deck's edge rather than
 	to the section's.
 ]]
-function Structures.parapet(context: Context, zone: Types.ZoneDef, height: number, opening: Opening?)
+--- `colour` defaults to The House's trim, which is what a rooftop parapet on
+--- that house is. Anywhere else it has to be told, or it arrives in teal.
+function Structures.parapet(
+	context: Context,
+	zone: Types.ZoneDef,
+	height: number,
+	opening: Opening?,
+	colour: Color3?
+)
 	local r = zone.rect
 	local tile = context.tileSize
 	local elevation = zone.elevation or 0
@@ -580,7 +588,7 @@ function Structures.parapet(context: Context, zone: Types.ZoneDef, height: numbe
 		depth = r.d * tile + 4,
 		height = height,
 		thickness = 1.5,
-		color = Palette.color(Palette.house.trim),
+		color = colour or Palette.color(Palette.house.trim),
 		material = Enum.Material.Slate,
 		parent = context.parent,
 		opening = opening,
@@ -2272,8 +2280,16 @@ function Structures.terrace(context: Context, zone: Types.ZoneDef, opening: Open
 		parent = folder,
 	})
 
-	--- A balustrade all the way round, broken where the steps come up.
-	Structures.parapet(context, zone, 1, opening)
+	--[[
+		A balustrade all the way round, broken where the steps come up.
+
+		In the estate's own pale stone. The parapet builder defaults to The
+		House's trim, because a rooftop parapet on that house is that colour —
+		and the note on that line calls it the single most identifying colour
+		in the property. Left to the default, the whole length of the mansion's
+		terrace rail came out teal between cream stone balusters.
+	]]
+	Structures.parapet(context, zone, 1, opening, Palette.color(Palette.estate.quoin))
 	local halfW, halfD = (width + 4) * 0.5, (depth + 4) * 0.5
 	local runs = {
 		{ from = Vector3.new(-halfW, 0, -halfD), to = Vector3.new(halfW, 0, -halfD) },
