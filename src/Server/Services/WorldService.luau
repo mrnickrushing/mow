@@ -1695,7 +1695,7 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 		name = "PorchDeck",
 		size = Vector3.new(porchWidth, 0.8, porchDepth),
 		cframe = CFrame.new(porchX, 3.9, porchZ),
-		color = Palette.color(Palette.house.porch),
+		color = Palette.color(Palette.churchyard.timber),
 		material = Enum.Material.WoodPlanks,
 		parent = porch,
 	})
@@ -3733,7 +3733,7 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 			name = "LychPost",
 			size = Vector3.new(2.6, 16, 2.6),
 			cframe = CFrame.new(spawnAt.X + side * 11, 8, gateZ),
-			color = Palette.color(Palette.house.porch),
+			color = Palette.color(Palette.churchyard.timber),
 			material = Enum.Material.WoodPlanks,
 			parent = yard,
 		})
@@ -3746,7 +3746,7 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 			size = Vector3.new(30, 1.4, 12),
 			cframe = CFrame.new(spawnAt.X, 18.4 + pitch * 0.12, gateZ + pitch * 5.2)
 				* CFrame.Angles(math.rad(pitch * 26), 0, 0),
-			color = Palette.color(Palette.house.roofDark),
+			color = Palette.color(Palette.churchyard.timberDark),
 			material = Enum.Material.Slate,
 			parent = yard,
 		})
