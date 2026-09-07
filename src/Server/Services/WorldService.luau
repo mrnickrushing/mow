@@ -3905,14 +3905,32 @@ local function buildExit(world: Types.WorldDef, parent: Folder)
 		parent = parent,
 	})
 
-	local brick = Palette.color(Palette.house.brickDark)
+	--[[
+		The surround, in the masonry the property is actually built of.
+
+		This was The House's dark brick everywhere, which was right while
+		there was one property. A suburban brick jamb is a stranger in an
+		estate's stone cellar, against a filling station's block wall and in a
+		granite crypt — the same fault the room skins exist to fix, in the one
+		piece of a property that means you are finished.
+	]]
+	local SURROUND: { [string]: { colour: Types.Color3Like, material: Enum.Material } } = {
+		estate = { colour = Palette.estate.stoneShade, material = Enum.Material.Sandstone },
+		lot = { colour = Palette.station.dark, material = Enum.Material.Concrete },
+		churchyard = { colour = Palette.churchyard.graniteDark, material = Enum.Material.Rock },
+	}
+	local surround = SURROUND[world.style or ""]
+	local brick = if surround
+		then Palette.color(surround.colour)
+		else Palette.color(Palette.house.brickDark)
+	local masonry = if surround then surround.material else Enum.Material.Brick
 	for _, jamb in { -1, 1 } do
 		Build.part({
 			name = "ExitJamb",
 			size = Vector3.new(1.6, 16, 2),
 			cframe = basis * CFrame.new(jamb * 7, 8, 0),
 			color = brick,
-			material = Enum.Material.Brick,
+			material = masonry,
 			parent = parent,
 		})
 	end
@@ -3923,7 +3941,7 @@ local function buildExit(world: Types.WorldDef, parent: Folder)
 		size = Vector3.new(15.6, 2.2, 2),
 		cframe = basis * CFrame.new(0, 15, 0),
 		color = brick,
-		material = Enum.Material.Brick,
+		material = masonry,
 		parent = parent,
 	})
 
