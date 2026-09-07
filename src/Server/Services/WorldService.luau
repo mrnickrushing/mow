@@ -5074,11 +5074,40 @@ function WorldService.load(worldId: string)
 			Build.hedge(estate, Vector3.new(x + 22, ground, circle.Z - 20), Vector3.new(x + 22, ground, circle.Z + 20), PARTERRE, 4, yew)
 		end
 
-		--- Urns on plinths down the drive, in pairs.
+		--[[
+			Urns on plinths down the drive, in pairs.
+
+			The urn was a five-stud ball on a four-stud box, which is a
+			cannonball balanced on a post: wider than the thing holding it
+			up, with no foot, no rim and nothing to say which way up it was.
+			It also overhung its plinth far enough to reach across the tile
+			boundary it stands on and clip the top of a player's head on the
+			next tile along — standable, measured, but by a tenth of a stud,
+			and only because the ball starts exactly at head height.
+
+			A real one is narrower than its plinth and has three parts: a
+			foot it stands on, a belly, and a lip round the top. The plinth
+			gets a base and a cap of its own, because a pedestal with no
+			mouldings is a post.
+		]]
+		--[[
+			On tile centres, not across the seam between two.
+
+			Twenty-six studs off the drive's middle is six and a half tiles,
+			so every plinth stood on the boundary between two of them —
+			burying half of each, taking two tiles of work out where it only
+			occupies one, and putting its own widest moulding exactly where
+			the next tile's headroom is. Said in tiles it lands on a tile,
+			and it goes on landing on one whatever a property's spawn is.
+		]]
+		local stoneShade = Palette.color(Palette.estate.stoneShade)
 		for index = 0, 3 do
-			local z = ground + 26 + index * 30
 			for _, side in { -1, 1 } do
-				local x = spawnAt.X + side * 26
+				local at = WorldService.tilePointFlat(
+					world.spawn.x + side * 7,
+					world.spawn.z + 4 + index * 7
+				)
+				local x, z = at.X, at.Z
 				Build.part({
 					name = "UrnPlinth",
 					size = Vector3.new(4, 6, 4),
@@ -5087,12 +5116,40 @@ function WorldService.load(worldId: string)
 					material = Enum.Material.Sandstone,
 					parent = estate,
 				})
+				for _, moulding in { { y = 0.45, size = 4.6 }, { y = 5.6, size = 4.6 } } do
+					Build.part({
+						name = "UrnMoulding",
+						size = Vector3.new(moulding.size, 0.9, moulding.size),
+						cframe = CFrame.new(x, ground + moulding.y, z),
+						color = quoin,
+						material = Enum.Material.Sandstone,
+						parent = estate,
+					})
+				end
+				Build.part({
+					name = "UrnFoot",
+					shape = Enum.PartType.Cylinder,
+					size = Vector3.new(1.6, 1.7, 1.7),
+					cframe = CFrame.new(x, ground + 6.7, z) * CFrame.Angles(0, 0, math.rad(90)),
+					color = stoneShade,
+					material = Enum.Material.Sandstone,
+					parent = estate,
+				})
 				Build.part({
 					name = "Urn",
 					shape = Enum.PartType.Ball,
-					size = Vector3.new(5, 5, 5),
-					cframe = CFrame.new(x, ground + 8, z),
-					color = Palette.color(Palette.estate.stoneShade),
+					size = Vector3.new(3.4, 3.4, 3.4),
+					cframe = CFrame.new(x, ground + 8.6, z),
+					color = stoneShade,
+					material = Enum.Material.Sandstone,
+					parent = estate,
+				})
+				Build.part({
+					name = "UrnLip",
+					shape = Enum.PartType.Cylinder,
+					size = Vector3.new(0.8, 3, 3),
+					cframe = CFrame.new(x, ground + 10.1, z) * CFrame.Angles(0, 0, math.rad(90)),
+					color = quoin,
 					material = Enum.Material.Sandstone,
 					parent = estate,
 				})

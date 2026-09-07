@@ -220,9 +220,26 @@ local CRYPT_PROPS: { PropSpec } = {
 	{ prop = "Lantern", size = Vector3.new(3.4, 7, 3) },
 }
 
+--[[
+	And what is lying about under a country house.
+
+	The same fault one property along: the cellars of an estate came out with
+	a blue plastic wheelie bin standing in them, next to a wall of leather
+	books and a fire somebody had lit. Whatever else is down there, it is not
+	the bins. Crates and casks and a sack of something, and a lantern to find
+	them by.
+]]
+local CELLAR_PROPS: { PropSpec } = {
+	{ prop = "Crate", size = Vector3.new(5, 3.4, 4.5) },
+	{ prop = "Barrel", size = Vector3.new(4, 6, 4) },
+	{ prop = "Sack", size = Vector3.new(4, 2.6, 3) },
+	{ prop = "Lantern", size = Vector3.new(3.4, 7, 3) },
+}
+
 --- The indoor set for a property's style, falling back to the common one.
 Structures.roomSets = {
 	churchyard = CRYPT_PROPS,
+	estate = CELLAR_PROPS,
 }
 
 --[[
@@ -3263,13 +3280,37 @@ function Structures.court(context: Context, zone: Types.ZoneDef)
 	line(0, playD * 0.25, playW - 14, LINE)
 	line(0, 0, LINE, playD * 0.5)
 
-	--- The net, across the short axis, with a post at each end.
-	local netAlongX = width >= depth
-	local netLength = if netAlongX then width - inset else depth - inset
+	--[[
+		The net, across the way the court is played, with a post at each end.
+
+		It picked its axis from whichever side of the section was longer and
+		ran the net down that one — so on a court a hundred and four studs
+		wide and a hundred and thirty-six deep it laid a hundred and thirty
+		studs of net down the length of the court, dividing it end to end
+		instead of side to side. Standing at the baseline you looked straight
+		along a white tape running away from you to the far fence.
+
+		The lines above have no such choice to make: the baselines are always
+		the two z ends and the service line always runs up z, so the court is
+		always played up z whatever shape the section is. The net is parallel
+		to the baselines, which means it is always across x, and the two now
+		agree. A few studs longer than the tramlines it crosses, because a
+		net post stands outside the court, not on the line.
+	]]
+	local netLength = width - inset
+	--[[
+		Chest high, not head high.
+
+		Five studs is exactly how tall a player is, so anybody standing at
+		the net was hidden behind it and the court was divided by a wall
+		rather than by a net. A tennis net comes to about the chest of the
+		person serving over it.
+	]]
+	local NET_HEIGHT = 3.4
 	Build.part({
 		name = "Net",
-		size = if netAlongX then Vector3.new(netLength, 5, 0.6) else Vector3.new(0.6, 5, netLength),
-		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + 2.5, 0)),
+		size = Vector3.new(netLength, NET_HEIGHT, 0.6),
+		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + NET_HEIGHT * 0.5, 0)),
 		color = Palette.color(Palette.court.net),
 		material = Enum.Material.Fabric,
 		transparency = 0.35,
@@ -3278,21 +3319,19 @@ function Structures.court(context: Context, zone: Types.ZoneDef)
 	})
 	Build.part({
 		name = "NetTape",
-		size = if netAlongX then Vector3.new(netLength, 0.8, 0.8) else Vector3.new(0.8, 0.8, netLength),
-		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + 5.1, 0)),
+		size = Vector3.new(netLength, 0.8, 0.8),
+		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + NET_HEIGHT + 0.1, 0)),
 		color = Palette.color(Palette.court.line),
 		material = Enum.Material.SmoothPlastic,
 		canCollide = false,
 		parent = folder,
 	})
 	for _, side in { -1, 1 } do
-		local at = if netAlongX
-			then Vector3.new(side * netLength * 0.5, 0, 0)
-			else Vector3.new(0, 0, side * netLength * 0.5)
+		local at = Vector3.new(side * netLength * 0.5, 0, 0)
 		Build.part({
 			name = "NetPost",
-			size = Vector3.new(1.4, 6.5, 1.4),
-			cframe = CFrame.new(centre + at + Vector3.new(0, context.groundY + 3.25, 0)),
+			size = Vector3.new(1.4, NET_HEIGHT + 1.2, 1.4),
+			cframe = CFrame.new(centre + at + Vector3.new(0, context.groundY + (NET_HEIGHT + 1.2) * 0.5, 0)),
 			color = Palette.color(Palette.estate.iron),
 			material = Enum.Material.Metal,
 			parent = folder,
@@ -3713,6 +3752,45 @@ function Structures.glasshouse(context: Context, zone: Types.ZoneDef, opening: O
 		castShadow = false,
 		parent = folder,
 	})
+	--[[
+		Glazing bars across the roof.
+
+		The pane above is glass at nearly three quarters transparent, which
+		is right — the whole point of the building is that the sun gets in —
+		and the consequence is that from underneath there is nothing there at
+		all. Standing on the floor and looking up you saw an open box with
+		the lantern's iron cap hanging in the sky over it and no roof joining
+		the two. A glasshouse roof is mostly bars, and from below the bars
+		are the only part of it you were ever going to see.
+
+		Across the short way and repeated down the long one, which is how a
+		span is actually framed, and no shadow: a grid of shadows on a floor
+		you are meant to be able to find leaves on is the same mistake the
+		roof pane itself already made.
+	]]
+	local ribsAlongX = width <= depth
+	local ribSpan = if ribsAlongX then depth else width
+	local ribs = math.max(math.floor(ribSpan / 10), 1)
+	for index = 0, ribs do
+		local slide = -ribSpan * 0.5 + ribSpan * index / ribs
+		Build.part({
+			name = "GlazingBar",
+			size = if ribsAlongX
+				then Vector3.new(width + EAVE * 2, 0.9, 0.9)
+				else Vector3.new(0.9, 0.9, depth + EAVE * 2),
+			cframe = CFrame.new(
+				centre
+					+ (if ribsAlongX then Vector3.new(0, 0, slide) else Vector3.new(slide, 0, 0))
+					+ Vector3.new(0, context.groundY + HEIGHT + 1.9, 0)
+			),
+			color = Palette.color(Palette.estate.iron),
+			material = Enum.Material.Metal,
+			canCollide = false,
+			castShadow = false,
+			parent = folder,
+		})
+	end
+
 	local ridgeAlongX = width >= depth
 	Build.part({
 		name = "Lantern",
@@ -3724,6 +3802,31 @@ function Structures.glasshouse(context: Context, zone: Types.ZoneDef, opening: O
 		castShadow = false,
 		parent = folder,
 	})
+	--- Uprights down the lantern's sides, so six studs of glass between two
+	--- iron slabs reads as a raised light and not as a gap in the roof.
+	local lanternRun = if ridgeAlongX then width * 0.55 else depth * 0.55
+	local lanternPosts = math.max(math.floor(lanternRun / 11), 1)
+	for index = 0, lanternPosts do
+		local slide = -lanternRun * 0.5 + lanternRun * index / lanternPosts
+		for _, side in { -1, 1 } do
+			Build.part({
+				name = "LanternPost",
+				size = Vector3.new(0.9, 6, 0.9),
+				cframe = CFrame.new(
+					centre
+						+ (if ridgeAlongX
+							then Vector3.new(slide, 0, side * 7)
+							else Vector3.new(side * 7, 0, slide))
+						+ Vector3.new(0, context.groundY + HEIGHT + 4.3, 0)
+				),
+				color = Palette.color(Palette.estate.iron),
+				material = Enum.Material.Metal,
+				canCollide = false,
+				castShadow = false,
+				parent = folder,
+			})
+		end
+	end
 	Build.part({
 		name = "LanternCap",
 		size = if ridgeAlongX then Vector3.new(width * 0.58, 1.2, 16) else Vector3.new(16, 1.2, depth * 0.58),
