@@ -399,6 +399,18 @@ local function buildGround(world: Types.WorldDef, grid: Grid.Grid, parent: Folde
 		local want = beltRng:NextNumber(28, 40)
 		-- The apron's top is a little below ground level; a stud down puts the
 		-- roots in it rather than on it.
+		--[[
+			The belt is the one build loop that never came up for air.
+
+			`Build.part` and `Build.mesh` breathe on the caller's behalf, so
+			everything else in a world load yields on its own; a planted tree
+			is a model clone that goes nowhere near either of them, and four
+			sides of two rows is around a hundred of them back to back. It
+			timed out mid-belt on a slow load here, and a build that throws
+			half way through leaves the property with no road, no street and
+			no shed — the same silent hole the boot script had.
+		]]
+		Build.breathe()
 		local real = Trees.plant(name, Vector3.new(x, GameConfig.GROUND_Y - 1, z), want, spin, belt)
 		if real then
 			real.Name = "Scenery"
@@ -2464,7 +2476,15 @@ local function buildShed(world: Types.WorldDef, parent: Folder): BasePart
 	Build.part({
 		name = "Floor",
 		size = Vector3.new(width, 1, depth),
-		cframe = CFrame.new(centre + Vector3.new(0, 0.5, 0)),
+		--[[
+			A shade proud of the model's own base.
+
+			The shed model's part is a one-stud box sitting at the same
+			height as this floor, so its top face and the floor's were on
+			the same plane and flickered in the middle of the shop — the
+			one square of ground every player in every world walks over.
+		]]
+		cframe = CFrame.new(centre + Vector3.new(0, 0.56, 0)),
 		color = Palette.color(Palette.ground.stoneDark),
 		material = Enum.Material.Concrete,
 		parent = shed,
@@ -3648,6 +3668,39 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 			})
 		end
 	end
+	--[[
+		A pier where the wall turns, and one where it stops at the road.
+
+		Two runs of coping meeting at a corner overlap in a square with both
+		top faces on the same plane, which flickers; every world's boundary
+		showed it. A wall like this is built with a pier at every corner and
+		terminal anyway, so the junction goes inside a block of stone rather
+		than being fudged out of existence.
+	]]
+	local PIER_W, PIER_H = 5.5, WALL_H + 3
+	for _, corner in {
+		Vector3.new(0, 0, depth),
+		Vector3.new(width, 0, depth),
+		Vector3.new(0, 0, 0),
+		Vector3.new(width, 0, 0),
+	} do
+		Build.part({
+			name = "YardPier",
+			size = Vector3.new(PIER_W, PIER_H, PIER_W),
+			cframe = CFrame.new(corner + Vector3.new(0, PIER_H * 0.5, 0)),
+			color = granite,
+			material = Enum.Material.Rock,
+			parent = yard,
+		})
+		Build.part({
+			name = "YardPierCap",
+			size = Vector3.new(PIER_W + 1, 1.2, PIER_W + 1),
+			cframe = CFrame.new(corner + Vector3.new(0, PIER_H + 0.6, 0)),
+			color = graniteDark,
+			material = Enum.Material.Slate,
+			parent = yard,
+		})
+	end
 
 	----------------------------------------------------------------
 	-- The lychgate, over the way in
@@ -3663,11 +3716,13 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 			parent = yard,
 		})
 	end
+	--- The two pitches meet at the ridge rather than overlapping in it: laid
+	--- on the same centre they were coplanar where they crossed and flickered.
 	for _, pitch in { -1, 1 } do
 		Build.part({
 			name = "LychRoof",
 			size = Vector3.new(30, 1.4, 12),
-			cframe = CFrame.new(spawnAt.X, 18.4, gateZ + pitch * 4.6)
+			cframe = CFrame.new(spawnAt.X, 18.4 + pitch * 0.12, gateZ + pitch * 5.2)
 				* CFrame.Angles(math.rad(pitch * 26), 0, 0),
 			color = Palette.color(Palette.house.roofDark),
 			material = Enum.Material.Slate,
@@ -4370,11 +4425,23 @@ function WorldService.load(worldId: string)
 			whole approach to the house. Pebble is the small hard chip a
 			carriage drive is actually made of.
 		]]
-		for _, slab in Worlds.pavingRects(world) do
+		--[[
+			Each rectangle a hundredth of a stud above the last.
+
+			The drive is a union of overlapping rectangles — the circle in
+			front of the door and the straight run out to the road cross each
+			other — and laid at one height the overlaps flickered. A step this
+			small is nothing to walk over and nothing to see.
+		]]
+		for index, slab in Worlds.pavingRects(world) do
 			Build.part({
 				name = "Drive",
 				size = Vector3.new(slab.w, 0.5, slab.d),
-				cframe = CFrame.new(slab.x + slab.w * 0.5, ground + 0.25, slab.z + slab.d * 0.5),
+				cframe = CFrame.new(
+					slab.x + slab.w * 0.5,
+					ground + 0.25 + index * 0.04,
+					slab.z + slab.d * 0.5
+				),
 				color = Palette.color(Palette.estate.gravel),
 				material = Enum.Material.Pebble,
 				castShadow = false,

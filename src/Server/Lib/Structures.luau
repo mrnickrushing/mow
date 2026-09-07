@@ -686,7 +686,18 @@ function Structures.room(
 		of every wall. Once there is a ceiling on it that slot is the one
 		thing saying "pit" rather than "room".
 	]]
-	local rise = if sunken then math.abs(elevation) else wallHeight
+	--[[
+		A shade under the lawn, not flush with it.
+
+		Reaching exactly ground level put the top face of every sunken wall
+		and pier on the same plane as the lawn around it, which is two
+		surfaces at the same height flickering against each other — the
+		downward sweep found it on eight of the sampled points along the
+		crypt. Three tenths of a stud lower is still under the ground slab,
+		which runs four studs deep, so nothing opens up; it just stops the
+		two faces fighting.
+	]]
+	local rise = if sunken then math.abs(elevation) - 0.3 else wallHeight
 	local wallColor = if sunken then dressing.wallSunken else dressing.wall
 	Structures.wallRing({
 		name = "Wall",
@@ -798,13 +809,16 @@ function Structures.room(
 			slab(wellHighX, halfW, wellLowZ, wellHighZ)
 		end
 
-		--- Piers, spaced along whichever way the wall runs.
+		--- Piers, spaced along whichever way the wall runs. They stop a third
+		--- of a stud short of the wall head so the two top faces are not on
+		--- the same plane, which flickered where a pier met its wall.
 		local PIER = 22
+		local pierRise = rise - 0.35
 		for _, side in {
-			{ along = "x", span = width, at = Vector3.new(0, 0, -depth * 0.5), size = Vector3.new(4, rise, 2.4) },
-			{ along = "x", span = width, at = Vector3.new(0, 0, depth * 0.5), size = Vector3.new(4, rise, 2.4) },
-			{ along = "z", span = depth, at = Vector3.new(-width * 0.5, 0, 0), size = Vector3.new(2.4, rise, 4) },
-			{ along = "z", span = depth, at = Vector3.new(width * 0.5, 0, 0), size = Vector3.new(2.4, rise, 4) },
+			{ along = "x", span = width, at = Vector3.new(0, 0, -depth * 0.5), size = Vector3.new(4, pierRise, 2.4) },
+			{ along = "x", span = width, at = Vector3.new(0, 0, depth * 0.5), size = Vector3.new(4, pierRise, 2.4) },
+			{ along = "z", span = depth, at = Vector3.new(-width * 0.5, 0, 0), size = Vector3.new(2.4, pierRise, 4) },
+			{ along = "z", span = depth, at = Vector3.new(width * 0.5, 0, 0), size = Vector3.new(2.4, pierRise, 4) },
 		} do
 			local count = math.max(math.floor(side.span / PIER), 1)
 			for index = 1, count - 1 do
@@ -815,7 +829,7 @@ function Structures.room(
 				Build.part({
 					name = "Pier",
 					size = side.size,
-					cframe = CFrame.new(centre + side.at + offset + Vector3.new(0, rise * 0.5, 0)),
+					cframe = CFrame.new(centre + side.at + offset + Vector3.new(0, pierRise * 0.5, 0)),
 					color = dressing.wall,
 					material = Enum.Material.Concrete,
 					canCollide = false,
@@ -1075,10 +1089,13 @@ function Structures.room(
 				parent = folder,
 			})
 		end
+		--- The side runs stop where the front and back runs start. Run out to
+		--- the full footprint they crossed at all four corners, two fascias
+		--- deep with their faces on the same plane, and each corner flickered.
 		for _, sx in { -1, 1 } do
 			Build.part({
 				name = "Eaves",
-				size = Vector3.new(1.4, FASCIA, depth + OVERHANG * 2),
+				size = Vector3.new(1.4, FASCIA, depth + OVERHANG * 2 - 2.8),
 				cframe = CFrame.new(
 					centre + Vector3.new(sx * (width * 0.5 + OVERHANG - 0.7), fasciaY, 0)
 				),
@@ -1184,9 +1201,14 @@ function Structures.stairs(_context: Context, from: Vector3, to: Vector3, width:
 		wedge.Name = "StairStringer"
 		wedge.Anchored = true
 		wedge.Size = Vector3.new(width, rise, run)
+		-- Sunk a third of a stud below where the treads land. Set flush, the
+		-- wedge's slope runs exactly through the nosings and the two surfaces
+		-- flicker along the whole flight; the treads are over a stud thick, so
+		-- dropping the wedge still leaves nothing showing through.
+		local seat = lowY + rise * 0.5 - 0.35
 		wedge.CFrame = CFrame.lookAt(
-			Vector3.new(centre.X, lowY + rise * 0.5, centre.Z),
-			Vector3.new(centre.X, lowY + rise * 0.5, centre.Z) + downhill
+			Vector3.new(centre.X, seat, centre.Z),
+			Vector3.new(centre.X, seat, centre.Z) + downhill
 		)
 		wedge.Material = Enum.Material.Concrete
 		local tint = Palette.color(Palette.ground.path)
@@ -2203,8 +2225,10 @@ function Structures.glasshouse(context: Context, zone: Types.ZoneDef, opening: O
 	for _, beam in {
 		{ size = Vector3.new(width + EAVE * 2, 1.6, EAVE), at = Vector3.new(0, 0, -(depth + EAVE) * 0.5) },
 		{ size = Vector3.new(width + EAVE * 2, 1.6, EAVE), at = Vector3.new(0, 0, (depth + EAVE) * 0.5) },
-		{ size = Vector3.new(EAVE, 1.6, depth + EAVE * 2), at = Vector3.new(-(width + EAVE) * 0.5, 0, 0) },
-		{ size = Vector3.new(EAVE, 1.6, depth + EAVE * 2), at = Vector3.new((width + EAVE) * 0.5, 0, 0) },
+		--- Butted, not crossed: two beams overlapping at a corner put two
+		--- faces of iron on the same plane and the corner flickers.
+		{ size = Vector3.new(EAVE, 1.6, depth), at = Vector3.new(-(width + EAVE) * 0.5, 0, 0) },
+		{ size = Vector3.new(EAVE, 1.6, depth), at = Vector3.new((width + EAVE) * 0.5, 0, 0) },
 	} do
 		Build.part({
 			name = "Eaves",
