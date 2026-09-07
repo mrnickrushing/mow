@@ -3325,6 +3325,17 @@ local function chooseApproach(
 end
 
 local cashGates: { [string]: Model } = {}
+--[[
+	The grille across a room's doorway, by section.
+
+	A cash gate is a door you buy and it already stands there saying so; the
+	garage has a shutter its hidden switch rolls up. A room earned by finishing
+	the section before it had nothing at all — the chapel's doorway was a hole
+	in a wall whether or not you were allowed through it, so "locked" was
+	something the client knew and the property did not show. These are the
+	portcullis the way out uses, hung in the doorway and raised the same way.
+]]
+local roomGates: { [string]: BasePart } = {}
 
 --[[
 	The hidden switches that open `button` sections.
@@ -3478,6 +3489,54 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 				Structures.room(context, section, 16, elevation < 0, opening, skin)
 
 				--[[
+					A grille in the doorway until the section is earned.
+
+					Only where nothing else is already holding the door: a
+					cash-gated section has a door you buy and the garage has
+					its shutter, so a second barrier behind either would mean
+					opening one and finding another. That leaves the rooms
+					earned by finishing the section before them, which had
+					nothing.
+
+					Hung on the doorway the approach already worked out — the
+					edge sits at flat ground level, so the section's own floor
+					has to be added.
+
+					It swings rather than rising. The way out is a portcullis
+					because it stands in a free block of masonry with nothing
+					above it; a room has a wall over its door and a roof over
+					that. Fifteen studs of grate lifted thirteen would stand
+					clear through the roof of the chapel, and up through the
+					lawn on anything underground. Hinged on one jamb it stays
+					where it belongs, and a door on hinges is what a doorway
+					has anyway.
+
+					Where it ends up is worked out here and kept on the part,
+					so the opener does not have to reconstruct the frame it
+					was hung in.
+				]]
+				if approach and Worlds.unlockKind(section) == "completion" then
+					local gateAt = approach.edge + Vector3.new(0, elevation, 0)
+					local hung = CFrame.lookAt(gateAt, gateAt + approach.normal)
+						* CFrame.new(0, 7.5, 0)
+					local half = DOOR_WIDTH * 0.5
+					--- The jamb it turns on, and the leaf hanging off it.
+					local hinge = hung * CFrame.new(-half, 0, 0)
+					local leaf = CFrame.new(half, 0, 0)
+					local gate = Build.mesh({
+						prop = "Grate",
+						name = "RoomGate",
+						size = Vector3.new(DOOR_WIDTH, 15, 2),
+						collisionSize = Vector3.new(DOOR_WIDTH, 15, 1),
+						cframe = hinge * leaf,
+						parent = parent,
+					})
+					gate:SetAttribute("Shut", true)
+					gate:SetAttribute("Swung", hinge * CFrame.Angles(0, math.rad(-104), 0) * leaf)
+					roomGates[section.id] = gate
+				end
+
+				--[[
 					A cellar's far wall is where the way out goes.
 
 					`approach.normal` points out of the room on the side the
@@ -3603,7 +3662,8 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 				the one way that is no fun. The hedges are the obstacle.
 			]]
 			if (section.kind or "open") == "maze" then 0 else (section.clutter or 0),
-			Structures.clutterSets[world.style or "house"]
+			Structures.clutterSets[world.style or "house"],
+			Structures.roomSets[world.style or "house"]
 		)
 	end
 end
@@ -4171,9 +4231,27 @@ local function clearBuriedTiles(world: Types.WorldDef, grid: Grid.Grid, tiles: b
 		a touch narrower than the tile, so a wall has to actually stand on
 		the tile to claim it rather than merely border it.
 	]]
-	local COVER_FOOTPRINT = Vector3.new(3.2, 2.6, 3.2)
+	--[[
+		As tall as a player, not as tall as a crate.
+
+		Two and a half studs of box catches anything standing on the tile and
+		misses anything hanging over it. The Gas Station's workshop benches
+		are the case that found this: the top is a plank at four and a half
+		studs on legs set back from the tile's centre, so the sweep saw
+		nothing, left the tile sown — and a player cannot stand under a bench
+		to mow it, because their head is where the plank is. Four tiles of the
+		workshop were sown and unreachable, which is a section that cannot
+		reach zero, which is a property that cannot be finished.
+
+		What the sweep is really asking is "can somebody stand here", so the
+		box is the height of somebody standing. A room's own ceiling and eaves
+		are named exceptions already, and the things that overhang higher than
+		this — a lychgate roof at eighteen studs, a mausoleum's lintel at nine
+		— are still well clear of it.
+	]]
+	local COVER_FOOTPRINT = Vector3.new(3.2, 5.2, 3.2)
 	local function covered(x: number, y: number, z: number): boolean
-		for _, part in workspace:GetPartBoundsInBox(CFrame.new(x, y + 1.5, z), COVER_FOOTPRINT, params) do
+		for _, part in workspace:GetPartBoundsInBox(CFrame.new(x, y + 2.7, z), COVER_FOOTPRINT, params) do
 			if BURIES_NOTHING[part.Name] then
 				continue
 			end
@@ -4313,6 +4391,9 @@ function WorldService.load(worldId: string)
 	table.clear(openSections)
 	-- Tile indices belong to the grid that produced them, so last world's
 	-- buried set would suppress seeding at unrelated places in this one.
+	-- Keyed by section id, and ids repeat between properties, so last world's
+	-- gates would otherwise be found and raised on this one.
+	table.clear(roomGates)
 	table.clear(WorldService.buriedTiles)
 
 	seedTiles(world, grid, tiles)
@@ -4874,6 +4955,29 @@ function WorldService.setSectionOpen(sectionId: string, open: boolean)
 		if gate then
 			cashGates[sectionId] = nil
 			gate:Destroy()
+		end
+
+		--[[
+			The room's gate swings open and stays there.
+
+			It is not faded out: a gate that disappears leaves a doorway that
+			never had one in it, and half of what the gate is for is being
+			visibly the thing that was shut a minute ago. Swung back against
+			the wall it still reads as a gate, and it is no longer in the way.
+		]]
+		local grille = roomGates[sectionId]
+		if grille and grille:GetAttribute("Shut") then
+			roomGates[sectionId] = nil
+			grille:SetAttribute("Shut", false)
+			grille.CanCollide = false
+			local swung = grille:GetAttribute("Swung")
+			if typeof(swung) == "CFrame" then
+				TweenService:Create(
+					grille,
+					TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+					{ CFrame = swung }
+				):Play()
+			end
 		end
 
 	else

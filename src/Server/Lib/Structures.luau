@@ -206,13 +206,39 @@ local ROOM_PROPS: { PropSpec } = {
 }
 
 --[[
+	And what is lying about inside one, per property.
+
+	Crates, drums and a wheeled bin are the four things in any room anywhere,
+	which is right for a garage, a wash bay and a workshop and wrong for the
+	undercroft of a chapel: a blue plastic wheelie bin standing among the
+	loculi is most of what made the crypt read as somebody's basement. Fallen
+	masonry, a rotten beam and a lantern are what is down there instead.
+]]
+local CRYPT_PROPS: { PropSpec } = {
+	{ prop = "Rock", size = Vector3.new(4, 3, 4) },
+	{ prop = "Log", size = Vector3.new(6, 3, 3) },
+	{ prop = "Lantern", size = Vector3.new(3.4, 7, 3) },
+}
+
+--- The indoor set for a property's style, falling back to the common one.
+Structures.roomSets = {
+	churchyard = CRYPT_PROPS,
+}
+
+--[[
 	Scatters props across a zone.
 
 	Props sit on the zone's own floor and do not collide, so they never wall a
 	player off from a tile they still have to clear — they only make it harder
 	to spot, which is the whole point.
 ]]
-function Structures.clutter(context: Context, zone: Types.ZoneDef, count: number, yard: { PropSpec }?)
+function Structures.clutter(
+	context: Context,
+	zone: Types.ZoneDef,
+	count: number,
+	yard: { PropSpec }?,
+	room: { PropSpec }?
+)
 	if count <= 0 then
 		return
 	end
@@ -220,7 +246,7 @@ function Structures.clutter(context: Context, zone: Types.ZoneDef, count: number
 	local elevation = zone.elevation or 0
 	-- A room's four things are crates and drums whatever the property is;
 	-- what is scattered outdoors is where a lot shows its character.
-	local set = if zone.kind == "room" then ROOM_PROPS else (yard or YARD_PROPS)
+	local set = if zone.kind == "room" then (room or ROOM_PROPS) else (yard or YARD_PROPS)
 	local folder = Build.folder(`Clutter_{zone.id}`, context.parent)
 	local r = zone.rect
 
@@ -1062,7 +1088,10 @@ function Structures.room(
 				and the other has a chest tomb against it with urns either
 				side. Nothing burns down here.
 			]]
-			local bays = math.max(math.floor(shelfWall.span / 40), 1)
+			--- The same spacing the shelves used, because it is the same wall:
+			--- one bay every thirty-four studs puts two along the crypt's
+			--- seventy-two rather than one lost in the middle of it.
+			local bays = math.max(math.floor(shelfWall.span / 34), 1)
 			for index = 1, bays do
 				local slide = -shelfWall.span * 0.5 + shelfWall.span * (index / (bays + 1))
 				local offset = if alongZWalls then Vector3.new(0, 0, slide) else Vector3.new(slide, 0, 0)
@@ -1289,11 +1318,24 @@ function Structures.room(
 						rise - 2.6,
 						-depth * 0.5 + depth * ((iz - 0.5) / acrossZ)
 					)
+				--[[
+					A crypt is lit cold.
+
+					The warm fixture is right for a cellar under a house and it
+					is half of why this room read as one: granite walls and a
+					stone floor under amber light come out the colour of
+					plaster. The same lamps in a bluish white leave the stone
+					looking like stone, and a shade dimmer because there is
+					nothing down here anybody needs to read by.
+				]]
+				local crypt = dressing.underground == "crypt"
 				local lamp = Build.part({
 					name = "CellarLamp",
 					size = Vector3.new(4.2, 0.8, 1.6),
 					cframe = CFrame.new(at),
-					color = Color3.fromRGB(255, 240, 205),
+					color = if crypt
+						then Color3.fromRGB(226, 234, 244)
+						else Color3.fromRGB(255, 240, 205),
 					material = Enum.Material.Neon,
 					canCollide = false,
 					parent = folder,
@@ -1302,9 +1344,11 @@ function Structures.room(
 				-- Enough to read the floor by from anywhere in the room, and
 				-- not so much that eight of them overlap into daylight: the
 				-- first pass at this washed the whole cellar orange.
-				glow.Color = Color3.fromRGB(255, 232, 186)
+				glow.Color = if crypt
+					then Color3.fromRGB(204, 216, 238)
+					else Color3.fromRGB(255, 232, 186)
 				glow.Range = 38
-				glow.Brightness = 1.15
+				glow.Brightness = if crypt then 0.92 else 1.15
 				glow.Parent = lamp
 			end
 		end
