@@ -55,6 +55,17 @@ WorldService.tileSection = nil :: { string }?
 	wave refill re-seeds a section's whole rect, so without a record of them it
 	sowed every one of those tiles again — see `refillSection`.
 ]]
+--[[
+	The number this property is built from, for the services that add to it.
+
+	Trees, hazards and collectibles are planted after the world by their own
+	services, from their own generators — so seeding this one alone left the
+	property still different on every server. Trees matter most of the three:
+	`clearTileAt` takes the tile a trunk stands on out of the section's
+	demand, so where the trees land changes how much work the property is.
+]]
+WorldService.seed = 0
+
 WorldService.buriedTiles = {} :: { [number]: boolean }
 WorldService.sections = {} :: { [string]: SectionState }
 WorldService.totalUnits = 0
@@ -4652,8 +4663,11 @@ function WorldService.load(worldId: string)
 	table.clear(WorldService.buriedTiles)
 
 	-- Before anything is sown or scattered, so the whole property comes out
-	-- the same on every server that builds it.
-	rng = Random.new(seedOf(world))
+	-- the same on every server that builds it. Published, because the
+	-- services that plant and hide things build on top of this one and have
+	-- to agree with it about which property this is.
+	WorldService.seed = seedOf(world)
+	rng = Random.new(WorldService.seed)
 
 	seedTiles(world, grid, tiles)
 
