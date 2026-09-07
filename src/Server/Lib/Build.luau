@@ -896,7 +896,22 @@ function Build.flagstone(parent: Instance, centre: Vector3, size: Vector2, tile:
 				collisionSize = Vector3.new(tile * 0.92, 0.5, tile * 0.92),
 				cframe = CFrame.new(
 					centre.X - size.X * 0.5 + tile * (col + 0.5) + jitterX,
-					centre.Y,
+					--[[
+						Four settling heights, in a checker.
+
+						The jitter in X and Z makes neighbouring stones
+						overlap, and two stones laid at exactly one height
+						flicker where they do. Random heights fixed most of
+						them and left the pairs that happened to land close;
+						keying the height to the parity of the row and the
+						column instead means no two stones that can touch
+						are ever on the same plane, because all eight of a
+						stone's neighbours differ in one parity or the other.
+						A path that has been walked on for years is not flat
+						anyway, and a seventh of a stud of settle is what
+						that looks like.
+					]]
+					centre.Y + ((col % 2) * 2 + (row % 2)) * 0.045,
 					centre.Z - size.Y * 0.5 + tile * (row + 0.5) + jitterZ
 				) * CFrame.Angles(0, rng:NextNumber() * 0.12, 0),
 				color = Palette.color(shade),

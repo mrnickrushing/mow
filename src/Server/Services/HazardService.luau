@@ -17,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local ChunkCodec = require(Shared.ChunkCodec)
 local Format = require(Shared.Util.Format)
 local Grid = require(Shared.Grid)
+local GameConfig = require(Shared.Config.GameConfig)
 local Sprites = require(Shared.Config.Sprites)
 local Types = require(Shared.Types)
 local BagService = require(script.Parent.BagService)
@@ -252,20 +253,75 @@ end
 	end, where they stood on the surface watering the swimming pool. The same
 	rectangle the ground builder cuts the basin with is the one the pick now
 	avoids, which is how the clutter scatter already works.
+
+	Standing walls are the same problem in a different shape. The Yew Walk is
+	a maze, and a maze is mostly hedge by area, so a pick that only knew about
+	water put the dog inside a hedge more often than not — it sat buried in
+	the greenery and then tweened out through the wall of it, which is not
+	something a dog does. The clearance test is a box over the chosen tile:
+	anything solid already standing there and the pick is thrown away.
 ]]
+--- Height of the clearance box, in studs. Tall enough to catch a hedge or a
+--- room wall, short enough to ignore a roof or an overhanging branch.
+local CLEARANCE_Y = 7
+--[[
+	How far above the ground the box starts.
+
+	Sitting it on the ground meant the lawn itself was inside it, so every
+	tile in every world came back blocked and the pick fell through to its
+	last throw — the same tile the old code would have chosen. Lifted clear,
+	the box only sees things standing on the ground, which is the question.
+]]
+local CLEARANCE_LIFT = 1
+
+local function tileIsClear(tx: number, tz: number): boolean
+	local container = WorldService.container()
+	if not container then
+		return true
+	end
+	local at = WorldService.tilePointToWorld(tx, tz)
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { container }
+	params.MaxParts = 8
+	for _, part in
+		workspace:GetPartBoundsInBox(
+			CFrame.new(at + Vector3.new(0, CLEARANCE_LIFT + CLEARANCE_Y * 0.5, 0)),
+			Vector3.new(GameConfig.TILE_SIZE * 1.5, CLEARANCE_Y, GameConfig.TILE_SIZE * 1.5),
+			params
+		)
+	do
+		if part.CanCollide then
+			return false
+		end
+	end
+	return true
+end
+
 local function dryTile(section: Types.ZoneDef): (number, number)
 	local r = section.rect
 	local water = if (section.kind or "open") == "pool" then Structures.poolRect(section) else nil
 	local tx = rng:NextInteger(r.x + 2, r.x + r.w - 3)
 	local tz = rng:NextInteger(r.z + 2, r.z + r.d - 3)
-	for _ = 1, 20 do
-		if
-			not water
+	local function usable(): boolean
+		local dry = not water
 			or tx < water.x
 			or tx >= water.x + water.w
 			or tz < water.z
 			or tz >= water.z + water.d
-		then
+		return dry and tileIsClear(tx, tz)
+	end
+	--[[
+		Forty tries, not twenty.
+
+		A maze leaves roughly half its tiles walkable and the picks are
+		independent, so twenty throws away a section about once in a million
+		runs; forty makes that number small enough to stop thinking about.
+		Whatever the last pick was, it is returned — a hazard in a hedge is
+		better than a section that silently has no hazard at all.
+	]]
+	for _ = 1, 40 do
+		if usable() then
 			break
 		end
 		tx = rng:NextInteger(r.x + 2, r.x + r.w - 3)

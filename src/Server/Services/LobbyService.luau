@@ -1007,6 +1007,9 @@ local function build()
 			-- Half a stud down, so the roots are in the ground rather than on it.
 			local at = CENTRE + Vector3.new(stand.x, -0.5, stand.z)
 			local turn = math.rad(stand.turn)
+			-- A model clone goes nowhere near `Build.part`, so this loop is
+			-- the one that has to come up for air itself.
+			Build.breathe()
 			if not Trees.plant(stand.species, at, stand.height, turn, treeBelt) then
 				plantTree(at, stand.height, CANOPY[rng:NextInteger(1, #CANOPY)])
 			end
