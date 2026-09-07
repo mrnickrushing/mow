@@ -513,6 +513,16 @@ local function clear()
 end
 
 function TreeService.generate(world: Types.WorldDef)
+	--[[
+		Planted the same way on every server: where a trunk stands comes out of
+		the section's demand, so this decides how much work the property is.
+
+		Salted off `WorldService.seed` rather than seeded from the world
+		directly, so this service and the world agree about which property
+		this is without two copies of the arithmetic — and so the three
+		services that do this do not all draw the same sequence.
+	]]
+	rng = Random.new(WorldService.seed + 11)
 	clear()
 	-- Idempotent; boot has almost certainly done it. Waits if it has not.
 	Trees.warm()

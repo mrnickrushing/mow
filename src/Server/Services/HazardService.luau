@@ -331,6 +331,16 @@ local function dryTile(section: Types.ZoneDef): (number, number)
 end
 
 function HazardService.generate(world: Types.WorldDef)
+	--[[
+		Placed the same way on every server, so one server's dog is not sitting
+		on the tile another server's is not.
+
+		Salted off `WorldService.seed` rather than seeded from the world
+		directly, so this service and the world agree about which property
+		this is without two copies of the arithmetic — and so the three
+		services that do this do not all draw the same sequence.
+	]]
+	rng = Random.new(WorldService.seed + 23)
 	running = false
 	if container then
 		container:Destroy()

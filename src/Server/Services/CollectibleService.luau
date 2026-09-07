@@ -185,6 +185,16 @@ local function clearSpotIn(section: Types.ZoneDef, ignore: Instance): Vector3
 end
 
 function CollectibleService.generate(world: Types.WorldDef)
+	--[[
+		Hidden in the same places on every server, so finding one is knowing the
+		property rather than being on the right server.
+
+		Salted off `WorldService.seed` rather than seeded from the world
+		directly, so this service and the world agree about which property
+		this is without two copies of the arithmetic — and so the three
+		services that do this do not all draw the same sequence.
+	]]
+	rng = Random.new(WorldService.seed + 37)
 	table.clear(collectors)
 	if container then
 		container:Destroy()
