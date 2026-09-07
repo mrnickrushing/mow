@@ -1177,6 +1177,49 @@ function Structures.room(
 				material = Enum.Material.Slate,
 				parent = folder,
 			})
+			--[[
+				And two standing free on the floor.
+
+				The chest against the wall is the parish's; these are the ones
+				somebody paid for, and they are what a crypt is for. Out in the
+				open floor rather than against the stonework, laid the same way
+				as the wall tomb so the room has a direction, and far enough
+				apart that a mower goes between them rather than round the pair.
+
+				Solid, so the sweep takes the strip of floor they stand on out
+				of the section's demand — the same bargain the shelves and the
+				pews make.
+			]]
+			--[[
+				In the wall's own frame local X runs along the wall and local
+				Z into the room, so a box laid lengthways is long in X — the
+				same way round as the chest against the wall. They are set
+				apart across the room rather than along it, so they stand side
+				by side in the middle of the floor instead of end to end.
+			]]
+			local acrossWall = if alongZWalls then Vector3.new(1, 0, 0) else Vector3.new(0, 0, 1)
+			local acrossSpan = if alongZWalls then width else depth
+			for _, side in { -1, 1 } do
+				local at = centre + acrossWall * (side * acrossSpan * 0.18)
+				local base = CFrame.lookAt(at, at + fireWall.facing)
+				Build.part({
+					name = "Sarcophagus",
+					size = Vector3.new(17, 4.2, 8.6),
+					cframe = base * CFrame.new(0, 2.1, 0),
+					color = dressing.wall,
+					material = Enum.Material.Rock,
+					parent = folder,
+				})
+				Build.part({
+					name = "SarcophagusLid",
+					size = Vector3.new(18.4, 1.6, 10),
+					cframe = base * CFrame.new(0, 5, 0),
+					color = dressing.wallSunken,
+					material = Enum.Material.Slate,
+					parent = folder,
+				})
+			end
+
 			for _, side in { -1, 1 } do
 				Build.part({
 					name = "UrnPlinth",
