@@ -777,6 +777,87 @@ local function tyreStack(foot: CFrame, parent: Instance)
 	})
 end
 
+--[[
+	An urn on a plinth, stood at the foot frame's origin.
+
+	Both the crypt and the drive up to The Mansion wanted one, and both had
+	built the same thing: a ball on a box. A sphere balanced on a plain post
+	is a cannonball on a pedestal — no foot, no rim, nothing to say which way
+	up it is, and on the drive the ball was wider than the plinth holding it
+	up.
+
+	Five parts, all proportional to the plinth so one builder does a
+	four-stud garden urn and a three-stud cinerary one: a base and a cap on
+	the pedestal, because a pedestal with no mouldings is a post; then the
+	foot it stands on, the belly, and the lip round the top.
+]]
+export type UrnSpec = {
+	foot: CFrame,
+	--- Across the pedestal. Everything else is a fraction of it.
+	plinth: number,
+	--- Pedestal, mouldings and lip.
+	body: Color3,
+	bodyMaterial: Enum.Material,
+	--- Foot and belly, so the vessel reads as a different stone.
+	stone: Color3,
+	stoneMaterial: Enum.Material,
+	parent: Instance,
+}
+
+function Structures.urn(spec: UrnSpec)
+	local p = spec.plinth
+	local tall = p * 1.5
+	Build.part({
+		name = "UrnPlinth",
+		size = Vector3.new(p, tall, p),
+		cframe = spec.foot * CFrame.new(0, tall * 0.5, 0),
+		color = spec.body,
+		material = spec.bodyMaterial,
+		parent = spec.parent,
+	})
+	for _, y in { p * 0.11, tall - p * 0.1 } do
+		Build.part({
+			name = "UrnMoulding",
+			size = Vector3.new(p * 1.15, p * 0.22, p * 1.15),
+			cframe = spec.foot * CFrame.new(0, y, 0),
+			color = spec.body,
+			material = spec.bodyMaterial,
+			parent = spec.parent,
+		})
+	end
+	Build.part({
+		name = "UrnFoot",
+		shape = Enum.PartType.Cylinder,
+		size = Vector3.new(p * 0.42, p * 0.4, p * 0.4),
+		cframe = spec.foot
+			* CFrame.new(0, tall + p * 0.12, 0)
+			* CFrame.Angles(0, 0, math.rad(90)),
+		color = spec.stone,
+		material = spec.stoneMaterial,
+		parent = spec.parent,
+	})
+	Build.part({
+		name = "Urn",
+		shape = Enum.PartType.Ball,
+		size = Vector3.new(p * 0.85, p * 0.85, p * 0.85),
+		cframe = spec.foot * CFrame.new(0, tall + p * 0.65, 0),
+		color = spec.stone,
+		material = spec.stoneMaterial,
+		parent = spec.parent,
+	})
+	Build.part({
+		name = "UrnLip",
+		shape = Enum.PartType.Cylinder,
+		size = Vector3.new(p * 0.2, p * 0.75, p * 0.75),
+		cframe = spec.foot
+			* CFrame.new(0, tall + p * 1.03, 0)
+			* CFrame.Angles(0, 0, math.rad(90)),
+		color = spec.body,
+		material = spec.bodyMaterial,
+		parent = spec.parent,
+	})
+end
+
 function Structures.room(
 	context: Context,
 	zone: Types.ZoneDef,
@@ -1312,21 +1393,13 @@ function Structures.room(
 			end
 
 			for _, side in { -1, 1 } do
-				Build.part({
-					name = "UrnPlinth",
-					size = Vector3.new(3.4, 5, 3.4),
-					cframe = tombBase * CFrame.new(side * 12, 2.5, -3.4),
-					color = dressing.wallSunken,
-					material = Enum.Material.Slate,
-					parent = folder,
-				})
-				Build.part({
-					name = "Urn",
-					shape = Enum.PartType.Ball,
-					size = Vector3.new(3, 3, 3),
-					cframe = tombBase * CFrame.new(side * 12, 6.4, -3.4),
-					color = dressing.wall,
-					material = Enum.Material.Rock,
+				Structures.urn({
+					foot = tombBase * CFrame.new(side * 12, 0, -3.4),
+					plinth = 3.4,
+					body = dressing.wallSunken,
+					bodyMaterial = Enum.Material.Slate,
+					stone = dressing.wall,
+					stoneMaterial = Enum.Material.Rock,
 					parent = folder,
 				})
 			end
