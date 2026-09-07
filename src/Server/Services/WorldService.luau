@@ -3520,30 +3520,37 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 					out by standing on your toes.
 				]]
 				--[[
-					Which properties grow yew rather than garden hedge.
+					What each property's maze is grown out of.
 
 					This asked whether the property was the estate, which was
-					true of every yew walk in the game right up until there
-					were two. The Cemetery's maze section is called The Yew
-					Walk, the palette has had a `churchyard.yew` in it since
-					the property was built, and the section was being drawn in
-					The House's bright garden green at shoulder height — a
-					hedge maze in a churchyard at midnight, lit like a lawn.
+					true of every maze in the game right up until there were
+					two — and the Cemetery's was coming out in The House's
+					bright garden green at shoulder height, a hedge maze in a
+					churchyard at midnight lit like a lawn.
 
-					A table rather than another `if`, so the next property that
-					wants yew says so here instead of adding a third branch.
+					A table rather than a chain of `if`s, so a property that
+					wants its own crop says so in one line here.
 				]]
-				local YEW: { [string]: { tint: Types.Color3Like, height: number } } = {
-					estate = { tint = Palette.estate.yew, height = 13 },
-					churchyard = { tint = Palette.churchyard.yew, height = 13 },
+				local CROP: { [string]: Structures.MazeCrop } = {
+					estate = {
+						prop = "Hedge",
+						tint = Palette.color(Palette.estate.yew),
+						height = 13,
+						shade = true,
+					},
+					--[[
+						Corn, not yew.
+
+						A churchyard maze at the end of October is a corn maze;
+						that is the thing this section is for and it is what
+						was asked for. Corn takes no tint — it is already the
+						colour of a crop left standing too long — and every
+						tile is turned its own way, because a corridor of one
+						plant repeated is wallpaper.
+					]]
+					churchyard = { prop = "Corn", height = 13, spin = true, sentinels = 3 },
 				}
-				local yew = YEW[world.style or ""]
-				Structures.maze(
-					context,
-					section,
-					if yew then Palette.color(yew.tint) else nil,
-					if yew then yew.height else nil
-				)
+				Structures.maze(context, section, CROP[world.style or ""])
 			elseif kind == "roof" then
 				-- The roof slab is the floor the rooftop's debris rests on.
 				local r = section.rect
@@ -3723,6 +3730,38 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 			cframe = CFrame.new(corner + Vector3.new(0, PIER_H + 0.6, 0)),
 			color = graniteDark,
 			material = Enum.Material.Slate,
+			parent = yard,
+		})
+	end
+
+	--[[
+		Mist lying on the ground, which is most of what makes a churchyard
+		frightening and costs almost nothing.
+
+		Sheets rather than particles: a `ParticleEmitter` big enough to cover
+		a hundred and forty tiles is thousands of quads a frame on a tablet,
+		and this is the largest property in the game. Six wide, very
+		transparent slabs a stud and a half up, at slightly different heights
+		so they overlap into something uneven rather than reading as one
+		floor, do the same job for six parts. They cast no shadow and stop
+		nothing — you walk through them, which is the point.
+	]]
+	local mistRng = Random.new(world.gridWidth * 6151 + world.gridDepth)
+	for index = 1, 6 do
+		local at = Vector3.new(
+			mistRng:NextNumber(0.15, 0.85) * width,
+			1.4 + mistRng:NextNumber(0, 0.9),
+			mistRng:NextNumber(0.15, 0.85) * depth
+		)
+		Build.part({
+			name = "Mist",
+			size = Vector3.new(mistRng:NextNumber(150, 240), 0.4, mistRng:NextNumber(150, 240)),
+			cframe = CFrame.new(at) * CFrame.Angles(0, mistRng:NextNumber(0, math.pi), 0),
+			color = Color3.fromRGB(206, 212, 224),
+			material = Enum.Material.SmoothPlastic,
+			transparency = 0.88,
+			canCollide = false,
+			castShadow = false,
 			parent = yard,
 		})
 	end

@@ -254,6 +254,9 @@ local catalogue: { [string]: Prop } = {
 		three of them are enormous: they are scaled to the size the world
 		wants at every call site.
 	]]
+	--- A single stalk, used one to a tile the way the hedge is: a maze wall
+	--- reads as a row of corn because that is how corn is planted.
+	Corn = prop("rbxassetid://10786341164", "rbxassetid://10786341422", 1.876, 3.865, 1.798),
 	Headstone = prop("rbxassetid://9780693854", "rbxassetid://9780694145", 35.330, 50.000, 8.577),
 	--- Untextured on purpose; it takes the part's colour and reads as a
 	--- different stone from the one above without a second texture fetch.

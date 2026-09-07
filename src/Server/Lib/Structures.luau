@@ -1716,6 +1716,75 @@ function Structures.graves(context: Context, zone: Types.ZoneDef)
 	--- churchyard and two people on the same run see the same stones.
 	local rng = Random.new(r.x * 7919 + r.z * 104729 + r.w * 15485863 + r.d)
 
+	--[[
+		Some blocks hold a family rather than a row of plots.
+
+		A churchyard of nothing but headstones is flat: the eye has nothing to
+		stop on and no sense of anybody here having been richer or older than
+		anybody else. A mausoleum is the thing that fixes that — it is the one
+		structure on the ground with a roof and a door, and at night it is a
+		shape you notice from the far side of the property.
+
+		A whole block is given over to one rather than squeezing it between
+		plots: a block is five plots by four, about twenty studs square, which
+		holds a fourteen-stud building with room to walk round it. The plots
+		that would have stood there are simply not sown, so no stone ends up
+		inside a wall.
+	]]
+	--[[
+		Which blocks hold a mausoleum, counted first and then chosen.
+
+		A roll per block as each one turned up read fine and was wrong here:
+		this section has six blocks, so at three in ten apiece there is better
+		than a one in nine chance of the property having none at all — and the
+		seed is fixed, so that is not a rare run, it is either always or never.
+		It was never. Walking the plots once without drawing anything gives the
+		count up front, and a third of them rounded up is at least one whatever
+		size the section is.
+
+		The walk consumes no randomness, so the stones the second pass lays
+		down are exactly the ones it would have laid without this.
+	]]
+	local blockCentre: { [string]: { sum: Vector3, count: number } } = {}
+	local blockOrder: { string } = {}
+	local mausoleumBlock: { [string]: boolean } = {}
+	do
+		local px = 0
+		while true do
+			local tx = r.x + 3 + px * PITCH_X + (px // BLOCK_X) * WALK
+			if tx > r.x + r.w - 3 or px > 200 then
+				break
+			end
+			local pz = 0
+			while true do
+				local tz = r.z + 3 + pz * PITCH_Z + (pz // BLOCK_Z) * WALK
+				if tz > r.z + r.d - 4 or pz > 200 then
+					break
+				end
+				local key = `{px // BLOCK_X},{pz // BLOCK_Z}`
+				local entry = blockCentre[key]
+				if not entry then
+					entry = { sum = Vector3.zero, count = 0 }
+					blockCentre[key] = entry
+					table.insert(blockOrder, key)
+				end
+				entry.sum += context.flat(tx, tz) + Vector3.new(0, elevation, 0)
+				entry.count += 1
+				pz += 1
+			end
+			px += 1
+		end
+
+		local wanted = math.max(math.floor(#blockOrder / 3 + 0.5), 1)
+		local pick = Random.new(r.x * 31 + r.z * 131 + r.w * 7 + r.d * 17)
+		local pool = table.clone(blockOrder)
+		for _ = 1, math.min(wanted, #pool) do
+			local at = pick:NextInteger(1, #pool)
+			mausoleumBlock[pool[at]] = true
+			table.remove(pool, at)
+		end
+	end
+
 	local ix = 0
 	while true do
 		local tx = r.x + 3 + ix * PITCH_X + (ix // BLOCK_X) * WALK
@@ -1728,10 +1797,16 @@ function Structures.graves(context: Context, zone: Types.ZoneDef)
 			if tz > r.z + r.d - 4 then
 				break
 			end
+			local blockKey = `{ix // BLOCK_X},{iz // BLOCK_Z}`
 			iz += 1
 
 			local roll = rng:NextNumber()
 			local at = context.flat(tx, tz) + Vector3.new(0, elevation, 0)
+
+			if mausoleumBlock[blockKey] then
+				-- This block holds a mausoleum; nothing is sown in it.
+				continue
+			end
 			local lean = if rng:NextNumber() < 0.28 then math.rad(rng:NextNumber(-11, 11)) else 0
 			local turn = math.rad(rng:NextNumber(-8, 8))
 			local stone = if rng:NextNumber() < 0.35 then lichen else granite
@@ -1744,7 +1819,56 @@ function Structures.graves(context: Context, zone: Types.ZoneDef)
 				is the difference between this section being hard and being
 				unfair.
 			]]
-			if roll < 0.30 then
+			if roll < 0.04 then
+				--[[
+					A grave that is open, which is the one thing in a
+					churchyard nobody walks past without looking.
+
+					A pit rather than a hole: the ground is a four-stud slab
+					and cutting it is not worth it, so this is a near-black
+					floor sunk two studs with a kerb of spoil round three
+					sides and the stone already standing at the head of it.
+					From above it reads as open ground; from anywhere a player
+					actually stands it reads as a grave waiting for somebody.
+				]]
+				Build.part({
+					name = "OpenGrave",
+					size = Vector3.new(4.4, 2, 6.6),
+					cframe = CFrame.new(at + Vector3.new(0, -0.9, 1.4)) * CFrame.Angles(0, turn, 0),
+					color = Color3.fromRGB(16, 14, 13),
+					material = Enum.Material.Ground,
+					parent = folder,
+				})
+				for _, edge in
+					{
+						Vector3.new(2.7, 0.5, 1.4),
+						Vector3.new(-2.7, 0.5, 1.4),
+						Vector3.new(0, 0.5, 5.1),
+					}
+				do
+					Build.part({
+						name = "GraveSpoil",
+						size = if math.abs(edge.X) > 0.1
+							then Vector3.new(1.4, 1, 7.4)
+							else Vector3.new(5.6, 1, 1.4),
+						cframe = CFrame.new(at + edge) * CFrame.Angles(0, turn, 0),
+						color = Color3.fromRGB(62, 50, 38),
+						material = Enum.Material.Ground,
+						canCollide = false,
+						parent = folder,
+					})
+				end
+				Build.mesh({
+					prop = "HeadstonePlain",
+					name = "Headstone",
+					color = stone,
+					size = Vector3.new(3.2, 3.8, 1.1),
+					collisionSize = Vector3.new(3.2, 3.8, 1.1),
+					cframe = CFrame.new(at + Vector3.new(0, 1.9, -2.2))
+						* CFrame.Angles(math.rad(-9), turn, 0),
+					parent = folder,
+				})
+			elseif roll < 0.30 then
 				-- Nothing here but grass.
 			elseif roll < 0.42 then
 				--- A kerbed plot whose stone is long gone.
@@ -1810,10 +1934,157 @@ function Structures.graves(context: Context, zone: Types.ZoneDef)
 		end
 	end
 
+	--[[
+		The mausoleums, one to a block that was set aside for one.
+
+		Built rather than found, because nothing in the catalogue is a small
+		stone building and a wrong one would be worse than none. It is a
+		plinth, a body, a cornice, a stepped roof and an urn on top, with a
+		doorway cut into the face that looks back towards the lawns — the way
+		you come in — a pair of columns either side of it and iron across it.
+		Behind the bars is the same near-black void the way out uses, because
+		a door with a wall behind it is a decal.
+	]]
+	local iron = Palette.color(Palette.churchyard.iron)
+	local function mausoleum(at: Vector3)
+		--- Facing the lawns, which is the side of the property everyone
+		--- arrives from, so the doors are not all round the back.
+		local basis = CFrame.new(at) * CFrame.Angles(0, math.pi, 0)
+		local W, BODY = 13, 11
+
+		Build.part({
+			name = "TombPlinth",
+			size = Vector3.new(W + 3, 1.6, W + 3),
+			cframe = basis * CFrame.new(0, 0.8, 0),
+			color = darker,
+			material = Enum.Material.Slate,
+			parent = folder,
+		})
+		Build.part({
+			name = "TombBody",
+			size = Vector3.new(W, BODY, W),
+			cframe = basis * CFrame.new(0, 1.6 + BODY * 0.5, 0),
+			color = granite,
+			material = Enum.Material.Rock,
+			parent = folder,
+		})
+		Build.part({
+			name = "TombCornice",
+			size = Vector3.new(W + 2.4, 1.4, W + 2.4),
+			cframe = basis * CFrame.new(0, 1.6 + BODY + 0.7, 0),
+			color = darker,
+			material = Enum.Material.Slate,
+			parent = folder,
+		})
+		--- A stepped cap rather than a pitch: two courses read as a roof from
+		--- the ground and cost two parts.
+		for step = 0, 1 do
+			Build.part({
+				name = "TombRoof",
+				size = Vector3.new(W - 1 - step * 4, 1.3, W - 1 - step * 4),
+				cframe = basis * CFrame.new(0, 1.6 + BODY + 1.4 + 0.65 + step * 1.3, 0),
+				color = darker,
+				material = Enum.Material.Slate,
+				parent = folder,
+			})
+		end
+		Build.part({
+			name = "TombUrn",
+			shape = Enum.PartType.Ball,
+			size = Vector3.new(3.4, 3.4, 3.4),
+			cframe = basis * CFrame.new(0, 1.6 + BODY + 4.4, 0),
+			color = lichen,
+			material = Enum.Material.Rock,
+			parent = folder,
+		})
+
+		--- The doorway: a void set into the face, barred, under a lintel.
+		local face = W * 0.5
+		Build.part({
+			name = "TombVoid",
+			size = Vector3.new(5.4, 8.4, 1),
+			cframe = basis * CFrame.new(0, 1.6 + 4.2, -face + 0.4),
+			color = Color3.fromRGB(9, 8, 10),
+			material = Enum.Material.SmoothPlastic,
+			parent = folder,
+		})
+		for bar = -2, 2 do
+			Build.part({
+				name = "TombBar",
+				size = Vector3.new(0.4, 8, 0.4),
+				cframe = basis * CFrame.new(bar * 1.2, 1.6 + 4, -face - 0.1),
+				color = iron,
+				material = Enum.Material.Metal,
+				canCollide = false,
+				parent = folder,
+			})
+		end
+		Build.part({
+			name = "TombLintel",
+			size = Vector3.new(7.4, 1.2, 1.6),
+			cframe = basis * CFrame.new(0, 1.6 + 8.8, -face - 0.1),
+			color = darker,
+			material = Enum.Material.Slate,
+			parent = folder,
+		})
+		for side in { -1, 1 } do
+			Build.part({
+				name = "TombColumn",
+				shape = Enum.PartType.Cylinder,
+				size = Vector3.new(8.4, 2.2, 2.2),
+				cframe = basis
+					* CFrame.new(side * 4.2, 1.6 + 4.2, -face - 0.6)
+					* CFrame.Angles(0, 0, math.rad(90)),
+				color = granite,
+				material = Enum.Material.Rock,
+				parent = folder,
+			})
+		end
+		--- Two steps up to the door, so it stands on something.
+		for step = 0, 1 do
+			Build.part({
+				name = "TombStep",
+				size = Vector3.new(9 - step * 1.6, 0.8, 2.4 - step * 0.6),
+				cframe = basis * CFrame.new(0, 0.4 + step * 0.8, -face - 2.6 + step * 0.8),
+				color = darker,
+				material = Enum.Material.Slate,
+				parent = folder,
+			})
+		end
+	end
+
+	for _, key in blockOrder do
+		local entry = blockCentre[key]
+		if mausoleumBlock[key] and entry and entry.count > 0 then
+			mausoleum(entry.sum / entry.count)
+		end
+	end
+
 	return folder
 end
 
-function Structures.maze(context: Context, zone: Types.ZoneDef, tint: Color3?, height: number?)
+--[[
+	What a maze is grown out of.
+
+	`prop` is the catalogue entry a wall tile is built from, `tint` the colour
+	it is asked for, and `height` how far over your head it stands. A tinted
+	mesh is also darkened against its own texture, which is right for yew and
+	wrong for corn — corn is already the colour it should be, and dragging it
+	towards a tint only makes it muddy — so `shade` says whether to.
+]]
+export type MazeCrop = {
+	prop: string,
+	tint: Color3?,
+	height: number?,
+	shade: boolean?,
+	--- A random turn on every tile, so a long row is not one plant cloned.
+	spin: boolean?,
+	--- Scarecrows to stand in the corridors. A corn maze has one; it is most
+	--- of why a corn maze is frightening rather than agricultural.
+	sentinels: number?,
+}
+
+function Structures.maze(context: Context, zone: Types.ZoneDef, crop: MazeCrop?)
 	local r = zone.rect
 	local tile = context.tileSize
 	local folder = Build.folder(`Maze_{zone.id}`, context.parent)
@@ -1822,7 +2093,9 @@ function Structures.maze(context: Context, zone: Types.ZoneDef, tint: Color3?, h
 	local PITCH = 4
 	local cols = math.max(math.floor((r.w - 1) / PITCH), 1)
 	local rows = math.max(math.floor((r.d - 1) / PITCH), 1)
-	local wallHeight = height or 9
+	local grown: MazeCrop = crop or { prop = "Hedge", shade = true }
+	local tint = grown.tint
+	local wallHeight = grown.height or 9
 
 	--[[
 		Walls between cells, indexed by the cell on their low side.
@@ -1966,12 +2239,43 @@ function Structures.maze(context: Context, zone: Types.ZoneDef, tint: Color3?, h
 		if tx < r.x or tx >= r.x + r.w or tz < r.z or tz >= r.z + r.d then
 			return
 		end
+		--[[
+			A hedge is clipped square and corn is not.
+
+			The hedge is grown a touch wider than its tile and slightly
+			flattened, because a clipped hedge is a wall with a face. Corn
+			stands in a round clump and every plant leans its own way, so it
+			takes the tile square and a turn of its own — without the turn a
+			corridor is the same plant printed forty times down its length,
+			which reads as wallpaper rather than as a crop.
+		]]
+		local square = grown.spin == true
+		local spin = if square then context.rng:NextNumber(0, math.pi * 2) else 0
 		local part = Build.mesh({
-			prop = "Hedge",
-			name = "Hedge",
-			size = Vector3.new(tile + 1, wallHeight, tile * 0.9 + 1),
-			collisionSize = Vector3.new(tile, wallHeight, tile * 0.9),
-			cframe = CFrame.new(context.flat(tx, tz) + Vector3.new(0, wallHeight * 0.5, 0)),
+			prop = grown.prop,
+			name = grown.prop,
+			size = if square
+				then Vector3.new(tile + 1, wallHeight, tile + 1)
+				else Vector3.new(tile + 1, wallHeight, tile * 0.9 + 1),
+			--[[
+				A turned tile sweeps a wider footprint than a square one.
+
+				Collision turns with the part, so a four-by-three-and-a-half
+				box at forty-five degrees reaches five and a half studs corner
+				to corner. Left at the hedge's size that quietly narrowed every
+				corridor and, because the buried-tile sweep clears whatever a
+				solid thing stands over, cut a third of the section's work away
+				with it — two thousand one hundred sown tiles down to one
+				thousand three hundred. Pulled in to four fifths of a tile, a
+				turned stalk covers about what an unturned hedge did, and you
+				brush through the edge of the crop rather than the corridor
+				being smaller than it looks.
+			]]
+			collisionSize = if square
+				then Vector3.new(tile * 0.8, wallHeight, tile * 0.8)
+				else Vector3.new(tile, wallHeight, tile * 0.9),
+			cframe = CFrame.new(context.flat(tx, tz) + Vector3.new(0, wallHeight * 0.5, 0))
+				* CFrame.Angles(0, spin, 0),
 			color = tint,
 			parent = folder,
 		})
@@ -1988,8 +2292,8 @@ function Structures.maze(context: Context, zone: Types.ZoneDef, tint: Color3?, h
 			colour's strongest channel instead, it goes dark without going
 			grey.
 		]]
-		local mesh = if tint then part:FindFirstChildOfClass("SpecialMesh") else nil
-		if tint and mesh and mesh.TextureId ~= "" then
+		local mesh = if tint and grown.shade then part:FindFirstChildOfClass("SpecialMesh") else nil
+		if tint and grown.shade and mesh and mesh.TextureId ~= "" then
 			local shade = tint :: Color3
 			local strongest = math.max(shade.R, shade.G, shade.B, 0.001)
 			mesh.VertexColor = Vector3.new(shade.R, shade.G, shade.B) * (YEW_BRIGHTNESS / strongest)
@@ -2027,6 +2331,115 @@ function Structures.maze(context: Context, zone: Types.ZoneDef, tint: Color3?, h
 		if right[-1][cz] then
 			for step = 1, PITCH - 1 do
 				hedge(r.x, r.z + cz * PITCH + step)
+			end
+		end
+	end
+
+	--[[
+		Somebody standing in the corridor who is not going to move.
+
+		Built rather than found: a scarecrow is a cross of two sticks with a
+		sack on it, which is four parts and a hat, and nothing in the
+		catalogue is one. It stands in the middle of a cell, so a player comes
+		round a corner into it — a corridor is twelve studs across and this is
+		two, so it is in the way of your eye and not of your mower.
+
+		The eyes are the whole point. Two chips of neon in a sack head, lit
+		just enough to carry down a dark row, is the difference between a
+		scarecrow and a scare.
+	]]
+	local sentinels = grown.sentinels or 0
+	if sentinels > 0 and cols > 0 and rows > 0 then
+		local placed: { [string]: boolean } = {}
+		for _ = 1, sentinels do
+			local cx, cz
+			for _ = 1, 20 do
+				cx, cz = rng:NextInteger(0, cols - 1), rng:NextInteger(0, rows - 1)
+				if not placed[`{cx},{cz}`] then
+					break
+				end
+			end
+			placed[`{cx},{cz}`] = true
+			local tx = r.x + cx * PITCH + 2
+			local tz = r.z + cz * PITCH + 2
+			if tx < r.x + r.w and tz < r.z + r.d then
+				local foot = context.flat(tx, tz) + Vector3.new(0, zone.elevation or 0, 0)
+				local turn = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+				local basis = CFrame.new(foot) * turn
+				local POST = 12
+				Build.part({
+					name = "ScarecrowPost",
+					size = Vector3.new(0.8, POST, 0.8),
+					cframe = basis * CFrame.new(0, POST * 0.5, 0),
+					color = Color3.fromRGB(64, 48, 34),
+					material = Enum.Material.Wood,
+					parent = folder,
+				})
+				Build.part({
+					name = "ScarecrowArms",
+					size = Vector3.new(10, 0.7, 0.7),
+					cframe = basis * CFrame.new(0, POST - 3.4, 0),
+					color = Color3.fromRGB(64, 48, 34),
+					material = Enum.Material.Wood,
+					canCollide = false,
+					parent = folder,
+				})
+				Build.part({
+					name = "ScarecrowBody",
+					size = Vector3.new(3.6, 5, 2.4),
+					cframe = basis * CFrame.new(0, POST - 4.4, 0),
+					color = Color3.fromRGB(150, 128, 84),
+					material = Enum.Material.Fabric,
+					canCollide = false,
+					parent = folder,
+				})
+				local head = Build.part({
+					name = "ScarecrowHead",
+					size = Vector3.new(2.8, 3, 2.6),
+					cframe = basis * CFrame.new(0, POST - 0.4, 0),
+					color = Color3.fromRGB(164, 142, 96),
+					material = Enum.Material.Fabric,
+					canCollide = false,
+					parent = folder,
+				})
+				for _, side in { -1, 1 } do
+					Build.part({
+						name = "ScarecrowEye",
+						size = Vector3.new(0.5, 0.5, 0.4),
+						cframe = basis * CFrame.new(side * 0.65, POST - 0.1, -1.3),
+						color = Color3.fromRGB(255, 140, 30),
+						material = Enum.Material.Neon,
+						canCollide = false,
+						castShadow = false,
+						parent = folder,
+					})
+				end
+				local glow = Instance.new("PointLight")
+				glow.Color = Color3.fromRGB(255, 150, 50)
+				glow.Range = 11
+				glow.Brightness = 0.5
+				glow.Shadows = false
+				glow.Parent = head
+				Build.part({
+					name = "ScarecrowHat",
+					shape = Enum.PartType.Cylinder,
+					size = Vector3.new(0.4, 5, 5),
+					cframe = basis * CFrame.new(0, POST + 1.2, 0) * CFrame.Angles(0, 0, math.rad(90)),
+					color = Color3.fromRGB(44, 36, 28),
+					material = Enum.Material.Fabric,
+					canCollide = false,
+					parent = folder,
+				})
+				Build.part({
+					name = "ScarecrowCrown",
+					shape = Enum.PartType.Cylinder,
+					size = Vector3.new(2, 3.4, 3.4),
+					cframe = basis * CFrame.new(0, POST + 2.4, 0) * CFrame.Angles(0, 0, math.rad(90)),
+					color = Color3.fromRGB(44, 36, 28),
+					material = Enum.Material.Fabric,
+					canCollide = false,
+					parent = folder,
+				})
 			end
 		end
 	end
