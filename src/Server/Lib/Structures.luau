@@ -226,6 +226,23 @@ Structures.roomSets = {
 }
 
 --[[
+	And what is lying about on a roof.
+
+	A rooftop drew from the yard set, which has bushes, rocks and logs in it,
+	so The House's roof deck had a shrub growing out of it and a boulder
+	sitting next to it — twenty-nine studs up, on slate. Nothing that needs
+	soil, and nothing anybody would have carried up there for no reason: what
+	is on a flat roof is the things somebody left after working on it.
+]]
+local ROOF_PROPS: { PropSpec } = {
+	{ prop = "Crate", size = Vector3.new(5, 3.4, 4.5) },
+	{ prop = "Barrel", size = Vector3.new(4, 5.5, 4) },
+	{ prop = "Bin", size = Vector3.new(4, 6.5, 4) },
+	{ prop = "Sack", size = Vector3.new(4, 2.6, 3) },
+	{ prop = "Planter", size = Vector3.new(5, 4.5, 5) },
+}
+
+--[[
 	Scatters props across a zone.
 
 	Props sit on the zone's own floor and do not collide, so they never wall a
@@ -246,7 +263,11 @@ function Structures.clutter(
 	local elevation = zone.elevation or 0
 	-- A room's four things are crates and drums whatever the property is;
 	-- what is scattered outdoors is where a lot shows its character.
-	local set = if zone.kind == "room" then (room or ROOM_PROPS) else (yard or YARD_PROPS)
+	local kind = zone.kind or "open"
+	local set = if kind == "room"
+		then (room or ROOM_PROPS)
+		elseif kind == "roof" then ROOF_PROPS
+		else (yard or YARD_PROPS)
 	local folder = Build.folder(`Clutter_{zone.id}`, context.parent)
 	local r = zone.rect
 
@@ -2053,6 +2074,70 @@ function Structures.pool(context: Context, zone: Types.ZoneDef)
 		parent = folder,
 	})
 	water.Reflectance = 0.2
+
+	--[[
+		A ladder and a board, which is what tells you it is a swimming pool.
+
+		Six parts — a floor, four walls and a sheet of water — is a blue
+		rectangle in the ground. It is the one thing on this property anybody
+		would describe if you asked them what was in the garden, and it had
+		nothing you could name in it.
+
+		Both stand on the rim rather than in the water, and neither collides:
+		the rim is walked on and mown, and a solid handrail at the edge of the
+		basin is something to catch on for no gain.
+	]]
+	local lip = centre + Vector3.new(0, 0.2, 0)
+	local halfW, halfD = width * 0.5, depth * 0.5
+	local steel = Color3.fromRGB(196, 200, 208)
+
+	--- The ladder, at the deep end's near corner.
+	local ladderAt = lip + Vector3.new(halfW - 7, 0, halfD)
+	for _, side in { -1, 1 } do
+		Build.part({
+			name = "PoolRail",
+			shape = Enum.PartType.Cylinder,
+			size = Vector3.new(7, 0.7, 0.7),
+			cframe = CFrame.new(ladderAt + Vector3.new(side * 1.6, 3.4, 0))
+				* CFrame.Angles(0, 0, math.rad(90)),
+			color = steel,
+			material = Enum.Material.Metal,
+			canCollide = false,
+			castShadow = false,
+			parent = folder,
+		})
+	end
+	Build.part({
+		name = "PoolRailArc",
+		size = Vector3.new(3.9, 0.7, 0.7),
+		cframe = CFrame.new(ladderAt + Vector3.new(0, 6.9, 0)),
+		color = steel,
+		material = Enum.Material.Metal,
+		canCollide = false,
+		castShadow = false,
+		parent = folder,
+	})
+
+	--- The board, cantilevered out over the shallow end.
+	local boardAt = lip + Vector3.new(-halfW + 2, 0, 0)
+	Build.part({
+		name = "DivingPlinth",
+		size = Vector3.new(3, 2.6, 5),
+		cframe = CFrame.new(boardAt + Vector3.new(-1, 1.3, 0)),
+		color = Palette.color(Palette.ground.stone),
+		material = Enum.Material.Concrete,
+		parent = folder,
+	})
+	Build.part({
+		name = "DivingBoard",
+		size = Vector3.new(11, 0.7, 4),
+		cframe = CFrame.new(boardAt + Vector3.new(3.5, 2.8, 0)),
+		color = Color3.fromRGB(238, 240, 236),
+		material = Enum.Material.SmoothPlastic,
+		canCollide = false,
+		castShadow = false,
+		parent = folder,
+	})
 
 	return folder
 end
