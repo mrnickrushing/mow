@@ -3446,6 +3446,8 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 						floor = Palette.color(Palette.estate.gravelDark),
 					}
 					elseif world.style == "churchyard" then {
+						-- The room under a chapel is a crypt, not a cellar.
+						underground = "crypt",
 						wall = Palette.color(Palette.churchyard.granite),
 						wallSunken = Palette.color(Palette.churchyard.graniteDark),
 						roof = Palette.color(Palette.churchyard.graniteDark),
@@ -4873,6 +4875,7 @@ function WorldService.setSectionOpen(sectionId: string, open: boolean)
 			cashGates[sectionId] = nil
 			gate:Destroy()
 		end
+
 	else
 		openSections[sectionId] = nil
 	end

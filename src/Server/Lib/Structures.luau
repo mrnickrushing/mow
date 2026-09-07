@@ -657,7 +657,7 @@ export type RoomSkin = {
 		it is the cellar furniture arriving somewhere it was never meant to go,
 		which is the same fault the room skins and the exit masonry had.
 	]]
-	underground: ("cellar" | "workshop")?,
+	underground: ("cellar" | "workshop" | "crypt")?,
 }
 
 function Structures.room(
@@ -1046,7 +1046,115 @@ function Structures.room(
 			room. `lookAt(at, at + facing)` cannot be got backwards.
 		]]
 		local shelfWall, fireWall = freeWalls[1], freeWalls[2]
-		if dressing.underground == "workshop" then
+		if dressing.underground == "crypt" then
+			--[[
+				A crypt is not a cellar with the lights on.
+
+				It had the shelves and the fire, because that is what the room
+				under a house gets and there was only one kind of room under
+				anything. Reported, correctly, as looking like a basement: a
+				library with a hearth in it is somebody's house, and this is
+				the undercroft of a chapel with the parish's dead in it.
+
+				So one wall is loculi — the stacked niches a crypt actually
+				stores coffins in, some sealed with a pale slab and some
+				standing open onto the same near-black the mausoleums use —
+				and the other has a chest tomb against it with urns either
+				side. Nothing burns down here.
+			]]
+			local bays = math.max(math.floor(shelfWall.span / 40), 1)
+			for index = 1, bays do
+				local slide = -shelfWall.span * 0.5 + shelfWall.span * (index / (bays + 1))
+				local offset = if alongZWalls then Vector3.new(0, 0, slide) else Vector3.new(slide, 0, 0)
+				local at = centre + shelfWall.at + offset
+				local base = CFrame.lookAt(at, at + shelfWall.facing)
+				local BAY_W, BAY_H = 28, 12
+				Build.part({
+					name = "NicheVoid",
+					size = Vector3.new(BAY_W, BAY_H, 2.4),
+					cframe = base * CFrame.new(0, 1.4 + BAY_H * 0.5, -1),
+					color = Color3.fromRGB(11, 10, 12),
+					material = Enum.Material.SmoothPlastic,
+					parent = folder,
+				})
+				--- The stonework that divides the recess into nine mouths.
+				for column = -1, 1 do
+					Build.part({
+						name = "NicheMullion",
+						size = Vector3.new(1.6, BAY_H, 2.8),
+						cframe = base * CFrame.new(column * BAY_W / 3, 1.4 + BAY_H * 0.5, -1.1),
+						color = dressing.wall,
+						material = Enum.Material.Rock,
+						parent = folder,
+					})
+				end
+				for course = 0, 3 do
+					Build.part({
+						name = "NicheCourse",
+						size = Vector3.new(BAY_W + 2, 1.4, 2.8),
+						cframe = base * CFrame.new(0, 1.4 + course * (BAY_H / 3), -1.1),
+						color = dressing.wall,
+						material = Enum.Material.Rock,
+						parent = folder,
+					})
+				end
+				--- Some of them sealed, some of them not.
+				local sealed = { { -1, 0 }, { 0, 2 }, { 1, 1 }, { -1, 2 } }
+				for _, cell in sealed do
+					Build.part({
+						name = "NicheSlab",
+						size = Vector3.new(BAY_W / 3 - 2.2, BAY_H / 3 - 1.8, 0.6),
+						cframe = base
+							* CFrame.new(
+								cell[1] * BAY_W / 3 + BAY_W / 6,
+								1.4 + cell[2] * (BAY_H / 3) + BAY_H / 6,
+								-2.3
+							),
+						color = dressing.wallSunken,
+						material = Enum.Material.Slate,
+						parent = folder,
+					})
+				end
+			end
+
+			local tombAt = centre + fireWall.at
+			local tombBase = CFrame.lookAt(tombAt, tombAt + fireWall.facing)
+			Build.part({
+				name = "ChestTomb",
+				size = Vector3.new(9, 4.4, 18),
+				cframe = tombBase * CFrame.new(0, 2.2, -6),
+				color = dressing.wall,
+				material = Enum.Material.Rock,
+				parent = folder,
+			})
+			Build.part({
+				name = "TombLid",
+				size = Vector3.new(10.6, 1.4, 19.6),
+				cframe = tombBase * CFrame.new(0, 5.1, -6),
+				color = dressing.wallSunken,
+				material = Enum.Material.Slate,
+				parent = folder,
+			})
+			for _, side in { -1, 1 } do
+				Build.part({
+					name = "UrnPlinth",
+					size = Vector3.new(3.4, 5, 3.4),
+					cframe = tombBase * CFrame.new(side * 11, 2.5, -6),
+					color = dressing.wallSunken,
+					material = Enum.Material.Slate,
+					parent = folder,
+				})
+				Build.part({
+					name = "Urn",
+					shape = Enum.PartType.Ball,
+					size = Vector3.new(3, 3, 3),
+					cframe = tombBase * CFrame.new(side * 11, 6.4, -6),
+					color = dressing.wall,
+					material = Enum.Material.Rock,
+					parent = folder,
+				})
+			end
+		elseif dressing.underground == "workshop" then
 			--[[
 				A bench down one wall and a rack of drums against the other.
 
@@ -1420,10 +1528,35 @@ function Structures.room(
 				overhead are already doing the work of seeing by. What these
 				are for is the colour on the stone.
 			]]
+			--[[
+				Not one over the door.
+
+				The windows are spaced evenly down both long walls without
+				asking where the way in is, so on a room whose door happens to
+				land near a spacing mark the doorway came out with a lit
+				window across it — reported as the door being covered by a
+				window. The opening knows where it is and how wide; anything
+				that would stand within half the doorway plus half a window of
+				it is simply not built.
+			]]
+			local doorSide = 0
+			local doorAt = 0
+			if opening then
+				local acrossNormal = if alongX then opening.normal.Z else opening.normal.X
+				if math.abs(acrossNormal) > 0.5 then
+					doorSide = if acrossNormal > 0 then 1 else -1
+					doorAt = opening.offset or 0
+				end
+			end
 			local perSide = math.max(math.floor(long / 40), 2)
 			for _, side in { -1, 1 } do
 				for index = 1, perSide do
 					local down = long * (index / (perSide + 1) - 0.5)
+					local clashes = side == doorSide
+						and math.abs(down - doorAt) < (if opening then opening.width * 0.5 else 0) + 5
+					if clashes then
+						continue
+					end
 					--[[
 						On the wall's own centre line, and thicker than it.
 
