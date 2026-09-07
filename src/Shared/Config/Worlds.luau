@@ -580,8 +580,16 @@ local cemetery: Types.WorldDef = {
 		nothing the name did not. This one is the churchyard at night: the
 		chapel with its windows lit, the moon behind a bare tree, and the
 		stones going back into the dark.
+
+		Drawn wide, four to one, because a card is a hundred pixels tall and
+		four hundred and forty across and the image is cropped to fill it. A
+		square picture puts only its middle band on the card, and the middle
+		band of a night scene is its darkest part — so the first version of
+		this was a black rectangle on a locked row, which is where nearly
+		everybody meets it. Drawn to the shape it is shown at, the moon, the
+		lit windows and the lantern are all inside the frame.
 	]]
-	art = "rbxassetid://78179810909493",
+	art = "rbxassetid://110650925530757",
 	requiresWorld = "gas_station",
 	gridWidth = 144,
 	gridDepth = 144,

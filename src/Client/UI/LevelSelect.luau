@@ -283,9 +283,21 @@ local function drawCard(world: Types.WorldDef, order: number)
 	shade.Parent = banner
 
 	if not open then
-		-- A property you have not earned is dimmed, not hidden: the picture is
-		-- most of what makes it worth earning.
-		shade.Color = ColorSequence.new(Color3.fromRGB(104, 104, 104), Color3.fromRGB(54, 54, 54))
+		--[[
+			A property you have not earned is dimmed, not hidden: the picture
+			is most of what makes it worth earning.
+
+			Forty per cent down to twenty was fine while every card was a
+			daylight photograph and takes the one night picture to black. The
+			Cemetery is drawn after dark, so locked — which is how nearly
+			everybody meets it — it was a black rectangle with a name on it,
+			which is the fault this comment is about.
+
+			Fifty-five down to twenty-seven leaves the moon and the lit
+			windows readable and is still, at every point down the card,
+			darker than the gradient an unlocked one gets.
+		]]
+		shade.Color = ColorSequence.new(Color3.fromRGB(140, 140, 140), Color3.fromRGB(70, 70, 70))
 	end
 
 	--[[
