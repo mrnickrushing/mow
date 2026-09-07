@@ -115,7 +115,34 @@ WorldService.SwitchTried = switchSignal.Event
 local openSections: { [string]: boolean } = {}
 
 local container: Folder? = nil
+--[[
+	Reseeded per property at load, not left to chance.
+
+	This was `Random.new()` with no seed, and it draws the tile seeding, the
+	clutter scatter, the maze carve and everything else a property is built
+	from — so the same property was a different property on every server.
+	Measured by building the Cemetery three times in a row from identical
+	code: 132,443 units, then 133,313, then 133,596. Nearly a percent of
+	spread in how much work the ladder's hardest rung asks for.
+
+	That matters because there is a time-record board. Two players racing The
+	House are racing over different amounts of grass, and the one whose server
+	rolled lighter wins. It is also what the graves builder already says it
+	wants when it seeds its own generator so "a churchyard built twice is the
+	same churchyard".
+
+	So the seed comes from the property itself: same everywhere, different
+	between properties, and stable across restarts.
+]]
 local rng = Random.new()
+
+local function seedOf(world: Types.WorldDef): number
+	local seed = world.gridWidth * 7919 + world.gridDepth * 104729
+	for index = 1, #world.id do
+		seed = (seed * 31 + string.byte(world.id, index)) % 2147483647
+	end
+	return seed
+end
 
 --------------------------------------------------------------------
 -- Helpers
@@ -3911,6 +3938,120 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 	end
 
 	--[[
+		The walks themselves, which the section is named after.
+
+		`the_walks` costs two hundred and forty and its line reads "gravel
+		paths gone to weed". There were no paths: `Worlds.pavingRects` returns
+		nothing without a `houseRect`, and this property has a chapel rather
+		than a house, so the one section on the ladder you have to buy was a
+		lawn with weeds on it and a name that promised otherwise.
+
+		Laid out the way a churchyard is: a broad walk in from the gate, a
+		cross walk along the head of the lawns reaching the two gateways in
+		the dwarf walls, and a cross through the bought section so it earns
+		its name.
+
+		Deliberately *not* in a folder called `Paving`. The buried-tile sweep
+		empties whatever paving stands on, which is right for the front path
+		of a house — grass through your own flagstones is the complaint that
+		put that rule there — and exactly wrong here, where the weeds coming
+		up through the gravel are the thing being sold. So nothing under them
+		is cleared, the section's work is unchanged to the unit, and what
+		grows on them stays.
+	]]
+	local walksFolder = Build.folder("Walks", yard)
+	local gravel = Palette.color(Palette.churchyard.gravel)
+	local function sectionRect(id: string): Types.Rect?
+		for _, sec in world.sections do
+			if sec.id == id then
+				return sec.rect
+			end
+		end
+		return nil
+	end
+	local lawns, rows, walksRect = sectionRect("the_lawns"), sectionRect("the_rows"), sectionRect("the_walks")
+	if lawns and rows and walksRect then
+		--- The gap between the rows and the walks is where the gate already
+		--- points, so the main walk runs straight up it from the lychgate.
+		local spineX = (rows.x + rows.w + walksRect.x) * 0.5 * TILE
+		--- The head of the lawns, a little short of the dwarf wall.
+		local crossZ = (lawns.z + lawns.d) * TILE - 12
+		--- Where the two gateways stand, which is the middle of each wall's
+		--- frontage; the stubs have to meet them or the cross walk stops at
+		--- a wall.
+		local rowsGate = (rows.x + math.min(lawns.x + lawns.w, rows.x + rows.w)) * 0.5 * TILE
+		local walksGate = (walksRect.x + math.min(lawns.x + lawns.w, walksRect.x + walksRect.w)) * 0.5 * TILE
+		local gapMid = (lawns.z + lawns.d + rows.z) * 0.5 * TILE
+
+		local WALK_W = 9
+		local runs: { { from: Vector3, to: Vector3 } } = {
+			-- In from the gate, up the middle.
+			{ from = Vector3.new(spineX, 0, 6), to = Vector3.new(spineX, 0, crossZ) },
+			-- Across the head of the lawns, gateway to gateway.
+			{ from = Vector3.new(rowsGate, 0, crossZ), to = Vector3.new(walksGate, 0, crossZ) },
+			-- And through each gateway into the section beyond.
+			{ from = Vector3.new(rowsGate, 0, crossZ), to = Vector3.new(rowsGate, 0, gapMid + 8) },
+			{ from = Vector3.new(walksGate, 0, crossZ), to = Vector3.new(walksGate, 0, gapMid + 8) },
+			-- The bought section's own cross.
+			{
+				from = Vector3.new(walksGate, 0, walksRect.z * TILE),
+				to = Vector3.new(walksGate, 0, (walksRect.z + walksRect.d) * TILE),
+			},
+			{
+				from = Vector3.new(walksRect.x * TILE, 0, (walksRect.z + walksRect.d * 0.5) * TILE),
+				to = Vector3.new((walksRect.x + walksRect.w) * TILE, 0, (walksRect.z + walksRect.d * 0.5) * TILE),
+			},
+		}
+		for _, run in runs do
+			local delta = run.to - run.from
+			local length = delta.Magnitude
+			if length > 2 then
+				local alongX = math.abs(delta.X) > math.abs(delta.Z)
+				local mid = (run.from + run.to) * 0.5
+				Build.part({
+					name = "Walk",
+					size = if alongX
+						then Vector3.new(length, 0.5, WALK_W)
+						else Vector3.new(WALK_W, 0.5, length),
+					--[[
+						Seven hundredths proud of the lawn.
+
+						Flush, the gravel and the grass share a plane and
+						flicker the length of every walk; this is the same
+						margin the tennis court has used since it was laid,
+						and it is under the leaves lying on it.
+					]]
+					cframe = CFrame.new(mid + Vector3.new(0, -0.18, 0)),
+					color = gravel,
+					material = Enum.Material.Pebble,
+					canCollide = false,
+					castShadow = false,
+					parent = walksFolder,
+				})
+				--- A kerb down each side, which is what stops a gravel walk
+				--- reading as a grey stripe painted on the grass.
+				for _, side in { -1, 1 } do
+					local offset = if alongX
+						then Vector3.new(0, 0, side * (WALK_W * 0.5 + 0.5))
+						else Vector3.new(side * (WALK_W * 0.5 + 0.5), 0, 0)
+					Build.part({
+						name = "WalkKerb",
+						size = if alongX
+							then Vector3.new(length, 0.7, 1)
+							else Vector3.new(1, 0.7, length),
+						cframe = CFrame.new(mid + offset + Vector3.new(0, -0.05, 0)),
+						color = graniteDark,
+						material = Enum.Material.Slate,
+						canCollide = false,
+						castShadow = false,
+						parent = walksFolder,
+					})
+				end
+			end
+		end
+	end
+
+	--[[
 		Mist lying on the ground, which is most of what makes a churchyard
 		frightening and costs almost nothing.
 
@@ -4509,6 +4650,10 @@ function WorldService.load(worldId: string)
 	-- gates would otherwise be found and raised on this one.
 	table.clear(roomGates)
 	table.clear(WorldService.buriedTiles)
+
+	-- Before anything is sown or scattered, so the whole property comes out
+	-- the same on every server that builds it.
+	rng = Random.new(seedOf(world))
 
 	seedTiles(world, grid, tiles)
 
