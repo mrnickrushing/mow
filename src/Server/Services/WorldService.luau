@@ -1274,14 +1274,52 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 	end
 
 	--[[
-		A lamp on each of the two outer columns.
+		A lamp either side of the door, on a bracket.
 
 		A frontage this wide needs something at eye level that is not stone,
 		and a pair of lanterns either side of the door is the thing every
 		house of this kind puts there.
+
+		On a bracket, because the mesh is a hurricane lamp with a carrying
+		hoop on the top of it and nothing was holding it: what stood on the
+		wall was a black oval floating flat against fourteen studs of blank
+		ashlar, and from the drive it read as a mark on the stone rather than
+		as a light. A plate, an arm out of it and a hook to hang from, and it
+		stands clear of the wall the way a lantern has to.
+
 	]]
+	local FLAME = Color3.fromRGB(255, 226, 170)
 	for _, side in { -1, 1 } do
 		local x = centre.X + side * (porticoWidth * 0.5 + 4)
+		local hangZ = doorZ - 2.8
+		local armY = PLINTH + 15.6
+		Build.part({
+			name = "LampPlate",
+			size = Vector3.new(1.6, 3.2, 0.4),
+			cframe = CFrame.new(x, armY - 0.6, doorZ - 0.6),
+			color = Palette.color(Palette.estate.iron),
+			material = Enum.Material.Metal,
+			canCollide = false,
+			parent = manor,
+		})
+		Build.part({
+			name = "LampArm",
+			size = Vector3.new(0.5, 0.5, 2.6),
+			cframe = CFrame.new(x, armY, doorZ - 1.7),
+			color = Palette.color(Palette.estate.iron),
+			material = Enum.Material.Metal,
+			canCollide = false,
+			parent = manor,
+		})
+		Build.part({
+			name = "LampHook",
+			size = Vector3.new(0.4, 1.3, 0.4),
+			cframe = CFrame.new(x, armY - 0.65, hangZ),
+			color = Palette.color(Palette.estate.iron),
+			material = Enum.Material.Metal,
+			canCollide = false,
+			parent = manor,
+		})
 		local lamp = Build.mesh({
 			prop = "Lantern",
 			name = "Lamp",
@@ -1289,12 +1327,12 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 			color = Palette.color(Palette.estate.iron),
 			size = Vector3.new(3.4, 4.4, 3.4),
 			collisionSize = Vector3.new(2, 4.4, 2),
-			cframe = CFrame.new(x, PLINTH + 13, doorZ - 1),
+			cframe = CFrame.new(x, PLINTH + 13, hangZ),
 			canCollide = false,
 			parent = manor,
 		})
 		local glow = Instance.new("PointLight")
-		glow.Color = Color3.fromRGB(255, 226, 170)
+		glow.Color = FLAME
 		glow.Range = 26
 		glow.Brightness = 1.4
 		glow.Parent = lamp
@@ -5078,9 +5116,21 @@ function WorldService.load(worldId: string)
 		-- The fountain, in the middle of the circle
 		--------------------------------------------------------------------
 
+		--[[
+			On the house's axis, not the spawn's.
+
+			The drive is laid by `Worlds.pavingRects`, which measures from the
+			middle of `houseRect`; the fountain took its x from the spawn
+			instead, and the two are a tile apart. So the basin, the parterre
+			around it and the urns up either side all stood four studs to one
+			side of the drive they are the middle of, and of the door they
+			point at. On a formal front, the axis is the whole composition.
+		]]
 		local hr = world.houseRect
+		local axisTile = if hr then hr.x + hr.w * 0.5 else world.spawn.x
+		local axis = WorldService.tilePointFlat(axisTile, world.spawn.z)
 		local circle = Vector3.new(
-			spawnAt.X,
+			axis.X,
 			ground,
 			if hr then (hr.z * TILE + TILE * 0.5) - 46 else spawnAt.Z + 60
 		)
@@ -5106,22 +5156,79 @@ function WorldService.load(worldId: string)
 			canCollide = false,
 			parent = estate,
 		})
-		for tier, size in { 9, 6, 3.4 } do
+		--[[
+			Round bowls on a round stem, each of them holding water.
+
+			The three tiers were always cylinders and always read as square,
+			because the thing running up through the middle of them was a
+			two-stud block twelve studs tall — a square post in a round
+			basin, with a stud and a half of daylight between each disc and
+			nothing in any of them. What you saw from the drive was a stack
+			of slabs on a chimney standing in a pond.
+
+			A stem that is round and steps in as it rises, a lip round each
+			bowl so it has an edge to hold anything, a sheet of water in it,
+			and a ball on the top: a fountain is a thing water comes out of
+			and down, and none of that was legible.
+		]]
+		local water = Palette.color(Palette.estate.water)
+		local BOWLS = { { across = 9, at = 9.2 }, { across = 6, at = 13.6 }, { across = 3.6, at = 17 } }
+		local stemBase = 4
+		for index, bowl in BOWLS do
+			--- The shaft up to this bowl, narrower each time.
+			local shaft = 4 - (index - 1) * 0.8
+			local top = bowl.at - 0.7
 			Build.part({
-				name = "FountainTier",
+				name = "FountainStem",
 				shape = Enum.PartType.Cylinder,
-				size = Vector3.new(1.8, size, size),
-				cframe = CFrame.new(circle + Vector3.new(0, 5.5 + tier * 3.4, 0))
+				size = Vector3.new(top - stemBase, shaft, shaft),
+				cframe = CFrame.new(circle + Vector3.new(0, (stemBase + top) * 0.5, 0))
 					* CFrame.Angles(0, 0, math.rad(90)),
 				color = quoin,
 				material = Enum.Material.Sandstone,
 				parent = estate,
 			})
+			Build.part({
+				name = "FountainTier",
+				shape = Enum.PartType.Cylinder,
+				size = Vector3.new(1.4, bowl.across, bowl.across),
+				cframe = CFrame.new(circle + Vector3.new(0, bowl.at, 0))
+					* CFrame.Angles(0, 0, math.rad(90)),
+				color = quoin,
+				material = Enum.Material.Sandstone,
+				parent = estate,
+			})
+			Build.part({
+				name = "FountainLip",
+				shape = Enum.PartType.Cylinder,
+				size = Vector3.new(0.7, bowl.across + 0.9, bowl.across + 0.9),
+				cframe = CFrame.new(circle + Vector3.new(0, bowl.at + 0.7, 0))
+					* CFrame.Angles(0, 0, math.rad(90)),
+				color = quoin,
+				material = Enum.Material.Sandstone,
+				parent = estate,
+			})
+			Build.part({
+				name = "FountainWater",
+				shape = Enum.PartType.Cylinder,
+				size = Vector3.new(0.4, bowl.across - 0.4, bowl.across - 0.4),
+				cframe = CFrame.new(circle + Vector3.new(0, bowl.at + 0.85, 0))
+					* CFrame.Angles(0, 0, math.rad(90)),
+				color = water,
+				material = Enum.Material.Glass,
+				transparency = 0.3,
+				castShadow = false,
+				canCollide = false,
+				parent = estate,
+			})
+			stemBase = bowl.at + 0.5
 		end
+		--- The jet the whole thing is built under.
 		Build.part({
-			name = "FountainStem",
-			size = Vector3.new(2.2, 12, 2.2),
-			cframe = CFrame.new(circle + Vector3.new(0, 10, 0)),
+			name = "FountainFinial",
+			shape = Enum.PartType.Ball,
+			size = Vector3.new(2.2, 2.2, 2.2),
+			cframe = CFrame.new(circle + Vector3.new(0, 18.9, 0)),
 			color = quoin,
 			material = Enum.Material.Sandstone,
 			parent = estate,
@@ -5168,7 +5275,7 @@ function WorldService.load(worldId: string)
 		for index = 0, 3 do
 			for _, side in { -1, 1 } do
 				local at = WorldService.tilePointFlat(
-					world.spawn.x + side * 7,
+					math.round(axisTile) + side * 7,
 					world.spawn.z + 4 + index * 7
 				)
 				Structures.urn({
