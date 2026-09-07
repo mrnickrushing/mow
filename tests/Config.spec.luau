@@ -531,6 +531,41 @@ return function()
 			h.expectTrue(#afterHouse >= 2, "beating the house should open the next one")
 		end)
 
+		--[[
+			Height is two bits wide in the tile byte, and the packer masks
+			rather than clamps.
+
+			`ChunkCodec.pack` does `bit32.band(height, 0b11)`, so a fill asking
+			for four comes back as zero and five comes back as one. Nothing
+			errors and nothing warns: the tile is simply sown with a height it
+			was not asked for, or with nothing at all, and the section's total
+			quietly stops matching the ground. A property whose fill is written
+			one number too tall would be unfinishable in a way that looks like
+			a physics bug from inside the game.
+
+			Every fill entry in the game currently sits inside the range. This
+			is here so that stays true the next time a property is written.
+		]]
+		h.it("keeps every fill inside the two bits a tile byte gives height", function()
+			for _, world in Worlds.list do
+				for _, section in world.sections do
+					for _, entry in section.fill do
+						h.expectTrue(
+							entry.heightMin >= 1 and entry.heightMin <= GameConfig.MAX_HEIGHT,
+							`{world.id}/{section.id} sows a minimum height of {entry.heightMin}, `
+								.. `outside 1..{GameConfig.MAX_HEIGHT}`
+						)
+						h.expectTrue(
+							entry.heightMax >= entry.heightMin
+								and entry.heightMax <= GameConfig.MAX_HEIGHT,
+							`{world.id}/{section.id} sows a maximum height of {entry.heightMax}, `
+								.. `outside {entry.heightMin}..{GameConfig.MAX_HEIGHT}`
+						)
+					end
+				end
+			end
+		end)
+
 		h.it("uses a density that leaves some bare ground", function()
 			for _, world in Worlds.list do
 				for _, section in world.sections do
