@@ -37,18 +37,27 @@
 
 local AssetService = game:GetService("AssetService")
 
+local Palette = require(game:GetService("ReplicatedStorage").Shared.Config.Palette)
+
 local Trees = {}
 
 type Layer = {
 	mesh: number,
-	texture: number?,
 	--- The size the layer is drawn at, before the tree is scaled to height.
 	size: Vector3,
 	--- Where it sits, measured from the tree's feet on the ground.
 	at: Vector3,
 	--- YXZ Euler degrees, as `ToEulerAnglesYXZ` reports them.
 	turn: Vector3?,
-	colour: Color3?,
+	--[[
+		How much of the tree's canopy colour this layer shows.
+
+		A crown is not one flat colour: the outside is in the sun and the
+		leaves behind it are in the shade of the leaves in front. The outer
+		mesh takes the colour as picked and the ones inside it take a
+		fraction, which is the whole of the depth a leafless silhouette has.
+	]]
+	shade: number,
 }
 --[[
 	A trunk to stand the crown on, for a species whose meshes have none.
@@ -103,9 +112,9 @@ local SPECIES: { Species } = {
 		-- meet with a stud of overlap rather than a seam.
 		trunk = { height = 14.2, across = 2.7, flare = 3.5, colour = Color3.fromRGB(104, 74, 51) },
 		layers = {
-			{ mesh = 10066618419, texture = 10066748571, size = Vector3.new(3.0, 5.0, 2.8), at = Vector3.new(0.74, 15.73, 1.38) },
-			{ mesh = 10066618421, texture = 3919199672, size = Vector3.new(11.3, 14.5, 13.2), at = Vector3.new(1.38, 22.48, 0.23) },
-			{ mesh = 10066618436, texture = 3919199672, size = Vector3.new(22.0, 23.4, 24.7), at = Vector3.new(0, 24.88, 0) },
+			{ mesh = 10066618419, size = Vector3.new(3.0, 5.0, 2.8), at = Vector3.new(0.74, 15.73, 1.38), shade = 0.7 },
+			{ mesh = 10066618421, size = Vector3.new(11.3, 14.5, 13.2), at = Vector3.new(1.38, 22.48, 0.23), shade = 0.85 },
+			{ mesh = 10066618436, size = Vector3.new(22.0, 23.4, 24.7), at = Vector3.new(0, 24.88, 0), shade = 1 },
 		},
 	},
 }
@@ -146,10 +155,26 @@ local function buildLayer(layer: Layer): MeshPart?
 	part.Anchored = true
 	part.CanCollide = false
 	part.CastShadow = true
-	part.Color = layer.colour or Color3.fromRGB(163, 162, 165)
-	if layer.texture then
-		part.TextureID = `rbxassetid://{layer.texture}`
-	end
+	--[[
+		Painted, not textured.
+
+		Both crown meshes carried the author's own leaf texture, and that
+		texture is a dark, high-contrast photograph of a maple in late
+		autumn. Drawn over a mesh at a fifth of its authored size it stops
+		being leaves and becomes noise: what stood in the back garden was
+		two near-black blobs on sticks, the colour of a burnt hedge, on a
+		property whose whole palette is amber and gold. Repainting them white
+		changed almost nothing, because the darkness is in the image and a
+		part's colour can only take light away.
+
+		The mesh already has the shape — a maple crown, leaf-edged, cut
+		right through in the gaps — so the leaves are the silhouette and the
+		colour is the palette's. `Palette.tree.canopy` was written for this
+		and had been sitting unused since the meshes arrived.
+	]]
+	part.Color = Color3.fromRGB(255, 255, 255)
+	part.Material = Enum.Material.Grass
+	part:SetAttribute("Shade", layer.shade)
 	local turn = layer.turn or Vector3.zero
 	part.CFrame = CFrame.new(layer.at)
 		* CFrame.fromEulerAnglesYXZ(math.rad(turn.X), math.rad(turn.Y), math.rad(turn.Z))
@@ -291,6 +316,23 @@ function Trees.plant(name: string, at: Vector3, height: number, turn: number, pa
 	local drop = base - (at.Y - SINK)
 	if math.abs(drop) > 0.01 then
 		tree:PivotTo(CFrame.new(0, -drop, 0) * tree:GetPivot())
+	end
+
+	--[[
+		One colour per tree, out of the three the drift is made of.
+
+		Every maple the same gold is a row of copies; picked from where the
+		tree stands, it is the same tree on every server and a different one
+		from its neighbour. The leaves that come off it are drawn from the
+		same nine shades, so a tree and the litter under it belong together.
+	]]
+	local roll = (math.floor(at.X * 7.13) + math.floor(at.Z * 3.71)) % #Palette.tree.canopy
+	local canopy = Palette.color(Palette.tree.canopy[roll + 1])
+	for _, part in tree:GetDescendants() do
+		local shade = part:GetAttribute("Shade")
+		if typeof(shade) == "number" and part:IsA("BasePart") then
+			part.Color = Color3.new(canopy.R * shade, canopy.G * shade, canopy.B * shade)
+		end
 	end
 
 	tree.Parent = parent

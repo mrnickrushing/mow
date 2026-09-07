@@ -3538,6 +3538,10 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 						wall = Palette.color(Palette.house.siding),
 						wallSunken = Palette.color(Palette.house.brickDark),
 						roof = Palette.color(Palette.house.roof),
+						-- The only room above ground on this property is the
+						-- garage; below it is somebody's cellar, which is what
+						-- the sunken default already builds.
+						fitting = "garage",
 					}
 				Structures.room(context, section, 16, elevation < 0, opening, skin)
 

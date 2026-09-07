@@ -693,7 +693,7 @@ export type RoomSkin = {
 		windows and a few pews in — the same way a sunken room gets its
 		shelves and its fireplace.
 	]]
-	fitting: ("chapel" | "washbay")?,
+	fitting: ("chapel" | "washbay" | "garage")?,
 	--[[
 		And what a *sunken* room of this property is.
 
@@ -1524,7 +1524,203 @@ function Structures.room(
 			end
 		end
 
-		if dressing.fitting == "washbay" then
+		if dressing.fitting == "garage" then
+			--[[
+				What is in a garage, which is never a car.
+
+				The fourth room on the list with a name on the sign and an
+				empty floor under it. A domestic garage is the place the car
+				is not: a bench down one side, a rack of shelves down the
+				other with boxes on it, a stack of tyres in the corner and
+				tins somebody meant to take to the tip.
+
+				Boards above head height do not collide. A shelf at eight
+				studs is over a player and under nothing the buried-tile sweep
+				reaches, so a solid one would leave the tile under it sown and
+				unstandable — the fault the wash bay's jet heads had.
+			]]
+			--[[
+				Which way round a fitting goes is decided by the doorway, not
+				by which side of the room is longer.
+
+				Taking the longer side put the bench down the wall the door is
+				in and stood thirty-four studs of workbench across the
+				entrance. The two walls the way in does not use are the ones
+				the furniture goes against — the same choice the cellar's
+				bookcases already make, for the same reason.
+			]]
+			local alongX = opening == nil or math.abs(opening.normal.X) > 0.5
+			local long = if alongX then width else depth
+			local across = if alongX then depth else width
+			local function place(down: number, side: number, y: number): Vector3
+				return centre
+					+ (if alongX then Vector3.new(down, y, side) else Vector3.new(side, y, down))
+			end
+			local timberDark = Color3.fromRGB(78, 56, 38)
+			local steel = Color3.fromRGB(126, 130, 138)
+			local wall = across * 0.5 - 4
+
+			--- The bench, down one side.
+			local BENCH = math.min(long * 0.5, 34)
+			Build.part({
+				name = "BenchTop",
+				size = if alongX then Vector3.new(BENCH, 0.9, 5) else Vector3.new(5, 0.9, BENCH),
+				cframe = CFrame.new(place(-long * 0.16, -wall + 2.6, 4.6)),
+				color = Color3.fromRGB(122, 96, 62),
+				material = Enum.Material.WoodPlanks,
+				parent = folder,
+			})
+			for _, end_ in { -1, 1 } do
+				Build.part({
+					name = "BenchLeg",
+					size = Vector3.new(1.2, 4.6, 4),
+					cframe = CFrame.new(
+						place(-long * 0.16 + end_ * (BENCH * 0.5 - 1.4), -wall + 2.6, 2.3)
+					),
+					color = steel,
+					material = Enum.Material.Metal,
+					parent = folder,
+				})
+			end
+			--- Tins on it, because a garage bench always has tins on it.
+			for tin = -1, 1 do
+				Build.part({
+					name = "PaintTin",
+					shape = Enum.PartType.Cylinder,
+					size = Vector3.new(2.4, 2, 2),
+					cframe = CFrame.new(
+						place(-long * 0.16 + tin * 5, -wall + 2.6, 6.2)
+					) * CFrame.Angles(0, 0, math.rad(90)),
+					color = if tin == 0
+						then Color3.fromRGB(72, 108, 150)
+						else Color3.fromRGB(168, 92, 60),
+					material = Enum.Material.Metal,
+					canCollide = false,
+					parent = folder,
+				})
+			end
+
+			--- Shelves down the other, with boxes on them.
+			local RACK = math.min(long * 0.5, 30)
+			--[[
+				Four posts, not two panels.
+
+				One upright the full four studs of the shelf's depth is not a
+				post, it is a sheet of grey standing on end — twelve studs
+				tall and four wide, it read as a partition wall with shelves
+				bolted to it. A rack is a corner post at each end of each
+				side, and the gap between the pair is what makes it a frame
+				you can see through rather than a slab you cannot.
+
+				Tall enough to hold the top shelf's boxes, too: at ten they
+				stopped two studs under the highest carton and the boxes
+				floated off the top of their own frame.
+			]]
+			for _, end_ in { -1, 1 } do
+				for _, face in { -1, 1 } do
+					Build.part({
+						name = "RackUpright",
+						size = if alongX
+							then Vector3.new(1, 12.4, 1.2)
+							else Vector3.new(1.2, 12.4, 1),
+						cframe = CFrame.new(
+							place(
+								long * 0.16 + end_ * (RACK * 0.5),
+								wall - 2 + face * 1.6,
+								6.2
+							)
+						),
+						color = steel,
+						material = Enum.Material.Metal,
+						parent = folder,
+					})
+				end
+			end
+			for level = 0, 2 do
+				local y = 2.2 + level * 3.4
+				Build.part({
+					name = "RackShelf",
+					size = if alongX then Vector3.new(RACK, 0.5, 4) else Vector3.new(4, 0.5, RACK),
+					cframe = CFrame.new(place(long * 0.16, wall - 2, y)),
+					color = timberDark,
+					material = Enum.Material.WoodPlanks,
+					canCollide = false,
+					parent = folder,
+				})
+				for box = -1, 1 do
+					Build.part({
+						name = "RackBox",
+						size = Vector3.new(4.4, 2.6, 3.2),
+						cframe = CFrame.new(
+							place(long * 0.16 + box * (RACK * 0.3), wall - 2, y + 1.5)
+						),
+						color = if (level + box) % 2 == 0
+							then Color3.fromRGB(150, 118, 78)
+							else Color3.fromRGB(126, 98, 64),
+						material = Enum.Material.Cardboard,
+						canCollide = false,
+						parent = folder,
+					})
+				end
+			end
+
+			--[[
+				And a stack of tyres in the corner.
+
+				Nine studs across and butted a tenth of a stud apart, these
+				read as one black drum eleven studs tall — taller than the
+				player, wider than the bench, and with no seam anywhere on it
+				to say what it was. A tyre is smaller than a person and a
+				stack of them is a stack: narrower, a real gap between each
+				one so the shadow lines show, two shades of rubber so the
+				bands separate, and each sitting a little off the one below
+				the way nobody ever stacks them straight.
+			]]
+			local TYRE_OFFSET = { 0, 0.5, -0.35, 0.25 }
+			local top = 0
+			for tyre = 0, 3 do
+				local lift = 1.05 + tyre * 2.1
+				top = lift
+				Build.part({
+					name = "TyreStack",
+					shape = Enum.PartType.Cylinder,
+					size = Vector3.new(1.8, 6.2, 6.2),
+					cframe = CFrame.new(
+						place(
+							-long * 0.38 + TYRE_OFFSET[tyre + 1],
+							wall - 3 + TYRE_OFFSET[(tyre + 2) % 4 + 1],
+							lift
+						)
+					) * CFrame.Angles(0, 0, math.rad(90)),
+					color = if tyre % 2 == 0
+						then Color3.fromRGB(34, 34, 38)
+						else Color3.fromRGB(46, 46, 51),
+					material = Enum.Material.Rubber,
+					parent = folder,
+				})
+			end
+			--[[
+				A rim sitting in the top one.
+
+				A cylinder has no hole in it, so the stack has no dark centre
+				to look down; a wheel dropped in the top tyre gives it one
+				thing that is not rubber and settles what the black column is.
+				It stands a fifth of a stud proud of the tread — flush, and it
+				would be a disc fighting the face it is drawn on.
+			]]
+			Build.part({
+				name = "TyreHub",
+				shape = Enum.PartType.Cylinder,
+				size = Vector3.new(1.1, 3.4, 3.4),
+				cframe = CFrame.new(
+					place(-long * 0.38 + TYRE_OFFSET[4], wall - 3 + TYRE_OFFSET[2], top + 0.55)
+				) * CFrame.Angles(0, 0, math.rad(90)),
+				color = Color3.fromRGB(150, 154, 160),
+				material = Enum.Material.Metal,
+				canCollide = false,
+				parent = folder,
+			})
+		elseif dressing.fitting == "washbay" then
 			--[[
 				What makes a concrete box a wash bay.
 
@@ -1541,7 +1737,10 @@ function Structures.room(
 				sown and unreachable, which is how the jet heads broke the
 				section the first time.
 			]]
-			local alongX = width >= depth
+			--- Down the way a car comes in, not down the longer side: the
+			--- lanes have to line up with the doorway or you drive across
+			--- them. See the garage above.
+			local alongX = opening == nil or math.abs(opening.normal.X) > 0.5
 			local long = if alongX then width else depth
 			local across = if alongX then depth else width
 			local function place(down: number, side: number, y: number): Vector3
