@@ -532,6 +532,37 @@ return function()
 		end)
 
 		--[[
+			A card with no picture falls back to a flat wash of the world's own
+			ground colour.
+
+			That is not a missing nicety, it is a card that says nothing the
+			name did not — and worse, two properties that share a ground
+			colour get the identical card. The House and the Mansion are both
+			`ground.lawn`, which is exactly how the fault was found: two of the
+			three rows were the same green rectangle.
+
+			So every world carries its own picture and no two carry the same
+			one. A new property added without art would otherwise ship looking
+			like whichever existing property shares its grass.
+		]]
+		h.it("gives every world a card picture of its own", function()
+			local seen: { [string]: string } = {}
+			for _, world in Worlds.list do
+				local art = world.art
+				h.expectTrue(
+					type(art) == "string" and art ~= "",
+					`{world.id} has no card art, so its row falls back to a flat wash of its ground colour`
+				)
+				local already = seen[art :: string]
+				h.expectTrue(
+					already == nil,
+					`{world.id} shares its card picture with {tostring(already)}`
+				)
+				seen[art :: string] = world.id
+			end
+		end)
+
+		--[[
 			Height is two bits wide in the tile byte, and the packer masks
 			rather than clamps.
 

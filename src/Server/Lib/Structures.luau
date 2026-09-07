@@ -273,6 +273,25 @@ function Structures.clutter(context: Context, zone: Types.ZoneDef, count: number
 	]]
 	local YARD_CAP: { [string]: number } =
 		{ Bin = 1, Crate = 1, Barrel = 1, Chair = 1, Sack = 2, Lantern = 2, Log = 2, Planter = 2, Bush = 3, Rock = 3 }
+
+	--[[
+		How often a room may repeat a prop, which is a question about its size.
+
+		The rule above was one of each, on the stated grounds that "rooms are
+		small and hold four things well". That is true of a cellar and false of
+		the Gas Station's workshop, which is seventy-two tiles by thirty-four —
+		four times the floor of the crypt and the largest room in the game. Four
+		objects in it is nothing, and "there is nothing there" is exactly how it
+		was reported.
+
+		So the ceiling follows the floor instead of assuming it. One repeat per
+		ten thousand square studs: a cellar stays at one of each and reads as it
+		always did, and the workshop is allowed four, which is the difference
+		between a hall with a crate in it and a hall somebody works in.
+	]]
+	local roomArea = r.w * context.tileSize * r.d * context.tileSize
+	local roomCap = math.clamp(math.ceil(roomArea / 10000), 1, 5)
+
 	local pool: { PropSpec } = table.clone(set)
 	local placed: { [string]: number } = {}
 	for _ = 1, count do
@@ -281,7 +300,7 @@ function Structures.clutter(context: Context, zone: Types.ZoneDef, count: number
 		end
 		local spec = pool[context.rng:NextInteger(1, #pool)]
 		placed[spec.prop] = (placed[spec.prop] or 0) + 1
-		local cap = if walled then 1 else (YARD_CAP[spec.prop] or 1)
+		local cap = if walled then roomCap else (YARD_CAP[spec.prop] or 1)
 		if placed[spec.prop] >= cap then
 			for k, entry in pool do
 				if entry.prop == spec.prop then
@@ -628,6 +647,17 @@ export type RoomSkin = {
 		shelves and its fireplace.
 	]]
 	fitting: "chapel"?,
+	--[[
+		And what a *sunken* room of this property is.
+
+		The one below a house is a cellar and gets shelves and a fire, which is
+		what was asked for and what the crypt under the churchyard keeps. The
+		one below a filling station is its workshop, and a workshop full of
+		hardback books with a hearth burning in the corner is not a workshop —
+		it is the cellar furniture arriving somewhere it was never meant to go,
+		which is the same fault the room skins and the exit masonry had.
+	]]
+	underground: ("cellar" | "workshop")?,
 }
 
 function Structures.room(
@@ -1016,15 +1046,107 @@ function Structures.room(
 			room. `lookAt(at, at + facing)` cannot be got backwards.
 		]]
 		local shelfWall, fireWall = freeWalls[1], freeWalls[2]
-		local runs = math.max(math.floor(shelfWall.span / 34), 1)
-		for index = 1, runs do
-			local slide = -shelfWall.span * 0.5 + shelfWall.span * (index / (runs + 1))
-			local offset = if alongZWalls then Vector3.new(0, 0, slide) else Vector3.new(slide, 0, 0)
-			local at = centre + shelfWall.at + offset
-			bookcase(CFrame.lookAt(at, at + shelfWall.facing))
+		if dressing.underground == "workshop" then
+			--[[
+				A bench down one wall and a rack of drums against the other.
+
+				What stands here is the same idea as the shelves — the two
+				walls nothing else is using, furnished so the room reads as
+				somewhere rather than as a lid on a floor — but it is a
+				filling station's undercroft, so it is benches, a pegboard of
+				tools over them, oil drums and a stack of tyres.
+			]]
+			local BENCH_RUN = 26
+			local runs = math.max(math.floor(shelfWall.span / 40), 1)
+			for index = 1, runs do
+				local slide = -shelfWall.span * 0.5 + shelfWall.span * (index / (runs + 1))
+				local offset = if alongZWalls then Vector3.new(0, 0, slide) else Vector3.new(slide, 0, 0)
+				local at = centre + shelfWall.at + offset
+				local base = CFrame.lookAt(at, at + shelfWall.facing)
+				Build.part({
+					name = "BenchTop",
+					size = Vector3.new(BENCH_RUN, 0.9, 5),
+					cframe = base * CFrame.new(0, 4.6, -2.8),
+					color = Color3.fromRGB(122, 96, 62),
+					material = Enum.Material.WoodPlanks,
+					parent = folder,
+				})
+				for _, side in { -1, 1 } do
+					Build.part({
+						name = "BenchLeg",
+						size = Vector3.new(1.2, 4.6, 4),
+						cframe = base * CFrame.new(side * (BENCH_RUN * 0.5 - 1.4), 2.3, -2.8),
+						color = Color3.fromRGB(74, 78, 86),
+						material = Enum.Material.Metal,
+						parent = folder,
+					})
+				end
+				-- A pegboard over the bench, with something hanging on it.
+				Build.part({
+					name = "Pegboard",
+					size = Vector3.new(BENCH_RUN - 2, 9, 0.5),
+					cframe = base * CFrame.new(0, 10.5, -0.6),
+					color = Color3.fromRGB(92, 74, 52),
+					material = Enum.Material.WoodPlanks,
+					canCollide = false,
+					parent = folder,
+				})
+				for tool = 1, 5 do
+					Build.part({
+						name = "HungTool",
+						size = Vector3.new(0.7, 4.2, 0.4),
+						cframe = base
+							* CFrame.new(-BENCH_RUN * 0.4 + BENCH_RUN * 0.8 * (tool - 1) / 4, 10.5, -1.1),
+						color = Color3.fromRGB(178, 182, 190),
+						material = Enum.Material.Metal,
+						canCollide = false,
+						parent = folder,
+					})
+				end
+			end
+
+			local drumAt = centre + fireWall.at
+			local drumBase = CFrame.lookAt(drumAt, drumAt + fireWall.facing)
+			for index = -2, 2 do
+				Build.part({
+					name = "OilDrum",
+					shape = Enum.PartType.Cylinder,
+					size = Vector3.new(7, 4.4, 4.4),
+					cframe = drumBase
+						* CFrame.new(index * 7, 3.5, -3.4)
+						* CFrame.Angles(0, 0, math.rad(90)),
+					color = if index % 2 == 0
+						then Color3.fromRGB(150, 60, 46)
+						else Color3.fromRGB(64, 74, 92),
+					material = Enum.Material.Metal,
+					parent = folder,
+				})
+			end
+			--- A stack of tyres beside them, which is what a workshop has.
+			for tyre = 0, 3 do
+				Build.part({
+					name = "TyreStack",
+					shape = Enum.PartType.Cylinder,
+					size = Vector3.new(2.6, 9, 9),
+					cframe = drumBase
+						* CFrame.new(-24, 1.4 + tyre * 2.7, -4)
+						* CFrame.Angles(0, 0, math.rad(90)),
+					color = Color3.fromRGB(34, 34, 38),
+					material = Enum.Material.Rubber,
+					parent = folder,
+				})
+			end
+		else
+			local runs = math.max(math.floor(shelfWall.span / 34), 1)
+			for index = 1, runs do
+				local slide = -shelfWall.span * 0.5 + shelfWall.span * (index / (runs + 1))
+				local offset = if alongZWalls then Vector3.new(0, 0, slide) else Vector3.new(slide, 0, 0)
+				local at = centre + shelfWall.at + offset
+				bookcase(CFrame.lookAt(at, at + shelfWall.facing))
+			end
+			local fireAt = centre + fireWall.at
+			fireplace(CFrame.lookAt(fireAt, fireAt + fireWall.facing))
 		end
-		local fireAt = centre + fireWall.at
-		fireplace(CFrame.lookAt(fireAt, fireAt + fireWall.facing))
 
 		--[[
 			Lamps under the ceiling, on a grid.
