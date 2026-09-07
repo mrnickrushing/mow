@@ -2142,16 +2142,55 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 	local canopyCentre = Vector3.new(spawnAt.X - 90, 0, 22)
 	local canopyW, canopyD, canopyH = 76, 30, 13
 
+	--[[
+		Four posts, not four Ionic columns.
+
+		The canopy stood on the `Column` model — a fluted classical shaft
+		with a scrolled capital on it, which is the right thing under The
+		Mansion's portico and is a stranger on a forecourt. Painted white it
+		still read as a temple: from the kerb the pumps were sheltering under
+		a peristyle.
+
+		What holds a canopy up is a square steel post on a plate, with a
+		skirt round the foot in the brand's colour so a car door meeting it
+		takes the paint and not the steel.
+	]]
 	for _, sx in { -1, 1 } do
 		for _, sz in { -1, 1 } do
-			Build.mesh({
-				prop = "Column",
+			local at = canopyCentre
+				+ Vector3.new(sx * (canopyW * 0.5 - 7), 0, sz * (canopyD * 0.5 - 5))
+			Build.part({
+				name = "CanopyBase",
+				size = Vector3.new(4, 0.8, 4),
+				cframe = CFrame.new(at + Vector3.new(0, 0.4, 0)),
+				color = dark,
+				material = Enum.Material.Concrete,
+				parent = canopy,
+			})
+			Build.part({
 				name = "CanopyColumn",
-				size = Vector3.new(2.4, canopyH, 2.4),
-				cframe = CFrame.new(
-					canopyCentre + Vector3.new(sx * (canopyW * 0.5 - 7), canopyH * 0.5, sz * (canopyD * 0.5 - 5))
-				),
+				size = Vector3.new(2.6, canopyH, 2.6),
+				cframe = CFrame.new(at + Vector3.new(0, canopyH * 0.5, 0)),
 				color = trim,
+				material = Enum.Material.Metal,
+				parent = canopy,
+			})
+			Build.part({
+				name = "CanopySkirt",
+				size = Vector3.new(3, 3.4, 3),
+				cframe = CFrame.new(at + Vector3.new(0, 2.5, 0)),
+				color = fascia,
+				material = Enum.Material.SmoothPlastic,
+				canCollide = false,
+				parent = canopy,
+			})
+			Build.part({
+				name = "CanopyCollar",
+				size = Vector3.new(3.4, 1, 3.4),
+				cframe = CFrame.new(at + Vector3.new(0, canopyH - 0.6, 0)),
+				color = trim,
+				material = Enum.Material.Metal,
+				canCollide = false,
 				parent = canopy,
 			})
 		end
@@ -3225,9 +3264,48 @@ end
 	swept off the lawn. It stands at the middle of the section's near edge —
 	the same edge the signs use — and is destroyed the moment the section opens.
 ]]
+--[[
+	The frame it hangs in, by property.
+
+	The door is the same door everywhere on purpose — it is the shop, and a
+	player should know one when they see one. Its frame was the same
+	everywhere too, and that is a different thing: a rustic timber arch on
+	two turned posts, in the tan The House fences its garden with. Standing
+	in the doorway of a concrete wash bay it read as a garden trellis
+	somebody had wheeled onto a filling station, and it did the same on the
+	estate and in the churchyard. Same shape, the property's own metal.
+]]
+local CASH_FRAME: {
+	[string]: { colour: Types.Color3Like, leaf: Types.Color3Like?, material: Enum.Material },
+} = {
+	--- The one it was built as, on the property it was built for.
+	house = { colour = Palette.fence.rail, material = Enum.Material.WoodPlanks },
+	estate = { colour = Palette.estate.iron, leaf = Palette.estate.lead, material = Enum.Material.Metal },
+	lot = { colour = Palette.station.dark, leaf = Palette.station.trim, material = Enum.Material.Metal },
+	churchyard = {
+		colour = Palette.churchyard.iron,
+		leaf = Palette.churchyard.granite,
+		material = Enum.Material.Metal,
+	},
+}
+
 local function buildCashGates(world: Types.WorldDef, parent: Folder): { [string]: Model }
 	local gates: { [string]: Model } = {}
 	local folder = Build.folder("CashGates", parent)
+	local frame = CASH_FRAME[world.style or "house"] or CASH_FRAME.house
+	local frameColour = Palette.color(frame.colour)
+	--- Timber keeps the model's own grain; painted metal does not.
+	local bare = frame.material ~= Enum.Material.WoodPlanks
+	--[[
+		The leaves a shade up from the frame, or there is no door in it.
+
+		The first pass repainted the posts and the beam and left the door
+		alone, which was worse than leaving all three: the model's arched
+		surround is part of the *door*, so a wash bay ended up with a wooden
+		arch hanging between two steel posts. Either the whole gate is the
+		property's or none of it is.
+	]]
+	local leafColour = if frame.leaf then Palette.color(frame.leaf) else nil
 
 	for _, section in world.sections do
 		if Worlds.unlockKind(section) ~= "cash" then
@@ -3244,21 +3322,23 @@ local function buildCashGates(world: Types.WorldDef, parent: Folder): { [string]
 		-- A blue door in a wooden arch. Opening simply removes the model, so
 		-- the door does not need hinges — only presence.
 		Build.mesh({
-		prop = "Gate",
+			prop = "Gate",
 			name = "Arch",
 			size = Vector3.new(14, 2, 2),
 			cframe = basis * CFrame.new(0, 11, 0),
-			color = Palette.color(Palette.fence.rail),
+			untextured = bare,
+			color = frameColour,
 			parent = gate,
 		})
 
 		for side = -1, 1, 2 do
 			Build.mesh({
-			prop = "Column",
+				prop = "Column",
 				name = "Post",
 				size = Vector3.new(2, 12, 2),
 				cframe = basis * CFrame.new(side * 6, 5, 0),
-				color = Palette.color(Palette.fence.rail),
+				untextured = bare,
+				color = frameColour,
 				parent = gate,
 			})
 		end
@@ -3269,6 +3349,8 @@ local function buildCashGates(world: Types.WorldDef, parent: Folder): { [string]
 			size = Vector3.new(12, 11, 1.8),
 			collisionSize = Vector3.new(10, 10, 1),
 			cframe = basis * CFrame.new(0, 5, 0),
+			untextured = bare,
+			color = leafColour,
 			parent = gate,
 		})
 
@@ -3589,7 +3671,7 @@ local function buildSwitches(world: Types.WorldDef, parent: Folder)
 			local at = WorldService.tilePointFlat(r.x + 2, r.z + r.d - 3)
 
 			Build.mesh({
-			prop = "Column",
+				prop = "Column",
 				name = "Post",
 				size = Vector3.new(1.2, 7, 1.2),
 				cframe = CFrame.new(at + Vector3.new(0, 3.5, 0)),
