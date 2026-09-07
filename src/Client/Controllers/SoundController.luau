@@ -21,6 +21,8 @@ local SoundService = game:GetService("SoundService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Audio = require(Shared.Config.Audio)
+local Remotes = require(Shared.Remotes)
+local Worlds = require(Shared.Config.Worlds)
 
 local SoundController = {}
 
@@ -56,6 +58,13 @@ local muted = false
 --- The background track and the routine that pauses it. Declared here because
 --- `setMuted` below is written before either exists.
 local music: Sound? = nil
+--[[
+	Which list is playing, so the round state can swap it.
+
+	The day list is the default because the lobby is a Saturday morning and
+	that is where every session starts.
+]]
+local activeTracks: { { id: string, name: string } } = Audio.music.tracks
 local applyMusicMute: () -> ()
 --- The shuffled order of `Audio.music.tracks`, and how far through it we are.
 local order: { number } = {}
@@ -191,7 +200,7 @@ function playNext()
 		atTrack = 1
 	end
 
-	local def = Audio.music.tracks[order[atTrack]]
+	local def = activeTracks[order[atTrack]]
 	if not def then
 		return
 	end
@@ -248,7 +257,7 @@ function SoundController.start()
 	track.Parent = holder
 	music = track
 
-	for index = 1, #Audio.music.tracks do
+	for index = 1, #activeTracks do
 		order[index] = index
 	end
 	-- Starts at the end so the first `playNext` shuffles before it picks,
@@ -258,6 +267,39 @@ function SoundController.start()
 		playNext()
 	end)
 	playNext()
+
+	--[[
+		The bed follows the property, but only while it is being played.
+
+		The world def carries the mood, so the list is chosen from it — but not
+		from the world alone. A run that ends does not reload the starter
+		property or re-announce the world, so on a server that plays the next
+		round out in place rather than teleporting everyone home, the finished
+		world is still what the client thinks it is standing in. Keyed on the
+		world by itself, a game of the Cemetery would leave its drones playing
+		over the lobby for as long as anybody stayed. The phase says whether
+		the property is actually underfoot.
+	]]
+	Remotes.event(Remotes.ROUND_STATE).OnClientEvent:Connect(function(state: any)
+		if type(state) ~= "table" then
+			return
+		end
+		local world = if type(state.worldId) == "string" then Worlds.get(state.worldId) else nil
+		local night = state.phase == "running" and world ~= nil and world.mood == "night"
+		local wanted = if night then Audio.music.night else Audio.music.tracks
+		if wanted == activeTracks then
+			return
+		end
+		activeTracks = wanted
+		table.clear(order)
+		for index = 1, #activeTracks do
+			order[index] = index
+		end
+		-- At the end, so the next call shuffles before it picks rather than
+		-- always opening a night on the same drone.
+		atTrack = #order
+		playNext()
+	end)
 end
 
 return SoundController

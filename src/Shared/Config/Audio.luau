@@ -115,6 +115,34 @@ Audio.music = {
 		{ id = "rbxassetid://1841984324", name = "Piano Bar Jazz (b)" },
 		{ id = "rbxassetid://1845341094", name = "Chill Jazz" },
 	},
+	--[[
+		The bed for a property that is played after dark.
+
+		Delta blues and piano bar jazz are right for a Saturday morning on
+		somebody's lawn and wrong for a churchyard at midnight in October. The
+		Cemetery is drawn at night, lit by a moon and four chapel windows, and
+		it was being scored like a diner.
+
+		Drones rather than tunes, because this one has to sit under three and
+		a half hours of mowing without ever becoming a melody you are waiting
+		to hear the end of. Six of them run about eight and a half minutes
+		before anything comes round again — shorter than the day list, and it
+		matters far less: a rumble repeating is weather, a chorus repeating is
+		a loop.
+
+		All six are from the same Pro Sound Effects library the cues come
+		from, and all six were checked in a running client to load and report
+		the length the catalogue claims rather than trusted to exist because a
+		search returned them.
+	]]
+	night = {
+		{ id = "rbxassetid://9112775414", name = "Eerie Ambience 2" },
+		{ id = "rbxassetid://9112795463", name = "Hollow Rumble 1" },
+		{ id = "rbxassetid://9112795571", name = "Hollow Rumble 2" },
+		{ id = "rbxassetid://9112795583", name = "Hollow Rumble 3" },
+		{ id = "rbxassetid://9112775624", name = "Eerie Presence 3" },
+		{ id = "rbxassetid://9125351901", name = "Afterworld Ambience" },
+	},
 }
 
 Audio.cues = cues
