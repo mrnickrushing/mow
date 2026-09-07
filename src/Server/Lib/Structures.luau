@@ -220,9 +220,26 @@ local CRYPT_PROPS: { PropSpec } = {
 	{ prop = "Lantern", size = Vector3.new(3.4, 7, 3) },
 }
 
+--[[
+	And what is lying about under a country house.
+
+	The same fault one property along: the cellars of an estate came out with
+	a blue plastic wheelie bin standing in them, next to a wall of leather
+	books and a fire somebody had lit. Whatever else is down there, it is not
+	the bins. Crates and casks and a sack of something, and a lantern to find
+	them by.
+]]
+local CELLAR_PROPS: { PropSpec } = {
+	{ prop = "Crate", size = Vector3.new(5, 3.4, 4.5) },
+	{ prop = "Barrel", size = Vector3.new(4, 6, 4) },
+	{ prop = "Sack", size = Vector3.new(4, 2.6, 3) },
+	{ prop = "Lantern", size = Vector3.new(3.4, 7, 3) },
+}
+
 --- The indoor set for a property's style, falling back to the common one.
 Structures.roomSets = {
 	churchyard = CRYPT_PROPS,
+	estate = CELLAR_PROPS,
 }
 
 --[[
@@ -693,7 +710,7 @@ export type RoomSkin = {
 		windows and a few pews in — the same way a sunken room gets its
 		shelves and its fireplace.
 	]]
-	fitting: ("chapel" | "washbay")?,
+	fitting: ("chapel" | "washbay" | "garage")?,
 	--[[
 		And what a *sunken* room of this property is.
 
@@ -706,6 +723,140 @@ export type RoomSkin = {
 	]]
 	underground: ("cellar" | "workshop" | "crypt")?,
 }
+
+--[[
+	A stack of tyres, stood at the foot frame's origin.
+
+	Both the workshop and the garage want one and both had built their own:
+	nine studs across and butted a tenth of a stud apart, four of them read
+	as a single black drum eleven studs tall with no seam anywhere on it to
+	say what it was. A tyre is smaller than a person and a stack of them is
+	a stack — narrower, a real gap between each so the shadow lines show,
+	two shades of rubber so the bands separate, and each sitting a little
+	off the one below the way nobody ever stacks them straight.
+
+	A cylinder has no hole in it, so the top one gets a wheel dropped into
+	it: something that is not rubber, standing a fifth of a stud proud of
+	the tread, which is what gives the black column a centre to look at.
+]]
+local TYRE_OFFSET = { 0, 0.5, -0.35, 0.25 }
+
+local function tyreStack(foot: CFrame, parent: Instance)
+	local top = 0
+	for tyre = 0, 3 do
+		top = 1.05 + tyre * 2.1
+		Build.part({
+			name = "TyreStack",
+			shape = Enum.PartType.Cylinder,
+			size = Vector3.new(1.8, 6.2, 6.2),
+			cframe = foot
+				* CFrame.new(
+					TYRE_OFFSET[tyre + 1],
+					top,
+					TYRE_OFFSET[(tyre + 2) % 4 + 1]
+				)
+				* CFrame.Angles(0, 0, math.rad(90)),
+			color = if tyre % 2 == 0
+				then Color3.fromRGB(34, 34, 38)
+				else Color3.fromRGB(46, 46, 51),
+			material = Enum.Material.Rubber,
+			parent = parent,
+		})
+	end
+	Build.part({
+		name = "TyreHub",
+		shape = Enum.PartType.Cylinder,
+		size = Vector3.new(1.1, 3.4, 3.4),
+		cframe = foot
+			* CFrame.new(TYRE_OFFSET[4], top + 0.55, TYRE_OFFSET[2])
+			* CFrame.Angles(0, 0, math.rad(90)),
+		color = Color3.fromRGB(150, 154, 160),
+		material = Enum.Material.Metal,
+		canCollide = false,
+		parent = parent,
+	})
+end
+
+--[[
+	An urn on a plinth, stood at the foot frame's origin.
+
+	Both the crypt and the drive up to The Mansion wanted one, and both had
+	built the same thing: a ball on a box. A sphere balanced on a plain post
+	is a cannonball on a pedestal — no foot, no rim, nothing to say which way
+	up it is, and on the drive the ball was wider than the plinth holding it
+	up.
+
+	Five parts, all proportional to the plinth so one builder does a
+	four-stud garden urn and a three-stud cinerary one: a base and a cap on
+	the pedestal, because a pedestal with no mouldings is a post; then the
+	foot it stands on, the belly, and the lip round the top.
+]]
+export type UrnSpec = {
+	foot: CFrame,
+	--- Across the pedestal. Everything else is a fraction of it.
+	plinth: number,
+	--- Pedestal, mouldings and lip.
+	body: Color3,
+	bodyMaterial: Enum.Material,
+	--- Foot and belly, so the vessel reads as a different stone.
+	stone: Color3,
+	stoneMaterial: Enum.Material,
+	parent: Instance,
+}
+
+function Structures.urn(spec: UrnSpec)
+	local p = spec.plinth
+	local tall = p * 1.5
+	Build.part({
+		name = "UrnPlinth",
+		size = Vector3.new(p, tall, p),
+		cframe = spec.foot * CFrame.new(0, tall * 0.5, 0),
+		color = spec.body,
+		material = spec.bodyMaterial,
+		parent = spec.parent,
+	})
+	for _, y in { p * 0.11, tall - p * 0.1 } do
+		Build.part({
+			name = "UrnMoulding",
+			size = Vector3.new(p * 1.15, p * 0.22, p * 1.15),
+			cframe = spec.foot * CFrame.new(0, y, 0),
+			color = spec.body,
+			material = spec.bodyMaterial,
+			parent = spec.parent,
+		})
+	end
+	Build.part({
+		name = "UrnFoot",
+		shape = Enum.PartType.Cylinder,
+		size = Vector3.new(p * 0.42, p * 0.4, p * 0.4),
+		cframe = spec.foot
+			* CFrame.new(0, tall + p * 0.12, 0)
+			* CFrame.Angles(0, 0, math.rad(90)),
+		color = spec.stone,
+		material = spec.stoneMaterial,
+		parent = spec.parent,
+	})
+	Build.part({
+		name = "Urn",
+		shape = Enum.PartType.Ball,
+		size = Vector3.new(p * 0.85, p * 0.85, p * 0.85),
+		cframe = spec.foot * CFrame.new(0, tall + p * 0.65, 0),
+		color = spec.stone,
+		material = spec.stoneMaterial,
+		parent = spec.parent,
+	})
+	Build.part({
+		name = "UrnLip",
+		shape = Enum.PartType.Cylinder,
+		size = Vector3.new(p * 0.2, p * 0.75, p * 0.75),
+		cframe = spec.foot
+			* CFrame.new(0, tall + p * 1.03, 0)
+			* CFrame.Angles(0, 0, math.rad(90)),
+		color = spec.body,
+		material = spec.bodyMaterial,
+		parent = spec.parent,
+	})
+end
 
 function Structures.room(
 	context: Context,
@@ -1242,21 +1393,13 @@ function Structures.room(
 			end
 
 			for _, side in { -1, 1 } do
-				Build.part({
-					name = "UrnPlinth",
-					size = Vector3.new(3.4, 5, 3.4),
-					cframe = tombBase * CFrame.new(side * 12, 2.5, -3.4),
-					color = dressing.wallSunken,
-					material = Enum.Material.Slate,
-					parent = folder,
-				})
-				Build.part({
-					name = "Urn",
-					shape = Enum.PartType.Ball,
-					size = Vector3.new(3, 3, 3),
-					cframe = tombBase * CFrame.new(side * 12, 6.4, -3.4),
-					color = dressing.wall,
-					material = Enum.Material.Rock,
+				Structures.urn({
+					foot = tombBase * CFrame.new(side * 12, 0, -3.4),
+					plinth = 3.4,
+					body = dressing.wallSunken,
+					bodyMaterial = Enum.Material.Slate,
+					stone = dressing.wall,
+					stoneMaterial = Enum.Material.Rock,
 					parent = folder,
 				})
 			end
@@ -1337,19 +1480,7 @@ function Structures.room(
 				})
 			end
 			--- A stack of tyres beside them, which is what a workshop has.
-			for tyre = 0, 3 do
-				Build.part({
-					name = "TyreStack",
-					shape = Enum.PartType.Cylinder,
-					size = Vector3.new(2.6, 9, 9),
-					cframe = drumBase
-						* CFrame.new(-24, 1.4 + tyre * 2.7, -4)
-						* CFrame.Angles(0, 0, math.rad(90)),
-					color = Color3.fromRGB(34, 34, 38),
-					material = Enum.Material.Rubber,
-					parent = folder,
-				})
-			end
+			tyreStack(drumBase * CFrame.new(-24, 0, -4), folder)
 		else
 			local runs = math.max(math.floor(shelfWall.span / 34), 1)
 			for index = 1, runs do
@@ -1524,7 +1655,149 @@ function Structures.room(
 			end
 		end
 
-		if dressing.fitting == "washbay" then
+		if dressing.fitting == "garage" then
+			--[[
+				What is in a garage, which is never a car.
+
+				The fourth room on the list with a name on the sign and an
+				empty floor under it. A domestic garage is the place the car
+				is not: a bench down one side, a rack of shelves down the
+				other with boxes on it, a stack of tyres in the corner and
+				tins somebody meant to take to the tip.
+
+				Boards above head height do not collide. A shelf at eight
+				studs is over a player and under nothing the buried-tile sweep
+				reaches, so a solid one would leave the tile under it sown and
+				unstandable — the fault the wash bay's jet heads had.
+			]]
+			--[[
+				Which way round a fitting goes is decided by the doorway, not
+				by which side of the room is longer.
+
+				Taking the longer side put the bench down the wall the door is
+				in and stood thirty-four studs of workbench across the
+				entrance. The two walls the way in does not use are the ones
+				the furniture goes against — the same choice the cellar's
+				bookcases already make, for the same reason.
+			]]
+			local alongX = opening == nil or math.abs(opening.normal.X) > 0.5
+			local long = if alongX then width else depth
+			local across = if alongX then depth else width
+			local function place(down: number, side: number, y: number): Vector3
+				return centre
+					+ (if alongX then Vector3.new(down, y, side) else Vector3.new(side, y, down))
+			end
+			local timberDark = Color3.fromRGB(78, 56, 38)
+			local steel = Color3.fromRGB(126, 130, 138)
+			local wall = across * 0.5 - 4
+
+			--- The bench, down one side.
+			local BENCH = math.min(long * 0.5, 34)
+			Build.part({
+				name = "BenchTop",
+				size = if alongX then Vector3.new(BENCH, 0.9, 5) else Vector3.new(5, 0.9, BENCH),
+				cframe = CFrame.new(place(-long * 0.16, -wall + 2.6, 4.6)),
+				color = Color3.fromRGB(122, 96, 62),
+				material = Enum.Material.WoodPlanks,
+				parent = folder,
+			})
+			for _, end_ in { -1, 1 } do
+				Build.part({
+					name = "BenchLeg",
+					size = Vector3.new(1.2, 4.6, 4),
+					cframe = CFrame.new(
+						place(-long * 0.16 + end_ * (BENCH * 0.5 - 1.4), -wall + 2.6, 2.3)
+					),
+					color = steel,
+					material = Enum.Material.Metal,
+					parent = folder,
+				})
+			end
+			--- Tins on it, because a garage bench always has tins on it.
+			for tin = -1, 1 do
+				Build.part({
+					name = "PaintTin",
+					shape = Enum.PartType.Cylinder,
+					size = Vector3.new(2.4, 2, 2),
+					cframe = CFrame.new(
+						place(-long * 0.16 + tin * 5, -wall + 2.6, 6.2)
+					) * CFrame.Angles(0, 0, math.rad(90)),
+					color = if tin == 0
+						then Color3.fromRGB(72, 108, 150)
+						else Color3.fromRGB(168, 92, 60),
+					material = Enum.Material.Metal,
+					canCollide = false,
+					parent = folder,
+				})
+			end
+
+			--- Shelves down the other, with boxes on them.
+			local RACK = math.min(long * 0.5, 30)
+			--[[
+				Four posts, not two panels.
+
+				One upright the full four studs of the shelf's depth is not a
+				post, it is a sheet of grey standing on end — twelve studs
+				tall and four wide, it read as a partition wall with shelves
+				bolted to it. A rack is a corner post at each end of each
+				side, and the gap between the pair is what makes it a frame
+				you can see through rather than a slab you cannot.
+
+				Tall enough to hold the top shelf's boxes, too: at ten they
+				stopped two studs under the highest carton and the boxes
+				floated off the top of their own frame.
+			]]
+			for _, end_ in { -1, 1 } do
+				for _, face in { -1, 1 } do
+					Build.part({
+						name = "RackUpright",
+						size = if alongX
+							then Vector3.new(1, 12.4, 1.2)
+							else Vector3.new(1.2, 12.4, 1),
+						cframe = CFrame.new(
+							place(
+								long * 0.16 + end_ * (RACK * 0.5),
+								wall - 2 + face * 1.6,
+								6.2
+							)
+						),
+						color = steel,
+						material = Enum.Material.Metal,
+						parent = folder,
+					})
+				end
+			end
+			for level = 0, 2 do
+				local y = 2.2 + level * 3.4
+				Build.part({
+					name = "RackShelf",
+					size = if alongX then Vector3.new(RACK, 0.5, 4) else Vector3.new(4, 0.5, RACK),
+					cframe = CFrame.new(place(long * 0.16, wall - 2, y)),
+					color = timberDark,
+					material = Enum.Material.WoodPlanks,
+					canCollide = false,
+					parent = folder,
+				})
+				for box = -1, 1 do
+					Build.part({
+						name = "RackBox",
+						size = Vector3.new(4.4, 2.6, 3.2),
+						cframe = CFrame.new(
+							place(long * 0.16 + box * (RACK * 0.3), wall - 2, y + 1.5)
+						),
+						color = if (level + box) % 2 == 0
+							then Color3.fromRGB(150, 118, 78)
+							else Color3.fromRGB(126, 98, 64),
+						material = Enum.Material.Cardboard,
+						canCollide = false,
+						parent = folder,
+					})
+				end
+			end
+
+			--- And a stack of tyres in the corner.
+			tyreStack(CFrame.new(place(-long * 0.38, wall - 3, 0)), folder)
+		elseif dressing.fitting == "washbay" then
 			--[[
 				What makes a concrete box a wash bay.
 
@@ -1541,7 +1814,10 @@ function Structures.room(
 				sown and unreachable, which is how the jet heads broke the
 				section the first time.
 			]]
-			local alongX = width >= depth
+			--- Down the way a car comes in, not down the longer side: the
+			--- lanes have to line up with the doorway or you drive across
+			--- them. See the garage above.
+			local alongX = opening == nil or math.abs(opening.normal.X) > 0.5
 			local long = if alongX then width else depth
 			local across = if alongX then depth else width
 			local function place(down: number, side: number, y: number): Vector3
@@ -3064,13 +3340,37 @@ function Structures.court(context: Context, zone: Types.ZoneDef)
 	line(0, playD * 0.25, playW - 14, LINE)
 	line(0, 0, LINE, playD * 0.5)
 
-	--- The net, across the short axis, with a post at each end.
-	local netAlongX = width >= depth
-	local netLength = if netAlongX then width - inset else depth - inset
+	--[[
+		The net, across the way the court is played, with a post at each end.
+
+		It picked its axis from whichever side of the section was longer and
+		ran the net down that one — so on a court a hundred and four studs
+		wide and a hundred and thirty-six deep it laid a hundred and thirty
+		studs of net down the length of the court, dividing it end to end
+		instead of side to side. Standing at the baseline you looked straight
+		along a white tape running away from you to the far fence.
+
+		The lines above have no such choice to make: the baselines are always
+		the two z ends and the service line always runs up z, so the court is
+		always played up z whatever shape the section is. The net is parallel
+		to the baselines, which means it is always across x, and the two now
+		agree. A few studs longer than the tramlines it crosses, because a
+		net post stands outside the court, not on the line.
+	]]
+	local netLength = width - inset
+	--[[
+		Chest high, not head high.
+
+		Five studs is exactly how tall a player is, so anybody standing at
+		the net was hidden behind it and the court was divided by a wall
+		rather than by a net. A tennis net comes to about the chest of the
+		person serving over it.
+	]]
+	local NET_HEIGHT = 3.4
 	Build.part({
 		name = "Net",
-		size = if netAlongX then Vector3.new(netLength, 5, 0.6) else Vector3.new(0.6, 5, netLength),
-		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + 2.5, 0)),
+		size = Vector3.new(netLength, NET_HEIGHT, 0.6),
+		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + NET_HEIGHT * 0.5, 0)),
 		color = Palette.color(Palette.court.net),
 		material = Enum.Material.Fabric,
 		transparency = 0.35,
@@ -3079,21 +3379,19 @@ function Structures.court(context: Context, zone: Types.ZoneDef)
 	})
 	Build.part({
 		name = "NetTape",
-		size = if netAlongX then Vector3.new(netLength, 0.8, 0.8) else Vector3.new(0.8, 0.8, netLength),
-		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + 5.1, 0)),
+		size = Vector3.new(netLength, 0.8, 0.8),
+		cframe = CFrame.new(centre + Vector3.new(0, context.groundY + NET_HEIGHT + 0.1, 0)),
 		color = Palette.color(Palette.court.line),
 		material = Enum.Material.SmoothPlastic,
 		canCollide = false,
 		parent = folder,
 	})
 	for _, side in { -1, 1 } do
-		local at = if netAlongX
-			then Vector3.new(side * netLength * 0.5, 0, 0)
-			else Vector3.new(0, 0, side * netLength * 0.5)
+		local at = Vector3.new(side * netLength * 0.5, 0, 0)
 		Build.part({
 			name = "NetPost",
-			size = Vector3.new(1.4, 6.5, 1.4),
-			cframe = CFrame.new(centre + at + Vector3.new(0, context.groundY + 3.25, 0)),
+			size = Vector3.new(1.4, NET_HEIGHT + 1.2, 1.4),
+			cframe = CFrame.new(centre + at + Vector3.new(0, context.groundY + (NET_HEIGHT + 1.2) * 0.5, 0)),
 			color = Palette.color(Palette.estate.iron),
 			material = Enum.Material.Metal,
 			parent = folder,
@@ -3514,6 +3812,45 @@ function Structures.glasshouse(context: Context, zone: Types.ZoneDef, opening: O
 		castShadow = false,
 		parent = folder,
 	})
+	--[[
+		Glazing bars across the roof.
+
+		The pane above is glass at nearly three quarters transparent, which
+		is right — the whole point of the building is that the sun gets in —
+		and the consequence is that from underneath there is nothing there at
+		all. Standing on the floor and looking up you saw an open box with
+		the lantern's iron cap hanging in the sky over it and no roof joining
+		the two. A glasshouse roof is mostly bars, and from below the bars
+		are the only part of it you were ever going to see.
+
+		Across the short way and repeated down the long one, which is how a
+		span is actually framed, and no shadow: a grid of shadows on a floor
+		you are meant to be able to find leaves on is the same mistake the
+		roof pane itself already made.
+	]]
+	local ribsAlongX = width <= depth
+	local ribSpan = if ribsAlongX then depth else width
+	local ribs = math.max(math.floor(ribSpan / 10), 1)
+	for index = 0, ribs do
+		local slide = -ribSpan * 0.5 + ribSpan * index / ribs
+		Build.part({
+			name = "GlazingBar",
+			size = if ribsAlongX
+				then Vector3.new(width + EAVE * 2, 0.9, 0.9)
+				else Vector3.new(0.9, 0.9, depth + EAVE * 2),
+			cframe = CFrame.new(
+				centre
+					+ (if ribsAlongX then Vector3.new(0, 0, slide) else Vector3.new(slide, 0, 0))
+					+ Vector3.new(0, context.groundY + HEIGHT + 1.9, 0)
+			),
+			color = Palette.color(Palette.estate.iron),
+			material = Enum.Material.Metal,
+			canCollide = false,
+			castShadow = false,
+			parent = folder,
+		})
+	end
+
 	local ridgeAlongX = width >= depth
 	Build.part({
 		name = "Lantern",
@@ -3525,6 +3862,31 @@ function Structures.glasshouse(context: Context, zone: Types.ZoneDef, opening: O
 		castShadow = false,
 		parent = folder,
 	})
+	--- Uprights down the lantern's sides, so six studs of glass between two
+	--- iron slabs reads as a raised light and not as a gap in the roof.
+	local lanternRun = if ridgeAlongX then width * 0.55 else depth * 0.55
+	local lanternPosts = math.max(math.floor(lanternRun / 11), 1)
+	for index = 0, lanternPosts do
+		local slide = -lanternRun * 0.5 + lanternRun * index / lanternPosts
+		for _, side in { -1, 1 } do
+			Build.part({
+				name = "LanternPost",
+				size = Vector3.new(0.9, 6, 0.9),
+				cframe = CFrame.new(
+					centre
+						+ (if ridgeAlongX
+							then Vector3.new(slide, 0, side * 7)
+							else Vector3.new(side * 7, 0, slide))
+						+ Vector3.new(0, context.groundY + HEIGHT + 4.3, 0)
+				),
+				color = Palette.color(Palette.estate.iron),
+				material = Enum.Material.Metal,
+				canCollide = false,
+				castShadow = false,
+				parent = folder,
+			})
+		end
+	end
 	Build.part({
 		name = "LanternCap",
 		size = if ridgeAlongX then Vector3.new(width * 0.58, 1.2, 16) else Vector3.new(16, 1.2, depth * 0.58),

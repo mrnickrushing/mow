@@ -671,6 +671,67 @@ end
 	Nothing here is shared with the suburban builder except the window model,
 	and that is set in a stone surround.
 ]]
+--[[
+	A window, with something behind the glass.
+
+	The `Window` prop is a frame and its glazing bars, and its panes are
+	empty: whatever stands behind it shows straight through. On the manor
+	that is the ashlar the window is hung on — reported as "you can see the
+	wall behind it" — so every opening on a hundred-and-eighty-stud frontage
+	read as a frame drawn on the stone rather than as a hole cut in it. The
+	suburban house, the French doors, the fanlight and both rows of dormers
+	had it too, because all seven of them are the same model.
+
+	So a pane goes in. Centred in the frame's own depth rather than behind
+	it, which is where the glass in a sash actually sits and which also
+	means it is right whichever way round a caller has turned the model —
+	the bars end up half in front of it and half behind, as they should.
+
+	Darker than the wall, because a window seen from outside in daylight
+	always is, whatever colour the glass is; and reflective, because
+	catching the sky is the one thing that says glass from across a lawn.
+]]
+local function glazed(options: {
+	name: string,
+	size: Vector3,
+	cframe: CFrame,
+	glass: Types.Color3Like,
+	parent: Instance,
+})
+	Build.mesh({
+		prop = "Window",
+		name = options.name,
+		size = options.size,
+		collisionSize = Vector3.new(options.size.X, options.size.Y, 0.6),
+		cframe = options.cframe,
+		canCollide = false,
+		parent = options.parent,
+	})
+	local tint = Palette.color(options.glass)
+	local pane = Build.part({
+		name = "WindowPane",
+		size = Vector3.new(options.size.X - 0.9, options.size.Y - 0.9, 0.32),
+		cframe = options.cframe,
+		color = Color3.new(tint.R * 0.26, tint.G * 0.3, tint.B * 0.34),
+		material = Enum.Material.SmoothPlastic,
+		castShadow = false,
+		canCollide = false,
+		parent = options.parent,
+	})
+	--[[
+		Most of what you see in it is the sky.
+
+		A pane only a little darker than the wall, at a third of a
+		reflectance, came out as a flat panel of pale blue paint: the wall no
+		longer showed through it, which was the fault, but nothing showed in
+		it either. Dark glass reflecting half of what is in front of it is a
+		window — near black where it faces a hedge, the colour of the
+		afternoon where it faces the sky, and different on two elevations of
+		the same building, which is what glass does and paint does not.
+	]]
+	pane.Reflectance = 0.5
+end
+
 local function buildManor(world: Types.WorldDef, parent: Folder)
 	local rect = world.houseRect
 	if not rect then
@@ -917,13 +978,11 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 				material = Enum.Material.Metal,
 				parent = manor,
 			})
-			Build.mesh({
-				prop = "Window",
+			glazed({
 				name = "Window",
 				size = Vector3.new(5, 6, 0.9),
-				collisionSize = Vector3.new(5, 6, 0.6),
 				cframe = CFrame.new(x, mansardY + 5.5, z - 2.7),
-				canCollide = false,
+				glass = Palette.estate.window,
 				parent = manor,
 			})
 		end
@@ -1017,13 +1076,11 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 						surrounds were added.
 					]]
 					local glass = at + outward * 0.55
-					Build.mesh({
-						prop = "Window",
+					glazed({
 						name = "Window",
 						size = Vector3.new(8, 9.5, 0.9),
-						collisionSize = Vector3.new(8, 9.5, 0.6),
 						cframe = CFrame.new(Vector3.new(glass.X, height, glass.Z)) * CFrame.Angles(0, yaw, 0),
-						canCollide = false,
+						glass = Palette.estate.window,
 						parent = manor,
 					})
 					--[[
@@ -1208,13 +1265,11 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 		})
 	end
 	--- The fanlight over them, which is the one round thing on the frontage.
-	Build.mesh({
-		prop = "Window",
+	glazed({
 		name = "Fanlight",
 		size = Vector3.new(13, 5, 0.9),
-		collisionSize = Vector3.new(13, 5, 0.6),
 		cframe = CFrame.new(centre.X, PLINTH + 17.5, doorZ),
-		canCollide = false,
+		glass = Palette.estate.window,
 		parent = manor,
 	})
 
@@ -1262,26 +1317,62 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 		parent = manor,
 	})
 	for _, side in { -1, 1 } do
-		Build.mesh({
-			prop = "Window",
+		glazed({
 			name = "FrenchDoor",
 			size = Vector3.new(7, 15, 0.9),
-			collisionSize = Vector3.new(7, 15, 0.6),
 			cframe = CFrame.new(centre.X + side * 3.8, balconyY + 7.5, frenchZ),
-			canCollide = false,
+			glass = Palette.estate.window,
 			parent = manor,
 		})
 	end
 
 	--[[
-		A lamp on each of the two outer columns.
+		A lamp either side of the door, on a bracket.
 
 		A frontage this wide needs something at eye level that is not stone,
 		and a pair of lanterns either side of the door is the thing every
 		house of this kind puts there.
+
+		On a bracket, because the mesh is a hurricane lamp with a carrying
+		hoop on the top of it and nothing was holding it: what stood on the
+		wall was a black oval floating flat against fourteen studs of blank
+		ashlar, and from the drive it read as a mark on the stone rather than
+		as a light. A plate, an arm out of it and a hook to hang from, and it
+		stands clear of the wall the way a lantern has to.
+
 	]]
+	local FLAME = Color3.fromRGB(255, 226, 170)
 	for _, side in { -1, 1 } do
 		local x = centre.X + side * (porticoWidth * 0.5 + 4)
+		local hangZ = doorZ - 2.8
+		local armY = PLINTH + 15.6
+		Build.part({
+			name = "LampPlate",
+			size = Vector3.new(1.6, 3.2, 0.4),
+			cframe = CFrame.new(x, armY - 0.6, doorZ - 0.6),
+			color = Palette.color(Palette.estate.iron),
+			material = Enum.Material.Metal,
+			canCollide = false,
+			parent = manor,
+		})
+		Build.part({
+			name = "LampArm",
+			size = Vector3.new(0.5, 0.5, 2.6),
+			cframe = CFrame.new(x, armY, doorZ - 1.7),
+			color = Palette.color(Palette.estate.iron),
+			material = Enum.Material.Metal,
+			canCollide = false,
+			parent = manor,
+		})
+		Build.part({
+			name = "LampHook",
+			size = Vector3.new(0.4, 1.3, 0.4),
+			cframe = CFrame.new(x, armY - 0.65, hangZ),
+			color = Palette.color(Palette.estate.iron),
+			material = Enum.Material.Metal,
+			canCollide = false,
+			parent = manor,
+		})
 		local lamp = Build.mesh({
 			prop = "Lantern",
 			name = "Lamp",
@@ -1289,12 +1380,12 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 			color = Palette.color(Palette.estate.iron),
 			size = Vector3.new(3.4, 4.4, 3.4),
 			collisionSize = Vector3.new(2, 4.4, 2),
-			cframe = CFrame.new(x, PLINTH + 13, doorZ - 1),
+			cframe = CFrame.new(x, PLINTH + 13, hangZ),
 			canCollide = false,
 			parent = manor,
 		})
 		local glow = Instance.new("PointLight")
-		glow.Color = Color3.fromRGB(255, 226, 170)
+		glow.Color = FLAME
 		glow.Range = 26
 		glow.Brightness = 1.4
 		glow.Parent = lamp
@@ -1395,14 +1486,12 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 		parent = manor,
 	})
 	for _, side in { -1, 1 } do
-		Build.mesh({
-			prop = "Window",
+		glazed({
 			name = "FrenchDoor",
 			size = Vector3.new(8, 16, 0.9),
-			collisionSize = Vector3.new(8, 16, 0.6),
 			cframe = CFrame.new(centre.X + side * 4.4, PLINTH + 9, bayFace + 0.4)
 				* CFrame.Angles(0, math.pi, 0),
-			canCollide = false,
+			glass = Palette.estate.window,
 			parent = manor,
 		})
 	end
@@ -1457,13 +1546,11 @@ local function buildManor(world: Types.WorldDef, parent: Folder)
 				material = Enum.Material.Metal,
 				parent = manor,
 			})
-			Build.mesh({
-				prop = "Window",
+			glazed({
 				name = "Window",
 				size = Vector3.new(5, 6, 0.9),
-				collisionSize = Vector3.new(5, 6, 0.6),
 				cframe = CFrame.new(x, mansardY + 5.5, z + 2.7) * CFrame.Angles(0, math.pi, 0),
-				canCollide = false,
+				glass = Palette.estate.window,
 				parent = manor,
 			})
 		end
@@ -1663,13 +1750,11 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 				end
 				if not hidden then
 					local at = origin + along * offset
-					Build.mesh({
-						prop = "Window",
+					glazed({
 						name = "Window",
 						size = Vector3.new(WINDOW_WIDTH, WINDOW_HEIGHT, 0.9),
-						collisionSize = Vector3.new(WINDOW_WIDTH, WINDOW_HEIGHT, 0.6),
 						cframe = CFrame.new(Vector3.new(at.X, height, at.Z)) * CFrame.Angles(0, yaw, 0),
-						canCollide = false,
+						glass = Palette.house.window,
 						parent = house,
 					})
 				end
@@ -2182,6 +2267,25 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 	-- one-stud wall are inside it, which is where the door and both
 	-- windows spent their first outing.
 	local backZ = shopCentre.Z + shopD * 0.5 + 0.5
+	--[[
+		Painted, not the model's own.
+
+		The door model is a panelled wooden one in a teal frame, which is The
+		House's trim colour and The House's front door — and it arrived here
+		with the texture still on it, because a tint on a textured mesh only
+		shades what is already there. So the back of a red-and-cream filling
+		station had a suburban front door on it, twice. Untextured it keeps
+		its panels and takes the dark grey a service door is painted.
+	]]
+	Build.part({
+		name = "ShopBackDoorFrame",
+		size = Vector3.new(7.6, 10.2, 0.5),
+		cframe = CFrame.new(shopCentre.X, 1 + 4.6, backZ + 0.15),
+		color = dark,
+		material = Enum.Material.SmoothPlastic,
+		canCollide = false,
+		parent = shop,
+	})
 	Build.mesh({
 		prop = "Door",
 		name = "ShopBackDoor",
@@ -2189,7 +2293,18 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 		-- Centred, because at a quarter of the width it stood underneath
 		-- the left-hand window.
 		cframe = CFrame.new(shopCentre.X, 1 + 4.6, backZ + 0.35),
-		color = dark,
+		untextured = true,
+		--- A shade up from the frame around it, or the two read as one hole.
+		color = Color3.fromRGB(104, 108, 112),
+		parent = shop,
+	})
+	Build.part({
+		name = "ShopBackHandle",
+		size = Vector3.new(0.4, 2.4, 0.5),
+		cframe = CFrame.new(shopCentre.X + 2.4, 1 + 4.6, backZ + 0.85),
+		color = Palette.color(Palette.station.trim),
+		material = Enum.Material.Metal,
+		canCollide = false,
 		parent = shop,
 	})
 	for _, sx in { -1, 1 } do
@@ -2278,6 +2393,8 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 		name = "ShopDoor",
 		size = Vector3.new(7, 9.2, 0.9),
 		cframe = CFrame.new(shopCentre.X, 1 + 4.6, frontZ),
+		-- The same teal front door as the one round the back. See there.
+		untextured = true,
 		color = dark,
 		parent = shop,
 	})
@@ -2461,6 +2578,69 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 					name = "ContainerRib",
 					size = Vector3.new(11.3, 1.1, 1),
 					cframe = basis * CFrame.new(0, edge * 5.2, 0),
+					color = dark,
+					material = Enum.Material.CorrodedMetal,
+					canCollide = false,
+					parent = yard,
+				})
+			end
+			--[[
+				Corrugation down the sides, and a casting at each corner.
+
+				The doors and the two rails were meant to be what stopped this
+				reading as a painted box, and from the door end they are. From
+				either side — which is the side you walk past, because the
+				yard is longer than it is wide — there was nothing at all:
+				eleven by twenty-six studs of flat rust, and the four of them
+				stood in the grass like coloured crates the size of a bus.
+
+				The corrugation is the whole silhouette of a container. So is
+				the casting at each corner, which is the one part that is
+				always a different colour from the paint because it is the
+				part that gets hit.
+			]]
+			local FINS = 10
+			for _, face in { -1, 1 } do
+				for fin = 0, FINS do
+					Build.part({
+						name = "ContainerFin",
+						size = Vector3.new(0.5, 9.4, 0.8),
+						cframe = basis
+							* CFrame.new(face * 5.5, 0, -11.5 + 23 * fin / FINS),
+						color = shell.colour,
+						material = Enum.Material.CorrodedMetal,
+						canCollide = false,
+						parent = yard,
+					})
+				end
+			end
+			for _, corner in {
+				Vector3.new(-1, -1, -1),
+				Vector3.new(1, -1, -1),
+				Vector3.new(-1, 1, -1),
+				Vector3.new(1, 1, -1),
+				Vector3.new(-1, -1, 1),
+				Vector3.new(1, -1, 1),
+				Vector3.new(-1, 1, 1),
+				Vector3.new(1, 1, 1),
+			} do
+				Build.part({
+					name = "ContainerCasting",
+					size = Vector3.new(2.4, 2.2, 2.4),
+					cframe = basis
+						* CFrame.new(corner.X * 4.6, corner.Y * 4.9, corner.Z * 12),
+					color = dark,
+					material = Enum.Material.CorrodedMetal,
+					canCollide = false,
+					parent = yard,
+				})
+			end
+			--- Two leaves and the bars that hold them shut.
+			for _, bar in { -3.4, -1.2, 1.2, 3.4 } do
+				Build.part({
+					name = "ContainerBar",
+					size = Vector3.new(0.7, 9.2, 0.7),
+					cframe = basis * CFrame.new(bar, 0, 13.4),
 					color = dark,
 					material = Enum.Material.CorrodedMetal,
 					canCollide = false,
@@ -3538,6 +3718,10 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 						wall = Palette.color(Palette.house.siding),
 						wallSunken = Palette.color(Palette.house.brickDark),
 						roof = Palette.color(Palette.house.roof),
+						-- The only room above ground on this property is the
+						-- garage; below it is somebody's cellar, which is what
+						-- the sunken default already builds.
+						fitting = "garage",
 					}
 				Structures.room(context, section, 16, elevation < 0, opening, skin)
 
@@ -3941,12 +4125,23 @@ local function buildDivisions(world: Types.WorldDef, parent: Folder, style: Divi
 		local half = DIVIDE_OPENING * 0.5
 		local hinge = hung * CFrame.new(-half, 0, 0)
 		local leaf = CFrame.new(half, 0, 0)
+		--[[
+			In the fence's own metal where the fence is metal.
+
+			The gate mesh carries its own pale texture, which is right in a
+			churchyard wall and wrong hung between two galvanised posts: the
+			forecourt had a white ornamental gate standing in a run of dark
+			chain-link. Untextured it keeps its bars and takes the colour of
+			the rail and the posts either side of it.
+		]]
 		local part = Build.mesh({
 			prop = "Grate",
 			name = "DivideGate",
 			size = Vector3.new(DIVIDE_OPENING, tall, 2),
 			collisionSize = Vector3.new(DIVIDE_OPENING, tall, 1),
 			cframe = hinge * leaf,
+			color = if style.wire then style.cap else nil,
+			untextured = style.wire,
 			parent = folder,
 		})
 		part:SetAttribute("Shut", true)
@@ -5000,9 +5195,21 @@ function WorldService.load(worldId: string)
 		-- The fountain, in the middle of the circle
 		--------------------------------------------------------------------
 
+		--[[
+			On the house's axis, not the spawn's.
+
+			The drive is laid by `Worlds.pavingRects`, which measures from the
+			middle of `houseRect`; the fountain took its x from the spawn
+			instead, and the two are a tile apart. So the basin, the parterre
+			around it and the urns up either side all stood four studs to one
+			side of the drive they are the middle of, and of the door they
+			point at. On a formal front, the axis is the whole composition.
+		]]
 		local hr = world.houseRect
+		local axisTile = if hr then hr.x + hr.w * 0.5 else world.spawn.x
+		local axis = WorldService.tilePointFlat(axisTile, world.spawn.z)
 		local circle = Vector3.new(
-			spawnAt.X,
+			axis.X,
 			ground,
 			if hr then (hr.z * TILE + TILE * 0.5) - 46 else spawnAt.Z + 60
 		)
@@ -5028,22 +5235,79 @@ function WorldService.load(worldId: string)
 			canCollide = false,
 			parent = estate,
 		})
-		for tier, size in { 9, 6, 3.4 } do
+		--[[
+			Round bowls on a round stem, each of them holding water.
+
+			The three tiers were always cylinders and always read as square,
+			because the thing running up through the middle of them was a
+			two-stud block twelve studs tall — a square post in a round
+			basin, with a stud and a half of daylight between each disc and
+			nothing in any of them. What you saw from the drive was a stack
+			of slabs on a chimney standing in a pond.
+
+			A stem that is round and steps in as it rises, a lip round each
+			bowl so it has an edge to hold anything, a sheet of water in it,
+			and a ball on the top: a fountain is a thing water comes out of
+			and down, and none of that was legible.
+		]]
+		local water = Palette.color(Palette.estate.water)
+		local BOWLS = { { across = 9, at = 9.2 }, { across = 6, at = 13.6 }, { across = 3.6, at = 17 } }
+		local stemBase = 4
+		for index, bowl in BOWLS do
+			--- The shaft up to this bowl, narrower each time.
+			local shaft = 4 - (index - 1) * 0.8
+			local top = bowl.at - 0.7
 			Build.part({
-				name = "FountainTier",
+				name = "FountainStem",
 				shape = Enum.PartType.Cylinder,
-				size = Vector3.new(1.8, size, size),
-				cframe = CFrame.new(circle + Vector3.new(0, 5.5 + tier * 3.4, 0))
+				size = Vector3.new(top - stemBase, shaft, shaft),
+				cframe = CFrame.new(circle + Vector3.new(0, (stemBase + top) * 0.5, 0))
 					* CFrame.Angles(0, 0, math.rad(90)),
 				color = quoin,
 				material = Enum.Material.Sandstone,
 				parent = estate,
 			})
+			Build.part({
+				name = "FountainTier",
+				shape = Enum.PartType.Cylinder,
+				size = Vector3.new(1.4, bowl.across, bowl.across),
+				cframe = CFrame.new(circle + Vector3.new(0, bowl.at, 0))
+					* CFrame.Angles(0, 0, math.rad(90)),
+				color = quoin,
+				material = Enum.Material.Sandstone,
+				parent = estate,
+			})
+			Build.part({
+				name = "FountainLip",
+				shape = Enum.PartType.Cylinder,
+				size = Vector3.new(0.7, bowl.across + 0.9, bowl.across + 0.9),
+				cframe = CFrame.new(circle + Vector3.new(0, bowl.at + 0.7, 0))
+					* CFrame.Angles(0, 0, math.rad(90)),
+				color = quoin,
+				material = Enum.Material.Sandstone,
+				parent = estate,
+			})
+			Build.part({
+				name = "FountainWater",
+				shape = Enum.PartType.Cylinder,
+				size = Vector3.new(0.4, bowl.across - 0.4, bowl.across - 0.4),
+				cframe = CFrame.new(circle + Vector3.new(0, bowl.at + 0.85, 0))
+					* CFrame.Angles(0, 0, math.rad(90)),
+				color = water,
+				material = Enum.Material.Glass,
+				transparency = 0.3,
+				castShadow = false,
+				canCollide = false,
+				parent = estate,
+			})
+			stemBase = bowl.at + 0.5
 		end
+		--- The jet the whole thing is built under.
 		Build.part({
-			name = "FountainStem",
-			size = Vector3.new(2.2, 12, 2.2),
-			cframe = CFrame.new(circle + Vector3.new(0, 10, 0)),
+			name = "FountainFinial",
+			shape = Enum.PartType.Ball,
+			size = Vector3.new(2.2, 2.2, 2.2),
+			cframe = CFrame.new(circle + Vector3.new(0, 18.9, 0)),
 			color = quoin,
 			material = Enum.Material.Sandstone,
 			parent = estate,
@@ -5070,26 +5334,36 @@ function WorldService.load(worldId: string)
 			Build.hedge(estate, Vector3.new(x + 22, ground, circle.Z - 20), Vector3.new(x + 22, ground, circle.Z + 20), PARTERRE, 4, yew)
 		end
 
-		--- Urns on plinths down the drive, in pairs.
+		--[[
+			Urns on plinths down the drive, in pairs. `Structures.urn` says
+			what one is made of and why; the old one here was a five-stud
+			ball on a four-stud box, and it overhung its plinth far enough to
+			reach across the tile boundary it stood on and clip the top of a
+			player's head on the next tile along.
+
+			On tile centres, too, and not across the seam between two.
+
+			Twenty-six studs off the drive's middle is six and a half tiles,
+			so every plinth stood on the boundary between two of them —
+			burying half of each, taking two tiles of work out where it only
+			occupies one, and putting its own widest moulding exactly where
+			the next tile's headroom is. Said in tiles it lands on a tile,
+			and it goes on landing on one whatever a property's spawn is.
+		]]
+		local stoneShade = Palette.color(Palette.estate.stoneShade)
 		for index = 0, 3 do
-			local z = ground + 26 + index * 30
 			for _, side in { -1, 1 } do
-				local x = spawnAt.X + side * 26
-				Build.part({
-					name = "UrnPlinth",
-					size = Vector3.new(4, 6, 4),
-					cframe = CFrame.new(x, ground + 3, z),
-					color = quoin,
-					material = Enum.Material.Sandstone,
-					parent = estate,
-				})
-				Build.part({
-					name = "Urn",
-					shape = Enum.PartType.Ball,
-					size = Vector3.new(5, 5, 5),
-					cframe = CFrame.new(x, ground + 8, z),
-					color = Palette.color(Palette.estate.stoneShade),
-					material = Enum.Material.Sandstone,
+				local at = WorldService.tilePointFlat(
+					math.round(axisTile) + side * 7,
+					world.spawn.z + 4 + index * 7
+				)
+				Structures.urn({
+					foot = CFrame.new(at.X, ground, at.Z),
+					plinth = 4,
+					body = quoin,
+					bodyMaterial = Enum.Material.Sandstone,
+					stone = stoneShade,
+					stoneMaterial = Enum.Material.Sandstone,
 					parent = estate,
 				})
 			end
