@@ -609,6 +609,17 @@ export type RoomSkin = {
 	--- station's idea, and a whole roof painted in it is a red slab.
 	fascia: Color3?,
 	floor: Color3?,
+	--[[
+		What the room is, when it is something in particular.
+
+		The skin says what a room is *made of*, and for a wash bay or a garage
+		that is the whole answer. A chapel is not: four granite walls and a
+		lid is a warehouse whatever colour it is painted, and the section is
+		called The Chapel. Set, the builder puts an altar, its candles, the
+		windows and a few pews in — the same way a sunken room gets its
+		shelves and its fireplace.
+	]]
+	fitting: "chapel"?,
 }
 
 function Structures.room(
@@ -1151,6 +1162,171 @@ function Structures.room(
 				light.Range = 58
 				light.Shadows = false
 				light.Parent = lamp
+			end
+		end
+
+		if dressing.fitting == "chapel" then
+			--[[
+				What makes a granite box a chapel.
+
+				The crypt below this property got shelves and a fire because a
+				cellar with nothing in it is a room; the same is true one floor
+				up, and more so, because this one has a name on the sign. It
+				was four walls, a floor and three worklights.
+
+				Everything here stands against the walls or down the sides,
+				and the aisle between the pews is fourteen studs — wider than
+				the widest deck in the game, so the room a wide mower needs is
+				the room a congregation needs, which is convenient rather than
+				a coincidence. The buried-tile sweep takes the strip of floor
+				under each solid piece out of the section's total, so nothing
+				here makes the property harder to finish than it reads.
+			]]
+			local stone = dressing.wallSunken
+			local dark = dressing.roof
+			--- The way the room runs, so the altar goes at the end furthest
+			--- from the door rather than in front of it.
+			local alongX = width >= depth
+			local long = if alongX then width else depth
+			local across = if alongX then depth else width
+			local function place(down: number, side: number, y: number): Vector3
+				return centre
+					+ (if alongX then Vector3.new(down, y, side) else Vector3.new(side, y, down))
+			end
+			--- Which end the door is at, so the altar takes the other one.
+			local doorSign = 1
+			if opening then
+				local n = if alongX then opening.normal.X else opening.normal.Z
+				if n ~= 0 then
+					doorSign = if n > 0 then -1 else 1
+				end
+			end
+			local altarAt = -doorSign * (long * 0.5 - 12)
+
+			-- A dais, the altar on it, and a candle at each corner.
+			Build.part({
+				name = "Dais",
+				size = if alongX then Vector3.new(14, 1.2, 34) else Vector3.new(34, 1.2, 14),
+				cframe = CFrame.new(place(altarAt, 0, 0.6)),
+				color = stone,
+				material = Enum.Material.Slate,
+				parent = folder,
+			})
+			Build.part({
+				name = "Altar",
+				size = if alongX then Vector3.new(5, 5, 18) else Vector3.new(18, 5, 5),
+				cframe = CFrame.new(place(altarAt, 0, 3.7)),
+				color = dressing.wall,
+				material = Enum.Material.Marble,
+				parent = folder,
+			})
+			for _, side in { -1, 1 } do
+				local candle = Build.part({
+					name = "Candle",
+					size = Vector3.new(0.9, 3.4, 0.9),
+					cframe = CFrame.new(place(altarAt, side * 6.5, 7.9)),
+					color = Color3.fromRGB(238, 230, 206),
+					material = Enum.Material.Neon,
+					canCollide = false,
+					castShadow = false,
+					parent = folder,
+				})
+				local flame = Instance.new("PointLight")
+				flame.Color = Color3.fromRGB(255, 214, 150)
+				flame.Range = 22
+				flame.Brightness = 0.9
+				flame.Shadows = false
+				flame.Parent = candle
+			end
+
+			--[[
+				Pews, in two banks with an aisle down the middle.
+
+				Solid, because a pew you walk through is a decal. Backs on
+				them, because a bench without one is a park bench and this is
+				not a park.
+			]]
+			local AISLE = 14
+			local PEW_PITCH = 9
+			local pewLength = math.max((across - AISLE) * 0.5 - 8, 6)
+			local pewOffset = AISLE * 0.5 + pewLength * 0.5
+			local first = altarAt + doorSign * 26
+			local rows = math.max(math.floor((long * 0.5 - 20) / PEW_PITCH), 1)
+			for row = 0, rows - 1 do
+				local down = first + doorSign * row * PEW_PITCH
+				for _, side in { -1, 1 } do
+					Build.part({
+						name = "Pew",
+						size = if alongX
+							then Vector3.new(2.2, 2.4, pewLength)
+							else Vector3.new(pewLength, 2.4, 2.2),
+						cframe = CFrame.new(place(down, side * pewOffset, 1.2)),
+						color = Color3.fromRGB(78, 54, 36),
+						material = Enum.Material.WoodPlanks,
+						parent = folder,
+					})
+					Build.part({
+						name = "PewBack",
+						size = if alongX
+							then Vector3.new(0.8, 3, pewLength)
+							else Vector3.new(pewLength, 3, 0.8),
+						cframe = CFrame.new(
+							place(down, side * pewOffset, 3.9)
+								+ (if alongX then Vector3.new(-doorSign * 0.7, 0, 0) else Vector3.new(0, 0, -doorSign * 0.7))
+						),
+						color = Color3.fromRGB(66, 44, 30),
+						material = Enum.Material.WoodPlanks,
+						parent = folder,
+					})
+				end
+			end
+
+			--[[
+				Windows down both long walls, lit from the inside.
+
+				A chapel is its windows. These are set proud of the wall the
+				way the property's others are, and each carries a light of its
+				own — small, because there are six of them and the worklights
+				overhead are already doing the work of seeing by. What these
+				are for is the colour on the stone.
+			]]
+			local perSide = math.max(math.floor(long / 40), 2)
+			for _, side in { -1, 1 } do
+				for index = 1, perSide do
+					local down = long * (index / (perSide + 1) - 0.5)
+					local at = place(down, side * (across * 0.5 - 0.3), wallHeight * 0.58)
+					local window = Build.part({
+						name = "ChapelGlass",
+						size = if alongX
+							then Vector3.new(6, 11, 1)
+							else Vector3.new(1, 11, 6),
+						cframe = CFrame.new(at),
+						color = Color3.fromRGB(226, 176, 86),
+						material = Enum.Material.Neon,
+						canCollide = false,
+						castShadow = false,
+						parent = folder,
+					})
+					local lit = Instance.new("PointLight")
+					lit.Color = Color3.fromRGB(255, 206, 138)
+					lit.Range = 20
+					lit.Brightness = 0.5
+					lit.Shadows = false
+					lit.Parent = window
+					Build.part({
+						name = "ChapelMullion",
+						size = if alongX
+							then Vector3.new(8, 13, 0.8)
+							else Vector3.new(0.8, 13, 8),
+						cframe = CFrame.new(
+							at + (if alongX then Vector3.new(0, 0, side * 0.5) else Vector3.new(side * 0.5, 0, 0))
+						),
+						color = dark,
+						material = Enum.Material.Slate,
+						canCollide = false,
+						parent = folder,
+					})
+				end
 			end
 		end
 	end

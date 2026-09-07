@@ -3451,6 +3451,10 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 						roof = Palette.color(Palette.churchyard.graniteDark),
 						fascia = Palette.color(Palette.churchyard.iron),
 						floor = Palette.color(Palette.churchyard.gravel),
+						-- Only the one above ground: the crypt is a crypt and
+						-- already has its own furniture. `Structures.room`
+						-- fits a chapel out only when it is building a roof.
+						fitting = "chapel",
 					}
 					elseif world.style == "lot" then {
 						wall = Palette.color(Palette.station.body),
