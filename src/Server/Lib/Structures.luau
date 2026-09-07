@@ -1104,11 +1104,15 @@ function Structures.room(
 					Build.part({
 						name = "NicheSlab",
 						size = Vector3.new(BAY_W / 3 - 2.2, BAY_H / 3 - 1.8, 0.6),
+						-- Set two tenths behind the front of the stonework, so
+						-- a sealed mouth reads as filled rather than as a slab
+						-- stuck on the wall — and so the two faces are not on
+						-- the same plane.
 						cframe = base
 							* CFrame.new(
 								cell[1] * BAY_W / 3 + BAY_W / 6,
 								1.4 + cell[2] * (BAY_H / 3) + BAY_H / 6,
-								-2.3
+								-2.0
 							),
 						color = dressing.wallSunken,
 						material = Enum.Material.Slate,
@@ -1119,18 +1123,27 @@ function Structures.room(
 
 			local tombAt = centre + fireWall.at
 			local tombBase = CFrame.lookAt(tombAt, tombAt + fireWall.facing)
+			--[[
+				Lengthways along the wall, not out into the room.
+
+				In this frame -Z is into the room, so a chest eighteen studs
+				deep centred six in reaches three studs out through the wall
+				behind it. It is eighteen long and nine deep instead, which is
+				the shape a chest tomb is and leaves the floor in front of it
+				clear.
+			]]
 			Build.part({
 				name = "ChestTomb",
-				size = Vector3.new(9, 4.4, 18),
-				cframe = tombBase * CFrame.new(0, 2.2, -6),
+				size = Vector3.new(18, 4.4, 9),
+				cframe = tombBase * CFrame.new(0, 2.2, -5.2),
 				color = dressing.wall,
 				material = Enum.Material.Rock,
 				parent = folder,
 			})
 			Build.part({
 				name = "TombLid",
-				size = Vector3.new(10.6, 1.4, 19.6),
-				cframe = tombBase * CFrame.new(0, 5.1, -6),
+				size = Vector3.new(19.6, 1.4, 10.6),
+				cframe = tombBase * CFrame.new(0, 5.1, -5.2),
 				color = dressing.wallSunken,
 				material = Enum.Material.Slate,
 				parent = folder,
@@ -1139,7 +1152,7 @@ function Structures.room(
 				Build.part({
 					name = "UrnPlinth",
 					size = Vector3.new(3.4, 5, 3.4),
-					cframe = tombBase * CFrame.new(side * 11, 2.5, -6),
+					cframe = tombBase * CFrame.new(side * 12, 2.5, -3.4),
 					color = dressing.wallSunken,
 					material = Enum.Material.Slate,
 					parent = folder,
@@ -1148,7 +1161,7 @@ function Structures.room(
 					name = "Urn",
 					shape = Enum.PartType.Ball,
 					size = Vector3.new(3, 3, 3),
-					cframe = tombBase * CFrame.new(side * 11, 6.4, -6),
+					cframe = tombBase * CFrame.new(side * 12, 6.4, -3.4),
 					color = dressing.wall,
 					material = Enum.Material.Rock,
 					parent = folder,
