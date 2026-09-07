@@ -1294,12 +1294,25 @@ function Structures.room(
 			for _, side in { -1, 1 } do
 				for index = 1, perSide do
 					local down = long * (index / (perSide + 1) - 0.5)
-					local at = place(down, side * (across * 0.5 - 0.3), wallHeight * 0.58)
+					--[[
+						On the wall's own centre line, and thicker than it.
+
+						Set just inside the inner face, the glass showed in the
+						room and the surround — which stood proud of the outer
+						face — covered it from the churchyard, so a chapel with
+						six lit windows presented a hundred and thirty-six
+						studs of blank grey to the walk you approach it along.
+						The wall is a stud and a half thick; both pieces are
+						centred on it and thicker than that, the glass thicker
+						than the surround, so each face gets a lit pane with a
+						stone border round it.
+					]]
+					local at = place(down, side * across * 0.5, wallHeight * 0.58)
 					local window = Build.part({
 						name = "ChapelGlass",
 						size = if alongX
-							then Vector3.new(6, 11, 1)
-							else Vector3.new(1, 11, 6),
+							then Vector3.new(6, 11, 3.2)
+							else Vector3.new(3.2, 11, 6),
 						cframe = CFrame.new(at),
 						color = Color3.fromRGB(226, 176, 86),
 						material = Enum.Material.Neon,
@@ -1316,11 +1329,9 @@ function Structures.room(
 					Build.part({
 						name = "ChapelMullion",
 						size = if alongX
-							then Vector3.new(8, 13, 0.8)
-							else Vector3.new(0.8, 13, 8),
-						cframe = CFrame.new(
-							at + (if alongX then Vector3.new(0, 0, side * 0.5) else Vector3.new(side * 0.5, 0, 0))
-						),
+							then Vector3.new(8, 13, 2.6)
+							else Vector3.new(2.6, 13, 8),
+						cframe = CFrame.new(at),
 						color = dark,
 						material = Enum.Material.Slate,
 						canCollide = false,
