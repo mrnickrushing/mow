@@ -176,6 +176,28 @@ local worldInfo: RemoteEvent
 local DETAIL_SQ = GameConfig.DETAIL_RADIUS * GameConfig.DETAIL_RADIUS
 local LOD_SQ = GameConfig.LOD_RADIUS * GameConfig.LOD_RADIUS
 
+--[[
+	Where the tufts start thinning out rather than stopping dead.
+
+	Detail was drawn at full density right up to the radius and then not at
+	all, so there is a hard ring on the ground: knee-high grass on one side of
+	a line and a flat plane on the other, and it moves with you, which is what
+	makes it read as a fault rather than as distance. Standing at the road on
+	the Gas Station it is the first thing you see.
+
+	From here out to the edge a tile's chance of being drawn falls to nothing,
+	picked by a hash of the tile so a given tile is always the same answer —
+	the scatter has to be stable or the fringe boils as the camera moves. The
+	carpet already reaches under this band, so a tile that is not drawn shows
+	the stand-in rather than bare ground.
+
+	It costs nothing; it saves. The band past this fraction is most of the
+	area of the circle, so thinning it removes about a third of the tufts.
+]]
+local FADE_FROM = 0.62
+local FADE_SALT = 977
+
+
 --------------------------------------------------------------------
 -- Deterministic scatter
 --------------------------------------------------------------------
@@ -191,6 +213,14 @@ local function hash01(index: number, salt: number): number
 	n = bit32.bxor(n, bit32.rshift(n, 13))
 	n = (n * 1274126177) % 4294967296
 	return (n % 65536) / 65536
+end
+local function keepsDetail(index: number, awaySq: number): boolean
+	local t = math.sqrt(awaySq) / GameConfig.DETAIL_RADIUS
+	if t <= FADE_FROM then
+		return true
+	end
+	local keep = 1 - (t - FADE_FROM) / (1 - FADE_FROM)
+	return hash01(index, FADE_SALT) < keep
 end
 
 --------------------------------------------------------------------
@@ -1070,7 +1100,8 @@ local function refresh()
 									local index = Grid.toIndex(theGrid, tx, tz)
 									local tileX, tileZ = Grid.tileToWorld(theGrid, tx, tz)
 									local tdx, tdz = tileX - focus.X, tileZ - focus.Z
-									if tdx * tdx + tdz * tdz <= DETAIL_SQ then
+									local awaySq = tdx * tdx + tdz * tdz
+									if awaySq <= DETAIL_SQ and keepsDetail(index, awaySq) then
 										visibleDetail[index] = true
 										drawTile(theGrid, theTiles, index, isLocked(index))
 									end
