@@ -724,6 +724,59 @@ export type RoomSkin = {
 	underground: ("cellar" | "workshop" | "crypt")?,
 }
 
+--[[
+	A stack of tyres, stood at the foot frame's origin.
+
+	Both the workshop and the garage want one and both had built their own:
+	nine studs across and butted a tenth of a stud apart, four of them read
+	as a single black drum eleven studs tall with no seam anywhere on it to
+	say what it was. A tyre is smaller than a person and a stack of them is
+	a stack — narrower, a real gap between each so the shadow lines show,
+	two shades of rubber so the bands separate, and each sitting a little
+	off the one below the way nobody ever stacks them straight.
+
+	A cylinder has no hole in it, so the top one gets a wheel dropped into
+	it: something that is not rubber, standing a fifth of a stud proud of
+	the tread, which is what gives the black column a centre to look at.
+]]
+local TYRE_OFFSET = { 0, 0.5, -0.35, 0.25 }
+
+local function tyreStack(foot: CFrame, parent: Instance)
+	local top = 0
+	for tyre = 0, 3 do
+		top = 1.05 + tyre * 2.1
+		Build.part({
+			name = "TyreStack",
+			shape = Enum.PartType.Cylinder,
+			size = Vector3.new(1.8, 6.2, 6.2),
+			cframe = foot
+				* CFrame.new(
+					TYRE_OFFSET[tyre + 1],
+					top,
+					TYRE_OFFSET[(tyre + 2) % 4 + 1]
+				)
+				* CFrame.Angles(0, 0, math.rad(90)),
+			color = if tyre % 2 == 0
+				then Color3.fromRGB(34, 34, 38)
+				else Color3.fromRGB(46, 46, 51),
+			material = Enum.Material.Rubber,
+			parent = parent,
+		})
+	end
+	Build.part({
+		name = "TyreHub",
+		shape = Enum.PartType.Cylinder,
+		size = Vector3.new(1.1, 3.4, 3.4),
+		cframe = foot
+			* CFrame.new(TYRE_OFFSET[4], top + 0.55, TYRE_OFFSET[2])
+			* CFrame.Angles(0, 0, math.rad(90)),
+		color = Color3.fromRGB(150, 154, 160),
+		material = Enum.Material.Metal,
+		canCollide = false,
+		parent = parent,
+	})
+end
+
 function Structures.room(
 	context: Context,
 	zone: Types.ZoneDef,
@@ -1354,19 +1407,7 @@ function Structures.room(
 				})
 			end
 			--- A stack of tyres beside them, which is what a workshop has.
-			for tyre = 0, 3 do
-				Build.part({
-					name = "TyreStack",
-					shape = Enum.PartType.Cylinder,
-					size = Vector3.new(2.6, 9, 9),
-					cframe = drumBase
-						* CFrame.new(-24, 1.4 + tyre * 2.7, -4)
-						* CFrame.Angles(0, 0, math.rad(90)),
-					color = Color3.fromRGB(34, 34, 38),
-					material = Enum.Material.Rubber,
-					parent = folder,
-				})
-			end
+			tyreStack(drumBase * CFrame.new(-24, 0, -4), folder)
 		else
 			local runs = math.max(math.floor(shelfWall.span / 34), 1)
 			for index = 1, runs do
@@ -1681,62 +1722,8 @@ function Structures.room(
 				end
 			end
 
-			--[[
-				And a stack of tyres in the corner.
-
-				Nine studs across and butted a tenth of a stud apart, these
-				read as one black drum eleven studs tall — taller than the
-				player, wider than the bench, and with no seam anywhere on it
-				to say what it was. A tyre is smaller than a person and a
-				stack of them is a stack: narrower, a real gap between each
-				one so the shadow lines show, two shades of rubber so the
-				bands separate, and each sitting a little off the one below
-				the way nobody ever stacks them straight.
-			]]
-			local TYRE_OFFSET = { 0, 0.5, -0.35, 0.25 }
-			local top = 0
-			for tyre = 0, 3 do
-				local lift = 1.05 + tyre * 2.1
-				top = lift
-				Build.part({
-					name = "TyreStack",
-					shape = Enum.PartType.Cylinder,
-					size = Vector3.new(1.8, 6.2, 6.2),
-					cframe = CFrame.new(
-						place(
-							-long * 0.38 + TYRE_OFFSET[tyre + 1],
-							wall - 3 + TYRE_OFFSET[(tyre + 2) % 4 + 1],
-							lift
-						)
-					) * CFrame.Angles(0, 0, math.rad(90)),
-					color = if tyre % 2 == 0
-						then Color3.fromRGB(34, 34, 38)
-						else Color3.fromRGB(46, 46, 51),
-					material = Enum.Material.Rubber,
-					parent = folder,
-				})
-			end
-			--[[
-				A rim sitting in the top one.
-
-				A cylinder has no hole in it, so the stack has no dark centre
-				to look down; a wheel dropped in the top tyre gives it one
-				thing that is not rubber and settles what the black column is.
-				It stands a fifth of a stud proud of the tread — flush, and it
-				would be a disc fighting the face it is drawn on.
-			]]
-			Build.part({
-				name = "TyreHub",
-				shape = Enum.PartType.Cylinder,
-				size = Vector3.new(1.1, 3.4, 3.4),
-				cframe = CFrame.new(
-					place(-long * 0.38 + TYRE_OFFSET[4], wall - 3 + TYRE_OFFSET[2], top + 0.55)
-				) * CFrame.Angles(0, 0, math.rad(90)),
-				color = Color3.fromRGB(150, 154, 160),
-				material = Enum.Material.Metal,
-				canCollide = false,
-				parent = folder,
-			})
+			--- And a stack of tyres in the corner.
+			tyreStack(CFrame.new(place(-long * 0.38, wall - 3, 0)), folder)
 		elseif dressing.fitting == "washbay" then
 			--[[
 				What makes a concrete box a wash bay.

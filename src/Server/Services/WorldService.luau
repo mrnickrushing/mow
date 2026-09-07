@@ -2467,6 +2467,69 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 					parent = yard,
 				})
 			end
+			--[[
+				Corrugation down the sides, and a casting at each corner.
+
+				The doors and the two rails were meant to be what stopped this
+				reading as a painted box, and from the door end they are. From
+				either side — which is the side you walk past, because the
+				yard is longer than it is wide — there was nothing at all:
+				eleven by twenty-six studs of flat rust, and the four of them
+				stood in the grass like coloured crates the size of a bus.
+
+				The corrugation is the whole silhouette of a container. So is
+				the casting at each corner, which is the one part that is
+				always a different colour from the paint because it is the
+				part that gets hit.
+			]]
+			local FINS = 10
+			for _, face in { -1, 1 } do
+				for fin = 0, FINS do
+					Build.part({
+						name = "ContainerFin",
+						size = Vector3.new(0.5, 9.4, 0.8),
+						cframe = basis
+							* CFrame.new(face * 5.5, 0, -11.5 + 23 * fin / FINS),
+						color = shell.colour,
+						material = Enum.Material.CorrodedMetal,
+						canCollide = false,
+						parent = yard,
+					})
+				end
+			end
+			for _, corner in {
+				Vector3.new(-1, -1, -1),
+				Vector3.new(1, -1, -1),
+				Vector3.new(-1, 1, -1),
+				Vector3.new(1, 1, -1),
+				Vector3.new(-1, -1, 1),
+				Vector3.new(1, -1, 1),
+				Vector3.new(-1, 1, 1),
+				Vector3.new(1, 1, 1),
+			} do
+				Build.part({
+					name = "ContainerCasting",
+					size = Vector3.new(2.4, 2.2, 2.4),
+					cframe = basis
+						* CFrame.new(corner.X * 4.6, corner.Y * 4.9, corner.Z * 12),
+					color = dark,
+					material = Enum.Material.CorrodedMetal,
+					canCollide = false,
+					parent = yard,
+				})
+			end
+			--- Two leaves and the bars that hold them shut.
+			for _, bar in { -3.4, -1.2, 1.2, 3.4 } do
+				Build.part({
+					name = "ContainerBar",
+					size = Vector3.new(0.7, 9.2, 0.7),
+					cframe = basis * CFrame.new(bar, 0, 13.4),
+					color = dark,
+					material = Enum.Material.CorrodedMetal,
+					canCollide = false,
+					parent = yard,
+				})
+			end
 		end
 	end
 
@@ -3945,12 +4008,23 @@ local function buildDivisions(world: Types.WorldDef, parent: Folder, style: Divi
 		local half = DIVIDE_OPENING * 0.5
 		local hinge = hung * CFrame.new(-half, 0, 0)
 		local leaf = CFrame.new(half, 0, 0)
+		--[[
+			In the fence's own metal where the fence is metal.
+
+			The gate mesh carries its own pale texture, which is right in a
+			churchyard wall and wrong hung between two galvanised posts: the
+			forecourt had a white ornamental gate standing in a run of dark
+			chain-link. Untextured it keeps its bars and takes the colour of
+			the rail and the posts either side of it.
+		]]
 		local part = Build.mesh({
 			prop = "Grate",
 			name = "DivideGate",
 			size = Vector3.new(DIVIDE_OPENING, tall, 2),
 			collisionSize = Vector3.new(DIVIDE_OPENING, tall, 1),
 			cframe = hinge * leaf,
+			color = if style.wire then style.cap else nil,
+			untextured = style.wire,
 			parent = folder,
 		})
 		part:SetAttribute("Shut", true)
