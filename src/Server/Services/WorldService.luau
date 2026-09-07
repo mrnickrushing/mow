@@ -3554,9 +3554,38 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 					was hung in.
 				]]
 				if approach and Worlds.unlockKind(section) == "completion" then
-					local gateAt = approach.edge + Vector3.new(0, elevation, 0)
+					--[[
+						A cellar's gate stands at the head of its steps.
+
+						An above-ground room is simple: the doorway is a gap
+						in the wall, and the gate fills it from the floor to
+						the head of the wall.
+
+						A sunken one is not. Its wall is a retaining wall from
+						the floor up to ground level, and the flight descends
+						*inside* the room from the opening — so the volume of
+						that opening is where the staircase is. A gate hung in
+						it is buried in the treads and the stringer: invisible
+						from either side, and no obstacle at all, because you
+						walk over the top of it at ground level. That is what
+						the first attempt did on The House's basement, and
+						only the chapel looked right because it stands on the
+						ground where the floor and the doorway are the same
+						height.
+
+						What bars a cellar is a gate across the top of the
+						steps. So on anything sunken it stands on the ground
+						at the mouth of the stairwell rather than in the wall
+						below it.
+					]]
+					local sunkenRoom = elevation < 0
+					local rise = if sunkenRoom then 11 else 16
+					--- Ground level at the stairwell mouth, or the room's own
+					--- floor where the doorway is in a wall you walk through.
+					local gateBase = if sunkenRoom then 0 else elevation + 0.06
+					local gateAt = approach.edge + Vector3.new(0, gateBase, 0)
 					local hung = CFrame.lookAt(gateAt, gateAt + approach.normal)
-						* CFrame.new(0, 7.5, 0)
+						* CFrame.new(0, rise * 0.5, 0)
 					local half = DOOR_WIDTH * 0.5
 					--- The jamb it turns on, and the leaf hanging off it.
 					local hinge = hung * CFrame.new(-half, 0, 0)
@@ -3564,8 +3593,8 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 					local gate = Build.mesh({
 						prop = "Grate",
 						name = "RoomGate",
-						size = Vector3.new(DOOR_WIDTH, 15, 2),
-						collisionSize = Vector3.new(DOOR_WIDTH, 15, 1),
+						size = Vector3.new(DOOR_WIDTH, rise, 2),
+						collisionSize = Vector3.new(DOOR_WIDTH, rise, 1),
 						cframe = hinge * leaf,
 						parent = parent,
 					})
