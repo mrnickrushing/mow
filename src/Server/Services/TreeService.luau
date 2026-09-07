@@ -71,6 +71,10 @@ local onGrind: (Player, BasePart) -> ()
 --------------------------------------------------------------------
 
 local function makeStump(position: Vector3, sectionId: string, parent: Instance): BasePart
+	-- Four and a half studs of collision on a four-stud tile: nobody stands
+	-- here again, so nothing sown here can ever be reached. See
+	-- `WorldService.clearTileAt`.
+	WorldService.clearTileAt(position.X, position.Z)
 	local part = Build.mesh({
 		prop = "Stump",
 		name = "Stump",
@@ -124,6 +128,9 @@ end
 local CHOPPABLE = { "SugarMaple" }
 
 local function makeTree(position: Vector3, sectionId: string, parent: Instance)
+	-- The trunk stands on this tile from now on, and the sweep that would
+	-- have emptied it has its own timing. See `WorldService.clearTileAt`.
+	WorldService.clearTileAt(position.X, position.Z)
 	local model = Instance.new("Model")
 	model.Name = "Tree"
 
