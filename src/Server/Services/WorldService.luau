@@ -3325,6 +3325,17 @@ local function chooseApproach(
 end
 
 local cashGates: { [string]: Model } = {}
+--[[
+	The grille across a room's doorway, by section.
+
+	A cash gate is a door you buy, and it already stands there saying so. A
+	room earned by finishing the section before it had nothing at all: the
+	chapel's doorway was a hole in a wall whether or not you were allowed
+	through it, so "locked" was a thing the client knew and the property did
+	not show. These are the portcullis the way out uses, hung in the doorway
+	and raised the same way when the section opens.
+]]
+local roomGates: { [string]: BasePart } = {}
 
 --[[
 	The hidden switches that open `button` sections.
@@ -3476,6 +3487,34 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 						roof = Palette.color(Palette.house.roof),
 					}
 				Structures.room(context, section, 16, elevation < 0, opening, skin)
+
+				--[[
+					A grille in the doorway, until the section is earned.
+
+					Only where nothing else is already holding the door: a
+					cash-gated section has a door you buy, and a second
+					barrier behind it would mean paying to open one gate and
+					finding another.
+
+					Hung at the doorway the approach already worked out.
+					`approach.edge` is a flat point — `tilePointFlat` is
+					ground level, not the section's floor — so a sunken room's
+					gate has to be dropped to its own storey.
+				]]
+				if approach and Worlds.unlockKind(section) ~= "cash" then
+					local gateAt = approach.edge + Vector3.new(0, elevation, 0)
+					local gate = Build.mesh({
+						prop = "Grate",
+						name = "RoomGate",
+						size = Vector3.new(DOOR_WIDTH, 15, 2),
+						collisionSize = Vector3.new(DOOR_WIDTH, 15, 1),
+						cframe = CFrame.lookAt(gateAt, gateAt + approach.normal)
+							* CFrame.new(0, 7.5, 0),
+						parent = parent,
+					})
+					gate:SetAttribute("Shut", true)
+					roomGates[section.id] = gate
+				end
 
 				--[[
 					A cellar's far wall is where the way out goes.
@@ -4311,6 +4350,9 @@ function WorldService.load(worldId: string)
 	WorldService.tiles = tiles
 	WorldService.world = world
 	table.clear(openSections)
+	-- Keyed by section id, and section ids repeat between properties, so last
+	-- world's gates would otherwise be found and raised on this one.
+	table.clear(roomGates)
 	-- Tile indices belong to the grid that produced them, so last world's
 	-- buried set would suppress seeding at unrelated places in this one.
 	table.clear(WorldService.buriedTiles)
@@ -4874,6 +4916,25 @@ function WorldService.setSectionOpen(sectionId: string, open: boolean)
 		if gate then
 			cashGates[sectionId] = nil
 			gate:Destroy()
+		end
+
+		--[[
+			The room's grille goes up rather than away.
+
+			The same portcullis the way out uses, for the same reason: a gate
+			that fades leaves a doorway that never had one in it, and a gate
+			that rises is the shape everybody reads as "this is open now".
+		]]
+		local grille = roomGates[sectionId]
+		if grille and grille:GetAttribute("Shut") then
+			roomGates[sectionId] = nil
+			grille:SetAttribute("Shut", false)
+			grille.CanCollide = false
+			TweenService:Create(
+				grille,
+				TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ CFrame = grille.CFrame + Vector3.new(0, grille.Size.Y * 0.86, 0) }
+			):Play()
 		end
 
 	else
