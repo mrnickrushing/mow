@@ -3457,6 +3457,9 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 						fitting = "chapel",
 					}
 					elseif world.style == "lot" then {
+						-- The room under a filling station is its workshop,
+						-- not somebody's cellar.
+						underground = "workshop",
 						wall = Palette.color(Palette.station.body),
 						wallSunken = Palette.color(Palette.station.dark),
 						-- Dark roof, red band. The fascia stripe is the
