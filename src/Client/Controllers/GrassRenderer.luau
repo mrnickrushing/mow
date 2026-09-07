@@ -835,7 +835,29 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 	]]
 	local floorColour: Color3? = surfaceByKind[surface]
 	local hardFloor = floorColour ~= nil or not groundIsLawn
-	local growsFromTheGround = not hardFloor and debrisId ~= DebrisConfig.Leaves
+	--[[
+		How much of this chunk is something other than the grass itself.
+
+		The rule above is right and the way it was applied was not. It was a
+		yes or no taken on whichever debris weighed most in the chunk: a
+		square that came out mostly leaves drew an opaque slab, the square
+		next to it that came out mostly grass drew nothing at all, and a lawn
+		sown with both — which is every lawn in the game — alternated between
+		the two across a thirty-two stud grid. Looking the length of the
+		Cemetery, the middle distance is a chequerboard of squares, which is
+		the same complaint the weighting was brought in to fix, one level up.
+
+		The share is a fraction, so it is used as one: a chunk with nothing
+		but grass in it is fully transparent, which draws exactly nothing and
+		is what "left to the ground" already meant, and a chunk that is all
+		drift is opaque, which is what it already was. Everything between
+		those two now lands between them instead of at one end or the other.
+	]]
+	local grassHeight = weight[DebrisConfig.Grass] or 0
+	local litterShare = if remaining > 0 then (remaining - grassHeight) / remaining else 0
+	--- Under this it would be drawn at a transparency nobody can see, so the
+	--- part is not made at all.
+	local growsFromTheGround = not hardFloor and litterShare < 0.03
 	local nothingToDraw = samples == 0 or remaining == 0 or growsFromTheGround
 	if nothingToDraw then
 		if existing then
@@ -952,7 +974,9 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		part.Transparency = math.clamp(1 - solidity, 0.16, 0.80)
 	else
 		part.Color = groundColor:Lerp(litter, 0.06 + 0.16 * fullness)
-		part.Transparency = 0
+		-- All drift is the opaque slab it always was; all grass is nothing at
+		-- all, which it also always was. The gradient is the new part.
+		part.Transparency = math.clamp(1 - litterShare, 0, 1)
 	end
 	part.Parent = lodFolder
 end
