@@ -672,7 +672,7 @@ export type RoomSkin = {
 		windows and a few pews in — the same way a sunken room gets its
 		shelves and its fireplace.
 	]]
-	fitting: "chapel"?,
+	fitting: ("chapel" | "washbay")?,
 	--[[
 		And what a *sunken* room of this property is.
 
@@ -1503,7 +1503,194 @@ function Structures.room(
 			end
 		end
 
-		if dressing.fitting == "chapel" then
+		if dressing.fitting == "washbay" then
+			--[[
+				What makes a concrete box a wash bay.
+
+				The first pass at this put two dividers and three posts in a
+				hundred and eight studs by a hundred and eighty-four and it was
+				still, correctly, "just an empty room". What says wash bay is
+				not the walls, it is the machinery: an arch you drive under with
+				the brushes hanging off it, a channel in the floor for the water
+				to go down, and a jet on a post you can actually see is a jet.
+
+				Three lanes, divided the way a car goes through. Everything
+				overhead is non-colliding — a gantry beam hangs at the height a
+				player's head is, and a solid one would leave the tile under it
+				sown and unreachable, which is how the jet heads broke the
+				section the first time.
+			]]
+			local alongX = width >= depth
+			local long = if alongX then width else depth
+			local across = if alongX then depth else width
+			local function place(down: number, side: number, y: number): Vector3
+				return centre
+					+ (if alongX then Vector3.new(down, y, side) else Vector3.new(side, y, down))
+			end
+			local steel = Color3.fromRGB(148, 152, 160)
+			local hazard = Color3.fromRGB(226, 178, 46)
+
+			--- Two dividers, splitting the floor into three lanes.
+			local DIVIDE_LEN = long * 0.52
+			for _, side in { -1, 1 } do
+				local offset = side * across * 0.17
+				Build.part({
+					name = "BayDivider",
+					size = if alongX
+						then Vector3.new(DIVIDE_LEN, 6, 1.6)
+						else Vector3.new(1.6, 6, DIVIDE_LEN),
+					cframe = CFrame.new(place(0, offset, 3)),
+					color = dressing.wallSunken,
+					material = Enum.Material.Concrete,
+					parent = folder,
+				})
+				Build.part({
+					name = "BayStripe",
+					size = if alongX
+						then Vector3.new(DIVIDE_LEN, 0.5, 2.2)
+						else Vector3.new(2.2, 0.5, DIVIDE_LEN),
+					cframe = CFrame.new(place(0, offset, 6.25)),
+					color = hazard,
+					material = Enum.Material.SmoothPlastic,
+					canCollide = false,
+					parent = folder,
+				})
+			end
+
+			local LANE = across * 0.34
+			for _, side in { -1, 0, 1 } do
+				local offset = side * LANE
+				local half = across * 0.15
+
+				--[[
+					The gantry, which is the thing a wash bay is.
+
+					Two uprights and a beam across, with a rank of brushes
+					hanging off it low enough to reach a car roof. Set a third
+					of the way down the lane so you can see under it from the
+					door.
+				]]
+				local archAt = -long * 0.12
+				for _, post in { -1, 1 } do
+					Build.part({
+						name = "ArchLeg",
+						size = Vector3.new(1.4, 13, 1.4),
+						cframe = CFrame.new(place(archAt, offset + post * half, 6.5)),
+						color = steel,
+						material = Enum.Material.Metal,
+						parent = folder,
+					})
+				end
+				Build.part({
+					name = "ArchBeam",
+					size = if alongX
+						then Vector3.new(2, 1.6, half * 2 + 1.4)
+						else Vector3.new(half * 2 + 1.4, 1.6, 2),
+					cframe = CFrame.new(place(archAt, offset, 13.2)),
+					color = hazard,
+					material = Enum.Material.Metal,
+					canCollide = false,
+					parent = folder,
+				})
+				for brush = -2, 2 do
+					Build.part({
+						name = "WashBrush",
+						shape = Enum.PartType.Cylinder,
+						size = Vector3.new(5.6, 3.2, 3.2),
+						cframe = CFrame.new(
+							place(archAt, offset + brush * half * 0.4, 9.6)
+						) * CFrame.Angles(0, 0, math.rad(90)),
+						color = Color3.fromRGB(74, 108, 156),
+						material = Enum.Material.Fabric,
+						canCollide = false,
+						parent = folder,
+					})
+				end
+
+				--- The jet, on a post, at the head of the lane.
+				local at = place(-long * 0.34, offset, 0)
+				Build.part({
+					name = "JetPost",
+					size = Vector3.new(1.6, 11, 1.6),
+					cframe = CFrame.new(at + Vector3.new(0, 5.5, 0)),
+					color = steel,
+					material = Enum.Material.Metal,
+					parent = folder,
+				})
+				--- Non-colliding: it is wider than its post, so it overhangs
+				--- the tile next door at head height, which is above the reach
+				--- of the buried-tile sweep and inside the height of a player.
+				Build.part({
+					name = "JetBox",
+					size = Vector3.new(3.4, 4.6, 2.6),
+					cframe = CFrame.new(at + Vector3.new(0, 8, 0)),
+					color = Color3.fromRGB(196, 62, 48),
+					material = Enum.Material.SmoothPlastic,
+					canCollide = false,
+					parent = folder,
+				})
+				Build.part({
+					name = "HoseCoil",
+					shape = Enum.PartType.Cylinder,
+					size = Vector3.new(1, 4.4, 4.4),
+					cframe = CFrame.new(at + Vector3.new(0, 4.4, 0))
+						* CFrame.Angles(0, 0, math.rad(90)),
+					color = Color3.fromRGB(38, 40, 46),
+					material = Enum.Material.SmoothPlastic,
+					canCollide = false,
+					parent = folder,
+				})
+
+				--- A channel down the middle of the lane rather than one round
+				--- drain, because that is where the water actually goes.
+				Build.part({
+					name = "DrainChannel",
+					size = if alongX
+						then Vector3.new(long * 0.72, 0.3, 2.4)
+						else Vector3.new(2.4, 0.3, long * 0.72),
+					cframe = CFrame.new(place(0, offset, 0.1)),
+					color = Color3.fromRGB(58, 60, 66),
+					material = Enum.Material.DiamondPlate,
+					canCollide = false,
+					castShadow = false,
+					parent = folder,
+				})
+
+				--- Bollards at the mouth, so the lane reads as a lane.
+				for _, post in { -1, 1 } do
+					Build.part({
+						name = "Bollard",
+						shape = Enum.PartType.Cylinder,
+						size = Vector3.new(5, 2.2, 2.2),
+						cframe = CFrame.new(place(-long * 0.42, offset + post * half, 2.5))
+							* CFrame.Angles(0, 0, math.rad(90)),
+						color = hazard,
+						material = Enum.Material.SmoothPlastic,
+						parent = folder,
+					})
+				end
+			end
+
+			--- And a board on the end wall, because every wash bay has one.
+			Build.part({
+				name = "BayBoard",
+				size = if alongX then Vector3.new(2, 9, 26) else Vector3.new(26, 9, 2),
+				cframe = CFrame.new(place(long * 0.46, 0, 10)),
+				color = Color3.fromRGB(196, 62, 48),
+				material = Enum.Material.SmoothPlastic,
+				canCollide = false,
+				parent = folder,
+			})
+			Build.part({
+				name = "BayBoardFace",
+				size = if alongX then Vector3.new(1, 6, 21) else Vector3.new(21, 6, 1),
+				cframe = CFrame.new(place(long * 0.455, 0, 10)),
+				color = Color3.fromRGB(240, 240, 236),
+				material = Enum.Material.SmoothPlastic,
+				canCollide = false,
+				parent = folder,
+			})
+		elseif dressing.fitting == "chapel" then
 			--[[
 				What makes a granite box a chapel.
 

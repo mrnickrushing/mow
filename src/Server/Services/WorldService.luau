@@ -3519,8 +3519,13 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 					}
 					elseif world.style == "lot" then {
 						-- The room under a filling station is its workshop,
-						-- not somebody's cellar.
+						-- not somebody's cellar; the one above it is the wash
+						-- bay, which is lanes rather than an empty shed.
 						underground = "workshop",
+						fitting = "washbay",
+						-- A wash bay floor is concrete that is wet most of the
+						-- time, not the sand the default leaves it.
+						floor = Palette.color(Palette.station.dark),
 						wall = Palette.color(Palette.station.body),
 						wallSunken = Palette.color(Palette.station.dark),
 						-- Dark roof, red band. The fascia stripe is the
