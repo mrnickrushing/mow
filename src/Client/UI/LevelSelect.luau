@@ -226,7 +226,21 @@ local function drawCard(world: Types.WorldDef, order: number)
 	local card = Instance.new("TextButton")
 	card.Name = world.id
 	card.Text = ""
-	card.Size = UDim2.new(1, -14, 0, 118)
+	--[[
+		Short enough that the next one always shows.
+
+		At a hundred and eighteen, three cards filled the list exactly and the
+		fourth sat below the fold with nothing to say it was there — so The
+		Cemetery simply did not exist as far as the screen was concerned. The
+		panel cannot grow to fit four without shrinking on a phone, where it
+		is already tight, and it would be wrong again at five.
+
+		A hundred fits three and most of a fourth in the same space, so
+		whatever the count there is always part of a card showing under the
+		last one, which is what tells anybody there is more to see. The
+		contents hang off the top and bottom edges, so they ride the change.
+	]]
+	card.Size = UDim2.new(1, -14, 0, 100)
 	card.BackgroundColor3 = Color3.fromRGB(44, 47, 56)
 	card.BorderSizePixel = 0
 	card.AutoButtonColor = open
@@ -378,7 +392,9 @@ function LevelSelect.refresh()
 	for order, world in Worlds.list do
 		drawCard(world, order)
 	end
-	mapHolder.CanvasSize = UDim2.fromOffset(0, #Worlds.list * 126)
+	-- Card plus the layout's padding, less the padding the last one does not
+	-- need; the exact height means the list stops where the cards do.
+	mapHolder.CanvasSize = UDim2.fromOffset(0, #Worlds.list * 108 - 8)
 	refreshSettings()
 end
 
@@ -542,7 +558,11 @@ local function build()
 	mapHolder.Size = UDim2.fromScale(1, 1)
 	mapHolder.BackgroundTransparency = 1
 	mapHolder.BorderSizePixel = 0
-	mapHolder.ScrollBarThickness = 6
+	-- Wide enough and light enough to be seen against the panel: it is half
+	-- of what says the list goes on past the bottom of the frame.
+	mapHolder.ScrollBarThickness = 8
+	mapHolder.ScrollBarImageColor3 = Color3.fromRGB(196, 200, 210)
+	mapHolder.ScrollBarImageTransparency = 0.25
 	mapHolder.CanvasSize = UDim2.new()
 	mapHolder.Parent = mapBody
 
