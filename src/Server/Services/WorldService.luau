@@ -4146,6 +4146,58 @@ local function clearBuriedTiles(world: Types.WorldDef, grid: Grid.Grid, tiles: b
 	ReplicationService.setTotalUnits(WorldService.totalUnits)
 end
 
+--[[
+	Clears the one tile something is about to stand on.
+
+	`clearBuriedTiles` above is the sweep, and it runs once, just after `Built`
+	— but `Built` is a BindableEvent, and a BindableEvent's handlers are
+	deferred: they do not run at the `Fire`, they run at the next resumption
+	point. The sweep yields, so tree planting and the sweep interleave, and any
+	trunk that goes up after the sweep has passed its own tile keeps whatever
+	was sown there. Measured across the four properties: one tile on the
+	Mansion, two on The House, six on the Gas Station, seven on the Cemetery.
+
+	That is not a cosmetic miss. A section is clear at `remainingUnits <= 0`
+	and nothing short of it, a trunk is three and a half studs across on a
+	four-stud tile, so nobody can stand on one — and the promise the tree
+	service is written around is that everything lying on a tile can be
+	cleared with bare hands. Seven tiles nobody can reach on the starting
+	section of the last property is that property unfinishable.
+
+	So a builder that puts something solid down after the sweep clears its own
+	tile, which needs no ordering to be right.
+]]
+function WorldService.clearTileAt(worldX: number, worldZ: number)
+	local grid, tiles = WorldService.grid, WorldService.tiles
+	if not grid or not tiles then
+		return
+	end
+	local tx, tz = Grid.worldToTile(grid, worldX, worldZ)
+	if not Grid.inBounds(grid, tx, tz) then
+		return
+	end
+	local index = Grid.toIndex(grid, tx, tz)
+	-- Remembered whether or not anything was sown here, because the record is
+	-- what a wave refill reads to know not to sow it again.
+	WorldService.buriedTiles[index] = true
+
+	local byte = buffer.readu8(tiles, index - 1)
+	if ChunkCodec.height(byte) <= 0 then
+		return
+	end
+	local sections = WorldService.tileSection
+	local state = WorldService.sections[(if sections then sections[index] else nil) or ""]
+	local units = Cutting.unitsOnTile(byte)
+	buffer.writeu8(tiles, index - 1, 0)
+	if state then
+		state.totalUnits -= units
+		state.remainingUnits -= units
+	end
+	WorldService.totalUnits -= units
+	WorldService.remainingUnits -= units
+	ReplicationService.setTotalUnits(WorldService.totalUnits)
+end
+
 function WorldService.load(worldId: string)
 	local world = Worlds.expect(worldId)
 
