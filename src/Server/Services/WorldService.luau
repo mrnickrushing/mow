@@ -4321,6 +4321,16 @@ function WorldService.load(worldId: string)
 			{ Vector3.new(0, 0, depth), Vector3.new(width, 0, depth) },
 			{ Vector3.new(width, 0, depth), Vector3.new(width, 0, 0) },
 		}
+		--[[
+			Where a pier already stands.
+
+			Every run puts one at each of its own ends, and consecutive runs
+			share an end, so both back corners of the estate were carrying two
+			identical piers in exactly the same place — five studs of sandstone
+			inside another five studs of sandstone, with their faces on the
+			same planes.
+		]]
+		local piered: { [string]: boolean } = {}
 		for _, run in runs do
 			local from, to = run[1], run[2]
 			local delta = to - from
@@ -4356,6 +4366,11 @@ function WorldService.load(worldId: string)
 			local piers = math.max(math.floor(length / PIER_GAP), 1)
 			for index = 0, piers do
 				local at = from + along * (length * index / piers)
+				local key = string.format("%.0f,%.0f", at.X, at.Z)
+				if piered[key] then
+					continue
+				end
+				piered[key] = true
 				Build.part({
 					name = "Pier",
 					size = Vector3.new(5, WALL_H + 4, 5),

@@ -1775,7 +1775,21 @@ function Structures.court(context: Context, zone: Types.ZoneDef)
 		Build.part({
 			name = "CourtApron",
 			size = bar.size,
-			cframe = CFrame.new(centre + bar.at + Vector3.new(0, context.groundY - 0.42, 0)),
+			--[[
+				Level with the tarmac, not three hundredths under it.
+
+				The apron used to sit three hundredths above the lawn, which
+				is inside the range where the depth test cannot separate two
+				surfaces: the sweep caught it flickering against the grass at
+				its own outer edge. It cannot go higher without the court
+				going higher too, and the court cannot rise without burying
+				the leaves lying on it — the fault the note above this is
+				about. So it comes up to the court's own height instead. The
+				ring never lies over the tarmac, so two surfaces at one height
+				here are two surfaces that never meet, and against the lawn it
+				now has the same six hundredths the court has always had.
+			]]
+			cframe = CFrame.new(centre + bar.at + Vector3.new(0, context.groundY - 0.39, 0)),
 			color = Palette.color(Palette.court.apron),
 			material = Enum.Material.Asphalt,
 			parent = folder,
