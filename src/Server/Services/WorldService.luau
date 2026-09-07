@@ -2267,6 +2267,25 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 	-- one-stud wall are inside it, which is where the door and both
 	-- windows spent their first outing.
 	local backZ = shopCentre.Z + shopD * 0.5 + 0.5
+	--[[
+		Painted, not the model's own.
+
+		The door model is a panelled wooden one in a teal frame, which is The
+		House's trim colour and The House's front door — and it arrived here
+		with the texture still on it, because a tint on a textured mesh only
+		shades what is already there. So the back of a red-and-cream filling
+		station had a suburban front door on it, twice. Untextured it keeps
+		its panels and takes the dark grey a service door is painted.
+	]]
+	Build.part({
+		name = "ShopBackDoorFrame",
+		size = Vector3.new(7.6, 10.2, 0.5),
+		cframe = CFrame.new(shopCentre.X, 1 + 4.6, backZ + 0.15),
+		color = dark,
+		material = Enum.Material.SmoothPlastic,
+		canCollide = false,
+		parent = shop,
+	})
 	Build.mesh({
 		prop = "Door",
 		name = "ShopBackDoor",
@@ -2274,7 +2293,18 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 		-- Centred, because at a quarter of the width it stood underneath
 		-- the left-hand window.
 		cframe = CFrame.new(shopCentre.X, 1 + 4.6, backZ + 0.35),
-		color = dark,
+		untextured = true,
+		--- A shade up from the frame around it, or the two read as one hole.
+		color = Color3.fromRGB(104, 108, 112),
+		parent = shop,
+	})
+	Build.part({
+		name = "ShopBackHandle",
+		size = Vector3.new(0.4, 2.4, 0.5),
+		cframe = CFrame.new(shopCentre.X + 2.4, 1 + 4.6, backZ + 0.85),
+		color = Palette.color(Palette.station.trim),
+		material = Enum.Material.Metal,
+		canCollide = false,
 		parent = shop,
 	})
 	for _, sx in { -1, 1 } do
@@ -2363,6 +2393,8 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 		name = "ShopDoor",
 		size = Vector3.new(7, 9.2, 0.9),
 		cframe = CFrame.new(shopCentre.X, 1 + 4.6, frontZ),
+		-- The same teal front door as the one round the back. See there.
+		untextured = true,
 		color = dark,
 		parent = shop,
 	})
