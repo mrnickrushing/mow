@@ -57,6 +57,22 @@ local leafPool: { Part } = {}
 --- Whether the parts currently drawing a tile are leaves.
 local activeIsLeaf: { [number]: boolean } = {}
 local lodParts: { [number]: Part } = {}
+--[[
+	The most this chunk has ever held, by chunk index.
+
+	`fullness` is how much of a chunk is left, and it was measured against
+	what a chunk *could* hold — sixty-four tiles at the tallest a tile goes.
+	Nothing is ever sown that full, and how close a chunk gets is a
+	sixty-four tile sample of a random scatter, so two untouched neighbours
+	came out a sixth apart before anybody had touched either. That number
+	drives the carpet's opacity on every hard floor, so the tennis court and
+	the terrace and the forecourt each wore the chunk grid.
+
+	Measured against what this chunk actually started with, an untouched one
+	is 1.0 wherever it is, and the number goes back to meaning the one thing
+	it was for: how much of this is still to do.
+]]
+local lodPeak: { [number]: number } = {}
 local known: { [number]: boolean } = {}
 --[[
 	When each chunk was last asked for.
@@ -114,8 +130,6 @@ local surfaceByKind: { [string]: Color3 } = {}
 --- One colour per section for what is lying on it, so a chunk never picks its
 --- own and a section never comes out as a patchwork.
 local litterBySection: { [string]: Color3 } = {}
---- The tallest a tile can be, which is all `ChunkCodec` has room to say.
-local MAX_TILE_HEIGHT = 3
 
 --[[
 	How much of the floor a kind of debris actually hides, per unit of height.
@@ -163,6 +177,26 @@ local LOD_RANGE = 0.68
 
 --- How much of its floor each section's own mix hides, by the same reasoning.
 local coverBySection: { [string]: number } = {}
+--[[
+	And how much of what is sown on it is not grass, by the same reasoning
+	again.
+
+	This was worked out per chunk, from the sixty-four tiles that chunk
+	happens to hold, and sixty-four tiles is a small enough sample that the
+	answer wanders: across the churchyard's lawns it ran from 0.39 to 0.71
+	between neighbours. That number is the carpet's transparency, so what a
+	player saw from the far end of the property was the lawn drawn as a
+	chequerboard of thirty-two stud squares — the chunk grid, in the middle
+	of the one surface that has to read as continuous.
+
+	It is a composition, not a progress bar: on a section sown from one mix,
+	the share of it that is litter is the same everywhere, and it stays the
+	same as tiles are cleared because a tile is cleared whole. So it comes
+	from the section's own fill, exactly, and every chunk in a section agrees.
+	What still varies chunk by chunk is the colour, which is lerped by how
+	much is left — that is the progress, and it was never the noisy part.
+]]
+local shareBySection: { [string]: number } = {}
 --- False on a lot floored with something other than grass, which changes what
 --- has to be drawn at distance and what can be left to the ground.
 local groundIsLawn = true
@@ -393,11 +427,31 @@ local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
 		The same complaint as the tennis court, one property along, and the
 		same cause — a rule written for grass on grass, applied to everything.
 	]]
-	local lawn = Palette.color(Palette.ground.lawn)
-	groundIsLawn = math.abs(groundColor.R - lawn.R)
-			+ math.abs(groundColor.G - lawn.G)
-			+ math.abs(groundColor.B - lawn.B)
-		< 0.03
+	--[[
+		Every grass this game has, not just the one the first property uses.
+
+		The test was "is the ground exactly `ground.lawn`", which is a proxy
+		for "is the ground grass" and gets the churchyard wrong: its turf is
+		grass with the blue of night in it, half the colour wheel away from
+		an afternoon lawn, so the whole property was treated as a hard floor.
+		Every chunk of it then took the hard-floor carpet, whose opacity comes
+		from how full that chunk happens to be — and a chunk's fullness is a
+		sixty-four tile sample, so neighbours disagreed by a third. The night
+		lawn came out as a chequerboard of thirty-two stud squares, which is
+		the chunk grid drawn on the one surface that has to read as unbroken.
+	]]
+	local GRASS = { Palette.ground.lawn, Palette.churchyard.turf }
+	groundIsLawn = false
+	for _, entry in GRASS do
+		local grass = Palette.color(entry)
+		local away = math.abs(groundColor.R - grass.R)
+			+ math.abs(groundColor.G - grass.G)
+			+ math.abs(groundColor.B - grass.B)
+		if away < 0.03 then
+			groundIsLawn = true
+			break
+		end
+	end
 
 	--[[
 		The surface each kind of section is floored with, unblended.
@@ -441,6 +495,7 @@ local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
 	]]
 	table.clear(litterBySection)
 	table.clear(coverBySection)
+	table.clear(shareBySection)
 	for _, section in world.sections do
 		local red, green, blue, total = 0, 0, 0, 0
 		local hides, weights = 0, 0
@@ -461,6 +516,19 @@ local function buildZoneMap(worldId: string, theGrid: Grid.Grid)
 		end
 		if weights > 0 then
 			coverBySection[section.id] = hides / weights
+		end
+
+		local grassMass, litterMass = 0, 0
+		for _, entry in section.fill do
+			local mass = entry.weight * (entry.heightMin + entry.heightMax) * 0.5
+			if entry.debris == DebrisConfig.Grass then
+				grassMass += mass
+			else
+				litterMass += mass
+			end
+		end
+		if grassMass + litterMass > 0 then
+			shareBySection[section.id] = litterMass / (grassMass + litterMass)
 		end
 	end
 
@@ -884,7 +952,10 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		those two now lands between them instead of at one end or the other.
 	]]
 	local grassHeight = weight[DebrisConfig.Grass] or 0
-	local litterShare = if remaining > 0 then (remaining - grassHeight) / remaining else 0
+	--- The section's own mix where it is known, and this chunk's sample only
+	--- where it is not. See `shareBySection`.
+	local litterShare = shareBySection[zone]
+		or (if remaining > 0 then (remaining - grassHeight) / remaining else 0)
 	--- Under this it would be drawn at a transparency nobody can see, so the
 	--- part is not made at all.
 	local growsFromTheGround = not hardFloor and litterShare < 0.03
@@ -961,7 +1032,9 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		true and the only feedback you get on a section you are not standing
 		in.
 	]]
-	local fullness = math.clamp(remaining / (samples * MAX_TILE_HEIGHT), 0, 1)
+	local peak = math.max(lodPeak[chunkIndex] or 0, remaining)
+	lodPeak[chunkIndex] = peak
+	local fullness = if peak > 0 then math.clamp(remaining / peak, 0, 1) else 0
 
 	part.Size = Vector3.new(wide, thickness, deep)
 	part.CFrame = CFrame.new(x, floor + thickness * 0.5, z)
@@ -1139,6 +1212,9 @@ local function resetWorld(width: number, depth: number)
 		part:Destroy()
 	end
 	table.clear(lodParts)
+	-- Chunk indices belong to the grid that made them, so last property's
+	-- high-water marks would tell this one it had already been half mowed.
+	table.clear(lodPeak)
 	table.clear(known)
 	table.clear(requestedAt)
 
