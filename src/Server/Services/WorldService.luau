@@ -3373,7 +3373,17 @@ local cashGates: { [string]: Model } = {}
 	something the client knew and the property did not show. These are the
 	portcullis the way out uses, hung in the doorway and raised the same way.
 ]]
-local roomGates: { [string]: BasePart } = {}
+local sectionGates: { [string]: { BasePart } } = {}
+
+--- Hangs a gate on the section that opening it should open.
+local function registerGate(sectionId: string, gate: BasePart)
+	local list = sectionGates[sectionId]
+	if not list then
+		list = {}
+		sectionGates[sectionId] = list
+	end
+	table.insert(list, gate)
+end
 
 --[[
 	The hidden switches that open `button` sections.
@@ -3600,7 +3610,7 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 					})
 					gate:SetAttribute("Shut", true)
 					gate:SetAttribute("Swung", hinge * CFrame.Angles(0, math.rad(-104), 0) * leaf)
-					roomGates[section.id] = gate
+					registerGate(section.id, gate)
 				end
 
 				--[[
@@ -3771,6 +3781,219 @@ local exitPart: BasePart? = nil
 	bare silhouette is what says late October, and the lanterns because a
 	property this dark needs somewhere for the eye to rest between the graves.
 ]]
+--[[
+	Walls and fences between the parts of a property, not just space.
+
+	Reported twice, once for each property it applies to: besides a pathway
+	there is nothing separating the sections. Which was true — the strip
+	between two section rectangles is bare ground, so one part of the ground
+	runs into the next with nothing to say where one ends. A churchyard is
+	divided into quarters by dwarf walls and a filling station's lot is
+	divided by chain-link, and it is most of what makes either read as a place
+	rather than as a field with things on it.
+
+	Only between sections that are both open ground. A maze walls itself, and
+	a room has its own walls and its own gate, so a division against either
+	would be a barrier behind a barrier.
+
+	Each run is a single part rather than one per tile, because these are
+	straight and long. The strip belongs to no section, so nothing sown is
+	lost underneath them.
+]]
+type DivideStyle = {
+	height: number,
+	thickness: number,
+	body: Color3,
+	bodyMaterial: Enum.Material,
+	cap: Color3,
+	--- Chain-link is a translucent sheet on posts; a dwarf wall is a solid
+	--- run with a coping. The two want different parts.
+	wire: boolean?,
+}
+
+local DIVIDE_OPENING = 16
+
+local function buildDivisions(world: Types.WorldDef, parent: Folder, style: DivideStyle)
+	local folder = Build.folder("Divisions", parent)
+
+	local function divides(section: Types.ZoneDef): boolean
+		local kind = section.kind or "open"
+		return kind == "open" or kind == "graves"
+	end
+
+	local function run(from: Vector3, to: Vector3, alongX: boolean)
+		local length = (to - from).Magnitude
+		if length < 2 then
+			return
+		end
+		local mid = (from + to) * 0.5
+		if style.wire then
+			--[[
+				Chain-link the way the boundary fence builds it: a translucent
+				sheet with a rail along the top and a post every so often.
+				Built from plain parts rather than the picket panel — that
+				prop is a row of pickets, and a filling station is not fenced
+				with those. One sheet the length of the run, because a
+				material tiles with the part it is on and does not smear the
+				way a stretched mesh does.
+			]]
+			Build.part({
+				name = "DivideMesh",
+				size = if alongX
+					then Vector3.new(length, style.height, 0.4)
+					else Vector3.new(0.4, style.height, length),
+				cframe = CFrame.new(mid + Vector3.new(0, style.height * 0.5, 0)),
+				color = style.body,
+				material = Enum.Material.DiamondPlate,
+				transparency = 0.55,
+				castShadow = false,
+				parent = folder,
+			})
+			Build.part({
+				name = "DivideRail",
+				size = if alongX
+					then Vector3.new(length, 0.5, 0.55)
+					else Vector3.new(0.55, 0.5, length),
+				cframe = CFrame.new(mid + Vector3.new(0, style.height, 0)),
+				color = style.cap,
+				material = Enum.Material.Metal,
+				canCollide = false,
+				castShadow = false,
+				parent = folder,
+			})
+			local posts = math.max(math.floor(length / 20), 1)
+			for index = 0, posts do
+				local at = from + (to - from) * (index / posts)
+				Build.part({
+					name = "DividePost",
+					size = Vector3.new(1.1, style.height + 1, 1.1),
+					cframe = CFrame.new(at + Vector3.new(0, (style.height + 1) * 0.5, 0)),
+					color = style.cap,
+					material = Enum.Material.Metal,
+					castShadow = false,
+					parent = folder,
+				})
+			end
+		else
+			Build.part({
+				name = "DivideWall",
+				size = if alongX
+					then Vector3.new(length, style.height, style.thickness)
+					else Vector3.new(style.thickness, style.height, length),
+				cframe = CFrame.new(mid + Vector3.new(0, style.height * 0.5, 0)),
+				color = style.body,
+				material = style.bodyMaterial,
+				parent = folder,
+			})
+			Build.part({
+				name = "DivideCoping",
+				size = if alongX
+					then Vector3.new(length, 0.9, style.thickness + 1)
+					else Vector3.new(style.thickness + 1, 0.9, length),
+				cframe = CFrame.new(mid + Vector3.new(0, style.height + 0.45, 0)),
+				color = style.cap,
+				material = Enum.Material.Slate,
+				parent = folder,
+			})
+		end
+	end
+
+	--- A post where a run stops, so the opening has two jambs rather than two
+	--- cut ends.
+	local function jamb(at: Vector3)
+		local tall = style.height + 2.6
+		Build.part({
+			name = "DividePier",
+			size = Vector3.new(if style.wire then 1.6 else 4, tall, if style.wire then 1.6 else 4),
+			cframe = CFrame.new(at + Vector3.new(0, tall * 0.5, 0)),
+			color = style.body,
+			material = style.bodyMaterial,
+			parent = folder,
+		})
+		Build.part({
+			name = "DividePierCap",
+			size = Vector3.new(if style.wire then 2.4 else 5, 1, if style.wire then 2.4 else 5),
+			cframe = CFrame.new(at + Vector3.new(0, tall + 0.5, 0)),
+			color = style.cap,
+			material = Enum.Material.Slate,
+			parent = folder,
+		})
+	end
+
+	--[[
+		And a gate in the opening, hung on the section it lets you into.
+
+		Only where that section is earned by finishing the one before it. A
+		section you buy already has a door you bought, and putting a second
+		one behind it would mean opening one gate and finding another.
+	]]
+	local function gate(at: Vector3, facing: Vector3, section: Types.ZoneDef)
+		if Worlds.unlockKind(section) ~= "completion" then
+			return
+		end
+		local tall = style.height + 2
+		local hung = CFrame.lookAt(at, at + facing) * CFrame.new(0, tall * 0.5, 0)
+		local half = DIVIDE_OPENING * 0.5
+		local hinge = hung * CFrame.new(-half, 0, 0)
+		local leaf = CFrame.new(half, 0, 0)
+		local part = Build.mesh({
+			prop = "Grate",
+			name = "DivideGate",
+			size = Vector3.new(DIVIDE_OPENING, tall, 2),
+			collisionSize = Vector3.new(DIVIDE_OPENING, tall, 1),
+			cframe = hinge * leaf,
+			parent = folder,
+		})
+		part:SetAttribute("Shut", true)
+		part:SetAttribute("Swung", hinge * CFrame.Angles(0, math.rad(-104), 0) * leaf)
+		registerGate(section.id, part)
+	end
+
+	for i, a in world.sections do
+		for j, b in world.sections do
+			if j <= i or not divides(a) or not divides(b) then
+				continue
+			end
+			--- The later of the two in the world's own order is the one you
+			--- have to earn, so it is the one the gate belongs to.
+			local later = b
+			local ar, br = a.rect, b.rect
+			local lowX = math.max(ar.x, br.x)
+			local highX = math.min(ar.x + ar.w, br.x + br.w)
+			local lowZ = math.max(ar.z, br.z)
+			local highZ = math.min(ar.z + ar.d, br.z + br.d)
+
+			if highX > lowX then
+				local gapLow = math.min(ar.z + ar.d, br.z + br.d)
+				local gapHigh = math.max(ar.z, br.z)
+				if gapHigh - gapLow >= 1 and gapHigh - gapLow <= 4 then
+					local z = (gapLow + gapHigh) * 0.5 * TILE
+					local x0, x1 = lowX * TILE, highX * TILE
+					local mid = (x0 + x1) * 0.5
+					run(Vector3.new(x0, 0, z), Vector3.new(mid - DIVIDE_OPENING * 0.5, 0, z), true)
+					run(Vector3.new(mid + DIVIDE_OPENING * 0.5, 0, z), Vector3.new(x1, 0, z), true)
+					jamb(Vector3.new(mid - DIVIDE_OPENING * 0.5, 0, z))
+					jamb(Vector3.new(mid + DIVIDE_OPENING * 0.5, 0, z))
+					gate(Vector3.new(mid, 0, z), Vector3.new(0, 0, 1), later)
+				end
+			elseif highZ > lowZ then
+				local gapLow = math.min(ar.x + ar.w, br.x + br.w)
+				local gapHigh = math.max(ar.x, br.x)
+				if gapHigh - gapLow >= 1 and gapHigh - gapLow <= 4 then
+					local x = (gapLow + gapHigh) * 0.5 * TILE
+					local z0, z1 = lowZ * TILE, highZ * TILE
+					local mid = (z0 + z1) * 0.5
+					run(Vector3.new(x, 0, z0), Vector3.new(x, 0, mid - DIVIDE_OPENING * 0.5), false)
+					run(Vector3.new(x, 0, mid + DIVIDE_OPENING * 0.5), Vector3.new(x, 0, z1), false)
+					jamb(Vector3.new(x, 0, mid - DIVIDE_OPENING * 0.5))
+					jamb(Vector3.new(x, 0, mid + DIVIDE_OPENING * 0.5))
+					gate(Vector3.new(x, 0, mid), Vector3.new(1, 0, 0), later)
+				end
+			end
+		end
+	end
+end
+
 local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 	local yard = Build.folder("Churchyard", parent)
 	local granite = Palette.color(Palette.churchyard.granite)
@@ -3861,234 +4084,6 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 			material = Enum.Material.Slate,
 			parent = yard,
 		})
-	end
-
-	--[[
-		Walls between the parts of the churchyard, not just space.
-
-		Reported as: besides a pathway there is nothing separating the
-		sections. Which was true — the gap between two section rectangles is
-		bare ground, so the lawns run into the rows and the rows into the
-		walks with nothing to say where one ends. A real churchyard is divided
-		into parts by dwarf walls, and it is the thing that makes it read as a
-		burial ground rather than a field with stones on it.
-
-		Only between the two kinds of section that are open ground. The corn
-		maze walls itself, and the chapel and the crypt are rooms with their
-		own; a second wall against either would be a wall against a wall.
-
-		Each run is one part rather than one per tile, because these are
-		straight and long: three divisions come to two dozen parts. The gap
-		strip belongs to no section, so nothing sown is lost under them.
-	]]
-	local DIVIDE_H, DIVIDE_T = 5, 2.4
-	local OPENING = 16
-	local function divides(kind: string): boolean
-		return kind == "open" or kind == "graves"
-	end
-	local function wallRun(from: Vector3, to: Vector3, alongX: boolean)
-		local length = (to - from).Magnitude
-		if length < 2 then
-			return
-		end
-		local mid = (from + to) * 0.5
-		Build.part({
-			name = "DivideWall",
-			size = if alongX
-				then Vector3.new(length, DIVIDE_H, DIVIDE_T)
-				else Vector3.new(DIVIDE_T, DIVIDE_H, length),
-			cframe = CFrame.new(mid + Vector3.new(0, DIVIDE_H * 0.5, 0)),
-			color = granite,
-			material = Enum.Material.Rock,
-			parent = yard,
-		})
-		Build.part({
-			name = "DivideCoping",
-			size = if alongX
-				then Vector3.new(length, 0.9, DIVIDE_T + 1)
-				else Vector3.new(DIVIDE_T + 1, 0.9, length),
-			cframe = CFrame.new(mid + Vector3.new(0, DIVIDE_H + 0.45, 0)),
-			color = graniteDark,
-			material = Enum.Material.Slate,
-			parent = yard,
-		})
-	end
-	--- A pier where a run stops, so the opening has two jambs rather than two
-	--- cut ends of wall.
-	local function gateway(at: Vector3)
-		Build.part({
-			name = "DividePier",
-			size = Vector3.new(4, DIVIDE_H + 2.6, 4),
-			cframe = CFrame.new(at + Vector3.new(0, (DIVIDE_H + 2.6) * 0.5, 0)),
-			color = granite,
-			material = Enum.Material.Rock,
-			parent = yard,
-		})
-		Build.part({
-			name = "DividePierCap",
-			size = Vector3.new(5, 1, 5),
-			cframe = CFrame.new(at + Vector3.new(0, DIVIDE_H + 3.1, 0)),
-			color = graniteDark,
-			material = Enum.Material.Slate,
-			parent = yard,
-		})
-	end
-
-	for i, a in world.sections do
-		for j, b in world.sections do
-			if j <= i or not divides(a.kind or "open") or not divides(b.kind or "open") then
-				continue
-			end
-			local ar, br = a.rect, b.rect
-			local lowX = math.max(ar.x, br.x)
-			local highX = math.min(ar.x + ar.w, br.x + br.w)
-			local lowZ = math.max(ar.z, br.z)
-			local highZ = math.min(ar.z + ar.d, br.z + br.d)
-
-			--- A gap of one to four tiles between them, on one axis, with a
-			--- shared frontage on the other.
-			if highX > lowX then
-				local gapLow = math.min(ar.z + ar.d, br.z + br.d)
-				local gapHigh = math.max(ar.z, br.z)
-				local gap = gapHigh - gapLow
-				if gap >= 1 and gap <= 4 then
-					local z = (gapLow + gapHigh) * 0.5 * TILE
-					local x0, x1 = lowX * TILE, highX * TILE
-					local mid = (x0 + x1) * 0.5
-					wallRun(Vector3.new(x0, 0, z), Vector3.new(mid - OPENING * 0.5, 0, z), true)
-					wallRun(Vector3.new(mid + OPENING * 0.5, 0, z), Vector3.new(x1, 0, z), true)
-					gateway(Vector3.new(mid - OPENING * 0.5, 0, z))
-					gateway(Vector3.new(mid + OPENING * 0.5, 0, z))
-				end
-			elseif highZ > lowZ then
-				local gapLow = math.min(ar.x + ar.w, br.x + br.w)
-				local gapHigh = math.max(ar.x, br.x)
-				local gap = gapHigh - gapLow
-				if gap >= 1 and gap <= 4 then
-					local x = (gapLow + gapHigh) * 0.5 * TILE
-					local z0, z1 = lowZ * TILE, highZ * TILE
-					local mid = (z0 + z1) * 0.5
-					wallRun(Vector3.new(x, 0, z0), Vector3.new(x, 0, mid - OPENING * 0.5), false)
-					wallRun(Vector3.new(x, 0, mid + OPENING * 0.5), Vector3.new(x, 0, z1), false)
-					gateway(Vector3.new(x, 0, mid - OPENING * 0.5))
-					gateway(Vector3.new(x, 0, mid + OPENING * 0.5))
-				end
-			end
-		end
-	end
-
-	--[[
-		The walks themselves, which the section is named after.
-
-		`the_walks` costs two hundred and forty and its line reads "gravel
-		paths gone to weed". There were no paths: `Worlds.pavingRects` returns
-		nothing without a `houseRect`, and this property has a chapel rather
-		than a house, so the one section on the ladder you have to buy was a
-		lawn with weeds on it and a name that promised otherwise.
-
-		Laid out the way a churchyard is: a broad walk in from the gate, a
-		cross walk along the head of the lawns reaching the two gateways in
-		the dwarf walls, and a cross through the bought section so it earns
-		its name.
-
-		Deliberately *not* in a folder called `Paving`. The buried-tile sweep
-		empties whatever paving stands on, which is right for the front path
-		of a house — grass through your own flagstones is the complaint that
-		put that rule there — and exactly wrong here, where the weeds coming
-		up through the gravel are the thing being sold. So nothing under them
-		is cleared, the section's work is unchanged to the unit, and what
-		grows on them stays.
-	]]
-	local walksFolder = Build.folder("Walks", yard)
-	local gravel = Palette.color(Palette.churchyard.gravel)
-	local function sectionRect(id: string): Types.Rect?
-		for _, sec in world.sections do
-			if sec.id == id then
-				return sec.rect
-			end
-		end
-		return nil
-	end
-	local lawns, rows, walksRect = sectionRect("the_lawns"), sectionRect("the_rows"), sectionRect("the_walks")
-	if lawns and rows and walksRect then
-		--- The gap between the rows and the walks is where the gate already
-		--- points, so the main walk runs straight up it from the lychgate.
-		local spineX = (rows.x + rows.w + walksRect.x) * 0.5 * TILE
-		--- The head of the lawns, a little short of the dwarf wall.
-		local crossZ = (lawns.z + lawns.d) * TILE - 12
-		--- Where the two gateways stand, which is the middle of each wall's
-		--- frontage; the stubs have to meet them or the cross walk stops at
-		--- a wall.
-		local rowsGate = (rows.x + math.min(lawns.x + lawns.w, rows.x + rows.w)) * 0.5 * TILE
-		local walksGate = (walksRect.x + math.min(lawns.x + lawns.w, walksRect.x + walksRect.w)) * 0.5 * TILE
-		local gapMid = (lawns.z + lawns.d + rows.z) * 0.5 * TILE
-
-		local WALK_W = 9
-		local runs: { { from: Vector3, to: Vector3 } } = {
-			-- In from the gate, up the middle.
-			{ from = Vector3.new(spineX, 0, 6), to = Vector3.new(spineX, 0, crossZ) },
-			-- Across the head of the lawns, gateway to gateway.
-			{ from = Vector3.new(rowsGate, 0, crossZ), to = Vector3.new(walksGate, 0, crossZ) },
-			-- And through each gateway into the section beyond.
-			{ from = Vector3.new(rowsGate, 0, crossZ), to = Vector3.new(rowsGate, 0, gapMid + 8) },
-			{ from = Vector3.new(walksGate, 0, crossZ), to = Vector3.new(walksGate, 0, gapMid + 8) },
-			-- The bought section's own cross.
-			{
-				from = Vector3.new(walksGate, 0, walksRect.z * TILE),
-				to = Vector3.new(walksGate, 0, (walksRect.z + walksRect.d) * TILE),
-			},
-			{
-				from = Vector3.new(walksRect.x * TILE, 0, (walksRect.z + walksRect.d * 0.5) * TILE),
-				to = Vector3.new((walksRect.x + walksRect.w) * TILE, 0, (walksRect.z + walksRect.d * 0.5) * TILE),
-			},
-		}
-		for _, run in runs do
-			local delta = run.to - run.from
-			local length = delta.Magnitude
-			if length > 2 then
-				local alongX = math.abs(delta.X) > math.abs(delta.Z)
-				local mid = (run.from + run.to) * 0.5
-				Build.part({
-					name = "Walk",
-					size = if alongX
-						then Vector3.new(length, 0.5, WALK_W)
-						else Vector3.new(WALK_W, 0.5, length),
-					--[[
-						Seven hundredths proud of the lawn.
-
-						Flush, the gravel and the grass share a plane and
-						flicker the length of every walk; this is the same
-						margin the tennis court has used since it was laid,
-						and it is under the leaves lying on it.
-					]]
-					cframe = CFrame.new(mid + Vector3.new(0, -0.18, 0)),
-					color = gravel,
-					material = Enum.Material.Pebble,
-					canCollide = false,
-					castShadow = false,
-					parent = walksFolder,
-				})
-				--- A kerb down each side, which is what stops a gravel walk
-				--- reading as a grey stripe painted on the grass.
-				for _, side in { -1, 1 } do
-					local offset = if alongX
-						then Vector3.new(0, 0, side * (WALK_W * 0.5 + 0.5))
-						else Vector3.new(side * (WALK_W * 0.5 + 0.5), 0, 0)
-					Build.part({
-						name = "WalkKerb",
-						size = if alongX
-							then Vector3.new(length, 0.7, 1)
-							else Vector3.new(1, 0.7, length),
-						cframe = CFrame.new(mid + offset + Vector3.new(0, -0.05, 0)),
-						color = graniteDark,
-						material = Enum.Material.Slate,
-						canCollide = false,
-						castShadow = false,
-						parent = walksFolder,
-					})
-				end
-			end
-		end
 	end
 
 	--[[
@@ -4688,7 +4683,7 @@ function WorldService.load(worldId: string)
 	-- buried set would suppress seeding at unrelated places in this one.
 	-- Keyed by section id, and ids repeat between properties, so last world's
 	-- gates would otherwise be found and raised on this one.
-	table.clear(roomGates)
+	table.clear(sectionGates)
 	table.clear(WorldService.buriedTiles)
 
 	-- Before anything is sown or scattered, so the whole property comes out
@@ -5096,6 +5091,16 @@ function WorldService.load(worldId: string)
 		end
 	elseif world.style == "churchyard" then
 		buildChurchyard(world, parent)
+		--[[
+			Dwarf walls between the quarters, in the churchyard's own stone.
+		]]
+		buildDivisions(world, parent, {
+			height = 5,
+			thickness = 2.4,
+			body = Palette.color(Palette.churchyard.granite),
+			bodyMaterial = Enum.Material.Rock,
+			cap = Palette.color(Palette.churchyard.graniteDark),
+		})
 	else
 		local lot = world.style == "lot"
 		Build.fence(
@@ -5117,6 +5122,23 @@ function WorldService.load(worldId: string)
 		)
 		if lot then
 			buildGasStation(world, parent)
+			--[[
+				Chain-link between the parts of the lot, with a gate.
+
+				A filling station is divided by wire on steel rather than by
+				masonry, and the gate in each opening is the one that comes up
+				when you have finished the section before it — which is how the
+				lot tells you what you have earned rather than leaving it to
+				the sign.
+			]]
+			buildDivisions(world, parent, {
+				height = 9,
+				thickness = 1,
+				body = Palette.color(Palette.court.mesh),
+				bodyMaterial = Enum.Material.Metal,
+				cap = Palette.color(Palette.station.dark),
+				wire = true,
+			})
 		end
 	end
 
@@ -5260,25 +5282,34 @@ function WorldService.setSectionOpen(sectionId: string, open: boolean)
 		end
 
 		--[[
-			The room's gate swings open and stays there.
+			Every gate this section owns swings open and stays there.
 
-			It is not faded out: a gate that disappears leaves a doorway that
-			never had one in it, and half of what the gate is for is being
-			visibly the thing that was shut a minute ago. Swung back against
-			the wall it still reads as a gate, and it is no longer in the way.
+			More than one, because a section can be walled off from two
+			neighbours: the Gas Station's back lot has the forecourt on one
+			side and the storage yard on the other, and finishing what came
+			before opens the way in from whichever side you approach.
+
+			They are not faded out. A gate that disappears leaves a doorway
+			that never had one in it, and half of what a gate is for is being
+			visibly the thing that was shut a minute ago. Swung back on its
+			jamb it still reads as a gate and is no longer in the way.
 		]]
-		local grille = roomGates[sectionId]
-		if grille and grille:GetAttribute("Shut") then
-			roomGates[sectionId] = nil
-			grille:SetAttribute("Shut", false)
-			grille.CanCollide = false
-			local swung = grille:GetAttribute("Swung")
-			if typeof(swung) == "CFrame" then
-				TweenService:Create(
-					grille,
-					TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-					{ CFrame = swung }
-				):Play()
+		local gates = sectionGates[sectionId]
+		if gates then
+			sectionGates[sectionId] = nil
+			for _, grille in gates do
+				if grille:GetAttribute("Shut") then
+					grille:SetAttribute("Shut", false)
+					grille.CanCollide = false
+					local swung = grille:GetAttribute("Swung")
+					if typeof(swung) == "CFrame" then
+						TweenService:Create(
+							grille,
+							TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+							{ CFrame = swung }
+						):Play()
+					end
+				end
 			end
 		end
 
