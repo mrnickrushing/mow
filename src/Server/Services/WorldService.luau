@@ -3512,12 +3512,30 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 					black and it is over your head, so you cannot see the way
 					out by standing on your toes.
 				]]
-				local estate = world.style == "estate"
+				--[[
+					Which properties grow yew rather than garden hedge.
+
+					This asked whether the property was the estate, which was
+					true of every yew walk in the game right up until there
+					were two. The Cemetery's maze section is called The Yew
+					Walk, the palette has had a `churchyard.yew` in it since
+					the property was built, and the section was being drawn in
+					The House's bright garden green at shoulder height — a
+					hedge maze in a churchyard at midnight, lit like a lawn.
+
+					A table rather than another `if`, so the next property that
+					wants yew says so here instead of adding a third branch.
+				]]
+				local YEW: { [string]: { tint: Types.Color3Like, height: number } } = {
+					estate = { tint = Palette.estate.yew, height = 13 },
+					churchyard = { tint = Palette.churchyard.yew, height = 13 },
+				}
+				local yew = YEW[world.style or ""]
 				Structures.maze(
 					context,
 					section,
-					if estate then Palette.color(Palette.estate.yew) else nil,
-					if estate then 13 else nil
+					if yew then Palette.color(yew.tint) else nil,
+					if yew then yew.height else nil
 				)
 			elseif kind == "roof" then
 				-- The roof slab is the floor the rooftop's debris rests on.
@@ -3738,10 +3756,23 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 			cframe = CFrame.new(spawnAt.X + side * 11, 1.7, gateZ + 4),
 			parent = yard,
 		})
+		--[[
+			A candle in a gourd, not a floodlight.
+
+			Twenty-six studs at brightness two is nearly twice what the cellar
+			lamps run at, and those are indoors with walls to catch them. Out
+			here at night there is nothing to stop it: the two lanterns either
+			side of the gate washed the posts, the roof, the path and the grass
+			the same saturated orange, so the first thing anybody saw of the
+			property was a lychgate that appeared to be on fire.
+
+			Half the brightness over half the range leaves a pool at the foot
+			of each lantern and lets the gate stay the colour of wet stone.
+		]]
 		local glow = Instance.new("PointLight")
 		glow.Color = Palette.color(Palette.churchyard.pumpkin)
-		glow.Range = 26
-		glow.Brightness = 2
+		glow.Range = 13
+		glow.Brightness = 0.6
 		glow.Parent = lamp
 	end
 
