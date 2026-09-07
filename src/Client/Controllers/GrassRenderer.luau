@@ -1004,9 +1004,38 @@ local function refresh()
 
 					local chunkReach = theGrid.chunkTiles * TILE * 0.75
 					if distanceSq <= DETAIL_SQ + chunkReach * chunkReach then
-						local lod = lodParts[chunkIndex]
-						if lod then
-							lod.Parent = nil
+						--[[
+							The carpet only comes up once the whole chunk is
+							getting tufts.
+
+							Whether a chunk draws detail and whether it keeps
+							its stand-in were the same question, and they are
+							not. A chunk qualified for detail on its centre
+							plus three quarters of its width, but only the
+							tiles inside the detail radius itself were drawn —
+							so the corners of the outermost detail chunks got
+							no tufts, and their carpet had already been taken
+							away. That is a ring of bare ground just past the
+							tufts: sampled around the Cemetery at seventy-eight
+							studs out, fourteen of thirty-one points on the
+							ring had nothing drawn over them at all. It is what
+							"the grass is not loading all the way" looks like.
+
+							A chunk's farthest corner is half its diagonal from
+							its centre, so that is the distance at which every
+							tile in it is certainly inside the radius, and only
+							then is the carpet not needed. Between the two, the
+							chunk keeps its carpet and grows tufts through it.
+						]]
+						local corner = theGrid.chunkTiles * TILE * 0.70711
+						local inner = math.max(GameConfig.DETAIL_RADIUS - corner, 0)
+						if distanceSq <= inner * inner then
+							local lod = lodParts[chunkIndex]
+							if lod then
+								lod.Parent = nil
+							end
+						else
+							drawLod(theGrid, theTiles, chunkIndex)
 						end
 
 						local baseX, baseZ = cx * theGrid.chunkTiles, cz * theGrid.chunkTiles
