@@ -213,6 +213,19 @@ Palette.churchyard = {
 	gravel = rgb(120, 118, 116),
 	iron = rgb(28, 30, 34),
 	yew = rgb(30, 54, 38),
+	--[[
+		The lychgate, which is the one thing here made of wood.
+
+		It was built out of `house.porch` and `house.roofDark` — a suburban
+		porch tan and a warm brown roof — because those were the nearest
+		colours to hand when it went up. They are the wrong warmth for a
+		churchyard and they belong to another property, so a change to The
+		House's porch would have quietly repainted a gate two properties
+		along. Old oak that has stood out in the weather is darker and greyer
+		than either.
+	]]
+	timber = rgb(88, 68, 50),
+	timberDark = rgb(58, 44, 34),
 	--- Candle in a lantern, and the glow out of a chapel window.
 	candle = rgb(255, 196, 104),
 	window = rgb(255, 206, 128),
