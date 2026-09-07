@@ -3797,6 +3797,120 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 	end
 
 	--[[
+		Walls between the parts of the churchyard, not just space.
+
+		Reported as: besides a pathway there is nothing separating the
+		sections. Which was true — the gap between two section rectangles is
+		bare ground, so the lawns run into the rows and the rows into the
+		walks with nothing to say where one ends. A real churchyard is divided
+		into parts by dwarf walls, and it is the thing that makes it read as a
+		burial ground rather than a field with stones on it.
+
+		Only between the two kinds of section that are open ground. The corn
+		maze walls itself, and the chapel and the crypt are rooms with their
+		own; a second wall against either would be a wall against a wall.
+
+		Each run is one part rather than one per tile, because these are
+		straight and long: three divisions come to two dozen parts. The gap
+		strip belongs to no section, so nothing sown is lost under them.
+	]]
+	local DIVIDE_H, DIVIDE_T = 5, 2.4
+	local OPENING = 16
+	local function divides(kind: string): boolean
+		return kind == "open" or kind == "graves"
+	end
+	local function wallRun(from: Vector3, to: Vector3, alongX: boolean)
+		local length = (to - from).Magnitude
+		if length < 2 then
+			return
+		end
+		local mid = (from + to) * 0.5
+		Build.part({
+			name = "DivideWall",
+			size = if alongX
+				then Vector3.new(length, DIVIDE_H, DIVIDE_T)
+				else Vector3.new(DIVIDE_T, DIVIDE_H, length),
+			cframe = CFrame.new(mid + Vector3.new(0, DIVIDE_H * 0.5, 0)),
+			color = granite,
+			material = Enum.Material.Rock,
+			parent = yard,
+		})
+		Build.part({
+			name = "DivideCoping",
+			size = if alongX
+				then Vector3.new(length, 0.9, DIVIDE_T + 1)
+				else Vector3.new(DIVIDE_T + 1, 0.9, length),
+			cframe = CFrame.new(mid + Vector3.new(0, DIVIDE_H + 0.45, 0)),
+			color = graniteDark,
+			material = Enum.Material.Slate,
+			parent = yard,
+		})
+	end
+	--- A pier where a run stops, so the opening has two jambs rather than two
+	--- cut ends of wall.
+	local function gateway(at: Vector3)
+		Build.part({
+			name = "DividePier",
+			size = Vector3.new(4, DIVIDE_H + 2.6, 4),
+			cframe = CFrame.new(at + Vector3.new(0, (DIVIDE_H + 2.6) * 0.5, 0)),
+			color = granite,
+			material = Enum.Material.Rock,
+			parent = yard,
+		})
+		Build.part({
+			name = "DividePierCap",
+			size = Vector3.new(5, 1, 5),
+			cframe = CFrame.new(at + Vector3.new(0, DIVIDE_H + 3.1, 0)),
+			color = graniteDark,
+			material = Enum.Material.Slate,
+			parent = yard,
+		})
+	end
+
+	for i, a in world.sections do
+		for j, b in world.sections do
+			if j <= i or not divides(a.kind or "open") or not divides(b.kind or "open") then
+				continue
+			end
+			local ar, br = a.rect, b.rect
+			local lowX = math.max(ar.x, br.x)
+			local highX = math.min(ar.x + ar.w, br.x + br.w)
+			local lowZ = math.max(ar.z, br.z)
+			local highZ = math.min(ar.z + ar.d, br.z + br.d)
+
+			--- A gap of one to four tiles between them, on one axis, with a
+			--- shared frontage on the other.
+			if highX > lowX then
+				local gapLow = math.min(ar.z + ar.d, br.z + br.d)
+				local gapHigh = math.max(ar.z, br.z)
+				local gap = gapHigh - gapLow
+				if gap >= 1 and gap <= 4 then
+					local z = (gapLow + gapHigh) * 0.5 * TILE
+					local x0, x1 = lowX * TILE, highX * TILE
+					local mid = (x0 + x1) * 0.5
+					wallRun(Vector3.new(x0, 0, z), Vector3.new(mid - OPENING * 0.5, 0, z), true)
+					wallRun(Vector3.new(mid + OPENING * 0.5, 0, z), Vector3.new(x1, 0, z), true)
+					gateway(Vector3.new(mid - OPENING * 0.5, 0, z))
+					gateway(Vector3.new(mid + OPENING * 0.5, 0, z))
+				end
+			elseif highZ > lowZ then
+				local gapLow = math.min(ar.x + ar.w, br.x + br.w)
+				local gapHigh = math.max(ar.x, br.x)
+				local gap = gapHigh - gapLow
+				if gap >= 1 and gap <= 4 then
+					local x = (gapLow + gapHigh) * 0.5 * TILE
+					local z0, z1 = lowZ * TILE, highZ * TILE
+					local mid = (z0 + z1) * 0.5
+					wallRun(Vector3.new(x, 0, z0), Vector3.new(x, 0, mid - OPENING * 0.5), false)
+					wallRun(Vector3.new(x, 0, mid + OPENING * 0.5), Vector3.new(x, 0, z1), false)
+					gateway(Vector3.new(x, 0, mid - OPENING * 0.5))
+					gateway(Vector3.new(x, 0, mid + OPENING * 0.5))
+				end
+			end
+		end
+	end
+
+	--[[
 		Mist lying on the ground, which is most of what makes a churchyard
 		frightening and costs almost nothing.
 
