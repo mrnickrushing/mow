@@ -4852,7 +4852,8 @@ WorldService.sectionSigns = {} :: { [string]: BasePart }
 	ceiling does not count — a roofed room is somewhere you walk into, not
 	something standing on top of you.
 ]]
-local BURIES_NOTHING: { [string]: boolean } = { Ceiling = true, Eaves = true }
+local BURIES_NOTHING: { [string]: boolean } =
+	{ Ceiling = true, CellarLid = true, Eaves = true }
 
 local function clearBuriedTiles(world: Types.WorldDef, grid: Grid.Grid, tiles: buffer)
 	local root = container

@@ -1070,18 +1070,49 @@ function Structures.room(
 		]]
 		local CEILING_DEEP = 4.6
 		local ceilingY = rise - 2.5
+		--[[
+			And the property's own ground laid on top of it.
+
+			The slab is the ground over the cellar, and it was painted the
+			cellar's own roof colour — which on The House is a rust brown. So
+			what lay behind the house was an eighty by a hundred and
+			twenty-eight stud rectangle of bare earth in the middle of the
+			back lawn, with a stairwell cut in it, and the same on the
+			churchyard and the estate.
+
+			The underside has to stay the room's, because that is the ceiling
+			you stand under; the top has to be the lot's, because that is what
+			it is. So a lid goes over it in whatever the property is floored
+			with, thin, and still a shade under the surface for the same
+			reason the ceiling is: two planes at one height fight.
+		]]
+		local lidColour = Palette.color(context.world.baseGround)
+		local lidMaterial = if context.world.style == "lot"
+			then Enum.Material.Concrete
+			else Enum.Material.Grass
 		local function slab(lowX: number, highX: number, lowZ: number, highZ: number)
 			if highX - lowX < 0.5 or highZ - lowZ < 0.5 then
 				return
 			end
+			local at = Vector3.new((lowX + highX) * 0.5, ceilingY, (lowZ + highZ) * 0.5)
 			Build.part({
 				name = "Ceiling",
 				size = Vector3.new(highX - lowX, CEILING_DEEP, highZ - lowZ),
-				cframe = CFrame.new(
-					centre + Vector3.new((lowX + highX) * 0.5, ceilingY, (lowZ + highZ) * 0.5)
-				),
+				cframe = CFrame.new(centre + at),
 				color = dressing.roof,
 				material = Enum.Material.Concrete,
+				parent = folder,
+			})
+			Build.part({
+				name = "CellarLid",
+				--- Deep enough that the cut edge round the hole is turf too,
+				--- not the stud of the ceiling's own side showing under it.
+				size = Vector3.new(highX - lowX, 1.4, highZ - lowZ),
+				cframe = CFrame.new(
+					centre + at + Vector3.new(0, CEILING_DEEP * 0.5 - 0.55, 0)
+				),
+				color = lidColour,
+				material = lidMaterial,
 				parent = folder,
 			})
 		end
