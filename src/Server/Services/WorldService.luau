@@ -4406,14 +4406,52 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 	----------------------------------------------------------------
 	-- The lychgate, over the way in
 	----------------------------------------------------------------
+	--[[
+		Four posts, a plate down each side and a tie across each end.
+
+		It stood on two: one pair, in the middle, with twenty-two studs of
+		pitched roof balanced on them fore and aft. A lychgate is a frame —
+		a post at each corner, a beam along each side joining its pair, and
+		a tie across the opening at both ends — and without one this was a
+		roof that would have gone over in the first wind.
+
+		The posts run up into the slab rather than stopping under it. The
+		roof is pitched, so its underside falls a stud and a quarter across
+		the depth of a post; a flat top cut to meet it leaves a wedge of
+		daylight on the higher side, and there is nothing to see inside the
+		timber.
+	]]
 	local gateZ = 6
+	local REACH = 5
+	local timber = Palette.color(Palette.churchyard.timber)
 	for _, side in { -1, 1 } do
+		for _, along in { -1, 1 } do
+			Build.part({
+				name = "LychPost",
+				size = Vector3.new(2.6, 19, 2.6),
+				cframe = CFrame.new(spawnAt.X + side * 11, 9.5, gateZ + along * REACH),
+				color = timber,
+				material = Enum.Material.WoodPlanks,
+				parent = yard,
+			})
+		end
 		Build.part({
-			name = "LychPost",
-			size = Vector3.new(2.6, 16, 2.6),
-			cframe = CFrame.new(spawnAt.X + side * 11, 8, gateZ),
-			color = Palette.color(Palette.churchyard.timber),
+			name = "LychPlate",
+			size = Vector3.new(2.2, 1.4, REACH * 2 + 2.6),
+			cframe = CFrame.new(spawnAt.X + side * 11, 14.6, gateZ),
+			color = timber,
 			material = Enum.Material.WoodPlanks,
+			parent = yard,
+		})
+	end
+	for _, along in { -1, 1 } do
+		Build.part({
+			name = "LychTie",
+			size = Vector3.new(24.6, 1.6, 2.2),
+			cframe = CFrame.new(spawnAt.X, 14.6, gateZ + along * REACH),
+			color = timber,
+			material = Enum.Material.WoodPlanks,
+			canCollide = false,
 			parent = yard,
 		})
 	end
@@ -4436,7 +4474,8 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 			name = "JackOLantern",
 			size = Vector3.new(4, 3.4, 4.2),
 			collisionSize = Vector3.new(3, 3.4, 3),
-			cframe = CFrame.new(spawnAt.X + side * 11, 1.7, gateZ + 4),
+			--- Outside the front posts, which now stand where these did.
+			cframe = CFrame.new(spawnAt.X + side * 11, 1.7, gateZ + REACH + 3),
 			parent = yard,
 		})
 		--[[
@@ -4575,10 +4614,45 @@ local function buildExit(world: Types.WorldDef, parent: Folder)
 		back to a surround — a jamb either side and a lintel over — which is
 		what holds the gate and what the sign hangs on.
 	]]
+	--[[
+		And nothing of the room's own standing in it.
+
+		A cellar's walls carry piers at intervals, and the room that builds
+		them has no idea where the way out is going to be cut — so on the
+		churchyard one of them landed dead centre in the opening. Behind the
+		bars, where a black hole was supposed to be, was four studs of pale
+		granite pillar: the one door on the property that means "you are
+		finished" looked like a grille bolted to a column.
+
+		The exit is cut last and knows exactly where it is, so it takes out
+		what is in the way, which is the same bargain `clearTileAt` makes with
+		the buried-tile sweep. Only piers: the wall itself is meant to be
+		there and the void is what replaces the hole in it.
+	]]
+	for _, part in workspace:GetPartBoundsInBox(basis * CFrame.new(0, 7.3, 0.7), Vector3.new(13.6, 15.8, 4)) do
+		if part.Name == "Pier" then
+			part:Destroy()
+		end
+	end
+
+	--[[
+		On the room's side of the wall, not the far side of it.
+
+		The panel was hung seven tenths of a stud *behind* the basis, and the
+		wall it is cut into is a stud and a half thick — so on all four
+		properties the order along the line of sight was bars, then masonry,
+		then the hole. What a player saw through the grate was the inside
+		face of the cellar wall: the way out looked shut in the sense of
+		bricked up, which is not the same thing as locked, and the black
+		panel that was supposed to say "somewhere" had never been visible.
+
+		Set in front of the wall's face and inside the grate's own depth, so
+		it is what the bars are drawn against.
+	]]
 	Build.part({
 		name = "ExitVoid",
-		size = Vector3.new(12.4, 14.6, 1.2),
-		cframe = basis * CFrame.new(0, 7.3, 0.7),
+		size = Vector3.new(12.4, 14.6, 0.6),
+		cframe = basis * CFrame.new(0, 7.3, -0.7),
 		color = Color3.fromRGB(9, 8, 10),
 		material = Enum.Material.SmoothPlastic,
 		parent = parent,
