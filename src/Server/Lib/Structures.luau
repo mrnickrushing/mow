@@ -358,6 +358,16 @@ function Structures.clutter(
 
 	local pool: { PropSpec } = table.clone(set)
 	local placed: { [string]: number } = {}
+	--[[
+		One thing per tile.
+
+		The tile was picked at random twenty times looking only for somewhere
+		that was not water and not paving, so two props could and did land on
+		the same square: a churchyard bush standing inside another churchyard
+		bush, which is one bush with a shading fault rather than two of
+		anything. Remembering what has been used costs a table.
+	]]
+	local taken: { [string]: boolean } = {}
 	for _ = 1, count do
 		if #pool == 0 then
 			break
@@ -386,10 +396,15 @@ function Structures.clutter(
 			-- planter in the middle of the driveway sits like a crate on a
 			-- pool.
 			local flat = context.flat(tx, tz)
-			if not onWater and not Worlds.onPaving(context.world, flat.X, flat.Z, 1) then
+			if
+				not onWater
+				and not taken[`{tx},{tz}`]
+				and not Worlds.onPaving(context.world, flat.X, flat.Z, 1)
+			then
 				break
 			end
 		end
+		taken[`{tx},{tz}`] = true
 		local at = context.flat(tx, tz) + Vector3.new(0, elevation, 0)
 
 		Build.mesh({
@@ -582,11 +597,27 @@ function Structures.wallRing(options: WallRingOptions)
 	local halfWidth, halfDepth = options.width * 0.5, options.depth * 0.5
 	local opening = options.opening
 
+	--[[
+		The ends butt into the sides; they do not run through them.
+
+		Every side ran its full span, so at each of the four corners two walls
+		occupied the same block of space with their top faces on exactly the
+		same plane — and two faces on one plane is the depth test guessing,
+		which is a corner that flickers as you walk past it. Four rooms, two
+		pools, a glasshouse and every parapet in the game are built from this,
+		so it flickered on all of them.
+
+		The two ends keep their full span, because a corner has to be solid;
+		the two sides stop half a thickness short at each end, which is
+		exactly where the ends' inner faces are. Nothing opens up and nothing
+		overlaps.
+	]]
+	local shortened = options.depth - options.thickness
 	local sides: { RingSide } = {
 		{ normal = Vector3.new(0, 0, -1), offset = Vector3.new(0, 0, -halfDepth), span = options.width, alongX = true },
 		{ normal = Vector3.new(0, 0, 1), offset = Vector3.new(0, 0, halfDepth), span = options.width, alongX = true },
-		{ normal = Vector3.new(-1, 0, 0), offset = Vector3.new(-halfWidth, 0, 0), span = options.depth, alongX = false },
-		{ normal = Vector3.new(1, 0, 0), offset = Vector3.new(halfWidth, 0, 0), span = options.depth, alongX = false },
+		{ normal = Vector3.new(-1, 0, 0), offset = Vector3.new(-halfWidth, 0, 0), span = shortened, alongX = false },
+		{ normal = Vector3.new(1, 0, 0), offset = Vector3.new(halfWidth, 0, 0), span = shortened, alongX = false },
 	}
 
 	for _, side in sides do
@@ -2325,9 +2356,11 @@ function Structures.pool(context: Context, zone: Types.ZoneDef)
 		parent = folder,
 	})
 
+	--- Six hundredths proud of the lawn, not flush with it: the coping's top
+	--- face and the grass beside it were on one plane and fought for it.
 	Structures.wallRing({
 		name = "PoolWall",
-		centre = centre + Vector3.new(0, -depthBelow, 0),
+		centre = centre + Vector3.new(0, -depthBelow + 0.06, 0),
 		width = width + rim * 2,
 		depth = depth + rim * 2,
 		height = depthBelow,
@@ -3032,12 +3065,26 @@ function Structures.maze(context: Context, zone: Types.ZoneDef, crop: MazeCrop?)
 		]]
 		local square = grown.spin == true
 		local spin = if square then context.rng:NextNumber(0, math.pi * 2) else 0
+		--[[
+			No two neighbours exactly the same height.
+
+			A hedge tile is grown a stud wider than its tile so the run reads
+			as one wall rather than as beads on a string, which means every
+			pair of neighbours overlaps by a stud — and at the same height
+			their top faces are one plane inside that overlap. The whole top
+			of every run in both mazes was two surfaces fighting for the same
+			depth. A quarter of a stud of stagger, taken from where the tile
+			is so it is the same on every server, is under what anybody would
+			call a ragged hedge and over what the depth buffer can confuse.
+		]]
+		local stagger = (((tx * 7 + tz * 13) % 5) - 2) * 0.12
+		local tall = wallHeight + stagger
 		local part = Build.mesh({
 			prop = grown.prop,
 			name = grown.prop,
 			size = if square
-				then Vector3.new(tile + 1, wallHeight, tile + 1)
-				else Vector3.new(tile + 1, wallHeight, tile * 0.9 + 1),
+				then Vector3.new(tile + 1, tall, tile + 1)
+				else Vector3.new(tile + 1, tall, tile * 0.9 + 1),
 			--[[
 				A turned tile sweeps a wider footprint than a square one.
 
@@ -3053,9 +3100,9 @@ function Structures.maze(context: Context, zone: Types.ZoneDef, crop: MazeCrop?)
 				being smaller than it looks.
 			]]
 			collisionSize = if square
-				then Vector3.new(tile * 0.8, wallHeight, tile * 0.8)
-				else Vector3.new(tile, wallHeight, tile * 0.9),
-			cframe = CFrame.new(context.flat(tx, tz) + Vector3.new(0, wallHeight * 0.5, 0))
+				then Vector3.new(tile * 0.8, tall, tile * 0.8)
+				else Vector3.new(tile, tall, tile * 0.9),
+			cframe = CFrame.new(context.flat(tx, tz) + Vector3.new(0, tall * 0.5, 0))
 				* CFrame.Angles(0, spin, 0),
 			color = tint,
 			parent = folder,
@@ -3486,8 +3533,17 @@ function Structures.court(context: Context, zone: Types.ZoneDef)
 			end
 		end
 
+		--[[
+			One post per corner, not two.
+
+			Each of the four sides ran a post at both of its own ends, and
+			every corner is an end of two sides — so all four corners had two
+			identical posts standing in exactly the same place, with their
+			caps on one plane. The two that run across take the corners; the
+			two that run up and down stop short of them.
+		]]
 		local posts = math.max(math.floor(length / 22), 1)
-		for index = 0, posts do
+		for index = (if alongX then 0 else 1), (if alongX then posts else posts - 1) do
 			local at = centre + run.from + along * (length * index / posts)
 			Build.part({
 				name = "CourtPost",
@@ -3666,11 +3722,14 @@ function Structures.terrace(context: Context, zone: Types.ZoneDef, opening: Open
 		end
 		-- The rail along the top of them.
 		local alongX = math.abs(delta.X) > math.abs(delta.Z)
+		--- The two that run across sit six hundredths lower, so where they
+		--- cross at a corner one of them wins instead of both fighting.
+		local drop = if alongX then 0 else 0.06
 		Build.part({
 			name = "BalustradeRail",
 			size = if alongX then Vector3.new(length, 1, 2.4) else Vector3.new(2.4, 1, length),
 			cframe = CFrame.new(
-				centre + run.from + delta * 0.5 + Vector3.new(0, context.groundY + lift + 5.2, 0)
+				centre + run.from + delta * 0.5 + Vector3.new(0, context.groundY + lift + 5.2 - drop, 0)
 			),
 			color = Palette.color(Palette.estate.quoin),
 			material = Enum.Material.Sandstone,

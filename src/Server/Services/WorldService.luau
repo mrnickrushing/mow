@@ -2615,8 +2615,11 @@ local function buildGasStation(world: Types.WorldDef, parent: Folder)
 			for _, edge in { -1, 1 } do
 				Build.part({
 					name = "ContainerRib",
+					--- Inside the shell's own top and bottom faces, not level
+					--- with them: at five point two the rail's top face and
+					--- the container's were one plane.
 					size = Vector3.new(11.3, 1.1, 1),
-					cframe = basis * CFrame.new(0, edge * 5.2, 0),
+					cframe = basis * CFrame.new(0, edge * 5.05, 0),
 					color = dark,
 					material = Enum.Material.CorrodedMetal,
 					canCollide = false,
