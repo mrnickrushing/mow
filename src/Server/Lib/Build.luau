@@ -831,7 +831,15 @@ function Build.hedge(
 			block a different way costs nothing and is what breaks the repeat,
 			because it is the repeat rather than the shape that gives it away.
 		]]
-		local wobble = ((index % 3) - 1) * 0.6
+		--[[
+			Taken from where the block is, not from how far along the run it
+			is. The estate's parterre is four runs meeting at four corners,
+			and two runs both start at index nought — so at every corner the
+			two overlapping blocks were the same height, and their top faces
+			were one plane fighting for the depth test. Position agrees with
+			itself wherever a run happens to begin.
+		]]
+		local wobble = (((math.floor(at.X) * 7 + math.floor(at.Z) * 13) % 5) - 2) * 0.35
 		--[[
 			Only a half turn and a few degrees either side of it, though. A
 			block is longer along the run than it is thick, so turning one a
