@@ -3796,7 +3796,19 @@ function Structures.terrace(context: Context, zone: Types.ZoneDef, opening: Open
 		local length = delta.Magnitude
 		local along = delta.Unit
 		local count = math.max(math.floor(length / 6), 1)
-		for index = 0, count do
+		--[[
+			One baluster per corner, not two.
+
+			Every corner is an end of two runs and both put a baluster on it,
+			so the terrace had four pairs standing in exactly the same place.
+			The two that run across take the corners; the two that run up and
+			down stop short of them. (Which is the fault the court fence's
+			posts had, found the same way — a sweep for two parts built at one
+			position rather than by looking, because a doubled part is
+			invisible until it flickers.)
+		]]
+		local ends = math.abs(delta.X) > math.abs(delta.Z)
+		for index = (if ends then 0 else 1), (if ends then count else count - 1) do
 			local at = centre + run.from + along * (length * index / count)
 			-- The gap the stairs arrive through, left alone.
 			local skip = false
@@ -3911,7 +3923,10 @@ function Structures.glasshouse(context: Context, zone: Types.ZoneDef, opening: O
 		local length = delta.Magnitude
 		local along = delta.Unit
 		local count = math.max(math.floor(length / 9), 1)
-		for index = 0, count do
+		--- The corners belong to the two runs across, as with the balusters
+		--- above: built by both, they stood two mullions deep in one place.
+		local ends = math.abs(delta.X) > math.abs(delta.Z)
+		for index = (if ends then 0 else 1), (if ends then count else count - 1) do
 			local at = centre + run.from + along * (length * index / count)
 			Build.part({
 				name = "Mullion",
