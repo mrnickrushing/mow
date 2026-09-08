@@ -5752,6 +5752,59 @@ function WorldService.load(worldId: string)
 				cap = Palette.color(Palette.station.dark),
 				wire = true,
 			})
+
+			--[[
+				Control joints, so the yard reads as concrete once it is clear.
+
+				Every other property's reward for finishing a section is a
+				lawn, which is a surface with something in it. This one's is a
+				slab, and cleared it was five hundred and seventy-six studs of
+				one flat tan with nothing on it anywhere — the least
+				interesting thing in the game to have worked for.
+
+				A slab that size is not poured in one piece and never has
+				been: it is cast in bays with a joint cut between them, and
+				the grid of those joints is most of what says concrete rather
+				than sand. Six hundredths proud for the reason everything
+				else on flat ground is, and non-colliding, so the sweep that
+				decides what a tile is buried under never sees them.
+			]]
+			local joints = Build.folder("Joints", parent)
+			local slabY = GameConfig.GROUND_Y
+			local JOINT = 24
+			local seam = Palette.color(Palette.ground.stoneDark)
+			for _, section in world.sections do
+				if (section.kind or "open") ~= "open" then
+					continue
+				end
+				local r = section.rect
+				local lowX, lowZ = r.x * TILE, r.z * TILE
+				local wide, deep = r.w * TILE, r.d * TILE
+				for step = 1, math.floor(wide / JOINT) do
+					Build.part({
+						name = "Joint",
+						size = Vector3.new(0.5, 0.16, deep),
+						cframe = CFrame.new(lowX + step * JOINT, slabY + 0.06, lowZ + deep * 0.5),
+						color = seam,
+						material = Enum.Material.Concrete,
+						canCollide = false,
+						castShadow = false,
+						parent = joints,
+					})
+				end
+				for step = 1, math.floor(deep / JOINT) do
+					Build.part({
+						name = "Joint",
+						size = Vector3.new(wide, 0.16, 0.5),
+						cframe = CFrame.new(lowX + wide * 0.5, slabY + 0.06, lowZ + step * JOINT),
+						color = seam,
+						material = Enum.Material.Concrete,
+						canCollide = false,
+						castShadow = false,
+						parent = joints,
+					})
+				end
+			end
 		end
 	end
 
