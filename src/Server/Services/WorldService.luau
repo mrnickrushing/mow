@@ -4948,6 +4948,154 @@ function WorldService.clearTileAt(worldX: number, worldZ: number)
 	ReplicationService.setTotalUnits(WorldService.totalUnits)
 end
 
+--[[
+	A statue of the owner, on the lawn in front of the house.
+
+	`CreateHumanoidModelFromUserId` builds the avatar as it stands today,
+	which is the whole point of a likeness, so it is fetched when the
+	property is built rather than baked into the place. It is also a web
+	call: it goes in a thread of its own behind a pcall, and if it fails the
+	lawn has an empty plinth on it rather than no world at all.
+
+	Everything that makes an avatar an avatar comes off — the humanoid so it
+	cannot animate or fall over, the animations that drive it, the shirt, the
+	trousers, the skin colours and every texture on every mesh. A statue is
+	one stone. What is left is the shape, which is the part that looks like
+	somebody.
+
+	The figure does not collide and the plinth does: the plinth is what
+	stands on the lawn, so the plinth is what takes its own tile out of the
+	section's work, and it is built before the buried-tile sweep runs while
+	the figure may well arrive after it.
+]]
+local STATUE_OF = 1213625298
+
+local function buildStatue(foot: CFrame, parent: Folder, body: Color3, stone: Color3)
+	local DIE, TALL = 7, 10
+	Build.part({
+		name = "StatueBase",
+		size = Vector3.new(DIE + 2.4, 1.4, DIE + 2.4),
+		cframe = foot * CFrame.new(0, 0.7, 0),
+		color = body,
+		material = Enum.Material.Sandstone,
+		parent = parent,
+	})
+	Build.part({
+		name = "StatuePlinth",
+		size = Vector3.new(DIE, TALL, DIE),
+		cframe = foot * CFrame.new(0, TALL * 0.5, 0),
+		color = body,
+		material = Enum.Material.Sandstone,
+		parent = parent,
+	})
+	Build.part({
+		name = "StatueCap",
+		size = Vector3.new(DIE + 1.8, 1.2, DIE + 1.8),
+		cframe = foot * CFrame.new(0, TALL + 0.6, 0),
+		color = body,
+		material = Enum.Material.Sandstone,
+		parent = parent,
+	})
+
+	--- The plaque, on the face you walk up to.
+	local plaque = Build.part({
+		name = "StatuePlaque",
+		--- Wider than the die it is bolted to, which is what an inscription
+		--- tablet is, and wide enough for a name to sit on one line.
+		size = Vector3.new(DIE + 1.6, 1.7, 0.4),
+		cframe = foot * CFrame.new(0, TALL * 0.58, -(DIE * 0.5 + 0.15)),
+		color = Palette.color(Palette.estate.lead),
+		material = Enum.Material.Metal,
+		canCollide = false,
+		parent = parent,
+	})
+
+	--- Filled in below, off the main thread: naming a user is a web call and
+	--- the world does not wait on one.
+	local label = Build.painted(plaque, Enum.NormalId.Front, 0.86)
+	label.Text = ""
+	label.TextColor3 = Palette.color(Palette.estate.quoin)
+	--[[
+		A fixed size on one line, not scaled to the box.
+
+		Scaled, a thirteen-letter name with no spaces in it broke across two
+		rows in the middle of a syllable — "UncleNickR / ush". Turning
+		wrapping off is not the fix either: `TextScaled` implies wrapping, so
+		clearing one clears the other and the label fell back to eight
+		point, which from the drive is a blank grey band. A size the plaque
+		was cut to fit is the answer.
+	]]
+	label.TextWrapped = false
+	label.TextScaled = false
+	label.TextSize = 36
+
+	task.spawn(function()
+		local named, who = pcall(function()
+			return Players:GetNameFromUserIdAsync(STATUE_OF)
+		end)
+		label.Text = if named and typeof(who) == "string" then who else "The Owner"
+
+		local ok, model = pcall(function()
+			return Players:CreateHumanoidModelFromUserId(STATUE_OF)
+		end)
+		if not ok or typeof(model) ~= "Instance" then
+			warn(`[Statue] avatar {STATUE_OF} did not load: {model}`)
+			return
+		end
+		local figure = model :: Model
+		--- Anything that would move it, dress it or colour it.
+		for _, thing in figure:GetDescendants() do
+			if
+				thing:IsA("Humanoid")
+				or thing:IsA("LuaSourceContainer")
+				or thing:IsA("Animation")
+				or thing:IsA("Constraint")
+				or thing:IsA("BodyColors")
+				or thing:IsA("Clothing")
+				or thing:IsA("ShirtGraphic")
+				or thing:IsA("Decal")
+				or thing:IsA("SurfaceAppearance")
+				or thing:IsA("BindableFunction")
+			then
+				thing:Destroy()
+			end
+		end
+		for _, thing in figure:GetDescendants() do
+			if thing:IsA("BasePart") then
+				thing.Anchored = true
+				thing.CanCollide = false
+				thing.CanQuery = false
+				thing.CanTouch = false
+				thing.Massless = true
+				thing.Color = stone
+				thing.Material = Enum.Material.Sandstone
+				thing.Transparency = 0
+				thing.Reflectance = 0
+				if thing:IsA("MeshPart") then
+					thing.TextureID = ""
+				end
+			end
+		end
+
+		local _, natural = figure:GetBoundingBox()
+		if natural.Y > 0.1 then
+			figure:ScaleTo(14 / natural.Y)
+		end
+		figure:PivotTo(foot * CFrame.new(0, TALL + 1.2, 0))
+		--[[
+			Stood on the cap rather than trusted to the pivot: an avatar's
+			pivot is its root part, which is at the hips, so pivoting it to
+			the top of the plinth buries it to the waist.
+		]]
+		local pivot, size = figure:GetBoundingBox()
+		local base = pivot.Position.Y - size.Y * 0.5
+		local want = (foot * CFrame.new(0, TALL + 1.2, 0)).Position.Y
+		figure:PivotTo(CFrame.new(0, want - base, 0) * figure:GetPivot())
+		figure.Name = "Statue"
+		figure.Parent = parent
+	end)
+end
+
 function WorldService.load(worldId: string)
 	local world = Worlds.expect(worldId)
 
@@ -5453,6 +5601,32 @@ function WorldService.load(worldId: string)
 				})
 			end
 		end
+
+		--[[
+			And the owner, on the lawn beside the fountain.
+
+			Not on the axis: that belongs to the fountain and the door, and a
+			third thing on it would make the front read as a queue. Not in
+			the middle of the west parterre either, tempting as that is — the
+			drive is described by two rectangles and the parterre straddles
+			the edge of the bigger one, so a statue at its centre stands on
+			gravel with a hedge in front of it.
+
+			Fourteen tiles out is the strip of lawn between the drive's edge
+			and the west wing, level with the fountain, which is where you
+			can stand back from it. Turned to face down the drive, so you
+			meet it coming up rather than passing its back.
+		]]
+		local statueAt = WorldService.tilePointFlat(math.round(axisTile) - 14, world.spawn.z + 36)
+		buildStatue(
+			CFrame.lookAt(
+				Vector3.new(statueAt.X, ground, statueAt.Z),
+				Vector3.new(statueAt.X, ground, statueAt.Z - 1)
+			),
+			estate,
+			quoin,
+			stoneShade
+		)
 	elseif world.style == "churchyard" then
 		buildChurchyard(world, parent)
 		--[[

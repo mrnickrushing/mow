@@ -243,21 +243,31 @@ Structures.roomSets = {
 }
 
 --[[
-	And what is lying about on a roof.
+	And what is lying about on anything paved.
 
 	A rooftop drew from the yard set, which has bushes, rocks and logs in it,
 	so The House's roof deck had a shrub growing out of it and a boulder
 	sitting next to it — twenty-nine studs up, on slate. Nothing that needs
 	soil, and nothing anybody would have carried up there for no reason: what
 	is on a flat roof is the things somebody left after working on it.
+
+	The same is true of the two other surfaces nothing grows out of, and both
+	were still on the yard set: The Mansion's east terrace had a bush rooted
+	in its flagstones, and the tennis court had one growing out of the tarmac
+	inside the fence. A season of neglect puts leaves and branches on those,
+	which is what the section is sown with; it does not put a shrub through
+	six inches of asphalt.
 ]]
-local ROOF_PROPS: { PropSpec } = {
+local PAVED_PROPS: { PropSpec } = {
 	{ prop = "Crate", size = Vector3.new(5, 3.4, 4.5) },
 	{ prop = "Barrel", size = Vector3.new(4, 5.5, 4) },
 	{ prop = "Bin", size = Vector3.new(4, 6.5, 4) },
 	{ prop = "Sack", size = Vector3.new(4, 2.6, 3) },
 	{ prop = "Planter", size = Vector3.new(5, 4.5, 5) },
 }
+
+--- The kinds of section whose floor is a hard surface rather than soil.
+local PAVED: { [string]: boolean } = { roof = true, court = true, terrace = true }
 
 --[[
 	Scatters props across a zone.
@@ -283,7 +293,7 @@ function Structures.clutter(
 	local kind = zone.kind or "open"
 	local set = if kind == "room"
 		then (room or ROOM_PROPS)
-		elseif kind == "roof" then ROOF_PROPS
+		elseif PAVED[kind] then PAVED_PROPS
 		else (yard or YARD_PROPS)
 	local folder = Build.folder(`Clutter_{zone.id}`, context.parent)
 	local r = zone.rect
