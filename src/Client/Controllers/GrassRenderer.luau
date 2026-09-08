@@ -833,7 +833,25 @@ local function drawTile(theGrid: Grid.Grid, theTiles: buffer, index: number, loc
 end
 
 --- One flat plane standing in for a whole chunk at distance.
-local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
+--[[
+	`strength` fades the stand-in in as the tufts fade out.
+
+	The two were a switch, not a crossfade: tufts thin from sixty-two
+	hundredths of the detail radius outwards, and the carpet came up at full
+	opacity the moment a chunk's centre passed the point where its far corner
+	leaves that radius. Between those two distances the ground went from
+	tufts-on-bare-ground to tufts-on-a-full-carpet in one chunk's width, and
+	on the churchyard — where the tufts are dark and the carpet is the pale
+	turf — that step drew a line straight across the lawn at about fifty
+	studs. Ramped over the same band the tufts fade across, one comes up as
+	the other goes down and the two meet in the middle.
+]]
+local function drawLod(
+	theGrid: Grid.Grid,
+	theTiles: buffer,
+	chunkIndex: number,
+	strength: number?
+)
 	local cx, cz = Grid.chunkFromIndex(theGrid, chunkIndex)
 	local baseX, baseZ = cx * theGrid.chunkTiles, cz * theGrid.chunkTiles
 
@@ -1070,16 +1088,17 @@ local function drawLod(theGrid: Grid.Grid, theTiles: buffer, chunkIndex: number)
 		A lawn keeps its opaque slab and its gentle blend, because there the
 		slab *is* the ground rather than something lying on it.
 	]]
+	local shown = math.clamp(strength or 1, 0, 1)
 	if hardFloor then
 		part.Color = litter
 		local cover = coverBySection[zone] or COVERAGE[debrisId] or DEFAULT_COVERAGE
 		local solidity = LOD_FLOOR + LOD_RANGE * cover * fullness
-		part.Transparency = math.clamp(1 - solidity, 0.16, 0.80)
+		part.Transparency = 1 - math.clamp(solidity, 0.20, 0.84) * shown
 	else
 		part.Color = groundColor:Lerp(litter, 0.06 + 0.16 * fullness)
 		-- All drift is the opaque slab it always was; all grass is nothing at
 		-- all, which it also always was. The gradient is the new part.
-		part.Transparency = math.clamp(1 - litterShare, 0, 1)
+		part.Transparency = 1 - math.clamp(litterShare, 0, 1) * shown
 	end
 	part.Parent = lodFolder
 end
@@ -1156,13 +1175,15 @@ local function refresh()
 						]]
 						local corner = theGrid.chunkTiles * TILE * 0.70711
 						local inner = math.max(GameConfig.DETAIL_RADIUS - corner, 0)
-						if distanceSq <= inner * inner then
+						local band = math.max(GameConfig.DETAIL_RADIUS - inner, 1)
+						local strength = (math.sqrt(distanceSq) - inner) / band
+						if strength <= 0.02 then
 							local lod = lodParts[chunkIndex]
 							if lod then
 								lod.Parent = nil
 							end
 						else
-							drawLod(theGrid, theTiles, chunkIndex)
+							drawLod(theGrid, theTiles, chunkIndex, strength)
 						end
 
 						local baseX, baseZ = cx * theGrid.chunkTiles, cz * theGrid.chunkTiles
