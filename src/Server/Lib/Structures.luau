@@ -2280,7 +2280,15 @@ local STEP_RISE = 1.5
 	Each step is placed by its tread rather than its centre, so the top tread
 	lands exactly on `to` and meets the floor it arrives at flush.
 ]]
-function Structures.stairs(_context: Context, from: Vector3, to: Vector3, width: number, parent: Instance)
+--- What a flight's handrail is made of, per property.
+local STAIR_RAIL: { [string]: Types.Color3Like } = {
+	house = Palette.house.porchRail,
+	estate = Palette.estate.iron,
+	lot = Palette.station.dark,
+	churchyard = Palette.churchyard.iron,
+}
+
+function Structures.stairs(context: Context, from: Vector3, to: Vector3, width: number, parent: Instance)
 	local delta = to - from
 	local flat = Vector3.new(delta.X, 0, delta.Z)
 	local run = flat.Magnitude
@@ -2320,6 +2328,57 @@ function Structures.stairs(_context: Context, from: Vector3, to: Vector3, width:
 		local tint = Palette.color(Palette.ground.path)
 		wedge.Color = Color3.new(tint.R * 0.88, tint.G * 0.88, tint.B * 0.88)
 		wedge.Parent = parent
+	end
+
+	--[[
+		A handrail up each side of a flight that climbs in the open.
+
+		Twenty-nine studs of rise over forty-six of run is a wedge fourteen
+		studs wide, and painted stone with treads cut into it that is what it
+		read as: a concrete embankment leaning against the side of a
+		clapboard house. A rail is the one thing that says stair rather than
+		ramp, and it costs a post every eight studs.
+
+		Only on a flight that goes up. The one that goes down is dropped into
+		a stairwell cut in the ceiling slab, so its sides are already solid
+		and a rail there would be built inside them.
+	]]
+	if delta.Y > 0 then
+		local slope = to - from
+		local along = slope.Unit
+		local sideways = Vector3.new(-direction.Z, 0, direction.X)
+		local RAIL_H = 4.2
+		local railColour = Palette.color(
+			STAIR_RAIL[context.world.style or "house"] or Palette.house.porchRail
+		)
+		for _, side in { -1, 1 } do
+			local edge = sideways * (side * (width * 0.5 - 0.7))
+			local mid = (from + to) * 0.5 + edge + Vector3.new(0, RAIL_H, 0)
+			Build.part({
+				name = "StairRail",
+				size = Vector3.new(0.6, 0.6, slope.Magnitude + 1.2),
+				cframe = CFrame.lookAt(mid, mid + along),
+				color = railColour,
+				material = Enum.Material.Metal,
+				canCollide = false,
+				castShadow = false,
+				parent = parent,
+			})
+			local posts = math.max(math.floor(slope.Magnitude / 8), 1)
+			for index = 0, posts do
+				local foot = from + slope * (index / posts) + edge
+				Build.part({
+					name = "StairPost",
+					size = Vector3.new(0.5, RAIL_H, 0.5),
+					cframe = CFrame.new(foot + Vector3.new(0, RAIL_H * 0.5, 0)),
+					color = railColour,
+					material = Enum.Material.Metal,
+					canCollide = false,
+					castShadow = false,
+					parent = parent,
+				})
+			end
+		end
 	end
 
 	for index = 1, steps do
