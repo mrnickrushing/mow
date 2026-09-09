@@ -41,136 +41,211 @@ local confirmRemote: RemoteEvent
 local gui: ScreenGui
 local mapHolder: ScrollingFrame
 local partyValue: TextLabel
-local difficultyValue: TextLabel
-local clockValue: TextLabel
-local payoutValue: TextLabel
+local beatenValue: TextLabel
+local tipsValue: TextLabel
 local isOpen = false
 --- Set when the player closes the panel while still standing on the pad, so
 --- it does not spring straight back up at them.
 local dismissedOnPad = false
 
---- What the panels are set to. The map defaults to the first one the player
---- can actually play, so Confirm is never a dead button.
-local chosen: string? = nil
+--- How many the player means to play with. The property is not a setting any
+--- more — pressing START A RUN on a card is the whole choice.
 local party = 1
 
-local INK = Color3.fromRGB(38, 44, 58)
-local PANEL = Color3.fromRGB(48, 56, 72)
-local HEAD = Color3.fromRGB(64, 154, 232)
-local FIELD = Color3.fromRGB(238, 236, 228)
-local GREEN = Color3.fromRGB(96, 186, 88)
-local RED = Color3.fromRGB(206, 74, 66)
-local LOCKED = Color3.fromRGB(116, 122, 136)
+--- The dark wood every panel in this game is cut from.
+local PANEL_TOP = Color3.fromRGB(66, 49, 31)
+local PANEL_BOTTOM = Color3.fromRGB(42, 31, 21)
 
 --------------------------------------------------------------------
 -- Pieces
 --------------------------------------------------------------------
 
---- A panel with a blue title bar across the top, like the reference's.
-local function titled(parent: Instance, name: string, title: string, size: UDim2, position: UDim2): (Frame, Frame)
-	local frame = Instance.new("Frame")
-	frame.Name = name
-	frame.Size = size
-	frame.Position = position
-	frame.AnchorPoint = Vector2.new(0.5, 0.5)
-	frame.BackgroundColor3 = PANEL
-	frame.BorderSizePixel = 0
-	frame.Parent = parent
-	Theme.corner(frame, 12)
-	Theme.stroke(frame, 3, INK, 0.15)
+--[[
+	A panel with its name written across the top of it.
 
-	local bar = Instance.new("Frame")
-	bar.Name = "TitleBar"
-	bar.Size = UDim2.new(1, 0, 0, 44)
-	bar.BackgroundColor3 = HEAD
-	bar.BorderSizePixel = 0
-	bar.Parent = frame
-	Theme.corner(bar, 12)
+	It was a flat blue title bar on a flat slate box, which is the one piece
+	of the old lobby that did not survive the redesign. Everything else on
+	this screen is a slab of dark wood with a drop under it and a bevel across
+	the top; two flat rectangles in the middle of that read as a different
+	game's menu that had been pasted over this one.
+
+	`blurb` is the line under the title, for the panel that needs to say what
+	the player is looking at as well as what it is called.
+]]
+local function titled(
+	parent: Instance,
+	name: string,
+	title: string,
+	size: UDim2,
+	position: UDim2,
+	blurb: string?
+): (Frame, Frame)
+	local panel = Theme.chunkPanel({
+		name = name,
+		size = size,
+		position = position,
+		anchor = Vector2.new(0.5, 0.5),
+		parent = parent,
+		radius = 26,
+		drop = 12,
+		outline = 5,
+		top = PANEL_TOP,
+		bottom = PANEL_BOTTOM,
+	})
+
+	--- The same gold diamond that heads the run panel and the journal.
+	local badge = Instance.new("Frame")
+	badge.Name = "Badge"
+	badge.Size = UDim2.fromOffset(13, 13)
+	badge.Position = UDim2.fromOffset(22, 26)
+	badge.Rotation = 45
+	badge.BackgroundColor3 = Theme.colors.tips
+	badge.BorderSizePixel = 0
+	badge.Parent = panel
 
 	Theme.text({
 		name = "TitleText",
 		text = title,
-		size = UDim2.new(1, -80, 1, 0),
-		position = UDim2.fromOffset(16, 0),
-		parent = bar,
+		size = UDim2.new(1, -130, 0, 26),
+		position = UDim2.fromOffset(46, 20),
+		parent = panel,
 		align = Enum.TextXAlignment.Left,
-		textSize = 25,
+		color = Theme.colors.tips,
+		textSize = 21,
 	})
 
+	if blurb then
+		Theme.text({
+			name = "Blurb",
+			text = blurb,
+			size = UDim2.new(1, -130, 0, 20),
+			position = UDim2.fromOffset(46, 45),
+			parent = panel,
+			align = Enum.TextXAlignment.Left,
+			color = Theme.colors.label,
+			textSize = 15,
+		})
+	end
+
+	local top = if blurb then 78 else 56
 	local body = Instance.new("Frame")
 	body.Name = "Body"
-	body.Size = UDim2.new(1, -20, 1, -56)
-	body.Position = UDim2.fromOffset(10, 50)
+	body.Size = UDim2.new(1, -40, 1, -(top + 18))
+	body.Position = UDim2.fromOffset(20, top)
 	body.BackgroundTransparency = 1
-	body.Parent = frame
-	return frame, body
+	body.Parent = panel
+	return panel, body
 end
 
-local function button(parent: Instance, text: string, size: UDim2, position: UDim2, colour: Color3): TextButton
-	local b = Instance.new("TextButton")
-	b.Name = "Button"
-	b.Text = text
-	b.Size = size
-	b.Position = position
-	b.BackgroundColor3 = colour
-	b.BorderSizePixel = 0
-	b.AutoButtonColor = true
-	b.Font = Theme.font
-	b.TextColor3 = Color3.fromRGB(252, 250, 244)
-	b.TextSize = 24
-	b.Parent = parent
-	Theme.corner(b, 8)
-	Theme.outline(b, 2)
+--- Every button on this screen is one of the game's slabs now; the caller
+--- says which colour it wears rather than handing over a raw Color3.
+local function button(
+	parent: Instance,
+	text: string,
+	size: UDim2,
+	position: UDim2,
+	variant: string
+): TextButton
+	local b = Theme.chunkButton({
+		name = "Button",
+		text = text,
+		variant = variant :: any,
+		textSize = 24,
+		size = size,
+		position = position,
+		parent = parent,
+		radius = 13,
+		outline = 3,
+	})
+	--- The cursor is held while this panel is up; without `Modal` the buttons
+	--- under it never see the click.
+	b.Modal = true
 	return b
 end
 
---- A labelled row with a value box in the middle, the way the reference draws
---- MAX PLAYERS and DIFFICULTY.
-local function field(parent: Instance, y: number, heading: string): TextLabel
+--[[
+	A small heading over a dark well with the number in it.
+
+	`inset` is how far in from the panel's edges the well sits, which is only
+	ever used by MAX PLAYERS: its minus and plus buttons stand in that margin
+	so the three of them read as one stepper rather than as a box with two
+	unrelated buttons beside it.
+]]
+local function field(parent: Instance, y: number, heading: string, inset: number?): TextLabel
+	local margin = inset or 0
+
 	Theme.text({
 		name = heading,
 		text = heading,
-		size = UDim2.new(1, 0, 0, 26),
+		size = UDim2.new(1, 0, 0, 18),
 		position = UDim2.fromOffset(0, y),
 		parent = parent,
-		textSize = 22,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.label,
+		textSize = 15,
 	})
 
-	local box = Instance.new("Frame")
-	box.Name = heading .. "Value"
-	box.Size = UDim2.new(0, 132, 0, 40)
-	box.Position = UDim2.new(0.5, 0, 0, y + 30)
-	box.AnchorPoint = Vector2.new(0.5, 0)
-	box.BackgroundColor3 = FIELD
-	box.BorderSizePixel = 0
-	box.Parent = parent
-	Theme.corner(box, 7)
+	local box = Theme.chip({
+		name = heading .. "Value",
+		size = UDim2.new(1, -margin * 2, 0, 48),
+		position = UDim2.fromOffset(margin, y + 24),
+		parent = parent,
+		radius = 14,
+	})
+	Theme.stroke(box, 3, Theme.colors.outline, 0)
 
-	local value = Theme.text({
+	return Theme.text({
 		name = "Value",
 		text = "",
 		size = UDim2.fromScale(1, 1),
 		position = UDim2.fromScale(0, 0),
 		parent = box,
 		align = Enum.TextXAlignment.Center,
-		color = INK,
-		textSize = 26,
+		color = Theme.colors.body,
+		textSize = 28,
+	})
+end
+
+--[[
+	One of the two counters on the settings panel.
+
+	A cream card with a small heading and a big number, which is the shape the
+	design uses everywhere a fact is worth reading at a glance: it is the
+	property card's own face, at a quarter of the size.
+]]
+local function statBlock(parent: Instance, heading: string, size: UDim2, position: UDim2): TextLabel
+	local face = Theme.cardFace({
+		name = heading,
+		size = size,
+		position = position,
+		parent = parent,
+		radius = 16,
+		drop = 5,
+		outline = 4,
+	})
+	Theme.pad(face, 12, 14, 12, 14)
+
+	Theme.text({
+		name = "Heading",
+		text = heading,
+		size = UDim2.new(1, 0, 0, 16),
+		position = UDim2.fromOffset(0, 0),
+		parent = face,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.inkSoft,
+		textSize = 13,
 	})
 
-	--[[
-		Dark text on a pale box wants no outline.
-
-		`Theme.text` gives every label a heavy dark stroke, and it is right to:
-		the world behind this UI is a sunlit lawn and plain white text
-		disappears into it. Inside one of these boxes the background is cream
-		and the text is nearly black, so the same stroke just thickens the
-		glyphs into a smudge.
-	]]
-	local stroke = value:FindFirstChildOfClass("UIStroke")
-	if stroke then
-		stroke:Destroy()
-	end
-	return value
+	return Theme.text({
+		name = "Value",
+		text = "—",
+		size = UDim2.new(1, 0, 0, 36),
+		position = UDim2.fromOffset(0, 20),
+		parent = face,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.ink,
+		textSize = 32,
+	})
 end
 
 --------------------------------------------------------------------
@@ -185,209 +260,249 @@ local function isUnlocked(world: Types.WorldDef): boolean
 	return PlayerState.get().worldsBeaten[required] == true
 end
 
---- The first world the player can play, so the panel never opens on a locked
---- map with a Confirm that would be refused.
-local function firstPlayable(): string?
-	for _, world in Worlds.list do
-		if isUnlocked(world) then
-			return world.id
-		end
-	end
-	return nil
-end
-
 --------------------------------------------------------------------
 -- Drawing
 --------------------------------------------------------------------
 
 local function refreshSettings()
 	partyValue.Text = tostring(party)
-	local world = if chosen then Worlds.get(chosen) else nil
-	difficultyValue.Text = if world then string.upper(world.difficulty) else "—"
-	clockValue.Text = if world then `{math.floor(world.runSeconds / 60)}m` else "—"
-	payoutValue.Text = if world then `{world.payoutMultiplier}x cash` else "—"
+
+	local state = PlayerState.get()
+	local beaten = 0
+	for _, world in Worlds.list do
+		if state.worldsBeaten[world.id] then
+			beaten += 1
+		end
+	end
+	beatenValue.Text = `{beaten} / {#Worlds.list}`
+	tipsValue.Text = Format.count(state.tips)
 end
 
+--[[
+	How long a run is, in the units a run is actually measured in.
+
+	`Format.clock` is right for a stopwatch and wrong for this: every world's
+	clock is whole hours, and it printed The House's as "02:00:00", which
+	reads as a stopwatch that has been running for two hours rather than as
+	the two hours you are being given.
+]]
+local function span(seconds: number): string
+	local minutes = math.floor(seconds / 60)
+	local hours = minutes // 60
+	if hours == 0 then
+		return `{minutes}m`
+	elseif minutes % 60 == 0 then
+		return `{hours}h`
+	end
+	return `{hours}h {minutes % 60}m`
+end
+
+--- What each difficulty is painted, and the ink that reads on it.
+local GRADE: { [string]: { fill: Color3, ink: Color3 } } = {
+	Easy = { fill = Color3.fromRGB(79, 184, 60), ink = Color3.fromRGB(14, 50, 8) },
+	Medium = { fill = Theme.colors.warn, ink = Color3.fromRGB(58, 28, 0) },
+	Hard = { fill = Theme.colors.danger, ink = Color3.fromRGB(255, 240, 238) },
+}
+
+--[[
+	A property card: a picture of the place, its name, and one button.
+
+	It used to be a hundred-pixel banner with the name written across the
+	bottom of the photograph and a tick in the corner of the one you had
+	picked — which meant the row said what each property *was* and nothing
+	about what you were signing up for. Half a card of picture and half of
+	facts is the shape the design asks for, and the facts are the ones a
+	player choosing between four maps actually wants: how many sections, how
+	long the clock is, and what it pays.
+
+	The button is the choice. A card you select and a start button somewhere
+	else is two decisions for one action.
+]]
 local function drawCard(world: Types.WorldDef, order: number)
 	local open = isUnlocked(world)
 	local state = PlayerState.get()
+	local best = state.bestTimes[world.id]
 
-	--[[
-		A banner card, the way the reference draws one.
-
-		Its cards are photographs of the property with the best time in green
-		across the top, the name across the bottom and a green tick in the
-		corner of the one you have picked. A photograph is not something this
-		can produce, so the banner is the property's own ground colour — the
-		three of them are a lawn, a gravel drive and a forecourt, which is
-		enough to tell the three cards apart at a glance the way the photos
-		do. Everything else about the card is the reference's.
-	]]
-	local card = Instance.new("TextButton")
-	card.Name = world.id
-	card.Text = ""
-	--[[
-		Short enough that the next one always shows.
-
-		At a hundred and eighteen, three cards filled the list exactly and the
-		fourth sat below the fold with nothing to say it was there — so The
-		Cemetery simply did not exist as far as the screen was concerned. The
-		panel cannot grow to fit four without shrinking on a phone, where it
-		is already tight, and it would be wrong again at five.
-
-		A hundred fits three and most of a fourth in the same space, so
-		whatever the count there is always part of a card showing under the
-		last one, which is what tells anybody there is more to see. The
-		contents hang off the top and bottom edges, so they ride the change.
-	]]
-	card.Size = UDim2.new(1, -14, 0, 100)
-	card.BackgroundColor3 = Color3.fromRGB(44, 47, 56)
-	card.BorderSizePixel = 0
-	card.AutoButtonColor = open
-	card.LayoutOrder = order
+	local card = Theme.cardFace({
+		name = world.id,
+		size = UDim2.fromOffset(0, 0),
+		parent = mapHolder,
+		radius = 22,
+		drop = 8,
+		outline = 5,
+		top = if open then Color3.fromRGB(255, 252, 241) else Color3.fromRGB(58, 46, 34),
+		bottom = if open then Color3.fromRGB(237, 225, 200) else Color3.fromRGB(36, 27, 19),
+	})
 	card.ClipsDescendants = true
-	card.Parent = mapHolder
-	Theme.corner(card, 10)
-	-- Gold on the one that is picked, the way the reference rings its choice.
-	Theme.stroke(card, 3, if chosen == world.id then Color3.fromRGB(252, 206, 74) else INK, if chosen == world.id then 0 else 0.4)
+	local seat = card.Parent :: Frame
+	seat.LayoutOrder = order
 
 	--[[
 		The property itself, drawn.
 
-		This was the world's `baseGround` as a flat wash, which fell over the
-		moment two properties shared one: The House and The Mansion are both
-		`ground.lawn`, so two of the three cards were the same green rectangle
-		and the card did nothing the name was not already doing. Each property
-		now has its own picture — the teal-trimmed house, the mansion's three
-		gables, the station's red canopy — drawn in this game's palette so the
-		row of cards reads the way the reference's photographs do.
+		Each has its own picture — the teal-trimmed house, the mansion's three
+		gables, the station's red canopy, the churchyard after dark — so the
+		grid reads the way a shelf of photographs does rather than as four
+		rectangles of ground colour, two of which used to be the same green.
 	]]
-	local banner = Instance.new("ImageLabel")
-	banner.Name = "Banner"
-	banner.Size = UDim2.fromScale(1, 1)
-	banner.BackgroundColor3 = Palette.color(world.baseGround)
-	banner.Image = world.art or ""
-	banner.ScaleType = Enum.ScaleType.Crop
-	banner.BorderSizePixel = 0
-	banner.Parent = card
-	Theme.corner(banner, 10)
+	local hero = Instance.new("ImageLabel")
+	hero.Name = "Hero"
+	hero.Size = UDim2.fromScale(1, 0.42)
+	hero.BackgroundColor3 = Palette.color(world.baseGround)
+	hero.Image = world.art or ""
+	hero.ScaleType = Enum.ScaleType.Crop
+	hero.BorderSizePixel = 0
+	hero.Parent = card
 
-	-- Darkened towards the bottom so the name sits on it and stays readable.
-	local shade = Instance.new("UIGradient")
-	shade.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-		ColorSequenceKeypoint.new(0.55, Color3.fromRGB(226, 226, 226)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(96, 96, 96)),
-	})
-	shade.Rotation = 90
-	shade.Parent = banner
+	--- A four-pixel ink line under the picture, which is the border the
+	--- design draws between the two halves of the card.
+	local rule = Instance.new("Frame")
+	rule.Name = "Rule"
+	rule.Size = UDim2.new(1, 0, 0, 4)
+	rule.Position = UDim2.new(0, 0, 1, -4)
+	rule.BackgroundColor3 = Theme.colors.outline
+	rule.BorderSizePixel = 0
+	rule.Parent = hero
 
 	if not open then
 		--[[
 			A property you have not earned is dimmed, not hidden: the picture
-			is most of what makes it worth earning.
-
-			Forty per cent down to twenty was fine while every card was a
-			daylight photograph and takes the one night picture to black. The
-			Cemetery is drawn after dark, so locked — which is how nearly
-			everybody meets it — it was a black rectangle with a name on it,
-			which is the fault this comment is about.
-
-			Fifty-five down to twenty-seven leaves the moon and the lit
-			windows readable and is still, at every point down the card,
-			darker than the gradient an unlocked one gets.
+			is most of what makes it worth earning. Dark enough to read as
+			locked and light enough to leave the moon and the lit windows on
+			the one night picture visible.
 		]]
-		shade.Color = ColorSequence.new(Color3.fromRGB(140, 140, 140), Color3.fromRGB(70, 70, 70))
+		local dim = Instance.new("UIGradient")
+		dim.Color = ColorSequence.new(Color3.fromRGB(120, 120, 120), Color3.fromRGB(64, 64, 64))
+		dim.Rotation = 90
+		dim.Parent = hero
 	end
 
-	--[[
-		The personal best, in green on a dark pill along the top.
-
-		It is the one number that makes a map card worth looking at twice: the
-		only thing on this screen that says you have been here before.
-	]]
-	local best = state.bestTimes[world.id]
-	local pill = Instance.new("Frame")
-	pill.Name = "BestPill"
-	pill.Size = UDim2.new(0, 168, 0, 26)
-	pill.Position = UDim2.fromOffset(10, 10)
-	pill.BackgroundColor3 = Color3.fromRGB(24, 26, 32)
-	pill.BackgroundTransparency = 0.15
-	pill.BorderSizePixel = 0
-	pill.Parent = card
-	Theme.corner(pill, 6)
-
-	Theme.text({
-		name = "Best",
-		text = if not open
-			then `Needs {Worlds.expect(world.requiresWorld :: string).name}`
-			elseif best then `Best : {Format.clock(best)}`
-			else "Best : —",
-		size = UDim2.new(1, -12, 1, 0),
-		position = UDim2.fromOffset(8, 0),
-		parent = pill,
-		align = Enum.TextXAlignment.Left,
-		color = if not open then LOCKED else GREEN,
-		textSize = 18,
-	})
+	local facts = Instance.new("Frame")
+	facts.Name = "Facts"
+	facts.Size = UDim2.fromScale(1, 0.58)
+	facts.Position = UDim2.fromScale(0, 0.42)
+	facts.BackgroundTransparency = 1
+	facts.Parent = card
+	Theme.pad(facts, 14, 18, 16, 18)
 
 	Theme.text({
 		name = "Name",
 		text = world.name,
-		size = UDim2.new(1, -24, 0, 34),
-		position = UDim2.new(0, 14, 1, -42),
-		parent = card,
+		size = UDim2.new(1, 0, 0, 30),
+		position = UDim2.fromOffset(0, 0),
+		parent = facts,
 		align = Enum.TextXAlignment.Left,
-		color = if open then Color3.fromRGB(252, 250, 244) else LOCKED,
+		color = if open then Theme.colors.ink else Theme.colors.body,
 		textSize = 27,
 	})
 
+	--- The difficulty, on a pill in its own colour, dimmed on a property you
+	--- have not opened yet.
+	local grade = GRADE[world.difficulty]
+	local pillFill = if open and grade then grade.fill else Color3.fromRGB(44, 33, 24)
+	local pillInk = if open and grade then grade.ink else Theme.colors.label
+	--[[
+		On the picture, not beside the name.
+
+		Beside it, the pill took a hundred pixels off a card two hundred and
+		sixty wide and cut three of the four names in half — "The Mansio",
+		"The Gas Sta", "The Cemete". The photograph has room for it in the
+		corner and nothing there to hide.
+	]]
+	local pill = Instance.new("Frame")
+	pill.Name = "Grade"
+	pill.Size = UDim2.fromOffset(86, 24)
+	pill.Position = UDim2.new(1, -10, 1, -14)
+	pill.AnchorPoint = Vector2.new(1, 1)
+	pill.BackgroundColor3 = pillFill
+	pill.BorderSizePixel = 0
+	--- No ZIndex of its own: on this project's `Global` guis a child at the
+	--- default 1 would then render *behind* it, which is where the word on
+	--- the pill went the first time it was lifted to 2.
+	pill.Parent = hero
+	Theme.corner(pill, 12)
+	Theme.stroke(pill, 2.5, Theme.colors.outline, 0)
+
+	--- Always the difficulty, even locked: the button under it already says
+	--- LOCKED, and saying it twice tells you less than knowing that the
+	--- property you cannot play yet is the Medium one.
 	Theme.text({
-		name = "Difficulty",
+		name = "GradeWord",
 		text = string.upper(world.difficulty),
-		size = UDim2.new(0, 120, 0, 26),
-		position = UDim2.new(1, -134, 1, -38),
-		parent = card,
-		align = Enum.TextXAlignment.Right,
-		color = if open then Color3.fromRGB(236, 238, 244) else LOCKED,
-		textSize = 19,
+		size = UDim2.fromScale(1, 1),
+		position = UDim2.fromScale(0, 0),
+		parent = pill,
+		align = Enum.TextXAlignment.Center,
+		color = pillInk,
+		textSize = 13,
 	})
 
-	if chosen == world.id then
-		-- A green disc with a white tick, not a bare character.
-		local badge = Instance.new("Frame")
-		badge.Name = "Tick"
-		badge.Size = UDim2.fromOffset(40, 40)
-		badge.Position = UDim2.new(1, -50, 0, 8)
-		--[[
-			The drawn tick is already a green disc with a white check in it,
-			so the disc it used to be drawn on top of is gone. Stacked, the
-			two greens cancelled and the badge came out as a flat blob.
-		]]
-		badge.BackgroundTransparency = 1
-		badge.BorderSizePixel = 0
-		badge.Parent = card
-		--[[
-			The drawn tick, which is the one the book uses.
+	--[[
+		One line saying what you are signing up for.
 
-			A font's check mark is fourteen pixels of hairline in a forty
-			pixel disc, and it is a different tick from the one on the
-			journal's collection page — two marks for one idea, in one game.
-		]]
-		Theme.icon({
-			name = "Mark",
-			prop = "Tick",
-			size = UDim2.fromScale(1, 1),
-			position = UDim2.fromScale(0.5, 0.5),
-			anchor = Vector2.new(0.5, 0.5),
-			parent = badge,
-		})
-	end
+		Sections and clock come out of the world itself, and the third clause
+		is whichever of the three facts is worth knowing: your own best time
+		if you have beaten it, what it pays if you have not, and what opens it
+		if you cannot play it yet.
+	]]
+	Theme.text({
+		name = "Summary",
+		text = `{#world.sections} sections · {span(world.runSeconds)} on the clock`,
+		size = UDim2.new(1, 0, 0, 18),
+		position = UDim2.fromOffset(0, 32),
+		parent = facts,
+		align = Enum.TextXAlignment.Left,
+		color = if open then Theme.colors.inkSoft else Theme.colors.label,
+		textSize = 15,
+	})
+
+	--- Whichever of the three is worth knowing: your own best time if you
+	--- have beaten it, what it pays if you have not, and what opens it if you
+	--- cannot play it yet. Two short lines rather than one that runs off the
+	--- side of a card a quarter of the screen wide.
+	local tail = if not open
+		then `Beat {Worlds.expect(world.requiresWorld :: string).name} to open it`
+		elseif best then `Your best: {Format.clock(best)}`
+		else `Pays {string.format("%.1f", world.payoutMultiplier)}× cash`
+	Theme.text({
+		name = "Tail",
+		text = tail,
+		size = UDim2.new(1, 0, 0, 18),
+		position = UDim2.fromOffset(0, 52),
+		parent = facts,
+		align = Enum.TextXAlignment.Left,
+		color = if open then Theme.colors.inkSoft else Theme.colors.label,
+		textSize = 15,
+	})
+
+	local start = Theme.chunkButton({
+		name = "Start",
+		variant = if open then "primary" else "disabled",
+		text = if open then "START A RUN" else "LOCKED",
+		textSize = 20,
+		size = UDim2.new(1, 0, 0, 42),
+		position = UDim2.fromScale(0, 1),
+		anchor = Vector2.new(0, 1),
+		parent = facts,
+		radius = 14,
+		outline = 4,
+	})
+	start.Modal = true
 
 	if open then
-		card.Activated:Connect(function()
-			chosen = world.id
-			LevelSelect.refresh()
+		--[[
+			The card is the whole decision.
+
+			It used to pick the property, and then a Confirm button on the
+			other panel started the game — two presses for one intention, and
+			the first of them looked like the one that did something. The
+			settings panel keeps the only setting there is, and pressing START
+			A RUN on a property sends you to it.
+		]]
+		start.Activated:Connect(function()
+			confirmRemote:FireServer({ worldId = world.id, maxPlayers = party })
+			dismissedOnPad = true
+			LevelSelect.setOpen(false)
 		end)
 	end
 end
@@ -406,7 +521,8 @@ function LevelSelect.refresh()
 	end
 	-- Card plus the layout's padding, less the padding the last one does not
 	-- need; the exact height means the list stops where the cards do.
-	mapHolder.CanvasSize = UDim2.fromOffset(0, #Worlds.list * 108 - 8)
+	--- Two per row, so the canvas grows by a row every second world.
+	mapHolder.CanvasSize = UDim2.fromOffset(0, math.ceil(#Worlds.list / 2) * 272 - 16)
 	refreshSettings()
 end
 
@@ -450,7 +566,10 @@ local function build()
 
 		One frame, one scale, and the gap shrinks with everything else.
 	]]
-	local PAIR_W, PAIR_H = 904, 430
+	--- Bigger than the pair of banner lists it replaces, because the map panel
+	--- is now four picture cards two across and each of them is a card rather
+	--- than a row.
+	local PAIR_W, PAIR_H = 1040, 638
 	local holder = Instance.new("Frame")
 	holder.Name = "Panels"
 	holder.Size = UDim2.fromOffset(PAIR_W, PAIR_H)
@@ -466,89 +585,148 @@ local function build()
 	local settings, body = titled(
 		holder,
 		"GameSettings",
-		"⚙  GAME SETTINGS",
-		UDim2.fromOffset(440, 430),
-		UDim2.new(0.5, -232, 0.5, 0)
+		"GAME SETTINGS",
+		UDim2.fromOffset(400, PAIR_H),
+		UDim2.new(0.5, -300, 0.5, 0)
 	)
 
-	partyValue = field(body, 10, "MAX PLAYERS")
-	button(body, "−", UDim2.fromOffset(46, 40), UDim2.new(0.5, -120, 0, 40), HEAD).Activated:Connect(function()
+	--[[
+		The number that started all this.
+
+		"Where's the box that selects how many players in my group?" was the
+		complaint, and the answer was that there wasn't one — four pads told
+		you how many were standing on them and nothing let you say how many
+		you meant to play with. Minus and plus in the margins either side of
+		the well, so the three of them read as one control.
+	]]
+	partyValue = field(body, 14, "MAX PLAYERS", 56)
+	button(body, "−", UDim2.fromOffset(48, 48), UDim2.fromOffset(0, 38), "gold").Activated:Connect(function()
 		party = math.max(party - 1, 1)
 		refreshSettings()
 	end)
-	button(body, "+", UDim2.fromOffset(46, 40), UDim2.new(0.5, 74, 0, 40), HEAD).Activated:Connect(function()
+	button(body, "+", UDim2.fromOffset(48, 48), UDim2.new(1, -48, 0, 38), "gold").Activated:Connect(function()
 		party = math.min(party + 1, MAX_PARTY)
 		refreshSettings()
 	end)
 
-	difficultyValue = field(body, 86, "DIFFICULTY")
-	clockValue = field(body, 162, "TIME ON THE CLOCK")
 	--[[
-		What the property pays, beside what it gives you to do it in.
+		Two counters, because the panel had nothing else true to say.
 
-		The reference pairs its clock with a gem multiplier on the same row,
-		which is most of what stops its settings panel reading half-empty.
-		This game has no gems, but every property does multiply what the work
-		is worth, and that is the number a player choosing between three maps
-		actually wants next to the clock.
+		It used to repeat the chosen property's difficulty, clock and payout
+		back at you in three boxes — all three of which are now printed on the
+		property's own card, where you are looking when you choose it. What is
+		worth a panel of its own is the part that carries between runs: how
+		much of the map you have taken, and the tips you kept while taking it.
 	]]
-	payoutValue = field(body, 238, "PAYOUT")
+	Theme.text({
+		name = "RecordHeading",
+		text = "YOUR RECORD",
+		size = UDim2.new(1, 0, 0, 18),
+		position = UDim2.fromOffset(0, 130),
+		parent = body,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.label,
+		textSize = 15,
+	})
+	beatenValue = statBlock(
+		body,
+		"WORLDS BEATEN",
+		UDim2.new(0.5, -8, 0, 104),
+		UDim2.fromOffset(0, 156)
+	)
+	tipsValue = statBlock(
+		body,
+		"TIPS KEPT",
+		UDim2.new(0.5, -8, 0, 104),
+		UDim2.new(0.5, 8, 0, 156)
+	)
 
 	--[[
-		Confirm is green and says what it does.
-
-		A lone player pressing it with MAX PLAYERS on 1 is the answer to "how
-		do I get in if I'm only one person", and it wants to be the most
-		obvious control on the screen.
+		What a run is, in three lines, for the player standing on their first
+		pad. The lobby says none of this anywhere else, and the third line is
+		the one nobody works out on their own: run cash is spent inside the
+		run and tips are what leaves with you.
 	]]
-	local confirm = button(body, "Confirm", UDim2.new(1, -20, 0, 48), UDim2.fromOffset(10, 316), GREEN)
-	confirm.TextSize = 28
-	confirm.Activated:Connect(function()
-		if chosen then
-			confirmRemote:FireServer({ worldId = chosen, maxPlayers = party })
-			dismissedOnPad = true
-			LevelSelect.setOpen(false)
-		end
-	end)
+	local guide = Theme.chip({
+		name = "Guide",
+		size = UDim2.new(1, 0, 0, PAIR_H - 70 - 310 - 28),
+		position = UDim2.fromOffset(0, 310),
+		parent = body,
+		radius = 18,
+	})
+	Theme.stroke(guide, 3, Theme.colors.outline, 0)
+	Theme.pad(guide, 16, 18, 16, 18)
 
-	--[[
-		A round red button with a white cross, on the title bar.
+	Theme.text({
+		name = "GuideHeading",
+		text = "HOW A RUN WORKS",
+		size = UDim2.new(1, 0, 0, 18),
+		position = UDim2.fromOffset(0, 0),
+		parent = guide,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.tips,
+		textSize = 15,
+	})
 
-		The reference's is a disc, and a square one on a rounded bar reads as
-		a placeholder next to it — this is the only control on the panel that
-		is pure furniture, so it is the one where matching the shape is most
-		of the work.
-	]]
-	-- Empty, because the cross is drawn on rather than typed: same mark as
-	-- the one that closes the book.
-	--[[
-		The same cross the book closes with, and nothing behind it.
+	local STEPS = {
+		"Pick a property and start the run.",
+		"Clear every section before the clock runs out.",
+		"Run cash stays in the run. Tips come home with you.",
+	}
+	for index, line in STEPS do
+		local y = 30 + (index - 1) * 46
 
-		It is drawn as a red disc with a white X already, so the red button
-		and the white ring it used to sit on are both gone: on top of each
-		other they read as a dark red dot with something in the middle.
-	]]
-	local close = button(settings, "", UDim2.fromOffset(46, 46), UDim2.new(1, -52, 0, 2), RED)
-	close.BackgroundTransparency = 1
-	local ring = close:FindFirstChildOfClass("UIStroke")
-	if ring then
-		ring:Destroy()
+		--- A gold diamond for a bullet, the same mark as the panel headings.
+		local dot = Instance.new("Frame")
+		dot.Name = `Dot{index}`
+		dot.Size = UDim2.fromOffset(9, 9)
+		dot.Position = UDim2.fromOffset(2, y + 7)
+		dot.Rotation = 45
+		dot.BackgroundColor3 = Theme.colors.tips
+		dot.BorderSizePixel = 0
+		dot.Parent = guide
+
+		local text = Theme.text({
+			name = `Step{index}`,
+			text = line,
+			size = UDim2.new(1, -24, 0, 40),
+			position = UDim2.fromOffset(24, y),
+			parent = guide,
+			align = Enum.TextXAlignment.Left,
+			color = Theme.colors.body,
+			textSize = 16,
+		})
+		--- Two lines when it needs them, which the last one does.
+		text.TextWrapped = true
+		text.TextYAlignment = Enum.TextYAlignment.Top
 	end
+
+	--[[
+		The same cross the book closes with, on a red disc in the corner.
+
+		It is the only control on the panel that is pure furniture, so it is
+		the one where matching the shape is most of the work.
+	]]
+	local close = Theme.chunkButton({
+		name = "Close",
+		variant = "danger",
+		size = UDim2.fromOffset(46, 46),
+		position = UDim2.new(1, -18, 0, 18),
+		anchor = Vector2.new(1, 0),
+		parent = settings,
+		radius = Theme.PILL,
+		drop = 4,
+		outline = 4,
+	})
+	close.Modal = true
 	Theme.icon({
 		name = "Mark",
 		prop = "Cross",
-		size = UDim2.fromScale(1, 1),
+		size = UDim2.fromScale(0.62, 0.62),
 		position = UDim2.fromScale(0.5, 0.5),
 		anchor = Vector2.new(0.5, 0.5),
 		parent = close,
 	})
-	-- `button` already put a UICorner on it, and Roblox honours the first one
-	-- it finds — a second is ignored, so the radius is set on the one there.
-	local closeCorner = close:FindFirstChildOfClass("UICorner")
-	if closeCorner then
-		closeCorner.CornerRadius = UDim.new(0.5, 0)
-	end
-
 	close.Activated:Connect(function()
 		dismissedOnPad = true
 		LevelSelect.setOpen(false)
@@ -560,9 +738,10 @@ local function build()
 	local _, mapBody = titled(
 		holder,
 		"SelectMap",
-		"🗺  SELECT MAP",
-		UDim2.fromOffset(440, 430),
-		UDim2.new(0.5, 232, 0.5, 0)
+		"PICK A PROPERTY",
+		UDim2.fromOffset(580, PAIR_H),
+		UDim2.new(0.5, 210, 0.5, 0),
+		"You arrive with nothing."
 	)
 
 	mapHolder = Instance.new("ScrollingFrame")
@@ -578,10 +757,20 @@ local function build()
 	mapHolder.CanvasSize = UDim2.new()
 	mapHolder.Parent = mapBody
 
-	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 8)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = mapHolder
+	--[[
+		Two across, not a list one deep.
+
+		A hundred-pixel banner stacked four high needed a scrollbar and put
+		the fourth property under the fold, where The Cemetery did not exist
+		as far as the screen was concerned. Two columns fit four cards with no
+		scrolling at all, and a card that is half picture needs the width more
+		than the list needed the height.
+	]]
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.new(0.5, -8, 0, 256)
+	grid.CellPadding = UDim2.fromOffset(16, 16)
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = mapHolder
 end
 
 --------------------------------------------------------------------
@@ -606,9 +795,6 @@ function LevelSelect.setOpen(open: boolean)
 	gui.Enabled = open
 	Theme.holdCursor(open)
 	if open then
-		if not chosen or not isUnlocked(Worlds.expect(chosen)) then
-			chosen = firstPlayable()
-		end
 		LevelSelect.refresh()
 	end
 end
@@ -647,7 +833,6 @@ end
 function LevelSelect.start()
 	confirmRemote = Remotes.event(Remotes.LOBBY_CONFIRM)
 	build()
-	chosen = firstPlayable()
 
 	PlayerState.Changed:Connect(function()
 		if isOpen then
