@@ -42,7 +42,24 @@ local isOpen = false
 --- The product the featured slab is reserved for.
 local FEATURED_KEY = "rentZeroTurn"
 
---- Authored at the handoff's size and scaled down to whatever the screen is.
+--[[
+	The shop has two shapes, and a phone is not a small tablet.
+
+	The tablet one is the handoff's screen 4, authored at 1194 x 834 and scaled
+	down to whatever the screen is. A phone is 844 x 390, and `fitToViewport`
+	would pick 0.468 for that — seventeen-point row text drawn at eight, and a
+	price chip a finger cannot land on. So the phone gets its own numbers: one
+	column instead of two, the flagship as the first card in that column rather
+	than a slab above it, and rows tall enough that the chip on them is
+	forty-four points, which is the floor the handoff sets for anything a
+	finger has to hit.
+
+	Everything below is set by `useLayout` and read by `build`.
+]]
+--- The scrollbar's inset is taken whether or not the bar is drawn, so a row's
+--- width is one number rather than two.
+local BAR = 6
+
 local STAGE = Vector2.new(1194, 834)
 local PAD_X, PAD_Y = 34, 28
 local GAP = 18
@@ -51,7 +68,7 @@ local FEATURE_H = 136
 local STRIP_H = 78
 local INNER_W = STAGE.X - PAD_X * 2
 local COLUMN_W = (INNER_W - 20) // 2
-local COLUMNS_H = STAGE.Y - PAD_Y * 2 - HEADER_H - FEATURE_H - STRIP_H - GAP * 3
+local COLUMNS_H = 0
 --- The column's own header, over the list.
 local LIST_TOP = 33
 --[[
@@ -66,10 +83,44 @@ local LIST_TOP = 33
 ]]
 local ROW_H = 46
 local CHIP_W, CHIP_H = 92, 32
---- The scrollbar's inset is taken whether or not the bar is drawn, so a row's
---- width is one number rather than two.
-local BAR = 6
 local ROW_W = COLUMN_W - BAR
+local WELL_SIZE = 30
+--- One column on a phone, two on anything larger.
+local phone = false
+
+local function useLayout(small: boolean)
+	phone = small
+	if small then
+		STAGE = Vector2.new(844, 390)
+		PAD_X, PAD_Y = 24, 20
+		GAP = 10
+		HEADER_H = 52
+		FEATURE_H = 92
+		STRIP_H = 46
+		ROW_H = 56
+		CHIP_W, CHIP_H = 104, 44
+		WELL_SIZE = 34
+		LIST_TOP = 0
+		INNER_W = STAGE.X - PAD_X * 2
+		COLUMN_W = INNER_W
+		COLUMNS_H = STAGE.Y - PAD_Y * 2 - HEADER_H - STRIP_H - GAP * 2
+	else
+		STAGE = Vector2.new(1194, 834)
+		PAD_X, PAD_Y = 34, 28
+		GAP = 18
+		HEADER_H = 76
+		FEATURE_H = 136
+		STRIP_H = 78
+		ROW_H = 46
+		CHIP_W, CHIP_H = 92, 32
+		WELL_SIZE = 30
+		LIST_TOP = 33
+		INNER_W = STAGE.X - PAD_X * 2
+		COLUMN_W = (INNER_W - 20) // 2
+		COLUMNS_H = STAGE.Y - PAD_Y * 2 - HEADER_H - FEATURE_H - STRIP_H - GAP * 3
+	end
+	ROW_W = COLUMN_W - BAR
+end
 
 local INK = Color3.fromRGB(24, 18, 10)
 local WELL = Color3.fromRGB(58, 44, 30)
@@ -196,9 +247,9 @@ local function addRow(
 	Theme.stroke(row, 3, INK, 0)
 
 	local tint = if keeps then PASS_TINT else BOOST_TINT
-	well(row, key, tint, 30, UDim2.fromOffset(10, 8))
+	well(row, key, tint, WELL_SIZE, UDim2.fromOffset(10, (ROW_H - WELL_SIZE) // 2))
 
-	local textLeft = 52
+	local textLeft = 10 + WELL_SIZE + 12
 	local textRight = ROW_W - 10 - CHIP_W - 10
 	local label = Theme.text({
 		name = "Line",
@@ -224,7 +275,7 @@ local function addRow(
 		text = `R$ {robux}`,
 		textSize = 16,
 		size = UDim2.fromOffset(CHIP_W, CHIP_H),
-		position = UDim2.new(1, -10, 0, (ROW_H - CHIP_H) // 2 - 1),
+		position = UDim2.new(1, -10, 0, (ROW_H - CHIP_H) // 2),
 		anchor = Vector2.new(1, 0),
 		parent = row,
 		radius = 9,
@@ -232,6 +283,30 @@ local function addRow(
 		outline = 3,
 	})
 	chip.Activated:Connect(buy)
+end
+
+--- The scrolling body of a column, which is also the whole body on a phone.
+local function makeList(parent: Instance, x: number, y: number, width: number, height: number): ScrollingFrame
+	local list = Instance.new("ScrollingFrame")
+	list.Name = "List"
+	list.Size = UDim2.fromOffset(width, height)
+	list.Position = UDim2.fromOffset(x, y)
+	list.BackgroundTransparency = 1
+	list.BorderSizePixel = 0
+	list.ScrollBarThickness = BAR
+	list.ScrollBarImageColor3 = INK
+	list.ScrollBarImageTransparency = 0.2
+	list.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+	list.CanvasSize = UDim2.new()
+	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	list.Parent = parent
+
+	local layout = Instance.new("UIListLayout")
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, 8)
+	layout.Parent = list
+
+	return list
 end
 
 --- A column: a fixed heading over a list that can grow past its own bottom.
@@ -265,26 +340,39 @@ local function addColumn(parent: Instance, x: number, name: string, tint: Color3
 		bold = false,
 	})
 
-	local list = Instance.new("ScrollingFrame")
-	list.Name = "List"
-	list.Size = UDim2.fromOffset(COLUMN_W, COLUMNS_H - LIST_TOP)
-	list.Position = UDim2.fromOffset(0, LIST_TOP)
-	list.BackgroundTransparency = 1
-	list.BorderSizePixel = 0
-	list.ScrollBarThickness = BAR
-	list.ScrollBarImageColor3 = INK
-	list.ScrollBarImageTransparency = 0.2
-	list.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
-	list.CanvasSize = UDim2.new()
-	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	list.Parent = holder
+	return makeList(holder, 0, LIST_TOP, COLUMN_W, COLUMNS_H - LIST_TOP)
+end
 
-	local layout = Instance.new("UIListLayout")
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 8)
-	layout.Parent = list
+--- A group heading, as a row inside the one list a phone has.
+local function addHeading(list: ScrollingFrame, order: number, name: string, tint: Color3, blurb: string)
+	local row = Instance.new("Frame")
+	row.Name = `{name}Heading`
+	row.Size = UDim2.fromOffset(ROW_W, 26)
+	row.BackgroundTransparency = 1
+	row.LayoutOrder = order
+	row.Parent = list
 
-	return list
+	Theme.text({
+		name = "Heading",
+		text = name,
+		size = UDim2.fromOffset(90, 26),
+		position = UDim2.fromOffset(2, 0),
+		parent = row,
+		align = Enum.TextXAlignment.Left,
+		color = tint,
+		textSize = 15,
+	})
+	Theme.text({
+		name = "Blurb",
+		text = blurb,
+		size = UDim2.fromOffset(ROW_W - 96, 26),
+		position = UDim2.fromOffset(94, 1),
+		parent = row,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.label,
+		textSize = 14,
+		bold = false,
+	})
 end
 
 --[[
@@ -295,33 +383,41 @@ end
 	impulse happens. Purple, because it is the one thing here that is neither a
 	pass nor an ordinary boost — it is the ride.
 ]]
-local function addFeatured(def: Monetization.ProductDef)
+local function addFeatured(parent: Instance, order: number?, def: Monetization.ProductDef)
+	local wellSide = if phone then 72 else 104
+	local wellWide = if phone then 88 else 132
+	local pad = if phone then 10 else 20
 	local slab = Theme.chunkPanel({
 		name = "Featured",
-		size = UDim2.fromOffset(INNER_W, FEATURE_H),
+		size = UDim2.fromOffset(if phone then ROW_W else INNER_W, FEATURE_H),
 		position = UDim2.fromOffset(0, 0),
-		parent = featureSlot,
+		parent = parent,
 		radius = 20,
 		drop = 6,
 		outline = 4,
 		top = Color3.fromRGB(74, 59, 110),
 		bottom = Color3.fromRGB(46, 36, 72),
 	})
-
-	well(slab, def.key, PASS_TINT, 104, UDim2.fromOffset(20, 16))
-	-- The well is square; the handoff's is 132 wide, so the picture is given
-	-- the extra width rather than cropped to a box.
-	local tile = slab:FindFirstChild("Well")
-	if tile and tile:IsA("Frame") then
-		tile.Size = UDim2.fromOffset(132, 104)
+	--- Inside the one list on a phone, so it takes a place in the layout.
+	if order then
+		local holder = slab.Parent :: Frame
+		holder.LayoutOrder = order
 	end
 
-	local left = 172
-	local priceW = 150
+	well(slab, def.key, PASS_TINT, wellSide, UDim2.fromOffset(pad, pad))
+	-- The well is square; the handoff's is wider, so the picture is given the
+	-- extra width rather than cropped to a box.
+	local tile = slab:FindFirstChild("Well")
+	if tile and tile:IsA("Frame") then
+		tile.Size = UDim2.fromOffset(wellWide, wellSide)
+	end
+
+	local left = pad + wellWide + pad
+	local priceW = if phone then 120 else 150
 	local pill = Instance.new("Frame")
 	pill.Name = "Popular"
-	pill.Size = UDim2.fromOffset(148, 24)
-	pill.Position = UDim2.fromOffset(left, 16)
+	pill.Size = UDim2.fromOffset(if phone then 128 else 148, if phone then 20 else 24)
+	pill.Position = UDim2.fromOffset(left, if phone then 8 else 16)
 	pill.BackgroundColor3 = Theme.colors.tips
 	pill.BorderSizePixel = 0
 	pill.Parent = slab
@@ -335,27 +431,28 @@ local function addFeatured(def: Monetization.ProductDef)
 		parent = pill,
 		align = Enum.TextXAlignment.Center,
 		color = INK,
-		textSize = 13,
+		textSize = if phone then 11 else 13,
 	})
 
+	local wide = (if phone then ROW_W else INNER_W) - left - priceW - pad * 2
 	Theme.text({
 		name = "Name",
 		text = def.name,
-		size = UDim2.fromOffset(INNER_W - left - priceW - 40, 36),
-		position = UDim2.fromOffset(left, 47),
+		size = UDim2.fromOffset(wide, if phone then 26 else 36),
+		position = UDim2.fromOffset(left, if phone then 30 else 47),
 		parent = slab,
 		align = Enum.TextXAlignment.Left,
-		textSize = 30,
+		textSize = if phone then 21 else 30,
 	})
 	local blurb = Theme.text({
 		name = "Blurb",
 		text = def.description,
-		size = UDim2.fromOffset(INNER_W - left - priceW - 40, 22),
-		position = UDim2.fromOffset(left, 87),
+		size = UDim2.fromOffset(wide, if phone then 18 else 22),
+		position = UDim2.fromOffset(left, if phone then 58 else 87),
 		parent = slab,
 		align = Enum.TextXAlignment.Left,
 		color = Color3.fromRGB(205, 190, 234),
-		textSize = 16,
+		textSize = if phone then 14 else 16,
 		bold = false,
 	})
 	blurb.TextTruncate = Enum.TextTruncate.AtEnd
@@ -364,9 +461,9 @@ local function addFeatured(def: Monetization.ProductDef)
 		name = "Price",
 		variant = "robuxRun",
 		text = `R$ {Prices.robux(def.id, def.robux)}`,
-		textSize = 24,
-		size = UDim2.fromOffset(priceW, 62),
-		position = UDim2.new(1, -20, 0.5, -3),
+		textSize = if phone then 19 else 24,
+		size = UDim2.fromOffset(priceW, if phone then 48 else 62),
+		position = UDim2.new(1, -pad, 0.5, -3),
 		anchor = Vector2.new(1, 0.5),
 		parent = slab,
 		radius = 16,
@@ -383,27 +480,54 @@ end
 --------------------------------------------------------------------
 
 local function render()
-	for _, list in { passList, boostList } do
+	local lists: { ScrollingFrame } = { passList }
+	if boostList ~= passList then
+		table.insert(lists, boostList)
+	end
+	for _, list in lists do
 		for _, child in list:GetChildren() do
 			if child:IsA("Frame") then
 				child:Destroy()
 			end
 		end
 	end
-	for _, child in featureSlot:GetChildren() do
-		child:Destroy()
+	if featureSlot then
+		for _, child in featureSlot:GetChildren() do
+			child:Destroy()
+		end
 	end
 
 	local featured = Monetization.productByKey[FEATURED_KEY]
 	local hasFeature = featured ~= nil and Monetization.isConfigured(featured.id)
+
+	--[[
+		One running order on a phone, two lists on a tablet.
+
+		The phone's single column carries the flagship, then a PASSES heading
+		and its seven, then a BOOSTS heading and its seven, in one scroll —
+		so the order has to keep climbing across all of it. On a tablet the
+		two columns are separate lists and each starts again at one.
+	]]
+	local order = 0
 	if featured and hasFeature then
-		addFeatured(featured)
+		if phone then
+			order += 1
+			addFeatured(passList, order, featured)
+		else
+			addFeatured(featureSlot, nil, featured)
+		end
 	end
 
-	local order = 0
+	if phone then
+		order += 1
+		addHeading(passList, order, "PASSES", PASS_TINT, "bought once, kept forever")
+	end
+
+	local passCount = 0
 	for _, def in Monetization.passes do
 		if Monetization.isConfigured(def.id) then
 			order += 1
+			passCount += 1
 			addRow(
 				passList,
 				order,
@@ -419,8 +543,14 @@ local function render()
 		end
 	end
 
-	local passCount = order
-	order = 0
+	if phone then
+		order += 1
+		addHeading(boostList, order, "BOOSTS", BOOST_TINT, "this run only, buy again")
+	else
+		order = 0
+	end
+
+	local boostCount = 0
 	for _, def in Monetization.products do
 		local isTool = def.kind == "toolRun" or def.kind == "toolPermanent"
 		-- The flagship is not listed twice; if its id is missing it drops back
@@ -428,6 +558,7 @@ local function render()
 		local isFeatured = hasFeature and def.key == FEATURED_KEY
 		if not isTool and not isFeatured and Monetization.isConfigured(def.id) then
 			order += 1
+			boostCount += 1
 			addRow(
 				boostList,
 				order,
@@ -443,7 +574,7 @@ local function render()
 		end
 	end
 
-	emptyLabel.Visible = passCount == 0 and order == 0 and not hasFeature
+	emptyLabel.Visible = passCount == 0 and boostCount == 0 and not hasFeature
 end
 
 --- The two lines on the strip that are not fixed facts about the game.
@@ -489,7 +620,7 @@ local function headerChip(parent: Instance, name: string, width: number, x: numb
 		parent = chip,
 		align = Enum.TextXAlignment.Left,
 		color = Theme.colors.body,
-		textSize = 16,
+		textSize = if phone then 14 else 16,
 		bold = false,
 	})
 end
@@ -560,12 +691,12 @@ local function build()
 	Theme.text({
 		name = "Eyebrow",
 		text = "THE STORE",
-		size = UDim2.fromOffset(400, 20),
+		size = UDim2.fromOffset(400, if phone then 14 else 20),
 		position = UDim2.fromOffset(0, 0),
 		parent = header,
 		align = Enum.TextXAlignment.Left,
 		color = Theme.colors.tips,
-		textSize = 15,
+		textSize = if phone then 12 else 15,
 	})
 	--[[
 		The one sentence on the screen that is not selling anything.
@@ -576,18 +707,19 @@ local function build()
 	Theme.text({
 		name = "Headline",
 		text = "All of it is optional.",
-		size = UDim2.fromOffset(620, 46),
-		position = UDim2.fromOffset(0, 23),
+		size = UDim2.fromOffset(620, if phone then 32 else 46),
+		position = UDim2.fromOffset(0, if phone then 16 else 23),
 		parent = header,
 		align = Enum.TextXAlignment.Left,
-		textSize = 38,
+		textSize = if phone then 24 else 38,
 	})
 
+	local closeSide = if phone then 44 else 48
 	local close = Theme.chunkButton({
 		name = "Close",
 		variant = "danger",
-		size = UDim2.fromOffset(48, 48),
-		position = UDim2.fromOffset(INNER_W - 48, HEADER_H - 50),
+		size = UDim2.fromOffset(closeSide, closeSide),
+		position = UDim2.fromOffset(INNER_W - closeSide, HEADER_H - closeSide - 2),
 		parent = header,
 		radius = 14,
 		drop = 5,
@@ -608,12 +740,16 @@ local function build()
 		Store.setOpen(false)
 	end)
 
-	local RENTAL_W, SHED_W = 216, 210
+	--- Two chips beside the close button on a tablet; on a phone the shed
+	--- pointer loses its words and keeps its diamond, because a header
+	--- seven hundred and ninety-six wide cannot hold both sentences.
+	local RENTAL_W = if phone then 150 else 216
+	local SHED_W = if phone then 44 else 210
 	rentalLabel = headerChip(
 		header,
 		"Rental",
 		RENTAL_W,
-		INNER_W - 48 - 10 - RENTAL_W,
+		INNER_W - closeSide - 8 - RENTAL_W,
 		Theme.colors.grass
 	)
 
@@ -621,36 +757,71 @@ local function build()
 		header,
 		"Shed",
 		SHED_W,
-		INNER_W - 48 - 10 - RENTAL_W - 10 - SHED_W,
+		INNER_W - closeSide - 8 - RENTAL_W - 8 - SHED_W,
 		Theme.colors.tips
 	)
-	shed.Text = "Tools are in the shed"
+	shed.Text = if phone then "" else "Tools are in the shed"
 	local shedButton = shed.Parent :: TextButton
 	shedButton.Modal = true
+	if phone then
+		--[[
+			A toolbox, not a diamond.
+
+			With no room for the sentence the chip is a picture, and a gold
+			lozenge is not a picture of anything. `Toolbox` is one of the drawn
+			twenty-three and it is the icon on the shed's own tab in the book,
+			so the two places that lead to the same page look the same.
+		]]
+		local dot = shedButton:FindFirstChild("Dot")
+		if dot then
+			dot:Destroy()
+		end
+		Theme.icon({
+			name = "ShedIcon",
+			prop = "Toolbox",
+			size = UDim2.fromScale(0.66, 0.66),
+			position = UDim2.fromScale(0.5, 0.5),
+			anchor = Vector2.new(0.5, 0.5),
+			parent = shedButton,
+		})
+	end
 	shedButton.Activated:Connect(function()
 		Store.setOpen(false)
 		Journal.openUpgrades()
 	end)
 
 	----------------------------------------------------------------
-	-- Featured, then the two lists
+	-- The body: one column or two
 	----------------------------------------------------------------
-	featureSlot = Instance.new("Frame")
-	featureSlot.Name = "FeatureSlot"
-	featureSlot.Size = UDim2.fromOffset(INNER_W, FEATURE_H)
-	featureSlot.Position = UDim2.fromOffset(0, HEADER_H + GAP)
-	featureSlot.BackgroundTransparency = 1
-	featureSlot.Parent = stage
-
 	local columns = Instance.new("Frame")
 	columns.Name = "Columns"
 	columns.Size = UDim2.fromOffset(INNER_W, COLUMNS_H)
-	columns.Position = UDim2.fromOffset(0, HEADER_H + GAP + FEATURE_H + GAP)
+	columns.Position = UDim2.fromOffset(0, if phone then HEADER_H + GAP else HEADER_H + GAP + FEATURE_H + GAP)
 	columns.BackgroundTransparency = 1
 	columns.Parent = stage
 
-	passList = addColumn(columns, 0, "PASSES", PASS_TINT, "bought once, kept forever")
-	boostList = addColumn(columns, COLUMN_W + 20, "BOOSTS", BOOST_TINT, "this run only, buy again")
+	if phone then
+		--[[
+			One list, and the flagship is the first thing in it.
+
+			Three hundred and ninety points of height cannot hold a slab, two
+			column headings and seven rows; a slab that scrolls away with the
+			rest is still the first thing seen, which is the whole of what a
+			featured slot is for.
+		]]
+		passList = makeList(columns, 0, 0, COLUMN_W, COLUMNS_H)
+		boostList = passList
+	else
+		featureSlot = Instance.new("Frame")
+		featureSlot.Name = "FeatureSlot"
+		featureSlot.Size = UDim2.fromOffset(INNER_W, FEATURE_H)
+		featureSlot.Position = UDim2.fromOffset(0, HEADER_H + GAP)
+		featureSlot.BackgroundTransparency = 1
+		featureSlot.Parent = stage
+
+		passList = addColumn(columns, 0, "PASSES", PASS_TINT, "bought once, kept forever")
+		boostList = addColumn(columns, COLUMN_W + 20, "BOOSTS", BOOST_TINT, "this run only, buy again")
+	end
 
 	-- A fresh place with no ids pasted in has nothing to sell, which is the
 	-- expected state of this file's first day rather than a fault. Say so
@@ -683,33 +854,53 @@ local function build()
 	Theme.text({
 		name = "Always",
 		text = "FREE, ALWAYS",
-		size = UDim2.fromOffset(130, STRIP_H),
+		size = UDim2.fromOffset(if phone then 110 else 130, STRIP_H),
 		position = UDim2.fromOffset(18, 0),
 		parent = strip,
 		align = Enum.TextXAlignment.Left,
 		color = Theme.colors.cash,
-		textSize = 15,
+		textSize = if phone then 13 else 15,
 	})
 
-	local blocksLeft = 146
-	local blockW = (INNER_W - 18 - blocksLeft - 20) // 3
 	local reward = Monetization.rewards
-	streakLabel = freeBlock(strip, blocksLeft, blockW, "DAILY STREAK", "")
-	freeBlock(
-		strip,
-		blocksLeft + blockW + 10,
-		blockW,
-		"PLAYTIME",
-		`{reward.playtimeTips} tips every {reward.playtimeInterval // 60} minutes`
-	)
 	local rentalTool = Tools.get(reward.freeRentalToolId)
-	freeBlock(
-		strip,
-		blocksLeft + (blockW + 10) * 2,
-		blockW,
-		"FREE RENTAL",
-		`{if rentalTool then rentalTool.name else "A mower"}, every {reward.freeRentalInterval // 60} min`
-	)
+	if phone then
+		--[[
+			Two blocks, not three, and each on one line.
+
+			The free rental is already counting down in the header chip, so
+			printing its interval here as well is the same fact twice on a
+			screen with no room for it once.
+		]]
+		local blocksLeft = 122
+		local blockW = (INNER_W - 18 - blocksLeft - 10) // 2
+		streakLabel = freeBlock(strip, blocksLeft, blockW, "DAILY STREAK", "")
+		freeBlock(
+			strip,
+			blocksLeft + blockW + 10,
+			blockW,
+			"PLAYTIME",
+			`{reward.playtimeTips} tips every {reward.playtimeInterval // 60} min`
+		)
+	else
+		local blocksLeft = 146
+		local blockW = (INNER_W - 18 - blocksLeft - 20) // 3
+		streakLabel = freeBlock(strip, blocksLeft, blockW, "DAILY STREAK", "")
+		freeBlock(
+			strip,
+			blocksLeft + blockW + 10,
+			blockW,
+			"PLAYTIME",
+			`{reward.playtimeTips} tips every {reward.playtimeInterval // 60} minutes`
+		)
+		freeBlock(
+			strip,
+			blocksLeft + (blockW + 10) * 2,
+			blockW,
+			"FREE RENTAL",
+			`{if rentalTool then rentalTool.name else "A mower"}, every {reward.freeRentalInterval // 60} min`
+		)
+	end
 
 	refreshRewards()
 end
@@ -737,8 +928,38 @@ end
 
 function Store.start()
 	promptRemote = Remotes.event(Remotes.PROMPT_PURCHASE)
-	build()
-	render()
+
+	--[[
+		Built from scratch when the screen changes shape.
+
+		The two layouts differ in structure and not only in numbers — one
+		column against two, the flagship inside the list against above it — so
+		there is nothing to move and everything to redraw. The screen is
+		fourteen rows and a header; rebuilding it costs less than the code to
+		morph it would.
+	]]
+	Theme.onScreenChange(function()
+		local small = Theme.isPhone()
+		if gui and small == phone then
+			return
+		end
+		--- A viewport change that throws in here would leave the shop with no
+		--- screen at all and nothing in the log to say why.
+		xpcall(function()
+			useLayout(small)
+			local previous = gui
+			if previous then
+				previous:Destroy()
+			end
+			build()
+			render()
+			--- The cursor hold is reference counted and global; it survives
+			--- the rebuild on its own. Only the new screen has to be told.
+			;(gui :: ScreenGui).Enabled = isOpen
+		end, function(err)
+			warn(`[Store] rebuilding for a {if small then "phone" else "tablet"} failed: {err}`)
+		end)
+	end)
 
 	Remotes.event(Remotes.REWARDS).OnClientEvent:Connect(function(state: Rewards)
 		rewards = state
