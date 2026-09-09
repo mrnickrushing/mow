@@ -4436,16 +4436,26 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 	]]
 	local mistRng = Random.new(world.gridWidth * 6151 + world.gridDepth)
 	for _ = 1, 9 do
+		--[[
+			Above the mausoleum's top step, not through it.
+
+			The band started at 1.2 and the sheets are 0.4 thick, so the
+			lowest of them lay with its underside at exactly the height of
+			the second step up to a tomb door — two flat slate faces on one
+			plane, which flickers. Knee height rather than ankle height
+			clears every step in the churchyard and is where ground mist
+			sits anyway.
+		]]
 		local at = Vector3.new(
 			mistRng:NextNumber(0.12, 0.88) * width,
-			1.2 + mistRng:NextNumber(0, 1),
+			1.95 + mistRng:NextNumber(0, 1),
 			mistRng:NextNumber(0.12, 0.88) * depth
 		)
 		local across = mistRng:NextNumber(110, 240)
 		Build.part({
 			name = "Mist",
 			shape = Enum.PartType.Cylinder,
-			size = Vector3.new(0.4, across, across),
+			size = Vector3.new(0.3, across, across),
 			cframe = CFrame.new(at) * CFrame.Angles(0, 0, math.rad(90)),
 			color = Color3.fromRGB(206, 212, 224),
 			material = Enum.Material.SmoothPlastic,
@@ -5861,6 +5871,17 @@ function WorldService.load(worldId: string)
 		end
 	end
 
+	--[[
+		Where the player arrives, laid as a thing rather than poured as one.
+
+		This was a twenty-stud square of plain concrete dropped on the lawn
+		with nothing joined to it and nothing on it — the one object on the
+		property that read as a placeholder from a hundred studs up, because
+		no real garden has a grey rectangle in the middle of it. It is the
+		same flagstone every path in the game is made of now, set in the slab
+		it always was: the concrete shows as a hand's width of edging round
+		the stones, which is how a landing at a kerb is actually built.
+	]]
 	local spawnAt = WorldService.tilePointFlat(world.spawn.x, world.spawn.z)
 	local spawnPart = Build.part({
 		name = "SpawnPad",
@@ -5871,6 +5892,10 @@ function WorldService.load(worldId: string)
 		castShadow = false,
 		parent = parent,
 	})
+	--- Flush with the paths rather than stacked on the bed, so there is no
+	--- lip at the edge of it: the stones stand a tenth of a stud proud of the
+	--- concrete, which is the whole of the difference between them.
+	Build.flagstone(parent, spawnAt + Vector3.new(0, 0.25, 0), Vector2.new(18, 18), 6, rng)
 
 	--[[
 		Facing the work.

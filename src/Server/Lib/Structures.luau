@@ -2877,7 +2877,6 @@ function Structures.graves(context: Context, zone: Types.ZoneDef)
 		Behind the bars is the same near-black void the way out uses, because
 		a door with a wall behind it is a decal.
 	]]
-	local iron = Palette.color(Palette.churchyard.iron)
 	local function mausoleum(at: Vector3)
 		--- Facing the lawns, which is the side of the property everyone
 		--- arrives from, so the doors are not all round the back.
@@ -2930,22 +2929,51 @@ function Structures.graves(context: Context, zone: Types.ZoneDef)
 			parent = folder,
 		})
 
-		--- The doorway: a void set into the face, barred, under a lintel.
+		--[[
+			The doorway: a void set into the face, barred, under a lintel.
+
+			The bars were the churchyard's own iron — 28, 30, 34 — four
+			tenths of a stud thick and set a tenth proud of the wall, which
+			is to say a black grille half buried in the stone in front of a
+			black hole on a property that is played at night. Every
+			mausoleum read as a plain black rectangle cut in a wall. They
+			are half again as thick, stand a third of a stud clear of the
+			face, and are painted the grey iron goes when it has been out in
+			the weather for a century, so the moon has something to catch.
+		]]
 		local face = W * 0.5
 		Build.part({
 			name = "TombVoid",
 			size = Vector3.new(5.4, 8.4, 1),
 			cframe = basis * CFrame.new(0, 1.6 + 4.2, -face + 0.4),
-			color = Color3.fromRGB(9, 8, 10),
+			--- Not pure black. A hole with no value in it at all is a hole in
+			--- the render, not a room you cannot see into.
+			color = Color3.fromRGB(20, 19, 24),
 			material = Enum.Material.SmoothPlastic,
 			parent = folder,
 		})
+		--- Iron that has been out in the weather for a century, rather than
+		--- the near-black the churchyard's railings are painted.
+		local weathered = Color3.fromRGB(78, 82, 90)
 		for bar = -2, 2 do
 			Build.part({
 				name = "TombBar",
-				size = Vector3.new(0.4, 8, 0.4),
-				cframe = basis * CFrame.new(bar * 1.2, 1.6 + 4, -face - 0.1),
-				color = iron,
+				size = Vector3.new(0.55, 8, 0.55),
+				cframe = basis * CFrame.new(bar * 1.2, 1.6 + 4, -face - 0.35),
+				color = weathered,
+				material = Enum.Material.Metal,
+				canCollide = false,
+				parent = folder,
+			})
+		end
+		--- A rail across the grille, top and bottom, because five loose bars
+		--- in a hole is not a gate.
+		for _, height in { 2.1, 9.1 } do
+			Build.part({
+				name = "TombBar",
+				size = Vector3.new(5.6, 0.5, 0.5),
+				cframe = basis * CFrame.new(0, height, -face - 0.35),
+				color = weathered,
 				material = Enum.Material.Metal,
 				canCollide = false,
 				parent = folder,
