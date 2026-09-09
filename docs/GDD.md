@@ -85,6 +85,18 @@ Sixteen ideas do most of the work. In rough order of how much they matter:
 
 16. **Contribution-split payouts.** The round bonus goes by work actually done.
 
+17. **A first run that arrives a piece at a time.** The HUD is not handed over
+    all at once. A new player gets a lawn, a completion bar and one lit button;
+    the bag turns up when there is something in it, the hotbar and the shed when
+    there is something to buy, and the rest at the last step. Four steps — hold
+    to work, fill the bag and walk it to the trailer, buy a wider deck, then hit
+    the overgrowth wall — and the last of those is the point of the other three.
+    A tour of the shed teaches where the buttons are; walking a mower into grass
+    it will not cut teaches what the shed is *for*, and the player goes there on
+    their own. Every step ends on something the player does rather than a button
+    they press, and the only button on the card is SKIP. Walked once; the
+    profile remembers.
+
 ## Worlds
 
 Four, each a chain of sections gated on clearing the one before it.
@@ -264,14 +276,12 @@ Deliberately out of scope, and why:
   `Shared/Config/Palette.luau` is a complete autumn palette with four world
   styles — house, estate, station, churchyard — plus a night pass, and
   `Shared/Config/Props.luau` is a catalogue of about seventy real models with
-  drawn 2D icons for twenty-three of them and for all sixteen tools. What is
-  left is eight icons for props that have none: trailer, shed, gate, grate,
-  sprinkler, dog, a sound glyph and a fuel can.
+  drawn 2D icons for twenty-three of them and for all sixteen tools. Eight more
+  were thought to be needed; seven of them were then measured at tile size and
+  read fine as meshes, and the eighth — a sound glyph, which had no prop behind
+  it at all — is drawn from primitives. `docs/ICONS.md` has the measurement and
+  the size rule it produced.
 - **Interiors are shells.** The garage, basement, cellars and workshop are
   walled rooms with a clutter count, not furnished spaces, and the house itself
   has no interior at all.
 
-- **A first run.** New players get the free front yard and the HUD's own
-  affordances; there is no guided opening. The redesign specs one — four steps,
-  ending on the overgrowth wall rather than on a shop tour, so the shed is
-  taught by making the player want it.

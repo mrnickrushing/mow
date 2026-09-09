@@ -47,6 +47,7 @@ local bookTitle: TextLabel
 local tabBlurb: TextLabel
 local railCash: TextLabel
 local railTips: TextLabel
+local purseHeading: TextLabel
 local activeTab = "objectives"
 local isOpen = false
 local questState: { any } = {}
@@ -1695,8 +1696,38 @@ local function render()
 	end
 
 	local purse = PlayerState.get()
-	railCash.Text = Format.cash(purse.cash)
-	railTips.Text = if purse.tips > 0 then `{Format.count(purse.tips)} tips` else ""
+	--[[
+		The block at the foot of the rail says what the open page is about.
+
+		Money, on every page that sells something — which is most of them, and
+		it is why the block is beside the tabs rather than at the bottom of a
+		page. The collection page sells nothing: what it is counting is
+		blades, and a run-cash figure next to a grid of medals is the one
+		number on that page nobody is looking for.
+	]]
+	if activeTab == "collection" then
+		local world = PlayerState.world()
+		local total = if world then #world.sections else 0
+		local found = 0
+		if world then
+			for _, section in world.sections do
+				if PlayerState.hasBlade(section.id) then
+					found += 1
+				end
+			end
+		end
+		purseHeading.Text = "GOLDEN BLADES"
+		railCash.Text = `{found} / {total}`
+		railCash.TextColor3 = Theme.colors.tips
+		railTips.Text = if found >= total and total > 0 then "all of them" else "hidden in the sections"
+		railTips.TextColor3 = Theme.colors.label
+	else
+		purseHeading.Text = "RUN CASH"
+		railCash.Text = Format.cash(purse.cash)
+		railCash.TextColor3 = Theme.colors.cash
+		railTips.Text = if purse.tips > 0 then `{Format.count(purse.tips)} tips` else ""
+		railTips.TextColor3 = Theme.colors.tips
+	end
 
 	local now = signature()
 	if now == lastSignature then
@@ -2044,6 +2075,7 @@ local function build()
 	Theme.pad(purse, 12, 12, 12, 12)
 
 	local purseWord = Instance.new("TextLabel")
+	purseHeading = purseWord
 	purseWord.Text = "RUN CASH"
 	purseWord.Size = UDim2.new(1, 0, 0, 16)
 	purseWord.BackgroundTransparency = 1

@@ -772,6 +772,62 @@ end
 --------------------------------------------------------------------
 
 --[[
+	Working by lantern light.
+
+	`THE-CEMETERY.md` asks for it and gives the reason: every warm thing on
+	that property is a local light — the lanterns, the chapel windows, the
+	jack-o'-lanterns — and those are the landmarks. The HUD is one of them, so
+	after dark the bar sits in a small pool of its own candlelight rather than
+	floating on a black field.
+
+	Three rings rather than a radial gradient, the same way the tool button's
+	spotlight is drawn: Roblox has no radial gradient, and one png for one
+	property is an asset to maintain forever.
+]]
+local glow: Frame? = nil
+
+local function lanternGlow(on: boolean)
+	if not on then
+		if glow then
+			glow:Destroy()
+			glow = nil
+		end
+		return
+	end
+	if glow or not heroHolder then
+		return
+	end
+
+	local pool = Instance.new("Frame")
+	pool.Name = "Lantern"
+	pool.Size = UDim2.fromScale(1, 1)
+	pool.Position = UDim2.fromScale(0.5, 0.5)
+	pool.AnchorPoint = Vector2.new(0.5, 0.5)
+	pool.BackgroundTransparency = 1
+	pool.BorderSizePixel = 0
+	--- Behind the panel and its drop. See the note in `Theme.bevel` about
+	--- this project's `ZIndexBehavior`.
+	pool.ZIndex = -1
+	pool.Parent = heroHolder
+
+	for index, ring in { { 1.1, 0.86 }, { 1.24, 0.92 }, { 1.4, 0.96 } } do
+		local halo = Instance.new("Frame")
+		halo.Name = `Ring{index}`
+		halo.Size = UDim2.fromScale(ring[1], ring[1])
+		halo.Position = UDim2.fromScale(0.5, 0.5)
+		halo.AnchorPoint = Vector2.new(0.5, 0.5)
+		halo.BackgroundColor3 = Color3.fromRGB(255, 196, 104)
+		halo.BackgroundTransparency = ring[2]
+		halo.BorderSizePixel = 0
+		halo.ZIndex = -1
+		halo.Parent = pool
+		Theme.corner(halo, 28)
+	end
+
+	glow = pool
+end
+
+--[[
 	The panel's two shapes.
 
 	Not a scaled copy: on a phone the third row goes, the section's place in
@@ -869,7 +925,9 @@ function RoundBar.start()
 			broadcast.
 		]]
 		local world = if type(state.worldId) == "string" then Worlds.get(state.worldId) else nil
-		Theme.setNight(world ~= nil and world.mood == "night")
+		local night = world ~= nil and world.mood == "night"
+		Theme.setNight(night)
+		lanternGlow(night)
 
 		refreshSection()
 	end)
