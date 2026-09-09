@@ -79,7 +79,7 @@ local function buildVehicle(
 		width still follows the tool's deck so the expensive decks visibly are
 		wider — which is the stat the whole ladder is sold on.
 	]]
-	local body = Build.mesh({
+	Build.mesh({
 		prop = "RidingMower",
 		name = "Body",
 		size = Vector3.new(math.max(deckWidth, 6), 6, 10),
@@ -297,7 +297,7 @@ end
 	mower driven off the pool deck still falls into it.
 ]]
 local function drive()
-	for player, ride in rides do
+	for _, ride in rides do
 		local seat = ride.seat
 		if not seat.Parent or seat.Occupant == nil then
 			continue

@@ -229,20 +229,6 @@ local function glowPad(name: string, at: Vector3, span: number, parent: Instance
 	return plate
 end
 
-local function pad(name: string, at: Vector3, colour: Color3, parent: Instance, span: number?): (BasePart, TextLabel)
-	local size = span or 14
-	local part = Build.part({
-		name = name,
-		size = Vector3.new(size, 1, size),
-		cframe = CFrame.new(at + Vector3.new(0, 0.5, 0)) * CFrame.Angles(0, math.rad(-90), 0),
-		color = colour,
-		material = Enum.Material.SmoothPlastic,
-		parent = parent,
-	})
-	part.TopSurface = Enum.SurfaceType.Smooth
-	return part, surface(part, Enum.NormalId.Top, 0.55)
-end
-
 --[[
 	The yard itself.
 
@@ -300,29 +286,6 @@ local function build()
 			end
 		end
 		return true
-	end
-
-	--[[
-		The nearest clear spot to `at` along the row, searched outward.
-
-		A row with a gap in it looks like a mistake; a row that bends around
-		the shed looks like somebody put it there. Returns nil only if there
-		is no room within a couple of spacings, and then the caller does leave
-		the gap, because at that point the spot really is taken.
-	]]
-	local function nudgeAlongZ(at: Vector3, radius: number): Vector3?
-		for step = 0, 21, 3 do
-			for _, direction in { 1, -1 } do
-				local try = at + Vector3.new(0, 0, step * direction)
-				if clearAt(try, radius) then
-					return try
-				end
-				if step == 0 then
-					break
-				end
-			end
-		end
-		return nil
 	end
 
 	--[[
@@ -491,8 +454,8 @@ local function build()
 			paints its writing on the fence behind it. `lookAt` turns it round
 			first; the lean goes on after, and its sign flips with the turn.
 		]]
-		local function facing(at: Vector3): CFrame
-			return CFrame.lookAt(at, at + Vector3.new(0, 0, 1)) * CFrame.Angles(math.rad(12), 0, 0)
+		local function facing(spot: Vector3): CFrame
+			return CFrame.lookAt(spot, spot + Vector3.new(0, 0, 1)) * CFrame.Angles(math.rad(12), 0, 0)
 		end
 		--[[
 			Built as a sign, not drawn as one.

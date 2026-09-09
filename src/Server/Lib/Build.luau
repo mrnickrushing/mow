@@ -941,7 +941,15 @@ function Build.fence(
 	maxX: number,
 	maxZ: number,
 	height: number,
-	color: Color3,
+	--[[
+		No colour.
+
+		This took one and never used it: the picket panel is a model with its
+		own white paint and the chain-link branch is coloured out of the table
+		below it, so every caller was naming a fence colour that went nowhere.
+		A parameter that does nothing is a bug waiting for somebody to change
+		it and wonder why the fence did not move.
+	]]
 	spacing: number,
 	openSouth: boolean?,
 	--[[

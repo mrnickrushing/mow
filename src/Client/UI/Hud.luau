@@ -203,7 +203,7 @@ local function buildRightColumn(gui: ScreenGui)
 	local purse = Theme.chunkPanel({
 		name = "Purse",
 		size = UDim2.fromOffset(212, 58),
-		position = UDim2.new(1, 0, 0, 0),
+		position = UDim2.fromScale(1, 0),
 		anchor = Vector2.new(1, 0),
 		parent = column,
 		radius = Theme.PILL,
@@ -505,7 +505,7 @@ local function buildRightColumn(gui: ScreenGui)
 		name = "FuelLabel",
 		text = "",
 		size = UDim2.fromOffset(100, 18),
-		position = UDim2.new(1, 0, 0, 0),
+		position = UDim2.fromScale(1, 0),
 		anchor = Vector2.new(1, 0),
 		parent = fuelPanel,
 		align = Enum.TextXAlignment.Right,
@@ -766,7 +766,7 @@ local function buildBag(gui: ScreenGui)
 		both simpler and the only one that is free everywhere: the job panel
 		is 22 down and 121 tall and wants 12 of air under it.
 	]]
-	holder.Position = UDim2.new(0, 22, 0, 155)
+	holder.Position = UDim2.fromOffset(22, 155)
 	holder.AnchorPoint = Vector2.new(0, 0)
 	RunOnly.add(holder)
 	Theme.chromeScale(holder)

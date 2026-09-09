@@ -655,11 +655,11 @@ function RunService.setAutoStart(on: boolean)
 end
 
 
-function RunService.startFromLobby(worldId: string, partySize: number)
-	if phase ~= "lobby" or not Worlds.get(worldId) then
+function RunService.startFromLobby(id: string, partySize: number)
+	if phase ~= "lobby" or not Worlds.get(id) then
 		return
 	end
-	beginRun(worldId, partySize)
+	beginRun(id, partySize)
 end
 
 function RunService.reachExit(player: Player)

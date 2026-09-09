@@ -27,7 +27,6 @@ local Structures = require(script.Parent.Parent.Lib.Structures)
 local EconomyService = require(script.Parent.EconomyService)
 local ReplicationService = require(script.Parent.ReplicationService)
 local WorldService = require(script.Parent.WorldService)
-local PlayerService = require(script.Parent.PlayerService)
 
 local HazardService = {}
 
@@ -275,14 +274,14 @@ local CLEARANCE_Y = 7
 local CLEARANCE_LIFT = 1
 
 local function tileIsClear(tx: number, tz: number): boolean
-	local container = WorldService.container()
-	if not container then
+	local worldFolder = WorldService.container()
+	if not worldFolder then
 		return true
 	end
 	local at = WorldService.tilePointToWorld(tx, tz)
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = { container }
+	params.FilterDescendantsInstances = { worldFolder }
 	params.MaxParts = 8
 	for _, part in
 		workspace:GetPartBoundsInBox(

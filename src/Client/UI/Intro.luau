@@ -90,16 +90,16 @@ local function build()
 	]]
 	topBar = Instance.new("Frame")
 	topBar.Name = "TopBar"
-	topBar.Size = UDim2.new(1, 0, 0.14, 0)
-	topBar.Position = UDim2.new(0, 0, -0.14, 0)
+	topBar.Size = UDim2.fromScale(1, 0.14)
+	topBar.Position = UDim2.fromScale(0, -0.14)
 	topBar.BackgroundColor3 = Color3.new(0, 0, 0)
 	topBar.BorderSizePixel = 0
 	topBar.Parent = gui
 
 	bottomBar = Instance.new("Frame")
 	bottomBar.Name = "BottomBar"
-	bottomBar.Size = UDim2.new(1, 0, 0.14, 0)
-	bottomBar.Position = UDim2.new(0, 0, 1, 0)
+	bottomBar.Size = UDim2.fromScale(1, 0.14)
+	bottomBar.Position = UDim2.fromScale(0, 1)
 	bottomBar.BackgroundColor3 = Color3.new(0, 0, 0)
 	bottomBar.BorderSizePixel = 0
 	bottomBar.Parent = gui
@@ -108,7 +108,7 @@ local function build()
 		name = "Caption",
 		text = "",
 		size = UDim2.new(0.86, 0, 0, 132),
-		position = UDim2.new(0.5, 0, 0.72, 0),
+		position = UDim2.fromScale(0.5, 0.72),
 		anchor = Vector2.new(0.5, 0.5),
 		parent = gui,
 		align = Enum.TextXAlignment.Center,
@@ -340,7 +340,7 @@ function Intro.play()
 	setBlur(true)
 
 	tween(topBar, FADE, { Position = UDim2.new(0, 0, 0, 0) })
-	tween(bottomBar, FADE, { Position = UDim2.new(0, 0, 0.86, 0) })
+	tween(bottomBar, FADE, { Position = UDim2.fromScale(0, 0.86) })
 
 	local camera = Workspace.CurrentCamera
 	local shot = frameShot()

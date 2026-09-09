@@ -1207,7 +1207,7 @@ local function renderStats()
 
 		local label = Instance.new("TextLabel")
 		label.Text = readout.label
-		label.Size = UDim2.new(0.4, 0, 1, 0)
+		label.Size = UDim2.fromScale(0.4, 1)
 		label.BackgroundTransparency = 1
 		label.Font = Theme.font
 		--- The right page is the dark panel itself, not paper: ink on it is
@@ -1220,7 +1220,7 @@ local function renderStats()
 
 		local value = Instance.new("TextLabel")
 		value.Size = UDim2.new(0.6, -12, 1, 0)
-		value.Position = UDim2.new(1, 0, 0, 0)
+		value.Position = UDim2.fromScale(1, 0)
 		value.AnchorPoint = Vector2.new(1, 0)
 		value.BackgroundTransparency = 1
 		value.Font = Theme.fontRegular
@@ -2057,7 +2057,7 @@ local function build()
 	rightPage = Instance.new("Frame")
 	rightPage.Name = "Right"
 	rightPage.Size = UDim2.new(0, 284, 1, 0)
-	rightPage.Position = UDim2.new(1, 0, 0, 0)
+	rightPage.Position = UDim2.fromScale(1, 0)
 	rightPage.AnchorPoint = Vector2.new(1, 0)
 	rightPage.BackgroundTransparency = 1
 	rightPage.Parent = columns

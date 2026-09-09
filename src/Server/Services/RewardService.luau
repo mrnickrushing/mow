@@ -12,7 +12,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Format = require(Shared.Util.Format)
 local Monetization = require(Shared.Config.Monetization)
 local BoostService = require(script.Parent.BoostService)
 local Loop = require(Shared.Util.Loop)

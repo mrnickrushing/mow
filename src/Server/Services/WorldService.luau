@@ -4623,21 +4623,21 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 	----------------------------------------------------------------
 	-- Dead trees and lanterns, kept off the sections' own ground
 	----------------------------------------------------------------
-	local rng = Random.new(20261031)
+	local nightRng = Random.new(20261031)
 	local placed = 0
 	for _ = 1, 60 do
 		if placed >= 18 then
 			break
 		end
-		local tx = rng:NextInteger(4, world.gridWidth - 5)
-		local tz = rng:NextInteger(4, world.gridDepth - 5)
+		local tx = nightRng:NextInteger(4, world.gridWidth - 5)
+		local tz = nightRng:NextInteger(4, world.gridDepth - 5)
 		local index = Grid.toIndex(WorldService.grid :: Grid.Grid, tx, tz)
 		local owner = WorldService.tileSection
 		-- Only on ground nobody has to mow, so nothing is ever hidden under one.
 		if owner ~= nil and (owner[index] or "") == "" then
 			placed += 1
 			local at = WorldService.tilePointFlat(tx, tz)
-			local tall = rng:NextNumber(26, 40)
+			local tall = nightRng:NextNumber(26, 40)
 			Build.mesh({
 				prop = "DeadTree",
 				name = "DeadTree",
@@ -4645,7 +4645,7 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 				size = Vector3.new(tall * 0.7, tall, tall * 0.6),
 				collisionSize = Vector3.new(3, tall, 3),
 				cframe = CFrame.new(at + Vector3.new(0, tall * 0.5, 0))
-					* CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0),
+					* CFrame.Angles(0, nightRng:NextNumber(0, math.pi * 2), 0),
 				parent = yard,
 			})
 		end
@@ -5879,7 +5879,6 @@ function WorldService.load(worldId: string)
 			width,
 			depth,
 			if lot then 11 else 6,
-			Palette.color(Palette.fence.rail),
 			14,
 			lot,
 			-- A filling station is fenced with wire on steel, not with the

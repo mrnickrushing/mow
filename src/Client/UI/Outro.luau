@@ -120,16 +120,16 @@ local function build()
 
 	topBar = Instance.new("Frame")
 	topBar.Name = "TopBar"
-	topBar.Size = UDim2.new(1, 0, 0.16, 0)
-	topBar.Position = UDim2.new(0, 0, -0.16, 0)
+	topBar.Size = UDim2.fromScale(1, 0.16)
+	topBar.Position = UDim2.fromScale(0, -0.16)
 	topBar.BackgroundColor3 = Color3.new(0, 0, 0)
 	topBar.BorderSizePixel = 0
 	topBar.Parent = gui
 
 	bottomBar = Instance.new("Frame")
 	bottomBar.Name = "BottomBar"
-	bottomBar.Size = UDim2.new(1, 0, 0.16, 0)
-	bottomBar.Position = UDim2.new(0, 0, 1, 0)
+	bottomBar.Size = UDim2.fromScale(1, 0.16)
+	bottomBar.Position = UDim2.fromScale(0, 1)
 	bottomBar.BackgroundColor3 = Color3.new(0, 0, 0)
 	bottomBar.BorderSizePixel = 0
 	bottomBar.Parent = gui
@@ -138,7 +138,7 @@ local function build()
 		name = "Title",
 		text = "",
 		size = UDim2.new(0.9, 0, 0, 96),
-		position = UDim2.new(0.5, 0, 0.3, 0),
+		position = UDim2.fromScale(0.5, 0.3),
 		anchor = Vector2.new(0.5, 0.5),
 		parent = gui,
 		align = Enum.TextXAlignment.Center,
@@ -160,7 +160,7 @@ local function build()
 		name = "Caption",
 		text = "",
 		size = UDim2.new(0.86, 0, 0, 120),
-		position = UDim2.new(0.5, 0, 0.74, 0),
+		position = UDim2.fromScale(0.5, 0.74),
 		anchor = Vector2.new(0.5, 0.5),
 		parent = gui,
 		align = Enum.TextXAlignment.Center,
@@ -243,7 +243,7 @@ function Outro.play(won: boolean, worldName: string, elapsed: number)
 	flyOff()
 
 	tween(topBar, FADE, { Position = UDim2.new(0, 0, 0, 0) })
-	tween(bottomBar, FADE, { Position = UDim2.new(0, 0, 0.84, 0) })
+	tween(bottomBar, FADE, { Position = UDim2.fromScale(0, 0.84) })
 
 	title.Text = if won then worldName else "Out of time"
 	tween(title, FADE, { TextTransparency = 0 })
@@ -300,8 +300,8 @@ function Outro.finish()
 	end
 	playing = false
 	setBlur(false)
-	tween(topBar, FADE, { Position = UDim2.new(0, 0, -0.16, 0) })
-	tween(bottomBar, FADE, { Position = UDim2.new(0, 0, 1, 0) })
+	tween(topBar, FADE, { Position = UDim2.fromScale(0, -0.16) })
+	tween(bottomBar, FADE, { Position = UDim2.fromScale(0, 1) })
 	tween(title, FADE, { TextTransparency = 1 })
 	tween(caption, FADE, { TextTransparency = 1 })
 
