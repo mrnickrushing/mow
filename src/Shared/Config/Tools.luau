@@ -438,4 +438,27 @@ function Tools.cheapestFor(debrisId: number): Types.ToolDef?
 	return best
 end
 
+--[[
+	The cheapest tool that can clear this debris *at this height*.
+
+	`cheapestFor` answers "what shifts leaves", which is the right question
+	when a tool cannot touch a kind of debris at all. It is the wrong one when
+	the tool is right and the growth is simply too tall for it: the reel mower
+	cuts grass and will still refuse a three-level tuft, and being told to buy
+	a reel mower you already own is worse than being told nothing.
+]]
+function Tools.cheapestForHeight(debrisId: number, height: number): Types.ToolDef?
+	local best: Types.ToolDef? = nil
+	for _, tool in list do
+		if tool.currency == "Cash" and tool.maxHeight >= height then
+			for _, id in tool.clears do
+				if id == debrisId and (best == nil or tool.cost < best.cost) then
+					best = tool
+				end
+			end
+		end
+	end
+	return best
+end
+
 return Tools

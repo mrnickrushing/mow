@@ -32,6 +32,15 @@ Remotes.EQUIP = "Equip"
 Remotes.ROUND_STATE = "RoundState"
 --- Server -> client: transient feedback (stripe banked, tool stalled, sale made).
 Remotes.NOTIFY = "Notify"
+--[[
+	Server -> client: the tool refused this ground, and why.
+
+	The refusal is already a toast, and a toast is the wrong shape for it: it
+	names one side of the problem, scrolls away, and leaves the player holding
+	a mower that does nothing. This carries both sides — what stopped it and
+	what would shift it — so the card can say the whole thing.
+]]
+Remotes.OVERGROWTH = "Overgrowth"
 --- Client -> server: prompt a Robux purchase.
 Remotes.PROMPT_PURCHASE = "PromptPurchase"
 --- Client -> server: park the portable trailer where the player stands.
@@ -78,6 +87,7 @@ local EVENTS = {
 	Remotes.EQUIP,
 	Remotes.ROUND_STATE,
 	Remotes.NOTIFY,
+	Remotes.OVERGROWTH,
 	Remotes.PROMPT_PURCHASE,
 	Remotes.PLACE_TRAILER,
 	Remotes.VEHICLE,
