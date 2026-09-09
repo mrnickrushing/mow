@@ -355,10 +355,20 @@ local function buildRightColumn(gui: ScreenGui)
 	end
 
 	local book = tile("Journal", 128)
+	--[[
+		Filling the tile, ribbon over the edge and all.
+
+		This was fixed once — the icon was a small drawing centred in a cream
+		square, which reads as a picture of a journal rather than as a journal
+		— and the wave that rebuilt the rail put it back to a little over half.
+		The handoff is explicit about keeping the larger number, and the reason
+		is the same one as the first time: at tile size an object that touches
+		its frame is a thing, and one that floats inside it is a drawing.
+	]]
 	Theme.icon({
 		name = "BookIcon",
 		prop = "Journal",
-		size = UDim2.fromScale(0.55, 0.55),
+		size = UDim2.fromScale(1.02, 1.02),
 		position = UDim2.fromScale(0.5, 0.5),
 		anchor = Vector2.new(0.5, 0.5),
 		parent = book.Parent :: GuiObject,
@@ -427,12 +437,20 @@ local function buildRightColumn(gui: ScreenGui)
 		return part
 	end
 
-	--- The head sits low and left, the stem rises from its right shoulder, and
-	--- the flag falls off the top of the stem — which is where the eye looks
-	--- to tell a quaver from a lollipop.
-	notePart("Head", UDim2.fromScale(0.46, 0.38), UDim2.fromScale(0.3, 0.78), 999, -18)
-	notePart("Stem", UDim2.fromScale(0.11, 0.78), UDim2.fromScale(0.52, 0.39), 2, 0)
-	notePart("Flag", UDim2.fromScale(0.1, 0.34), UDim2.fromScale(0.68, 0.19), 2, 32)
+	--[[
+		A beamed pair, not a single quaver.
+
+		Two heads under two stems with a bar across their tops, which is what
+		the handoff's mock draws and the shape everything else in the world
+		uses for "sound". One note on its own reads as a note; two joined read
+		as music, and the beam gives the thing a top edge at tile size where a
+		lone flag is three pixels of nothing.
+	]]
+	notePart("HeadLeft", UDim2.fromScale(0.36, 0.27), UDim2.fromScale(0.25, 0.82), 999, -18)
+	notePart("HeadRight", UDim2.fromScale(0.36, 0.27), UDim2.fromScale(0.75, 0.7), 999, -18)
+	notePart("StemLeft", UDim2.fromScale(0.09, 0.72), UDim2.fromScale(0.42, 0.47), 2, 0)
+	notePart("StemRight", UDim2.fromScale(0.09, 0.72), UDim2.fromScale(0.92, 0.35), 2, 0)
+	notePart("Beam", UDim2.fromScale(0.58, 0.15), UDim2.fromScale(0.67, 0.14), 3, -12)
 
 	local soundLabel = caption("SoundLabel", "SOUND ON", 328)
 	RunOnly.piece("rail", soundFace.Parent :: GuiObject, true)
