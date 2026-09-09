@@ -30,7 +30,9 @@ local RoundEnd = {}
 local player = Players.LocalPlayer
 local gui: ScreenGui
 local scrim: Frame
-local column: Frame
+--- A plain frame on a tablet, a `ScrollingFrame` on a phone; only its
+--- children and its parent are ever touched, so the wider type is honest.
+local column: GuiObject
 
 --- How long the outro's shot gets before the numbers arrive over it.
 local AFTER_THE_SHOT = 3.5
@@ -48,12 +50,28 @@ local TRACK = Color3.fromRGB(217, 203, 176)
 --------------------------------------------------------------------
 
 --- One of the three figures across the top: a small heading over a big number.
+--[[
+	The screen has two shapes, and the phone one scrolls.
+
+	Authored at 960 x 900, which `fitToViewport` draws at 0.415 on an
+	844 x 390 phone: a player's name at nine points and a payout slab at
+	eighteen. The board is the point of this screen — the handoff's own line
+	is "give the contribution split a moment" — and nine points is not a
+	moment.
+
+	So on a phone every piece stands down to a size that reads, the column
+	becomes a scroll, and BACK TO THE LOBBY comes out of that scroll and pins
+	itself to the bottom, where it cannot be scrolled past.
+]]
+local phone = false
+
 local function statBlock(order: number, heading: string, value: string, note: string?, gold: boolean): Frame
+	local blockH = if phone then 62 else 108
 	local block: Frame
 	if gold then
 		block = Theme.cardFace({
 			name = heading,
-			size = UDim2.fromOffset(0, 108),
+			size = UDim2.fromOffset(0, blockH),
 			parent = column,
 			radius = 18,
 			drop = 6,
@@ -65,7 +83,7 @@ local function statBlock(order: number, heading: string, value: string, note: st
 	else
 		block = Theme.chunkPanel({
 			name = heading,
-			size = UDim2.fromOffset(0, 108),
+			size = UDim2.fromOffset(0, blockH),
 			parent = column,
 			radius = 18,
 			drop = 6,
@@ -76,8 +94,8 @@ local function statBlock(order: number, heading: string, value: string, note: st
 	end
 	local seat = block.Parent :: Frame
 	seat.LayoutOrder = order
-	seat.Size = UDim2.new(1 / 3, -12, 0, 108)
-	Theme.pad(block, 14, 16, 14, 16)
+	seat.Size = UDim2.new(1 / 3, -12, 0, blockH)
+	Theme.pad(block, if phone then 8 else 14, if phone then 10 else 16, if phone then 8 else 14, if phone then 10 else 16)
 
 	Theme.text({
 		name = "Heading",
@@ -87,28 +105,28 @@ local function statBlock(order: number, heading: string, value: string, note: st
 		parent = block,
 		align = Enum.TextXAlignment.Left,
 		color = if gold then Color3.fromRGB(92, 60, 6) else Theme.colors.label,
-		textSize = 14,
+		textSize = if phone then 11 else 14,
 	})
 	Theme.text({
 		name = "Value",
 		text = value,
-		size = UDim2.new(1, 0, 0, 40),
-		position = UDim2.fromOffset(0, 22),
+		size = UDim2.new(1, 0, 0, if phone then 26 else 40),
+		position = UDim2.fromOffset(0, if phone then 14 else 22),
 		parent = block,
 		align = Enum.TextXAlignment.Left,
 		color = if gold then Color3.fromRGB(24, 18, 10) else Theme.colors.text,
-		textSize = 34,
+		textSize = if phone then 22 else 34,
 	})
 	if note then
 		Theme.text({
 			name = "Note",
 			text = note,
-			size = UDim2.new(1, 0, 0, 20),
-			position = UDim2.fromOffset(0, 62),
+			size = UDim2.new(1, 0, 0, if phone then 14 else 20),
+			position = UDim2.fromOffset(0, if phone then 40 else 62),
 			parent = block,
 			align = Enum.TextXAlignment.Left,
 			color = if gold then Color3.fromRGB(92, 60, 6) else Theme.colors.label,
-			textSize = 15,
+			textSize = if phone then 11 else 15,
 			bold = false,
 		})
 	end
@@ -117,20 +135,23 @@ end
 
 --- One player's line: who, how much ground, what share, what it paid.
 local function playerRow(parent: Instance, order: number, row: any, units: number, top: boolean)
+	local rowH = if phone then 48 else 66
 	local card = Theme.cardFace({
 		name = tostring(row.name),
-		size = UDim2.new(1, -8, 0, 66),
+		size = UDim2.new(1, -8, 0, rowH),
 		parent = parent,
 		radius = 16,
 		drop = 4,
 		outline = 4,
 	})
 	;(card.Parent :: Frame).LayoutOrder = order
-	Theme.pad(card, 6, 14, 6, 14)
+	Theme.pad(card, 6, if phone then 10 else 14, 6, if phone then 10 else 14)
 
+	local avatar = if phone then 32 else 42
+	local nameLeft = avatar + 14
 	local well = Instance.new("Frame")
 	well.Name = "Face"
-	well.Size = UDim2.fromOffset(42, 42)
+	well.Size = UDim2.fromOffset(avatar, avatar)
 	well.Position = UDim2.fromScale(0, 0.5)
 	well.AnchorPoint = Vector2.new(0, 0.5)
 	well.BackgroundColor3 = Color3.fromRGB(232, 219, 194)
@@ -168,12 +189,12 @@ local function playerRow(parent: Instance, order: number, row: any, units: numbe
 	local name = Theme.text({
 		name = "Name",
 		text = tostring(row.name),
-		size = UDim2.fromOffset(190, 24),
-		position = UDim2.fromOffset(56, 8),
+		size = UDim2.fromOffset(if phone then 140 else 190, if phone then 18 else 24),
+		position = UDim2.fromOffset(nameLeft, if phone then 5 else 8),
 		parent = card,
 		align = Enum.TextXAlignment.Left,
 		color = CARD_INK,
-		textSize = 21,
+		textSize = if phone then 16 else 21,
 	})
 	name.TextTruncate = Enum.TextTruncate.AtEnd
 
@@ -187,8 +208,8 @@ local function playerRow(parent: Instance, order: number, row: any, units: numbe
 	if top then
 		local pill = Theme.chip({
 			name = "MostGround",
-			size = UDim2.fromOffset(112, 20),
-			position = UDim2.fromOffset(56, 34),
+			size = UDim2.fromOffset(if phone then 88 else 112, if phone then 16 else 20),
+			position = UDim2.fromOffset(nameLeft, if phone then 25 else 34),
 			parent = card,
 			radius = Theme.PILL,
 		})
@@ -202,28 +223,34 @@ local function playerRow(parent: Instance, order: number, row: any, units: numbe
 			parent = pill,
 			align = Enum.TextXAlignment.Center,
 			color = Color3.fromRGB(24, 18, 10),
-			textSize = 12,
+			textSize = if phone then 10 else 12,
 		})
 	end
 
 	Theme.text({
 		name = "Units",
 		text = `{Format.tally(row.units)} units cleared`,
-		size = UDim2.fromOffset(if top then 120 else 240, 20),
-		position = UDim2.fromOffset(if top then 174 else 56, 34),
+		size = UDim2.fromOffset(if top then 120 else 240, if phone then 16 else 20),
+		position = UDim2.fromOffset(
+			if top then nameLeft + (if phone then 94 else 118) else nameLeft,
+			if phone then 26 else 34
+		),
 		parent = card,
 		align = Enum.TextXAlignment.Left,
 		color = CARD_SOFT,
-		textSize = 15,
+		textSize = if phone then 12 else 15,
 		bold = false,
 	})
 
 	local share = if units > 0 then row.units / units else 0
 
+	--- The bar takes whatever is left between the name block and the numbers.
+	local barLeft = if phone then 240 else 300
+	local barRight = if phone then 190 else 260
 	local bar = Instance.new("Frame")
 	bar.Name = "Share"
-	bar.Size = UDim2.new(1, -560, 0, 22)
-	bar.Position = UDim2.new(0, 300, 0.5, 0)
+	bar.Size = UDim2.new(1, -(barLeft + barRight), 0, if phone then 16 else 22)
+	bar.Position = UDim2.new(0, barLeft, 0.5, 0)
 	bar.AnchorPoint = Vector2.new(0, 0.5)
 	bar.BackgroundColor3 = TRACK
 	bar.BorderSizePixel = 0
@@ -247,21 +274,21 @@ local function playerRow(parent: Instance, order: number, row: any, units: numbe
 	Theme.text({
 		name = "Percent",
 		text = Format.percent(share),
-		size = UDim2.fromOffset(84, 24),
-		position = UDim2.new(1, -132, 0.5, 0),
+		size = UDim2.fromOffset(if phone then 60 else 84, 24),
+		position = UDim2.new(1, if phone then -100 else -132, 0.5, 0),
 		anchor = Vector2.new(1, 0.5),
 		parent = card,
 		align = Enum.TextXAlignment.Right,
 		color = CARD_SOFT,
-		textSize = 18,
+		textSize = if phone then 14 else 18,
 	})
 
 	local paid = Theme.chunkButton({
 		name = "Paid",
 		variant = "primary",
 		text = `{Format.count(row.tips)} tips`,
-		textSize = 19,
-		size = UDim2.fromOffset(120, 44),
+		textSize = if phone then 15 else 19,
+		size = UDim2.fromOffset(if phone then 92 else 120, if phone then 34 else 44),
 		position = UDim2.fromScale(1, 0.5),
 		anchor = Vector2.new(1, 0.5),
 		parent = card,
@@ -276,34 +303,34 @@ end
 local function factChip(parent: Instance, order: number, heading: string, value: string, colour: Color3)
 	local chip = Theme.chip({
 		name = heading,
-		size = UDim2.new(1 / 3, -8, 0, 56),
+		size = UDim2.new(1 / 3, -8, 0, if phone then 38 else 56),
 		parent = parent,
 		radius = 14,
 	})
 	chip.BackgroundColor3 = Color3.fromRGB(30, 22, 16)
 	chip.LayoutOrder = order
 	Theme.stroke(chip, 3, INK, 0)
-	Theme.pad(chip, 8, 16, 8, 16)
+	Theme.pad(chip, if phone then 5 else 8, if phone then 10 else 16, if phone then 5 else 8, if phone then 10 else 16)
 
 	Theme.text({
 		name = "Heading",
 		text = heading,
-		size = UDim2.new(1, 0, 0, 16),
+		size = UDim2.new(1, 0, 0, if phone then 12 else 16),
 		position = UDim2.fromOffset(0, 0),
 		parent = chip,
 		align = Enum.TextXAlignment.Left,
 		color = Theme.colors.label,
-		textSize = 13,
+		textSize = if phone then 10 else 13,
 	})
 	Theme.text({
 		name = "Value",
 		text = value,
-		size = UDim2.new(1, 0, 0, 22),
-		position = UDim2.fromOffset(0, 18),
+		size = UDim2.new(1, 0, 0, if phone then 16 else 22),
+		position = UDim2.fromOffset(0, if phone then 12 else 18),
 		parent = chip,
 		align = Enum.TextXAlignment.Left,
 		color = colour,
-		textSize = 20,
+		textSize = if phone then 15 else 20,
 	})
 end
 
@@ -318,6 +345,16 @@ local function clear()
 	for _, child in column:GetChildren() do
 		if child:IsA("GuiObject") then
 			child:Destroy()
+		end
+	end
+	--- On a phone the button is pinned outside the scroll, so it is the one
+	--- piece a redraw has to reach past the column for.
+	local outside = column.Parent
+	if outside then
+		for _, child in outside:GetChildren() do
+			if child:IsA("GuiObject") and child.Name == "BackHolder" then
+				child:Destroy()
+			end
 		end
 	end
 end
@@ -335,7 +372,7 @@ local function draw(result: any)
 	--- The eyebrow, between two diamonds, and the headline.
 	local eyebrow = Instance.new("Frame")
 	eyebrow.Name = "Eyebrow"
-	eyebrow.Size = UDim2.new(1, 0, 0, 24)
+	eyebrow.Size = UDim2.new(1, 0, 0, if phone then 16 else 24)
 	eyebrow.BackgroundTransparency = 1
 	eyebrow.LayoutOrder = 1
 	eyebrow.Parent = column
@@ -357,13 +394,13 @@ local function draw(result: any)
 				parent = eyebrow,
 				align = Enum.TextXAlignment.Center,
 				color = Theme.colors.tips,
-				textSize = 16,
+				textSize = if phone then 12 else 16,
 			})
 			label.LayoutOrder = 2
 		else
 			local mark = Instance.new("Frame")
 			mark.Name = `Mark{order}`
-			mark.Size = UDim2.fromOffset(16, 16)
+			mark.Size = UDim2.fromOffset(if phone then 11 else 16, if phone then 11 else 16)
 			mark.Rotation = 45
 			mark.BackgroundColor3 = Theme.colors.tips
 			mark.BorderSizePixel = 0
@@ -375,18 +412,18 @@ local function draw(result: any)
 	local headline = Theme.text({
 		name = "Headline",
 		text = `{result.worldName}, cleared`,
-		size = UDim2.new(1, 0, 0, 62),
+		size = UDim2.new(1, 0, 0, if phone then 34 else 62),
 		position = UDim2.fromScale(0, 0),
 		parent = column,
 		align = Enum.TextXAlignment.Center,
-		textSize = 56,
+		textSize = if phone then 28 else 56,
 	})
 	headline.LayoutOrder = 2
 
 	--- The three figures.
 	local figures = Instance.new("Frame")
 	figures.Name = "Figures"
-	figures.Size = UDim2.new(1, 0, 0, 116)
+	figures.Size = UDim2.new(1, 0, 0, if phone then 70 else 116)
 	figures.BackgroundTransparency = 1
 	figures.LayoutOrder = 3
 	figures.Parent = column
@@ -420,48 +457,56 @@ local function draw(result: any)
 	end
 
 	--- The board itself.
+	local boardHead = if phone then 42 else 96
+	local boardStep = if phone then 54 else 74
+	local boardH = boardHead + #result.players * boardStep
 	local board = Theme.chunkPanel({
 		name = "Board",
-		size = UDim2.new(1, 0, 0, 96 + #result.players * 74),
+		size = UDim2.new(1, 0, 0, boardH),
 		parent = column,
 		radius = 22,
 		drop = 8,
 		outline = 5,
 	})
 	;(board.Parent :: Frame).LayoutOrder = 4
-	;(board.Parent :: Frame).Size = UDim2.new(1, 0, 0, 96 + #result.players * 74)
-	Theme.pad(board, 18, 20, 18, 20)
+	;(board.Parent :: Frame).Size = UDim2.new(1, 0, 0, boardH)
+	Theme.pad(board, if phone then 12 else 18, if phone then 14 else 20, if phone then 12 else 18, if phone then 14 else 20)
 
 	Theme.text({
 		name = "BoardHeading",
 		text = "Who did the work",
-		size = UDim2.new(1, 0, 0, 28),
+		size = UDim2.new(1, 0, 0, if phone then 20 else 28),
 		position = UDim2.fromOffset(0, 0),
 		parent = board,
 		align = Enum.TextXAlignment.Left,
-		textSize = 22,
+		textSize = if phone then 17 else 22,
 	})
-	Theme.text({
-		name = "BoardNote",
-		text = "the round bonus splits by ground actually cleared",
-		size = UDim2.new(1, 0, 0, 22),
-		position = UDim2.fromOffset(0, 28),
-		parent = board,
-		align = Enum.TextXAlignment.Left,
-		color = Theme.colors.label,
-		textSize = 15,
-		bold = false,
-	})
+	--- The sentence under the heading is the one thing on this screen with no
+	--- room on a phone; the bars underneath say the same thing in a picture.
+	if not phone then
+		Theme.text({
+			name = "BoardNote",
+			text = "the round bonus splits by ground actually cleared",
+			size = UDim2.new(1, 0, 0, 22),
+			position = UDim2.fromOffset(0, 28),
+			parent = board,
+			align = Enum.TextXAlignment.Left,
+			color = Theme.colors.label,
+			textSize = 15,
+			bold = false,
+		})
+	end
 
+	local rowsTop = if phone then 26 else 60
 	local rows = Instance.new("Frame")
 	rows.Name = "Rows"
-	rows.Size = UDim2.new(1, 0, 1, -60)
-	rows.Position = UDim2.fromOffset(0, 60)
+	rows.Size = UDim2.new(1, 0, 1, -rowsTop)
+	rows.Position = UDim2.fromOffset(0, rowsTop)
 	rows.BackgroundTransparency = 1
 	rows.Parent = board
 	local rowFlow = Instance.new("UIListLayout")
 	rowFlow.SortOrder = Enum.SortOrder.LayoutOrder
-	rowFlow.Padding = UDim.new(0, 10)
+	rowFlow.Padding = UDim.new(0, if phone then 6 else 10)
 	rowFlow.Parent = rows
 
 	for order, row in result.players do
@@ -471,14 +516,14 @@ local function draw(result: any)
 	--- The three facts, outside the board: there is no free space inside it.
 	local facts = Instance.new("Frame")
 	facts.Name = "Facts"
-	facts.Size = UDim2.new(1, 0, 0, 56)
+	facts.Size = UDim2.new(1, 0, 0, if phone then 38 else 56)
 	facts.BackgroundTransparency = 1
 	facts.LayoutOrder = 5
 	facts.Parent = column
 	local factFlow = Instance.new("UIListLayout")
 	factFlow.FillDirection = Enum.FillDirection.Horizontal
 	factFlow.SortOrder = Enum.SortOrder.LayoutOrder
-	factFlow.Padding = UDim.new(0, 12)
+	factFlow.Padding = UDim.new(0, if phone then 8 else 12)
 	factFlow.Parent = facts
 
 	factChip(facts, 1, "CLEAN STRIPES", Format.tally(result.stripes), Theme.colors.tips)
@@ -506,7 +551,7 @@ local function draw(result: any)
 	if nextWorld then
 		local opened = Theme.chunkPanel({
 			name = "Opened",
-			size = UDim2.new(1, 0, 0, 56),
+			size = UDim2.new(1, 0, 0, if phone then 38 else 56),
 			parent = column,
 			radius = 16,
 			drop = 5,
@@ -516,7 +561,7 @@ local function draw(result: any)
 			shadow = Color3.fromRGB(169, 110, 8),
 		})
 		;(opened.Parent :: Frame).LayoutOrder = 6
-		;(opened.Parent :: Frame).Size = UDim2.new(1, 0, 0, 56)
+		;(opened.Parent :: Frame).Size = UDim2.new(1, 0, 0, if phone then 38 else 56)
 		Theme.text({
 			name = "Text",
 			text = `{string.upper(nextWorld)} IS OPEN — PICK IT FROM A PAD`,
@@ -525,22 +570,35 @@ local function draw(result: any)
 			parent = opened,
 			align = Enum.TextXAlignment.Center,
 			color = Color3.fromRGB(24, 18, 10),
-			textSize = 22,
+			textSize = if phone then 15 else 22,
 		})
 	end
 
+	--[[
+		Out of the scroll on a phone, and pinned under it.
+
+		Everything above it scrolls there, and the one control on the screen
+		is not something a player should have to scroll to find.
+	]]
 	local back = Theme.chunkButton({
 		name = "Back",
 		variant = "primary",
 		text = "BACK TO THE LOBBY",
-		textSize = 24,
-		size = UDim2.new(1, 0, 0, 62),
-		parent = column,
+		textSize = if phone then 18 else 24,
+		size = if phone
+			then UDim2.new(1, 0, 0, 44)
+			else UDim2.new(1, 0, 0, 62),
+		position = if phone then UDim2.new(0.5, 0, 1, 0) else UDim2.fromOffset(0, 0),
+		anchor = if phone then Vector2.new(0.5, 1) else Vector2.zero,
+		parent = if phone then (column.Parent :: Instance) else column,
 		radius = 16,
 		outline = 4,
 	})
-	;(back.Parent :: Frame).LayoutOrder = 7
-	;(back.Parent :: Frame).Size = UDim2.new(1, 0, 0, 62)
+	if not phone then
+		local seat = back.Parent :: Frame
+		seat.LayoutOrder = 7
+		seat.Size = UDim2.new(1, 0, 0, 62)
+	end
 	back.Modal = true
 	back.Activated:Connect(function()
 		RoundEnd.hide()
@@ -571,22 +629,48 @@ local function build()
 
 	local holder = Instance.new("Frame")
 	holder.Name = "Holder"
-	holder.Size = UDim2.fromOffset(960, 900)
+	holder.Size = if phone then UDim2.fromOffset(796, 350) else UDim2.fromOffset(960, 900)
 	holder.Position = UDim2.fromScale(0.5, 0.5)
 	holder.AnchorPoint = Vector2.new(0.5, 0.5)
 	holder.BackgroundTransparency = 1
 	holder.Parent = gui
-	Theme.fitToViewport(holder, 1000, 940)
+	Theme.fitToViewport(holder, if phone then 844 else 1000, if phone then 390 else 940, nil, nil, nil, phone)
 
-	column = Instance.new("Frame")
-	column.Name = "Column"
-	column.Size = UDim2.fromScale(1, 1)
-	column.BackgroundTransparency = 1
-	column.Parent = holder
+	--[[
+		A scroll on a phone, a column on anything larger.
+
+		Even at phone sizes the pieces come to about four hundred and fifty:
+		three figures, a board of up to twelve, three facts and the line
+		saying what just opened. That is a short scroll rather than a screen,
+		and a short scroll is the honest answer — the alternative is cutting
+		one of them, and every one of them is somebody's result.
+	]]
+	if phone then
+		local scroll = Instance.new("ScrollingFrame")
+		scroll.Name = "Column"
+		scroll.Size = UDim2.new(1, 0, 1, -52)
+		scroll.BackgroundTransparency = 1
+		scroll.BorderSizePixel = 0
+		scroll.ScrollBarThickness = 6
+		scroll.ScrollBarImageColor3 = Color3.fromRGB(24, 18, 10)
+		scroll.ScrollBarImageTransparency = 0.2
+		scroll.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+		scroll.CanvasSize = UDim2.new()
+		scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		scroll.Parent = holder
+		column = scroll
+	else
+		local plain = Instance.new("Frame")
+		plain.Name = "Column"
+		plain.Size = UDim2.fromScale(1, 1)
+		plain.BackgroundTransparency = 1
+		plain.Parent = holder
+		column = plain
+	end
 
 	local flow = Instance.new("UIListLayout")
 	flow.SortOrder = Enum.SortOrder.LayoutOrder
-	flow.Padding = UDim.new(0, 20)
+	flow.Padding = UDim.new(0, if phone then 8 else 20)
 	flow.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	flow.Parent = column
 end
@@ -618,8 +702,26 @@ function RoundEnd.hide()
 	clear()
 end
 
+--- The screen's two shapes, chosen before it is built.
+local function rebuild()
+	local small = Theme.isPhone()
+	if gui and small == phone then
+		return
+	end
+	xpcall(function()
+		phone = small
+		local previous = gui
+		if previous then
+			previous:Destroy()
+		end
+		build()
+	end, function(err)
+		warn(`[RoundEnd] rebuilding for a {if small then "phone" else "tablet"} failed: {err}`)
+	end)
+end
+
 function RoundEnd.start()
-	build()
+	Theme.onScreenChange(rebuild)
 
 	local last = ""
 	Remotes.event(Remotes.ROUND_STATE).OnClientEvent:Connect(function(state: any)
