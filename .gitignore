@@ -25,3 +25,5 @@
 /sourcemap.json
 /.bin/
 .deploy_key
+
+/scripts/__pycache__/
