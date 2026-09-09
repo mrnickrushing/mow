@@ -22,6 +22,7 @@ local Types = require(Shared.Types)
 local Build = require(script.Parent.Parent.Lib.Build)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
+local RunState = require(script.Parent.RunState)
 local Structures = require(script.Parent.Parent.Lib.Structures)
 local WorldService = require(script.Parent.WorldService)
 
@@ -90,6 +91,10 @@ local function spawnBlade(position: Vector3, section: Types.ZoneDef, parent: Ins
 		local paid = EconomyService.awardRaw(player, BLADE_CASH)
 		EconomyService.awardTips(player, BLADE_TIPS)
 
+		local run = RunState.find(player)
+		if run then
+			run.blades += 1
+		end
 		DataService.withProfile(player, function(profile)
 			profile.stats.goldenBlades += 1
 		end)

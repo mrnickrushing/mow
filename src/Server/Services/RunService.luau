@@ -141,10 +141,22 @@ local function worldChoices(): { { id: string, name: string, tagline: string, di
 	return out
 end
 
+--[[
+	The finished run, as the board reads it.
+
+	Everything on the round-end screen is a number the server already had and
+	threw away: what each player cleared, what their share of the pool came to,
+	the best time they walked in with. It is built once when the run ends and
+	sent with every broadcast until the next one begins, so a client that joins
+	the tail of the intermission still gets the board rather than a blank one.
+]]
+local result: { any }? = nil
+
 local function broadcast()
 	local world = WorldService.world
 	roundState:FireAllClients({
 		phase = phase,
+		result = result,
 		secondsLeft = RunService.secondsLeft(),
 		completion = WorldService.completion(),
 		worldId = if world then world.id else "",
@@ -351,6 +363,8 @@ local function beginRun(id: string, partySize: number?)
 
 	worldId = id
 	runStartedAt = os.clock()
+	--- Last run's board, gone the moment this one starts.
+	result = nil
 	local world = Worlds.expect(id)
 
 	ReplicationService.reset()
@@ -461,6 +475,10 @@ local function winRun()
 		runners += 1
 	end
 
+	--- One row per player, filled in the loop below while the numbers are
+	--- still to hand.
+	local board: { any } = {}
+
 	for _, player in Players:GetPlayers() do
 		--[[
 			Said out loud when somebody misses their own win.
@@ -478,6 +496,14 @@ local function winRun()
 			it from here — but a warning in the log is the difference between
 			a bug somebody can find and one they cannot.
 		]]
+		--- Read before the write below replaces it: "was 47:38" is the only
+		--- number on the board that stops existing the moment it is beaten.
+		local previousBest: number? = nil
+		local existing = DataService.get(player)
+		if existing then
+			previousBest = existing.bestTimes[worldId]
+		end
+
 		local credited = DataService.withProfile(player, function(profile)
 			profile.worldsBeaten[worldId] = true
 			profile.stats.roundsCompleted += 1
@@ -519,8 +545,9 @@ local function winRun()
 		RewardService.awardFirstCompletion(player)
 
 		local run = RunState.find(player)
+		local earned = 0
 		if run then
-			local earned = Balance.completionTips(run.contribution, totalContribution, runners)
+			earned = Balance.completionTips(run.contribution, totalContribution, runners)
 			if earned > 0 then
 				EconomyService.awardTips(player, earned)
 				EconomyService.notify(
@@ -532,11 +559,59 @@ local function winRun()
 			end
 		end
 
+		table.insert(board, {
+			userId = player.UserId,
+			name = player.DisplayName,
+			units = if run then run.contribution else 0,
+			tips = earned,
+			stripes = if run then run.stripes else 0,
+			blades = if run then run.blades else 0,
+			previousBest = previousBest,
+		})
+
 		-- The world just beaten is what unlocks the next one, and the level
 		-- select is about to be shown, so the client needs to hear about it
 		-- before it draws the rows rather than on the next full push.
 		PlayerService.push(player)
 	end
+
+	--[[
+		What the board says, in one table.
+
+		Sorted by ground cleared, because that is the order the split pays in
+		and the order the screen reads in — the top row is the person who did
+		the most work, and the pill that says so hangs off it.
+	]]
+	table.sort(board, function(left, right)
+		return left.units > right.units
+	end)
+
+	local world = WorldService.world
+	local waves = 1
+	if world then
+		for _, section in world.sections do
+			waves = math.max(waves, wavesNeeded[section.id] or 1)
+		end
+	end
+
+	local stripes, blades = 0, 0
+	for _, row in board do
+		stripes += row.stripes
+		blades += row.blades
+	end
+
+	result = {
+		won = true,
+		worldId = worldId,
+		worldName = if world then world.name else "",
+		elapsed = elapsed,
+		clockLeft = RunService.secondsLeft(),
+		units = totalContribution,
+		stripes = stripes,
+		blades = blades,
+		waves = waves,
+		players = board,
+	}
 
 	broadcast()
 end

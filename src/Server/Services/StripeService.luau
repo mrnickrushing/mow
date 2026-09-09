@@ -47,6 +47,7 @@ local function bank(player: Player, stripe: Stripe.State)
 	EconomyService.awardRaw(player, bonus)
 	EconomyService.awardTips(player, GameConfig.STRIPE_TIP_REWARD)
 
+	run.stripes += 1
 	DataService.withProfile(player, function(p)
 		p.stats.stripes += 1
 	end)

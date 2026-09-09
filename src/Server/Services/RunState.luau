@@ -34,6 +34,16 @@ export type State = {
 	--- Debris units cleared, for the contribution split and the scoreboard.
 	contribution: number,
 	unitsSold: number,
+	--[[
+		Two counters the round-end board reads.
+
+		Both are already recorded on the profile as lifetime totals, which is
+		the wrong number for a board about *this* run: a player on their
+		fortieth property would be told they banked nine hundred stripes on
+		The House this afternoon.
+	]]
+	stripes: number,
+	blades: number,
 }
 
 local states: { [Player]: State } = {}
@@ -71,6 +81,8 @@ function RunState.fresh(player: Player?): State
 		fuel = GameConfig.BASE_FUEL,
 		contribution = 0,
 		unitsSold = 0,
+		stripes = 0,
+		blades = 0,
 	}
 end
 
