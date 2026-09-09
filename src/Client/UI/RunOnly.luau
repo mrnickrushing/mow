@@ -35,11 +35,52 @@ local watched: { GuiObject } = {}
 	element is hidden whatever the round is doing.
 ]]
 local suppressed: { [GuiObject]: boolean } = {}
+--[[
+	The named pieces of chrome, and which of them are currently allowed up.
+
+	The first run brings the HUD in a piece at a time — the completion bar and
+	the tool button, then the bag, then the hotbar and the rail, then the rest
+	— which needs a way to say "these and no others" from outside the modules
+	that build them. `gate` is that: `nil` for the normal state, where every
+	piece is allowed, or a set of the names that are.
+
+	Names rather than references because the four steps are written as lists of
+	words in one place, and a step that reads `{ "hero", "tool" }` is a step
+	somebody can check against the handoff.
+]]
+local named: { [string]: { GuiObject } } = {}
+local nameOf: { [GuiObject]: string } = {}
+--[[
+	Pieces whose `Visible` this module may set when it is gating.
+
+	Most named chrome is already registered with `add` and hidden in the lobby
+	with everything else. Two kinds are not: the rail, which carries the money
+	and belongs on screen in the lobby, and the pieces whose visibility the
+	HUD's own refresh owns and which therefore have to ask rather than be told.
+	The first kind is listed here; the second is not, and asks.
+]]
+local gated: { [GuiObject]: boolean } = {}
+local gate: { [string]: boolean }? = nil
 local running = false
+
+local function held(object: GuiObject): boolean
+	if suppressed[object] then
+		return true
+	end
+	local allowed = gate
+	if not allowed then
+		return false
+	end
+	local name = nameOf[object]
+	return name ~= nil and not allowed[name]
+end
 
 local function apply()
 	for _, object in watched do
-		object.Visible = running and not suppressed[object]
+		object.Visible = running and not held(object)
+	end
+	for object in gated do
+		object.Visible = not held(object)
 	end
 end
 
@@ -58,13 +99,65 @@ end
 --- Hides this element until a run is actually under way.
 function RunOnly.add(object: GuiObject)
 	table.insert(watched, object)
-	object.Visible = running and not suppressed[object]
+	object.Visible = running and not held(object)
 end
 
 --- Keeps `object` hidden even during a run, for as long as `on` holds.
 function RunOnly.suppress(object: GuiObject, on: boolean)
 	suppressed[object] = on
-	object.Visible = running and not on
+	object.Visible = running and not held(object)
+end
+
+--[[
+	Gives a piece of chrome a name the first run can hold it back by.
+
+	More than one object can wear the same name — "rail" is three tiles and two
+	captions — and `gated` says whether this module may hide it directly or
+	whether its owner will ask.
+]]
+function RunOnly.piece(name: string, object: GuiObject, direct: boolean?)
+	local list = named[name]
+	if not list then
+		list = {}
+		named[name] = list
+	end
+	table.insert(list, object)
+	nameOf[object] = name
+	if direct then
+		gated[object] = true
+	end
+end
+
+--[[
+	Allows only the named pieces up. `nil` releases them all.
+
+	Anything registered with `add` is shown or hidden here and then; the two
+	that are not — the tool button and the fuel gauge, whose visibility the
+	HUD's own refresh owns five times a second — ask `permits` instead.
+]]
+function RunOnly.reveal(names: { string }?)
+	if names then
+		local allowed: { [string]: boolean } = {}
+		for _, name in names do
+			allowed[name] = true
+		end
+		gate = allowed
+	else
+		gate = nil
+	end
+	apply()
+end
+
+--- Whether this piece may be on screen: a run is under way and nothing is
+--- holding it back.
+function RunOnly.permits(object: GuiObject): boolean
+	return running and not held(object)
+end
+
+--- Whether a rule other than the run itself is keeping this piece down. The
+--- toasts ask this rather than `permits`, because they belong in the lobby.
+function RunOnly.isHeld(object: GuiObject): boolean
+	return held(object)
 end
 
 function RunOnly.start()

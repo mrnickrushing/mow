@@ -10,8 +10,8 @@
 
 local DefaultData = {}
 
---- Bumped: the opening plays once and the profile remembers it.
-DefaultData.VERSION = 5
+--- Bumped: the first run is taught once, and the profile remembers that too.
+DefaultData.VERSION = 6
 
 export type Stats = {
 	tilesCut: number,
@@ -79,6 +79,9 @@ export type Profile = {
 	firstCompletionClaimed: boolean,
 	--- Whether this player has seen the opening. Shown once, then never again.
 	introSeen: boolean,
+	--- Whether the four coaching steps have been walked, or skipped. The loop
+	--- is taught once; after that the HUD arrives whole.
+	firstRunDone: boolean,
 	--- True once the game has explained what tips are, which it does the first
 	--- time one is earned.
 	tipsExplained: boolean,
@@ -114,6 +117,7 @@ function DefaultData.template(): Profile
 		playtime = 0,
 		firstCompletionClaimed = false,
 		introSeen = false,
+		firstRunDone = false,
 		tipsExplained = false,
 		musicEnabled = true,
 		sfxEnabled = true,
