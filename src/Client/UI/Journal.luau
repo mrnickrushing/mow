@@ -485,11 +485,21 @@ end
 	Fifteen rungs get thinner slabs rather than a row that runs under the
 	price button. Built once and repainted, because the page polls.
 ]]
+--- How much width a ladder has on the upgrades page, where the rows are wide.
 local PIP_ROOM = 210
 
-local function levelPips(parent: Instance, maxLevel: number, x: number, y: number): { Frame }
+local function levelPips(
+	parent: Instance,
+	maxLevel: number,
+	x: number,
+	y: number,
+	--- Narrower on the tool pane, which is a 284-wide column rather than a
+	--- page. Slabs sized against the wrong room run under the price button.
+	room: number?
+): { Frame }
+	local space = room or PIP_ROOM
 	local gap = if maxLevel > 10 then 3 else 4
-	local width = math.min(15, (PIP_ROOM - gap * (maxLevel - 1)) / maxLevel)
+	local width = math.min(15, (space - gap * (maxLevel - 1)) / maxLevel)
 	local pips: { Frame } = {}
 	for step = 1, maxLevel do
 		local pip = Instance.new("Frame")
@@ -760,7 +770,7 @@ local function slotRow(parent: Instance, order: number, slot: any, level: number
 		picture.Parent = well
 	end
 
-	Theme.text({
+	local slotName = Theme.text({
 		name = "Name",
 		text = slot.name,
 		size = UDim2.new(1, -190, 0, 20),
@@ -770,8 +780,9 @@ local function slotRow(parent: Instance, order: number, slot: any, level: number
 		color = INK,
 		textSize = 17,
 	})
+	slotName.TextTruncate = Enum.TextTruncate.AtEnd
 
-	local pips = levelPips(row, slot.maxLevel, 66, 38)
+	local pips = levelPips(row, slot.maxLevel, 66, 38, 148)
 	paintPips(pips, level)
 
 	local cost = ToolUpgrades.costAt(slot, level)
@@ -969,8 +980,11 @@ local function renderUpgrades()
 				variant = if dead then "disabled" else variant :: any,
 				text = `R$ {price} · {tail}`,
 				textSize = 15,
+				--- Half the row each, with ten pixels of daylight between them:
+				--- the left one starts at the left edge, the right one ends at
+				--- the right, and each gives up five to the gap.
 				size = UDim2.new(0.5, -5, 1, 0),
-				position = UDim2.new(x, if x == 0 then 0 else 5, 0, 0),
+				position = UDim2.fromScale(x, 0),
 				anchor = Vector2.new(x, 0),
 				parent = pair,
 				radius = 12,
