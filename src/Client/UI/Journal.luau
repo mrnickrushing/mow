@@ -280,7 +280,7 @@ local function renderObjectives()
 	local scroll = body(leftPage)
 
 	for order, entry in questState do
-		local row = card(scroll, 54)
+		local row = card(scroll, 66)
 		row.Name = entry.id
 		row.LayoutOrder = order
 
@@ -296,17 +296,13 @@ local function renderObjectives()
 			real-world checkbox does.
 		]]
 		local box = Instance.new("Frame")
-		box.Size = UDim2.fromOffset(24, 24)
-		box.Position = UDim2.fromOffset(10, 15)
+		box.Size = UDim2.fromOffset(28, 28)
+		box.Position = UDim2.fromOffset(14, 19)
 		box.BackgroundColor3 = if entry.done then Color3.fromRGB(126, 186, 108) else Color3.fromRGB(255, 255, 255)
 		box.BorderSizePixel = 0
 		box.Parent = row
-		Theme.corner(box, 5)
-		local boxStroke = Instance.new("UIStroke")
-		boxStroke.Thickness = 2
-		boxStroke.Color = INK
-		boxStroke.Transparency = 0.4
-		boxStroke.Parent = box
+		Theme.corner(box, 8)
+		Theme.stroke(box, 3, Theme.colors.outline, 0)
 
 		if entry.done then
 			Theme.icon({
@@ -318,17 +314,41 @@ local function renderObjectives()
 				parent = box,
 			})
 		end
+
 		local title = Instance.new("TextLabel")
 		title.Text = entry.text
-		title.Size = UDim2.new(1, -50, 0, 26)
-		title.Position = UDim2.fromOffset(46, 13)
+		title.Size = UDim2.new(1, -158, 0, 24)
+		title.Position = UDim2.fromOffset(52, 12)
 		title.BackgroundTransparency = 1
 		title.Font = Theme.font
-		title.TextColor3 = if entry.done then LOCKED else Color3.fromRGB(48, 40, 32)
-		title.TextSize = 20
+		title.TextColor3 = if entry.done then Theme.colors.inkSoft else INK
+		title.TextSize = 19
 		title.TextXAlignment = Enum.TextXAlignment.Left
 		title.TextTruncate = Enum.TextTruncate.AtEnd
 		title.Parent = row
+
+		--[[
+			What it pays, on the row that asks for it.
+
+			The page's own blurb says to tick these off "for tips and cash",
+			and not one row said how much of either — so the whole list read
+			as chores. Fifty cents is not much; being told it is fifty cents
+			before you go and do it is the difference between a job and a
+			request.
+		]]
+		local reward = Instance.new("TextLabel")
+		reward.Name = "Reward"
+		reward.Text = if type(entry.reward) == "number" and entry.reward > 0
+			then `Pays {Format.cash(entry.reward)}`
+			else ""
+		reward.Size = UDim2.new(1, -158, 0, 20)
+		reward.Position = UDim2.fromOffset(52, 36)
+		reward.BackgroundTransparency = 1
+		reward.Font = Theme.fontRegular
+		reward.TextColor3 = Theme.colors.inkSoft
+		reward.TextSize = 15
+		reward.TextXAlignment = Enum.TextXAlignment.Left
+		reward.Parent = row
 
 		local progress = Instance.new("TextLabel")
 		-- Read back out of `questState` by position rather than closing over
@@ -338,16 +358,18 @@ local function renderObjectives()
 		live(function()
 			local current = questState[slot]
 			if current then
-				progress.Text = `({Format.tally(current.progress)}/{Format.tally(current.target)})`
+				progress.Text = `{Format.tally(current.progress)} / {Format.tally(current.target)}`
 			end
 		end)
-		progress.Size = UDim2.new(1, -50, 0, 22)
-		progress.Position = UDim2.fromOffset(46, 33)
+		--- Right-aligned, where a list is scanned for its numbers.
+		progress.Size = UDim2.fromOffset(96, 24)
+		progress.Position = UDim2.new(1, -16, 0.5, 0)
+		progress.AnchorPoint = Vector2.new(1, 0.5)
 		progress.BackgroundTransparency = 1
-		progress.Font = Theme.fontRegular
-		progress.TextColor3 = LOCKED
-		progress.TextSize = 17
-		progress.TextXAlignment = Enum.TextXAlignment.Left
+		progress.Font = Theme.font
+		progress.TextColor3 = Theme.colors.inkSoft
+		progress.TextSize = 18
+		progress.TextXAlignment = Enum.TextXAlignment.Right
 		progress.Parent = row
 	end
 end
