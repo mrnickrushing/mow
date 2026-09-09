@@ -132,8 +132,17 @@ end
 -- Clutter
 --------------------------------------------------------------------
 
---- A prop in the catalogue and how big to build it.
-type PropSpec = { prop: string, size: Vector3 }
+--[[
+	A prop in the catalogue, how big to build it, and what to paint it.
+
+	`tint` is for a set whose props come out of the catalogue in a colour
+	that belongs to a different property. The crypt is the case: a `Log` is
+	warm brown timber, and under the churchyard's cold blue lamps that reads
+	as a bright orange lump lying on grey stone. Given a tint the model is
+	drawn untextured, which is the only way a colour actually takes — see
+	the yew note in `Structures.maze`.
+]]
+type PropSpec = { prop: string, size: Vector3, tint: Types.Color3Like? }
 
 local YARD_PROPS: { PropSpec } = {
 	{ prop = "Bin", size = Vector3.new(4, 6.5, 4) },
@@ -215,8 +224,15 @@ local ROOM_PROPS: { PropSpec } = {
 	masonry, a rotten beam and a lantern are what is down there instead.
 ]]
 local CRYPT_PROPS: { PropSpec } = {
-	{ prop = "Rock", size = Vector3.new(4, 3, 4) },
-	{ prop = "Log", size = Vector3.new(6, 3, 3) },
+	--- Lichened rather than fresh granite: tinted to the wall it fell off,
+	--- fallen masonry is the same colour as the floor and disappears.
+	{ prop = "Rock", size = Vector3.new(4, 3, 4), tint = Palette.churchyard.lichen },
+	--- A rotten beam, which is what the note above calls it: the model's own
+	--- timber is a fresh warm brown and read as a bright orange lump lying on
+	--- grey stone under a cold blue lamp.
+	{ prop = "Log", size = Vector3.new(6, 3, 3), tint = Palette.churchyard.timberDark },
+	--- The lantern keeps its own brass. It is the one warm thing down here
+	--- and painting it iron would make it a black shape in a dark room.
 	{ prop = "Lantern", size = Vector3.new(3.4, 7, 3) },
 }
 
@@ -422,6 +438,8 @@ function Structures.clutter(
 			size = spec.size,
 			cframe = CFrame.new(at + Vector3.new(0, spec.size.Y * 0.5, 0))
 				* CFrame.Angles(0, context.rng:NextNumber() * math.pi * 2, 0),
+			untextured = spec.tint ~= nil,
+			color = if spec.tint then Palette.color(spec.tint) else nil,
 			canCollide = false,
 			parent = folder,
 		})
