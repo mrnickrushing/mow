@@ -1778,4 +1778,42 @@ function Journal.currentObjective(): (string?, number, number)
 	return nil, 0, 0
 end
 
+export type JobRow = { text: string, progress: number, target: number, done: boolean }
+
+--[[
+	The next few objectives, for the HUD's own job panel.
+
+	`currentObjective` hands back one, which is what a single line of text
+	needed. The panel shows a short list — three is what fits, and a list is
+	what makes them read as a job rather than as a caption. Finished ones are
+	included, in order, because a ticked box is most of why anybody looks.
+]]
+function Journal.jobs(limit: number): { JobRow }
+	local out: { JobRow } = {}
+	for _, entry in questState do
+		if not entry.done then
+			table.insert(out, {
+				text = entry.text,
+				progress = entry.progress,
+				target = entry.target,
+				done = false,
+			})
+			if #out >= limit then
+				return out
+			end
+		end
+	end
+	for _, entry in questState do
+		if entry.done and #out < limit then
+			table.insert(out, {
+				text = entry.text,
+				progress = entry.progress,
+				target = entry.target,
+				done = true,
+			})
+		end
+	end
+	return out
+end
+
 return Journal

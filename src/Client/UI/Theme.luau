@@ -31,6 +31,19 @@ Theme.colors = {
 	outline = Palette.color(Palette.ui.outline),
 	progress = Palette.color(Palette.ui.progress),
 	accent = Palette.color(Palette.ui.accent),
+	--[[
+		Three inks the redesign needs and the palette did not name.
+
+		`label` replaces the 138,119,97 the small captions used to use, which
+		measures about 3.5:1 against the dark panels — under the 4.5:1 a
+		thirteen point label needs. `body` is running text on a dark panel,
+		and `ink` / `inkSoft` are the two weights of dark type that sit on a
+		cream card face, where white would vanish.
+	]]
+	label = Color3.fromRGB(179, 156, 126),
+	body = Color3.fromRGB(201, 179, 148),
+	ink = Color3.fromRGB(46, 36, 24),
+	inkSoft = Color3.fromRGB(110, 96, 80),
 }
 
 --- Rounded and heavy, to match the storybook tone of the world.
@@ -769,6 +782,379 @@ function Theme.icon(options: IconOptions): Frame
 	holder.Parent = options.parent
 	Theme.setIcon(holder, options.prop)
 	return holder
+end
+
+--------------------------------------------------------------------
+-- Chunk chrome
+--------------------------------------------------------------------
+
+--[[
+	The vocabulary everything in the redesign is cut from.
+
+	The HUD used to be panel-less — outlined text floating over the lawn — and
+	that is the single thing that read as unfinished beside the games in this
+	genre. Those put every element on a bevelled, hard-outlined panel with a
+	visible drop, and use colour to mean one thing consistently.
+
+	Roblox has neither `box-shadow` nor `linear-gradient` on a frame, so a
+	panel is composed of four pieces:
+
+	1. a shadow behind it, the same size, six pixels down;
+	2. the body, with a `UIGradient` running top to bottom;
+	3. a four-pixel border in the ink colour;
+	4. a three-pixel white bevel pinned inside the top edge at fourteen per
+	   cent, which is most of what makes the panel look moulded rather than
+	   flat.
+
+	The shadow has to be a *sibling*: a child always draws over its parent
+	whatever its `ZIndex`, so it cannot go behind the thing it belongs to. To
+	keep that out of every caller's layout, the builder makes a transparent
+	holder, puts the shadow and the body inside it, and hands back the body.
+	The holder is what a `UIListLayout` sees and what carries the size — reach
+	it with `body.Parent` if you need to reorder or reposition one later.
+]]
+export type ChunkOptions = {
+	name: string?,
+	size: UDim2?,
+	position: UDim2?,
+	anchor: Vector2?,
+	parent: Instance,
+	--- 18 for a panel, `Theme.PILL` for a capsule.
+	radius: number?,
+	--- How far the drop falls. 6 for panels and tiles, 5 for cards.
+	drop: number?,
+	outline: number?,
+	--- Height follows the contents, which is what an auto panel wants.
+	autoSize: Enum.AutomaticSize?,
+	zIndex: number?,
+	top: Color3?,
+	bottom: Color3?,
+	shadow: Color3?,
+	--- Off for a face that is already light, where a white bevel does nothing.
+	bevel: boolean?,
+}
+
+--- A pill's radius. `UICorner` takes a scale, and half of the shorter side is
+--- what makes a capsule at any height.
+Theme.PILL = -1
+
+local function cornerFor(parent: Instance, radius: number)
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = if radius == Theme.PILL then UDim.new(0.5, 0) else UDim.new(0, radius)
+	corner.Parent = parent
+end
+
+local function gradient(parent: Instance, top: Color3, bottom: Color3)
+	local grade = Instance.new("UIGradient")
+	grade.Color = ColorSequence.new(top, bottom)
+	grade.Rotation = 90
+	grade.Parent = parent
+	return grade
+end
+
+--- The inner highlight along the top edge. Three pixels of white at fourteen
+--- per cent on dark chrome, seventy on a cream face.
+local function bevel(parent: GuiObject, radius: number, strength: number)
+	local light = Instance.new("Frame")
+	light.Name = "Bevel"
+	light.Size = UDim2.new(1, -8, 0, 3)
+	light.Position = UDim2.new(0, 4, 0, 3)
+	light.BackgroundColor3 = Color3.new(1, 1, 1)
+	light.BackgroundTransparency = 1 - strength
+	light.BorderSizePixel = 0
+	--[[
+		The same layer as the face it sits on, not one above it.
+
+		This project's `ScreenGui`s run `ZIndexBehavior = Global`, where a
+		number is compared across the whole tree rather than among siblings —
+		so anything a caller parents into a panel at the default `ZIndex` of
+		one lands *behind* a panel body set to two, and the first build of
+		this came out as four black rectangles with no text in them. On a tie
+		the tree order decides, and children are walked after their parent, so
+		the face is drawn first and everything put inside it lands on top.
+	]]
+	light.ZIndex = parent.ZIndex
+	light.Parent = parent
+	cornerFor(light, 2)
+	return light
+end
+
+function Theme.chunkPanel(options: ChunkOptions): Frame
+	local radius = options.radius or 18
+	local drop = options.drop or 6
+	local z = options.zIndex or 1
+
+	local holder = Instance.new("Frame")
+	holder.Name = (options.name or "Panel") .. "Holder"
+	holder.Size = options.size or UDim2.fromOffset(100, 100)
+	holder.Position = options.position or UDim2.fromOffset(0, 0)
+	holder.AnchorPoint = options.anchor or Vector2.zero
+	holder.BackgroundTransparency = 1
+	holder.BorderSizePixel = 0
+	holder.ZIndex = z
+	if options.autoSize then
+		holder.AutomaticSize = options.autoSize
+	end
+	holder.Parent = options.parent
+
+	local shade = Instance.new("Frame")
+	shade.Name = "Drop"
+	shade.Size = UDim2.fromScale(1, 1)
+	shade.Position = UDim2.fromOffset(0, drop)
+	shade.BackgroundColor3 = options.shadow or Theme.colors.outline
+	shade.BorderSizePixel = 0
+	--- One below the face, so it is the drop and not a lid. See `bevel`.
+	shade.ZIndex = z - 1
+	shade.Parent = holder
+	cornerFor(shade, radius)
+
+	local body = Instance.new("Frame")
+	body.Name = options.name or "Panel"
+	body.Size = UDim2.fromScale(1, 1)
+	body.BackgroundColor3 = options.top or Theme.colors.panelLight
+	body.BorderSizePixel = 0
+	body.ZIndex = z
+	if options.autoSize then
+		body.Size = UDim2.new(1, 0, 0, 0)
+		body.AutomaticSize = options.autoSize
+	end
+	body.Parent = holder
+	cornerFor(body, radius)
+	gradient(body, options.top or Theme.colors.panelLight, options.bottom or Theme.colors.panel)
+	Theme.stroke(body, options.outline or 4, Theme.colors.outline, 0)
+	if options.bevel ~= false then
+		bevel(body, radius, 0.14)
+	end
+	return body
+end
+
+--[[
+	A cream card face — the Journal's tool cards, the world cards.
+
+	Same four pieces, a light gradient, and a stronger bevel because white on
+	cream at fourteen per cent is not there at all.
+]]
+function Theme.cardFace(options: ChunkOptions): Frame
+	local card = Theme.chunkPanel({
+		name = options.name or "Card",
+		size = options.size,
+		position = options.position,
+		anchor = options.anchor,
+		parent = options.parent,
+		radius = options.radius or 16,
+		drop = options.drop or 5,
+		outline = options.outline or 4,
+		autoSize = options.autoSize,
+		zIndex = options.zIndex,
+		top = options.top or Color3.fromRGB(255, 252, 241),
+		bottom = options.bottom or Color3.fromRGB(237, 225, 200),
+		bevel = false,
+	})
+	bevel(card, options.radius or 16, 0.7)
+	return card
+end
+
+--[[
+	One button language, and colour that means one thing everywhere.
+
+	Green is always run cash. Blue is always "Robux, this run". Purple is
+	always "Robux, forever". The store reading as spending real money is the
+	whole reason for that rule — the shipped UI puts the same green Buy button
+	on all three, so nothing on the screen tells a player which of their two
+	currencies is about to go.
+
+	The drop under a button is a darker shade of the button's own colour
+	rather than the ink outline. That is what makes it read as a slab you can
+	press rather than a label with a shadow.
+]]
+export type ButtonVariant = "primary" | "gold" | "robuxRun" | "robuxKeep" | "danger" | "disabled"
+
+local VARIANTS: {
+	[string]: { top: Color3, bottom: Color3, shadow: Color3, ink: Color3 },
+} = {
+	primary = {
+		top = Color3.fromRGB(143, 224, 124),
+		bottom = Color3.fromRGB(79, 184, 60),
+		shadow = Color3.fromRGB(46, 122, 36),
+		ink = Color3.fromRGB(18, 58, 12),
+	},
+	gold = {
+		top = Color3.fromRGB(255, 217, 104),
+		bottom = Color3.fromRGB(245, 168, 28),
+		shadow = Color3.fromRGB(169, 110, 8),
+		ink = Color3.fromRGB(24, 18, 10),
+	},
+	robuxRun = {
+		top = Color3.fromRGB(127, 198, 245),
+		bottom = Color3.fromRGB(62, 147, 216),
+		shadow = Color3.fromRGB(31, 94, 146),
+		ink = Color3.fromRGB(8, 36, 61),
+	},
+	robuxKeep = {
+		top = Color3.fromRGB(199, 155, 240),
+		bottom = Color3.fromRGB(142, 86, 200),
+		shadow = Color3.fromRGB(92, 50, 134),
+		ink = Color3.fromRGB(34, 9, 58),
+	},
+	danger = {
+		top = Color3.fromRGB(242, 102, 92),
+		bottom = Color3.fromRGB(208, 58, 48),
+		shadow = Color3.fromRGB(142, 36, 28),
+		ink = Color3.fromRGB(255, 255, 255),
+	},
+	--- Flat, and no drop: a dead button should not look pressable.
+	disabled = {
+		top = Color3.fromRGB(179, 166, 142),
+		bottom = Color3.fromRGB(179, 166, 142),
+		shadow = Color3.fromRGB(179, 166, 142),
+		ink = Color3.fromRGB(74, 64, 52),
+	},
+}
+
+export type ChunkButtonOptions = {
+	name: string?,
+	text: string?,
+	textSize: number?,
+	variant: ButtonVariant?,
+	size: UDim2?,
+	position: UDim2?,
+	anchor: Vector2?,
+	parent: Instance,
+	radius: number?,
+	drop: number?,
+	outline: number?,
+	autoSize: Enum.AutomaticSize?,
+	zIndex: number?,
+}
+
+--- Returns the button. Its holder is `button.Parent`, which is what a layout
+--- sees; parent anything you want inside the slab to the button itself.
+function Theme.chunkButton(options: ChunkButtonOptions): TextButton
+	local look = VARIANTS[options.variant or "primary"] or VARIANTS.primary
+	local radius = options.radius or 14
+	local drop = if options.variant == "disabled" then 0 else (options.drop or 5)
+	local z = options.zIndex or 1
+
+	local holder = Instance.new("Frame")
+	holder.Name = (options.name or "Button") .. "Holder"
+	holder.Size = options.size or UDim2.fromOffset(120, 44)
+	holder.Position = options.position or UDim2.fromOffset(0, 0)
+	holder.AnchorPoint = options.anchor or Vector2.zero
+	holder.BackgroundTransparency = 1
+	holder.BorderSizePixel = 0
+	holder.ZIndex = z
+	if options.autoSize then
+		holder.AutomaticSize = options.autoSize
+	end
+	holder.Parent = options.parent
+
+	if drop > 0 then
+		local shade = Instance.new("Frame")
+		shade.Name = "Drop"
+		shade.Size = UDim2.fromScale(1, 1)
+		shade.Position = UDim2.fromOffset(0, drop)
+		shade.BackgroundColor3 = look.shadow
+		shade.BorderSizePixel = 0
+		shade.ZIndex = z - 1
+		shade.Parent = holder
+		cornerFor(shade, radius)
+	end
+
+	local button = Instance.new("TextButton")
+	button.Name = options.name or "Button"
+	button.Size = UDim2.fromScale(1, 1)
+	button.BackgroundColor3 = look.top
+	button.BorderSizePixel = 0
+	button.AutoButtonColor = false
+	button.ZIndex = z
+	button.Font = Theme.font
+	button.Text = options.text or ""
+	button.TextColor3 = look.ink
+	button.TextSize = options.textSize or 18
+	if options.autoSize then
+		button.Size = UDim2.new(1, 0, 0, 0)
+		button.AutomaticSize = options.autoSize
+	end
+	button.Parent = holder
+	cornerFor(button, radius)
+	if look.top ~= look.bottom then
+		gradient(button, look.top, look.bottom)
+	end
+	Theme.stroke(button, options.outline or 3, Theme.colors.outline, 0)
+	if options.variant ~= "disabled" then
+		bevel(button, radius, 0.4)
+	end
+	return button
+end
+
+--[[
+	A dark chip: the clock, the tips count, the rail captions, the state word.
+
+	Always `ui.outline` with a pill radius, so a small piece of text on the
+	world reads without needing a whole panel behind it.
+]]
+export type ChipOptions = {
+	name: string?,
+	size: UDim2?,
+	position: UDim2?,
+	anchor: Vector2?,
+	parent: Instance,
+	autoSize: Enum.AutomaticSize?,
+	radius: number?,
+	transparency: number?,
+	zIndex: number?,
+}
+
+function Theme.chip(options: ChipOptions): Frame
+	local chip = Instance.new("Frame")
+	chip.Name = options.name or "Chip"
+	chip.Size = options.size or UDim2.fromOffset(60, 24)
+	chip.Position = options.position or UDim2.fromOffset(0, 0)
+	chip.AnchorPoint = options.anchor or Vector2.zero
+	chip.BackgroundColor3 = Theme.colors.outline
+	chip.BackgroundTransparency = options.transparency or 0
+	chip.BorderSizePixel = 0
+	chip.ZIndex = options.zIndex or 1
+	if options.autoSize then
+		chip.AutomaticSize = options.autoSize
+	end
+	chip.Parent = options.parent
+	cornerFor(chip, options.radius or Theme.PILL)
+	return chip
+end
+
+--- Padding that is not the same on all four sides, which most of the
+--- redesign's boxes need.
+function Theme.pad(
+	parent: Instance,
+	top: number,
+	right: number,
+	bottom: number,
+	left: number
+): UIPadding
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, top)
+	padding.PaddingRight = UDim.new(0, right)
+	padding.PaddingBottom = UDim.new(0, bottom)
+	padding.PaddingLeft = UDim.new(0, left)
+	padding.Parent = parent
+	return padding
+end
+
+--- A row or column of children with a fixed gap, which every box here wants.
+function Theme.flow(
+	parent: Instance,
+	direction: Enum.FillDirection,
+	gap: number,
+	align: Enum.VerticalAlignment?
+): UIListLayout
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = direction
+	layout.Padding = UDim.new(0, gap)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.VerticalAlignment = align or Enum.VerticalAlignment.Center
+	layout.Parent = parent
+	return layout
 end
 
 return Theme

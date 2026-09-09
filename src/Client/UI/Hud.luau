@@ -744,7 +744,8 @@ local function buildBag(gui: ScreenGui)
 		mouse there is no thumbstick and the corner is free.
 	]]
 	if UserInputService.TouchEnabled then
-		holder.Position = UDim2.new(0, 20, 0, 190)
+		--- Under the job panel, which is 22 down, 143 tall and wants 12 of air.
+		holder.Position = UDim2.new(0, 22, 0, 177)
 		holder.AnchorPoint = Vector2.new(0, 0)
 	else
 		holder.Position = UDim2.new(0, 20, 1, -22)
@@ -804,14 +805,16 @@ local function buildMiddle(gui: ScreenGui)
 		text = "",
 		size = UDim2.fromOffset(340, 34),
 		--[[
-			A fixed drop from the top, not a twentieth of the height.
+			Under the completion bar, not over it.
 
-			At 0.05 of a portrait iPad that is fifty pixels down, which is
-			inside the objective panel below it — the taller the screen, the
-			further this slid into something that had not moved. Pinned to the
-			edge it clears the panel at every height.
+			This was pinned fourteen pixels from the top edge, which was clear
+			air when the top of the screen was empty. The section bar is a
+			panel across the top centre now, a hundred and twenty-eight tall
+			and twenty-two down, and the rate was drawn straight through it.
+			Below the bar it is still the first thing under the number it is
+			about, and the middle of the screen stays empty either side.
 		]]
-		position = UDim2.new(0.55, 0, 0, 14),
+		position = UDim2.new(0.5, 0, 0, 22 + 128 + 8),
 		anchor = Vector2.new(0.5, 0),
 		parent = gui,
 		align = Enum.TextXAlignment.Center,
