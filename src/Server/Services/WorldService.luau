@@ -3975,6 +3975,47 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 					material = Enum.Material.Slate,
 					parent = parent,
 				})
+				--[[
+					Seams between the rolls, so the deck reads as a roof.
+
+					Swept clean, this was a hundred and seventy-six studs by
+					eighty of one flat brown with a teal rail round it — the
+					same fault the filling station's slab had, and found the
+					same way, by mowing it and standing on it. A flat roof is
+					covered in strips a few feet wide with a seam between
+					each, and that grid of lines is what gives a surface with
+					nothing on it a size.
+
+					Along whichever way the roof is longer, because that is
+					the way a roll is laid, and non-colliding so the sweep
+					that decides what a tile is buried under never sees them.
+				]]
+				local ROLL = 16
+				local rollsAlongX = r.w >= r.d
+				local wide, deep = r.w * TILE, r.d * TILE
+				local across = if rollsAlongX then deep else wide
+				local seams = Build.folder("RoofSeams", parent)
+				for step = 1, math.max(math.floor(across / ROLL) - 1, 0) do
+					local slide = -across * 0.5 + step * ROLL
+					Build.part({
+						name = "RoofSeam",
+						size = if rollsAlongX
+							then Vector3.new(wide + 4, 0.14, 0.6)
+							else Vector3.new(0.6, 0.14, deep + 4),
+						cframe = CFrame.new(
+							centre
+								+ Vector3.new(0, elevation + 0.06, 0)
+								+ (if rollsAlongX
+									then Vector3.new(0, 0, slide)
+									else Vector3.new(slide, 0, 0))
+						),
+						color = Palette.color(Palette.house.roofDark),
+						material = Enum.Material.Slate,
+						canCollide = false,
+						castShadow = false,
+						parent = seams,
+					})
+				end
 				-- A parapet, so a player on the roof does not simply walk off
 				-- it — broken only where the stairs come up.
 				Structures.parapet(context, section, 4, opening)
