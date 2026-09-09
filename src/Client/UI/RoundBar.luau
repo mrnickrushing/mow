@@ -67,7 +67,10 @@ local rows: { SectionRow } = {}
 local HERO_WIDTH = 566
 local HERO_HEIGHT = 128
 local JOB_ROWS = 3
-local JOB_WIDTH = 280
+--- Wide enough for the longest job line the journal writes. At 280, with a
+--- 74-pixel column for a count that never needs more than "100/100", "Sell 5
+--- units of clippings" was cut to "Sell 5 units of...".
+local JOB_WIDTH = 324
 --- Twelve of padding, an eighteen point header, then a row every twenty-nine.
 local JOB_HEIGHT = 12 + 18 + JOB_ROWS * 29 + 4
 
@@ -299,18 +302,18 @@ local function build()
 		local text = Theme.text({
 			name = `Text{index}`,
 			text = "",
-			size = UDim2.new(1, -110, 0, 20),
+			size = UDim2.new(1, -92, 0, 20),
 			position = UDim2.fromOffset(30, y),
 			parent = jobPanel,
 			color = Theme.colors.progress,
-			textSize = 16,
+			textSize = 15,
 		})
 		text.TextTruncate = Enum.TextTruncate.AtEnd
 
 		local count = Theme.text({
 			name = `Count{index}`,
 			text = "",
-			size = UDim2.fromOffset(74, 20),
+			size = UDim2.fromOffset(58, 20),
 			position = UDim2.new(1, 0, 0, y),
 			anchor = Vector2.new(1, 0),
 			parent = jobPanel,

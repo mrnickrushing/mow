@@ -302,6 +302,10 @@ local GRADE: { [string]: { fill: Color3, ink: Color3 } } = {
 	Easy = { fill = Color3.fromRGB(79, 184, 60), ink = Color3.fromRGB(14, 50, 8) },
 	Medium = { fill = Theme.colors.warn, ink = Color3.fromRGB(58, 28, 0) },
 	Hard = { fill = Theme.colors.danger, ink = Color3.fromRGB(255, 240, 238) },
+	--- The Cemetery. Four difficulties exist and this table listed three, so
+	--- the hardest property in the game wore the same dead brown as a
+	--- property you cannot play.
+	Nightmare = { fill = Color3.fromRGB(126, 74, 196), ink = Color3.fromRGB(250, 240, 255) },
 }
 
 --[[
@@ -507,10 +511,41 @@ local function drawCard(world: Types.WorldDef, order: number)
 	end
 end
 
+--[[
+	What the cards are drawn from, as a string.
+
+	`refresh` is wired to `PlayerState.Changed`, which fires several times a
+	second while the panel is up, and it used to tear down all four cards and
+	build them again every time. Nothing on a card had changed — but the
+	button under the player's cursor was destroyed between the press and the
+	release, so START A RUN did nothing at all, forever. Redraw when what is
+	printed on them actually changes.
+]]
+local function cardSignature(): string
+	local state = PlayerState.get()
+	local parts = {}
+	for _, world in Worlds.list do
+		local open = if isUnlocked(world) then 1 else 0
+		table.insert(parts, `{world.id}:{open}:{state.bestTimes[world.id] or 0}`)
+	end
+	return table.concat(parts, "|")
+end
+
+--- The signature the cards on screen were built from, or nil for none.
+local drawnSignature: string? = nil
+
 function LevelSelect.refresh()
 	if not gui then
 		return
 	end
+
+	local signature = cardSignature()
+	if signature == drawnSignature then
+		refreshSettings()
+		return
+	end
+	drawnSignature = signature
+
 	for _, child in mapHolder:GetChildren() do
 		if child:IsA("GuiObject") then
 			child:Destroy()
