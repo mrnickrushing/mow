@@ -131,7 +131,7 @@ for index = 1, 14 do
 	stripe.BackgroundTransparency = 0.55
 	stripe.BorderSizePixel = 0
 	stripe.Size = UDim2.new(1, 0, 0, 6)
-	stripe.Position = UDim2.new(0, 0, 0, index * 22)
+	stripe.Position = UDim2.fromOffset(0, index * 22)
 	stripe.Parent = cut
 end
 
@@ -141,7 +141,7 @@ local mower = Instance.new("Frame")
 mower.Name = "Mower"
 mower.AnchorPoint = Vector2.new(0.5, 1)
 mower.Size = UDim2.fromOffset(78, 46)
-mower.Position = UDim2.new(0, -80, 0, 0)
+mower.Position = UDim2.fromOffset(-80, 0)
 mower.BackgroundTransparency = 1
 mower.Parent = lawn
 
@@ -266,7 +266,7 @@ local function label(name: string, text: string, y: number, height: number, size
 	return it
 end
 
-local title = label("Title", "MOW MONEY, MOW PROBLEMS!", 0.30, 0.11, 40, 4)
+label("Title", "MOW MONEY, MOW PROBLEMS!", 0.30, 0.11, 40, 4)
 local status = label("Status", "Waking the neighbourhood…", 0.42, 0.045, 20, 2.5)
 status.Font = Enum.Font.GothamBold
 

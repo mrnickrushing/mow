@@ -854,11 +854,11 @@ end
 
 --- The inner highlight along the top edge. Three pixels of white at fourteen
 --- per cent on dark chrome, seventy on a cream face.
-local function bevel(parent: GuiObject, radius: number, strength: number)
+local function bevel(parent: GuiObject, strength: number)
 	local light = Instance.new("Frame")
 	light.Name = "Bevel"
 	light.Size = UDim2.new(1, -8, 0, 3)
-	light.Position = UDim2.new(0, 4, 0, 3)
+	light.Position = UDim2.fromOffset(4, 3)
 	light.BackgroundColor3 = Color3.new(1, 1, 1)
 	light.BackgroundTransparency = 1 - strength
 	light.BorderSizePixel = 0
@@ -915,7 +915,7 @@ function Theme.chunkPanel(options: ChunkOptions): Frame
 	body.BorderSizePixel = 0
 	body.ZIndex = z
 	if options.autoSize then
-		body.Size = UDim2.new(1, 0, 0, 0)
+		body.Size = UDim2.fromScale(1, 0)
 		body.AutomaticSize = options.autoSize
 	end
 	body.Parent = holder
@@ -923,7 +923,7 @@ function Theme.chunkPanel(options: ChunkOptions): Frame
 	gradient(body, options.top or Theme.colors.panelLight, options.bottom or Theme.colors.panel)
 	Theme.stroke(body, options.outline or 4, Theme.colors.outline, 0)
 	if options.bevel ~= false then
-		bevel(body, radius, 0.14)
+		bevel(body, 0.14)
 	end
 	return body
 end
@@ -950,7 +950,7 @@ function Theme.cardFace(options: ChunkOptions): Frame
 		bottom = options.bottom or Color3.fromRGB(237, 225, 200),
 		bevel = false,
 	})
-	bevel(card, options.radius or 16, 0.7)
+	bevel(card, 0.7)
 	return card
 end
 
@@ -1072,7 +1072,7 @@ function Theme.chunkButton(options: ChunkButtonOptions): TextButton
 	button.TextColor3 = look.ink
 	button.TextSize = options.textSize or 18
 	if options.autoSize then
-		button.Size = UDim2.new(1, 0, 0, 0)
+		button.Size = UDim2.fromScale(1, 0)
 		button.AutomaticSize = options.autoSize
 	end
 	button.Parent = holder
@@ -1082,7 +1082,7 @@ function Theme.chunkButton(options: ChunkButtonOptions): TextButton
 	end
 	Theme.stroke(button, options.outline or 3, Theme.colors.outline, 0)
 	if options.variant ~= "disabled" then
-		bevel(button, radius, 0.4)
+		bevel(button, 0.4)
 	end
 	return button
 end

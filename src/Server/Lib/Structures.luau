@@ -667,7 +667,6 @@ function Structures.wallRing(options: WallRingOptions)
 			local low, high = run[1], run[2]
 			local length = high - low
 			if length > 0.1 then
-				local mid = (low + high) * 0.5
 				--[[
 					One plain part per run, in the caller's material.
 
@@ -1051,18 +1050,18 @@ function Structures.room(
 		local STAIRWELL_RUN = 38
 		local half = math.max(math.min((opening and opening.width or 0), math.huge), 0) * 0.5
 		local alongX = opening ~= nil and math.abs(opening.normal.Z) > 0.5
-		local at = if opening then (opening.offset or 0) else 0
+		local openingAt = if opening then (opening.offset or 0) else 0
 		local wellLowX, wellHighX, wellLowZ, wellHighZ
 		if not opening then
 			wellLowX, wellHighX, wellLowZ, wellHighZ = 0, 0, 0, 0
 		elseif alongX then
 			local far = opening.normal.Z > 0
-			wellLowX, wellHighX = at - half, at + half
+			wellLowX, wellHighX = openingAt - half, openingAt + half
 			wellLowZ = if far then depth * 0.5 - STAIRWELL_RUN else -depth * 0.5
 			wellHighZ = if far then depth * 0.5 else -depth * 0.5 + STAIRWELL_RUN
 		else
 			local far = opening.normal.X > 0
-			wellLowZ, wellHighZ = at - half, at + half
+			wellLowZ, wellHighZ = openingAt - half, openingAt + half
 			wellLowX = if far then width * 0.5 - STAIRWELL_RUN else -width * 0.5
 			wellHighX = if far then width * 0.5 else -width * 0.5 + STAIRWELL_RUN
 		end
@@ -2801,8 +2800,15 @@ function Structures.graves(context: Context, zone: Types.ZoneDef)
 					parent = folder,
 				})
 			elseif roll < 0.30 then
-				-- Nothing here but grass.
-			elseif roll < 0.42 then
+				--[[
+					Nothing here but grass — an empty branch on purpose.
+
+					A churchyard where every plot has something standing on it
+					reads as a model village; the gaps are what make the stones
+					look placed rather than tiled. Selene flags this and it is
+					right to: an empty branch is usually a forgotten one. This
+					one is the plot that was never marked.
+				]]
 				--- A kerbed plot whose stone is long gone.
 				Build.part({
 					name = "Plot",

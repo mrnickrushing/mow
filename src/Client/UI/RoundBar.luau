@@ -140,7 +140,7 @@ local function build()
 	local clock = Theme.chip({
 		name = "Clock",
 		size = UDim2.fromOffset(118, 28),
-		position = UDim2.new(1, 0, 0.5, 0),
+		position = UDim2.fromScale(1, 0.5),
 		anchor = Vector2.new(1, 0.5),
 		parent = top,
 	})
@@ -288,16 +288,16 @@ local function build()
 		Theme.corner(box, 6)
 		Theme.stroke(box, 3, Theme.colors.outline, 0)
 
-		local tick = Instance.new("Frame")
-		tick.Name = "Tick"
-		tick.Size = UDim2.fromOffset(10, 10)
-		tick.Position = UDim2.fromScale(0.5, 0.5)
-		tick.AnchorPoint = Vector2.new(0.5, 0.5)
-		tick.BackgroundColor3 = Theme.colors.cash
-		tick.BorderSizePixel = 0
-		tick.Visible = false
-		tick.Parent = box
-		Theme.corner(tick, 3)
+		local ticked = Instance.new("Frame")
+		ticked.Name = "Tick"
+		ticked.Size = UDim2.fromOffset(10, 10)
+		ticked.Position = UDim2.fromScale(0.5, 0.5)
+		ticked.AnchorPoint = Vector2.new(0.5, 0.5)
+		ticked.BackgroundColor3 = Theme.colors.cash
+		ticked.BorderSizePixel = 0
+		ticked.Visible = false
+		ticked.Parent = box
+		Theme.corner(ticked, 3)
 
 		local text = Theme.text({
 			name = `Text{index}`,
@@ -322,7 +322,7 @@ local function build()
 			textSize = 14,
 		})
 
-		table.insert(jobRows, { box = box, tick = tick, text = text, count = count })
+		table.insert(jobRows, { box = box, tick = ticked, text = text, count = count })
 	end
 end
 

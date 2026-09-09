@@ -467,8 +467,8 @@ local function faceTheYard()
 		]]
 		for _ = 1, 166 do
 			task.wait(0.15)
-			local camera = workspace.CurrentCamera
-			if not camera then
+			local live = workspace.CurrentCamera
+			if not live then
 				continue
 			end
 			--[[
@@ -479,7 +479,7 @@ local function faceTheYard()
 				towards the lobby once every tick. It is left alone, and the
 				aim happens again when it hands the camera back below.
 			]]
-			if Intro.isPlaying() or camera.CameraType ~= Enum.CameraType.Custom then
+			if Intro.isPlaying() or live.CameraType ~= Enum.CameraType.Custom then
 				continue
 			end
 			--[[
@@ -496,18 +496,18 @@ local function faceTheYard()
 			if not target then
 				continue
 			end
-			local eye = camera.CFrame.Position
+			local eye = live.CFrame.Position
 			local flat = Vector3.new(target.X, eye.Y, target.Z)
 			local want = flat - eye
 			if want.Magnitude < 1 then
 				return
 			end
-			local facing = camera.CFrame.LookVector:Dot(want.Unit)
+			local facing = live.CFrame.LookVector:Dot(want.Unit)
 			-- Already there, and nothing pulled it away: finished.
 			if facing > 0.99 then
 				return
 			end
-			camera.CFrame = CFrame.lookAt(eye, flat)
+			live.CFrame = CFrame.lookAt(eye, flat)
 		end
 	end)
 end
