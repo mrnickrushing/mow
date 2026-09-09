@@ -44,7 +44,18 @@ local tipsLabel: TextLabel
 local bagCountLabel: TextLabel
 local bagCapacityLabel: TextLabel
 local rateLabel: TextLabel
+local purseHolder: Frame
+local tipsHolder: Frame
+local multiplierHolder: Frame
 local toolButton: TextButton
+--[[
+	The word the first run puts under the tool button, or nothing.
+
+	`refresh` writes that label five times a second from `MowController`, so a
+	coaching step cannot simply set it and walk away — it has to be the thing
+	refresh is reading.
+]]
+local coachWord: string? = nil
 local toolIcon: Frame
 local toolStateLabel: TextLabel
 local toolNameLabel: TextLabel
@@ -211,6 +222,8 @@ local function buildRightColumn(gui: ScreenGui)
 
 	-- The coin is drawn rather than an image so there is no asset to upload, and
 	-- it reads at a glance as "this number is money" the way a $ alone does not.
+	purseHolder = purse.Parent :: Frame
+
 	local coin = circle(purse, 40, Color3.fromRGB(255, 224, 138))
 	coin.Name = "Coin"
 	coin.Position = UDim2.new(0, 10, 0.5, 0)
@@ -252,6 +265,8 @@ local function buildRightColumn(gui: ScreenGui)
 		parent = column,
 	})
 
+	tipsHolder = tipsChip
+
 	local tipsDot = circle(tipsChip, 11, Theme.colors.tips)
 	tipsDot.Position = UDim2.new(0, 13, 0.5, 0)
 	tipsDot.AnchorPoint = Vector2.new(0, 0.5)
@@ -274,6 +289,8 @@ local function buildRightColumn(gui: ScreenGui)
 		anchor = Vector2.new(1, 0),
 		parent = column,
 	})
+
+	multiplierHolder = multiplierChip
 
 	multiplierLabel = Theme.text({
 		name = "Multiplier",
@@ -368,6 +385,10 @@ local function buildRightColumn(gui: ScreenGui)
 	bang.TextYAlignment = Enum.TextYAlignment.Center
 
 	local bookLabel = caption("BookLabel", "JOURNAL", 210)
+	--- The holder, not the face: the face's parent carries the drop, and
+	--- hiding the face alone leaves a black square on the lawn.
+	RunOnly.piece("rail", (book.Parent :: Frame).Parent :: GuiObject, true)
+	RunOnly.piece("rail", (bookLabel.Parent :: Frame), true)
 
 	local soundHit = tile("Sound", 246)
 	local soundFace = soundHit.Parent :: Frame
@@ -384,6 +405,8 @@ local function buildRightColumn(gui: ScreenGui)
 	note.TextYAlignment = Enum.TextYAlignment.Center
 
 	local soundLabel = caption("SoundLabel", "SOUND ON", 328)
+	RunOnly.piece("rail", soundFace.Parent :: GuiObject, true)
+	RunOnly.piece("rail", (soundLabel.Parent :: Frame), true)
 
 	--[[
 		The store is a pill, not a third tile.
@@ -424,6 +447,8 @@ local function buildRightColumn(gui: ScreenGui)
 	})
 	shopWord.ZIndex = shop.ZIndex + 1
 
+	RunOnly.piece("rail", shop.Parent :: GuiObject, true)
+
 	shop.Activated:Connect(function()
 		Store.toggle()
 	end)
@@ -462,7 +487,9 @@ local function buildRightColumn(gui: ScreenGui)
 			end
 			Theme.reround(face, if phone then 14 else 20)
 			local chip = labels[index].Parent :: Frame
-			chip.Visible = not phone
+			--- The first run holds the whole rail back, captions included, so
+			--- this is not the only rule about whether they are up.
+			chip.Visible = not phone and not RunOnly.isHeld(chip)
 		end
 
 		local shopHolder = shop.Parent :: Frame
@@ -504,6 +531,7 @@ local function buildRightColumn(gui: ScreenGui)
 	})
 	Theme.pad(fuelPanel, 9, 12, 11, 12)
 	;(fuelPanel.Parent :: Frame).Visible = false
+	RunOnly.piece("fuel", fuelPanel.Parent :: Frame)
 	Theme.chromeScale(fuelPanel.Parent :: Frame, true)
 
 	Theme.text({
@@ -571,6 +599,7 @@ local function buildRightColumn(gui: ScreenGui)
 	-- the lobby on the frame between being built and being told.
 	toolButton.Visible = false
 	toolButton.Parent = gui
+	RunOnly.piece("tool", toolButton)
 
 	local round = Instance.new("UICorner")
 	round.CornerRadius = UDim.new(0.5, 0)
@@ -658,19 +687,57 @@ local function buildRightColumn(gui: ScreenGui)
 		stateChip.Size = UDim2.fromOffset(if phone then 120 else 160, if phone then 28 else 34)
 	end
 
+	--[[
+		A reading of the jump control that can be trusted.
+
+		Roblox lays its own touch controls out, and while it is doing so the
+		button reports a position that is nowhere near where it will end up —
+		measured here at (630, 332) on a 1375 x 973 screen, which is the middle
+		of the sky. Whatever ran `parkTool` on that frame put the tool button,
+		its name and its state chip up there with it, and nothing moved them
+		back: the next call only comes with the next resize.
+
+		A jump control is always in the bottom-right quarter of the screen. A
+		reading that is not is a reading taken mid-layout, and the answer is to
+		leave everything where it is and be asked again.
+	]]
+	local parked = false
+
+	local function jumpControl(area: Vector2): GuiObject?
+		local playerGui = player:FindFirstChild("PlayerGui")
+		local touchGui = playerGui and (playerGui :: any):FindFirstChild("TouchGui")
+		local found = touchGui and touchGui:FindFirstChild("JumpButton", true)
+		if not (found and found:IsA("GuiObject")) then
+			return nil
+		end
+		local jump = found :: GuiObject
+		if jump.AbsoluteSize.Y <= 8 then
+			return nil
+		end
+		local at = jump.AbsolutePosition
+		if at.X < area.X * 0.5 or at.Y < area.Y * 0.5 then
+			return nil
+		end
+		return jump
+	end
+
 	local function parkTool()
 		if not (toolButton and toolStateLabel and toolNameLabel and stateChip) then
 			return false
 		end
-		local touchGui = player:FindFirstChild("PlayerGui") and (player.PlayerGui :: any):FindFirstChild("TouchGui")
-		local jump = touchGui and touchGui:FindFirstChild("JumpButton", true)
 		local area = gui.AbsoluteSize
 		local width, height = toolButton.AbsoluteSize.X, toolButton.AbsoluteSize.Y
 		if width < 1 or area.X < 1 then
 			return false
 		end
+		local jump = jumpControl(area)
+		--- Once it has been placed against a real control, a bad reading is
+		--- worth nothing and the last good placement is worth keeping.
+		if not jump and parked then
+			return false
+		end
 		local fromRight, fromBottom
-		if jump and jump:IsA("GuiObject") and jump.AbsoluteSize.Y > 8 then
+		if jump then
 			fromRight = area.X - (jump.AbsolutePosition.X + jump.AbsoluteSize.X * 0.5) + width * 0.5
 			--[[
 				The daylight over the jump button has to hold the word as well
@@ -680,6 +747,7 @@ local function buildRightColumn(gui: ScreenGui)
 			]]
 			local stateRoom = stateChip.AbsoluteSize.Y + 10
 			fromBottom = area.Y - jump.AbsolutePosition.Y + stateRoom
+			parked = true
 		else
 			fromRight, fromBottom = 26, 250
 		end
@@ -819,6 +887,7 @@ local function buildBag(gui: ScreenGui)
 	]]
 	holder.Position = UDim2.fromOffset(22, 155)
 	holder.AnchorPoint = Vector2.new(0, 0)
+	RunOnly.piece("bag", holder)
 	RunOnly.add(holder)
 	Theme.chromeScale(holder, true)
 
@@ -948,6 +1017,7 @@ local function buildMiddle(gui: ScreenGui)
 		color = Theme.colors.cash,
 		textSize = 27,
 	})
+	RunOnly.piece("rate", rateLabel)
 	RunOnly.add(rateLabel)
 	Theme.chromeScale(rateLabel)
 	--- The bar above it is two rows on a phone rather than three, so the line
@@ -998,6 +1068,7 @@ local function build(): ScreenGui
 	toastHolder.AnchorPoint = Vector2.new(0.5, 1)
 	toastHolder.BackgroundTransparency = 1
 	toastHolder.Parent = gui
+	RunOnly.piece("toasts", toastHolder)
 	Theme.chromeScale(toastHolder)
 
 	local toastLayout = Instance.new("UIListLayout")
@@ -1116,6 +1187,18 @@ function Hud.bagged(units: number)
 end
 
 function Hud.toast(kind: string, message: string)
+	--[[
+		Nothing shouts over a coaching step.
+
+		The first two steps are one instruction on an otherwise empty screen,
+		and the game has plenty to say while they run — a stripe banked, a
+		load sold, a tip earned. Held back rather than queued: by the time the
+		step is over the news is stale.
+	]]
+	if RunOnly.isHeld(toastHolder) then
+		return
+	end
+
 	toastOrder += 1
 
 	local ink = NOTICE_COLORS[kind] or Theme.colors.text
@@ -1323,8 +1406,11 @@ local function refresh()
 	local tool = Tools.get(state.equippedTool)
 	Theme.setIcon(toolIcon, if tool then Props.forTool(tool.id, tool.category) else Props.FALLBACK_TOOL_ICON)
 	toolNameLabel.Text = if tool then tool.name else ""
-	toolStateLabel.Text = MowController.actionLabel()
-	toolStateLabel.TextColor3 = if MowController.isMowing() then Theme.colors.cash else Theme.colors.subtext
+	toolStateLabel.Text = coachWord or MowController.actionLabel()
+	toolStateLabel.TextColor3 = if coachWord ~= nil
+		then Theme.colors.tips
+		elseif MowController.isMowing() then Theme.colors.cash
+		else Theme.colors.subtext
 	--[[
 		A tool to show, and somewhere to use it.
 
@@ -1335,14 +1421,14 @@ local function refresh()
 		does not work: this line runs five times a second and would turn it
 		straight back on. So it asks.
 	]]
-	toolButton.Visible = tool ~= nil and RunOnly.isRunning()
+	toolButton.Visible = tool ~= nil and RunOnly.permits(toolButton)
 	toolNameLabel.Visible = toolButton.Visible
 
 	local burnsFuel = tool ~= nil and tool.fuelBurn > 0
 	--- The holder carries the drop shadow, so hiding the body alone would
 	--- leave a dark rectangle sitting on the lawn with nothing on it.
 	local fuelHolder = fuelPanel.Parent :: Frame
-	fuelHolder.Visible = burnsFuel and state.fuelCapacity > 0 and RunOnly.isRunning()
+	fuelHolder.Visible = burnsFuel and state.fuelCapacity > 0 and RunOnly.permits(fuelHolder)
 	if fuelHolder.Visible then
 		local fuelFraction = math.clamp(state.fuel / state.fuelCapacity, 0, 1)
 		fuelFill.Size = UDim2.fromScale(fuelFraction, 1)
@@ -1509,6 +1595,107 @@ function Hud.start()
 end
 
 --- Shows or hides the red dot on the journal.
+--[[
+	The one lit thing on a first run.
+
+	The handoff's first step is a screen with almost nothing on it and a
+	hundred-and-twenty-four point button that cannot be missed: five pixels of
+	`ui.tips` round its edge, a soft ring outside that, and a glow behind it.
+	Three concentric circles rather than a radial gradient, because Roblox has
+	no radial gradient and an uploaded png for this would be an asset to
+	maintain for one screen.
+
+	The rings are children of the button, so `parkTool` moving it above the
+	jump control moves them too.
+]]
+--[[
+	The money, standing down.
+
+	The first coaching step wants the cash capsule at forty per cent — present,
+	because a player should see where their money will appear, but not
+	competing with the one lit button. Roblox has no group opacity, so this
+	walks the capsule and blends every transparency it finds towards one,
+	remembering what each was so it can be put back exactly.
+]]
+local dimmed: { [Instance]: { [string]: number } } = {}
+
+local function fade(object: Instance, amount: number)
+	local known = dimmed[object]
+	if not known then
+		local record: { [string]: number } = {}
+		if object:IsA("GuiObject") then
+			record.BackgroundTransparency = object.BackgroundTransparency
+		end
+		if object:IsA("TextLabel") or object:IsA("TextButton") then
+			record.TextTransparency = object.TextTransparency
+			record.TextStrokeTransparency = object.TextStrokeTransparency
+		end
+		if object:IsA("UIStroke") then
+			record.Transparency = object.Transparency
+		end
+		dimmed[object] = record
+		known = record
+	end
+	for property, original in known do
+		(object :: any)[property] = original + (1 - original) * amount
+	end
+end
+
+--- `on` puts the purse and its two chips at forty per cent; off restores them.
+function Hud.dimPurse(on: boolean)
+	local amount = if on then 0.6 else 0
+	for _, root in { purseHolder, tipsHolder, multiplierHolder } do
+		if root then
+			fade(root, amount)
+			for _, child in root:GetDescendants() do
+				fade(child, amount)
+			end
+		end
+	end
+end
+
+function Hud.spotlight(on: boolean, word: string?)
+	coachWord = if on then word else nil
+
+	local edge = toolButton:FindFirstChildOfClass("UIStroke")
+	if edge then
+		edge.Color = if on then Theme.colors.tips else Theme.colors.outline
+	end
+
+	local halo = toolButton:FindFirstChild("Halo")
+	if on and not halo then
+		local glow = Instance.new("Frame")
+		glow.Name = "Halo"
+		glow.Size = UDim2.fromScale(1, 1)
+		glow.Position = UDim2.fromScale(0.5, 0.5)
+		glow.AnchorPoint = Vector2.new(0.5, 0.5)
+		glow.BackgroundTransparency = 1
+		glow.BorderSizePixel = 0
+		--- Behind the button it belongs to. See the note in `Theme.bevel`
+		--- about this project's `ZIndexBehavior`.
+		glow.ZIndex = toolButton.ZIndex - 1
+		glow.Parent = toolButton
+
+		for index, ring in { { 1.13, 0.78 }, { 1.4, 0.88 }, { 1.75, 0.94 } } do
+			local circle_ = Instance.new("Frame")
+			circle_.Name = `Ring{index}`
+			circle_.Size = UDim2.fromScale(ring[1], ring[1])
+			circle_.Position = UDim2.fromScale(0.5, 0.5)
+			circle_.AnchorPoint = Vector2.new(0.5, 0.5)
+			circle_.BackgroundColor3 = Theme.colors.tips
+			circle_.BackgroundTransparency = ring[2]
+			circle_.BorderSizePixel = 0
+			circle_.ZIndex = glow.ZIndex
+			circle_.Parent = glow
+			local round_ = Instance.new("UICorner")
+			round_.CornerRadius = UDim.new(0.5, 0)
+			round_.Parent = circle_
+		end
+	elseif halo and not on then
+		halo:Destroy()
+	end
+end
+
 function Hud.setJournalBadge(visible: boolean)
 	journalBadge.Visible = visible
 end

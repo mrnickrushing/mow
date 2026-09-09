@@ -85,6 +85,10 @@ Remotes.LOBBY_CONFIRM = "LobbyConfirm"
 --- Client -> server: the opening has been watched or skipped; do not show it
 --- again.
 Remotes.INTRO_DONE = "IntroDone"
+--- Client -> server: the four coaching steps are finished or skipped. Same
+--- shape as `INTRO_DONE`, and for the same reason: the client is the only one
+--- that knows whether the player actually got to the end.
+Remotes.FIRST_RUN_DONE = "FirstRunDone"
 
 local UNRELIABLE: { [string]: boolean } = {
 	[Remotes.MOW_INTENT] = true,
@@ -108,6 +112,7 @@ local EVENTS = {
 	Remotes.QUESTS,
 	Remotes.LOBBY_CONFIRM,
 	Remotes.INTRO_DONE,
+	Remotes.FIRST_RUN_DONE,
 	Remotes.ADMIN,
 	Remotes.SETTINGS,
 }

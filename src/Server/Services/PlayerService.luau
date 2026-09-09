@@ -56,6 +56,8 @@ export type StatePayload = {
 	worldsBeaten: { [string]: boolean },
 	bestTimes: { [string]: number },
 	showIntro: boolean,
+	--- True until the four coaching steps have been walked or skipped.
+	showFirstRun: boolean,
 	--- False when the player has muted the game. Sent so the setting survives
 	--- a rejoin; without it the toggle resets to on every session and the
 	--- saved value could never be observed.
@@ -77,6 +79,8 @@ function PlayerService.buildState(player: Player): StatePayload?
 		bestTimes = if profile then profile.bestTimes else {},
 		--- True until the opening has been watched once.
 		showIntro = profile ~= nil and not profile.introSeen,
+		--- True until the four coaching steps have been walked or skipped.
+		showFirstRun = profile ~= nil and not profile.firstRunDone,
 		sfxEnabled = profile == nil or profile.sfxEnabled ~= false,
 		cash = run.cash,
 		tips = EconomyService.tips(player),
@@ -409,6 +413,19 @@ function PlayerService.start()
 		end
 		DataService.withProfile(player, function(saved)
 			saved.introSeen = true
+		end)
+		PlayerService.push(player)
+	end)
+
+	--- The coaching steps are walked once. Same handler as the opening, and
+	--- the same reason for reading the flag before writing it.
+	Remotes.event(Remotes.FIRST_RUN_DONE).OnServerEvent:Connect(function(player: Player)
+		local profile = DataService.get(player)
+		if profile == nil or profile.firstRunDone then
+			return
+		end
+		DataService.withProfile(player, function(saved)
+			saved.firstRunDone = true
 		end)
 		PlayerService.push(player)
 	end)

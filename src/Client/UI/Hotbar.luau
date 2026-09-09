@@ -427,6 +427,7 @@ function Hotbar.start()
 
 	holder = Instance.new("Frame")
 	holder.Name = "Slots"
+	RunOnly.piece("hotbar", holder)
 	RunOnly.add(holder)
 	--- Eighty-two of slot and ten of gap, plus the drop and the underline
 	--- hanging below the last row.

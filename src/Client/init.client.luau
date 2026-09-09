@@ -33,6 +33,7 @@ local Intro = require(script.UI.Intro)
 local Outro = require(script.UI.Outro)
 local RoundEnd = require(script.UI.RoundEnd)
 local Overgrowth = require(script.UI.Overgrowth)
+local FirstRun = require(script.UI.FirstRun)
 local LevelSelect = require(script.UI.LevelSelect)
 
 PlayerState.start()
@@ -60,6 +61,9 @@ Outro.start()
 RoundEnd.start()
 Overgrowth.start()
 Hud.start()
+--- After the HUD, because it holds pieces of it back and they have to exist
+--- to be held.
+FirstRun.start()
 Admin.start()
 AffordController.start()
 

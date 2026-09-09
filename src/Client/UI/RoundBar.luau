@@ -96,6 +96,15 @@ local HERO_HEIGHT = 128
 ]]
 local PHONE_WIDTH = 390
 local PHONE_HEIGHT = 98
+--[[
+	And once more, a little wider, while the first run is being taught.
+
+	The coaching card is the thing being read on that screen and the bar is
+	context for it, so it wears the same two rows a phone gets — at four
+	hundred and twenty, which is the width the handoff draws it at.
+]]
+local COACH_WIDTH = 420
+local reduced = false
 local JOB_ROWS = 3
 --- Wide enough for the longest job line the journal writes. At 280, with a
 --- 74-pixel column for a count that never needs more than "100/100", "Sell 5
@@ -126,6 +135,7 @@ local function build()
 	--- to be hidden in the lobby and scaled on a phone.
 	local holder = hero.Parent :: Frame
 	heroHolder = holder
+	RunOnly.piece("hero", holder)
 	RunOnly.add(holder)
 	Theme.chromeScale(holder, true)
 
@@ -334,6 +344,7 @@ local function build()
 	Theme.pad(jobPanel, 12, 14, 12, 14)
 	local jobHolder = jobPanel.Parent :: Frame
 	jobHolder_ = jobHolder
+	RunOnly.piece("job", jobHolder)
 	RunOnly.add(jobHolder)
 	Theme.chromeScale(jobHolder)
 
@@ -771,10 +782,10 @@ end
 	already is.
 ]]
 local function layoutHero()
-	local small = Theme.isPhone()
+	local small = Theme.isPhone() or reduced
 	phone = small
 
-	local width = if small then PHONE_WIDTH else HERO_WIDTH
+	local width = if reduced then COACH_WIDTH elseif small then PHONE_WIDTH else HERO_WIDTH
 	local height = if small then PHONE_HEIGHT else HERO_HEIGHT
 	heroHolder.Size = UDim2.fromOffset(width, height)
 	heroTrack.Position = UDim2.fromOffset(0, if small then 42 else 44)
@@ -785,9 +796,26 @@ local function layoutHero()
 	gateLabel.Visible = not small
 
 	edgeChip.Position = UDim2.new(0.5, 0, 0, 22 + height + 8 + 38)
+	--[[
+		The objective panel goes with the third row, in both of the shapes
+		that lose it.
+
+		On a phone there is no room for it. During the first run the coaching
+		card is the objective, and a second panel saying what to do next
+		beside it is the thing screen 6 is built to avoid.
+	]]
 	RunOnly.suppress(jobHolder_, small)
 
 	refreshSection()
+end
+
+--- Two rows and four hundred and twenty wide, while the first run is on.
+function RoundBar.setReduced(on: boolean)
+	if on == reduced then
+		return
+	end
+	reduced = on
+	layoutHero()
 end
 
 function RoundBar.start()

@@ -68,6 +68,7 @@ export type State = {
 	worldsBeaten: { [string]: boolean },
 	bestTimes: { [string]: number },
 	showIntro: boolean,
+	showFirstRun: boolean,
 	--- False when this player has muted the game.
 	sfxEnabled: boolean,
 }
@@ -95,6 +96,7 @@ local state: State = {
 	worldsBeaten = {},
 	bestTimes = {},
 	showIntro = false,
+	showFirstRun = false,
 	sfxEnabled = true,
 }
 
@@ -266,6 +268,9 @@ local function applyPayload(payload: any)
 		end
 		if type(payload.bestTimes) == "table" then
 			state.bestTimes = payload.bestTimes
+		end
+		if type(payload.showFirstRun) == "boolean" then
+			state.showFirstRun = payload.showFirstRun
 		end
 		if type(payload.showIntro) == "boolean" then
 			state.showIntro = payload.showIntro
