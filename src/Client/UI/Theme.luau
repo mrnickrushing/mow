@@ -238,6 +238,76 @@ export type TextOptions = {
 	textSize: number?,
 }
 
+--[[
+	Every face the chrome is made of, so the night can turn them down.
+
+	The whole HUD is built for a bright amber sky. On the churchyard the
+	ground is a dark blue-green under fog, and a mid-brown panel that reads as
+	*wood* at noon reads as a *lit box* at midnight — the chrome becomes the
+	brightest thing on the property, brighter than the lanterns that are
+	supposed to be leading you. Same hues, both stops darker, and the panels
+	recede behind the light.
+
+	Registered rather than re-created, because the chrome is built once when
+	the client starts and the property changes under it every run.
+]]
+local faces: { { grade: UIGradient, top: Color3, bottom: Color3 } } = {}
+
+--- Labels drawn in dark ink, which want a light halo after dark.
+local haloes: { TextLabel } = {}
+
+local nightFall = false
+
+--- How far the chrome drops after dark. Enough to sit under the lanterns,
+--- not so far that a cream card stops reading as paper.
+local NIGHT_DROP = 0.74
+
+local function dim(colour: Color3, amount: number): Color3
+	return Color3.new(colour.R * amount, colour.G * amount, colour.B * amount)
+end
+
+--[[
+	Turn the chrome down for a property worked in the dark.
+
+	Called when the run's world changes. Everything it touches was built once
+	at start-up, so this is a repaint rather than a rebuild — and it is
+	deliberately only two moves: the faces come down a stop and dark ink
+	gains a halo. The accents stay exactly as they are, because `ui.tips` is
+	already candlelight and the warm things on this property are the
+	landmarks.
+]]
+function Theme.setNight(on: boolean)
+	if on == nightFall then
+		return
+	end
+	nightFall = on
+
+	for _, face in faces do
+		if face.grade.Parent then
+			face.grade.Color = if on
+				then ColorSequence.new(dim(face.top, NIGHT_DROP), dim(face.bottom, NIGHT_DROP))
+				else ColorSequence.new(face.top, face.bottom)
+		end
+	end
+
+	for _, label in haloes do
+		if not label.Parent then
+			continue
+		end
+		local halo = label:FindFirstChild("Halo")
+		if on and not halo then
+			local fresh = Instance.new("UIStroke")
+			fresh.Name = "Halo"
+			fresh.Thickness = 2
+			fresh.Color = Color3.new(1, 1, 1)
+			fresh.Transparency = 0.55
+			fresh.Parent = label
+		elseif not on and halo then
+			halo:Destroy()
+		end
+	end
+end
+
 function Theme.text(options: TextOptions): TextLabel
 	local label = Instance.new("TextLabel")
 	label.Name = options.name or "Label"
@@ -274,6 +344,25 @@ function Theme.text(options: TextOptions): TextLabel
 	local luminance = 0.299 * ink.R + 0.587 * ink.G + 0.114 * ink.B
 	if luminance > 0.45 then
 		Theme.outline(label, if options.bold == false then Theme.OUTLINE else Theme.OUTLINE_HEAVY)
+	else
+		--[[
+			Dark ink gets nothing by day and a pale halo after dark.
+
+			The rule above is right for light lettering over a sunlit lawn.
+			Its opposite is true on the churchyard: dark ink sits on a cream
+			card, and a cream card at midnight is the brightest thing on the
+			screen — the halo is what lets the card come down without the
+			words going with it.
+		]]
+		table.insert(haloes, label)
+		if nightFall then
+			local halo = Instance.new("UIStroke")
+			halo.Name = "Halo"
+			halo.Thickness = 2
+			halo.Color = Color3.new(1, 1, 1)
+			halo.Transparency = 0.55
+			halo.Parent = label
+		end
 	end
 	return label
 end
@@ -849,6 +938,10 @@ local function gradient(parent: Instance, top: Color3, bottom: Color3)
 	grade.Color = ColorSequence.new(top, bottom)
 	grade.Rotation = 90
 	grade.Parent = parent
+	table.insert(faces, { grade = grade, top = top, bottom = bottom })
+	if nightFall then
+		grade.Color = ColorSequence.new(dim(top, NIGHT_DROP), dim(bottom, NIGHT_DROP))
+	end
 	return grade
 end
 

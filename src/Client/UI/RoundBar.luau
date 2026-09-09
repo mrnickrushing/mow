@@ -26,6 +26,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
+local Worlds = require(Shared.Config.Worlds)
 local Loop = require(Shared.Util.Loop)
 local RunOnly = require(script.Parent.RunOnly)
 local Remotes = require(Shared.Remotes)
@@ -760,6 +761,17 @@ function RoundBar.start()
 		if type(state.blades) == "table" then
 			PlayerState.setFoundBlades(state.blades :: { string })
 		end
+
+		--[[
+			The chrome follows the property into the dark.
+
+			The world id is on this wire and the mood is on the world, so this
+			is the one place that already knows both. `Theme.setNight` returns
+			immediately when nothing has changed, so it costs a comparison per
+			broadcast.
+		]]
+		local world = if type(state.worldId) == "string" then Worlds.get(state.worldId) else nil
+		Theme.setNight(world ~= nil and world.mood == "night")
 
 		refreshSection()
 	end)
