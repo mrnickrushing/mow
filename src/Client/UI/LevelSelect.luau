@@ -305,7 +305,7 @@ local GRADE: { [string]: { fill: Color3, ink: Color3 } } = {
 	--- The Cemetery. Four difficulties exist and this table listed three, so
 	--- the hardest property in the game wore the same dead brown as a
 	--- property you cannot play.
-	Nightmare = { fill = Color3.fromRGB(126, 74, 196), ink = Color3.fromRGB(250, 240, 255) },
+	Nightmare = { fill = Color3.fromRGB(142, 86, 200), ink = Color3.fromRGB(250, 240, 255) },
 }
 
 --[[
@@ -442,35 +442,55 @@ local function drawCard(world: Types.WorldDef, order: number)
 	})
 
 	--[[
-		One line saying what you are signing up for.
+		The sentence the world was written with.
 
-		Sections and clock come out of the world itself, and the third clause
-		is whichever of the three facts is worth knowing: your own best time
-		if you have beaten it, what it pays if you have not, and what opens it
-		if you cannot play it yet.
+		Every property has a tagline in `Worlds.luau` — "Somebody let it go for
+		a whole autumn", "Nobody has cut it since the last funeral" — and the
+		card showed none of them. They do more to make a property worth
+		choosing than any stat on the card, which is the handoff's point about
+		them. Upright rather than italic: FredokaOne has no italic face and a
+		skewed label is worse than a plain one.
 	]]
-	Theme.text({
-		name = "Summary",
-		text = `{#world.sections} sections · {span(world.runSeconds)} on the clock`,
+	local tagline = Theme.text({
+		name = "Tagline",
+		text = world.tagline,
 		size = UDim2.new(1, 0, 0, 18),
 		position = UDim2.fromOffset(0, 32),
 		parent = facts,
 		align = Enum.TextXAlignment.Left,
-		color = if open then Theme.colors.inkSoft else Theme.colors.label,
-		textSize = 15,
+		color = if open then Color3.fromRGB(74, 62, 48) else Theme.colors.label,
+		textSize = 14,
+		bold = false,
 	})
+	--- The card clips, so without this a long tagline is sliced through a
+	--- letter at the edge rather than ending in an ellipsis.
+	tagline.TextTruncate = Enum.TextTruncate.AtEnd
 
-	--- Whichever of the three is worth knowing: your own best time if you
-	--- have beaten it, what it pays if you have not, and what opens it if you
-	--- cannot play it yet. Two short lines rather than one that runs off the
-	--- side of a card a quarter of the screen wide.
-	local tail = if not open
-		then `Beat {Worlds.expect(world.requiresWorld :: string).name} to open it`
-		elseif best then `Your best: {Format.clock(best)}`
-		else `Pays {string.format("%.1f", world.payoutMultiplier)}× cash`
-	Theme.text({
-		name = "Tail",
-		text = tail,
+	--[[
+		One line saying what you are signing up for.
+
+		The required count, because an optional garage is not "section three of
+		six" to anybody; the optional ones after it, because they are worth
+		knowing about and not worth counting; the clock; and then your own best
+		time if you have one or what the place pays if you have not.
+	]]
+	local required = #Worlds.requiredSections(world)
+	local optional = #world.sections - required
+	--- "6 + 2 sections", not "6 sections + 2 optional": the card is two
+	--- hundred and forty pixels wide inside its padding and the longer form
+	--- ran off the end of it.
+	local summary = if optional > 0
+		then `{required} + {optional} sections`
+		else `{required} sections`
+	summary ..= ` · {span(world.runSeconds)}`
+	if best then
+		summary ..= ` · best {Format.clock(best)}`
+	else
+		summary ..= ` · {string.format("%.1f", world.payoutMultiplier)}× cash`
+	end
+	local summaryLabel = Theme.text({
+		name = "Summary",
+		text = summary,
 		size = UDim2.new(1, 0, 0, 18),
 		position = UDim2.fromOffset(0, 52),
 		parent = facts,
@@ -478,12 +498,25 @@ local function drawCard(world: Types.WorldDef, order: number)
 		color = if open then Theme.colors.inkSoft else Theme.colors.label,
 		textSize = 15,
 	})
+	summaryLabel.TextTruncate = Enum.TextTruncate.AtEnd
 
+	--[[
+		A locked card's button says what to go and do.
+
+		It said LOCKED, which the dark face, the dimmed picture and the dead
+		button had already said three times between them. What a player cannot
+		see is which property opens this one, so that is what the button is
+		for — with a padlock on it, so the word BEAT is not doing the work of
+		saying it is shut.
+	]]
+	local gateName = if open
+		then ""
+		else Worlds.expect(world.requiresWorld :: string).name
 	local start = Theme.chunkButton({
 		name = "Start",
 		variant = if open then "primary" else "disabled",
-		text = if open then "START A RUN" else "LOCKED",
-		textSize = 20,
+		text = if open then "START A RUN" else `BEAT {string.upper(gateName)}`,
+		textSize = if open then 20 else 16,
 		size = UDim2.new(1, 0, 0, 42),
 		position = UDim2.fromScale(0, 1),
 		anchor = Vector2.new(0, 1),
@@ -492,6 +525,19 @@ local function drawCard(world: Types.WorldDef, order: number)
 		outline = 4,
 	})
 	start.Modal = true
+
+	if not open then
+		--- Left of the words, in the button's own dead ink.
+		Theme.icon({
+			name = "Lock",
+			prop = "Padlock",
+			size = UDim2.fromOffset(26, 26),
+			position = UDim2.new(0, 12, 0.5, 0),
+			anchor = Vector2.new(0, 0.5),
+			parent = start,
+		})
+		start.TextXAlignment = Enum.TextXAlignment.Center
+	end
 
 	if open then
 		--[[
