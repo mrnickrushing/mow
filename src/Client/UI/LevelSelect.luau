@@ -56,6 +56,49 @@ local party = 1
 local PANEL_TOP = Color3.fromRGB(66, 49, 31)
 local PANEL_BOTTOM = Color3.fromRGB(42, 31, 21)
 
+--[[
+	The screen where a player commits to two hours, on a phone.
+
+	Authored at 1040 x 742 and scaled to fit, which on an 844 x 390 phone is
+	0.486: a card title drawn at thirteen points and a START A RUN button
+	twenty points tall. That is the screen that asks for the biggest thing the
+	game asks for, drawn too small to read and too small to press.
+
+	The phone shape is one row of four cards across the whole width. The
+	settings panel goes — its only control is the party size, and that moves
+	into the header as a stepper — and the two blocks it carried besides
+	(your record, how a run works) are not what somebody choosing a property
+	is reading.
+]]
+local phone = false
+local PAIR_W, PANEL_H, HEADER = 1040, 638, 104
+local CARD_COLUMNS = 2
+local CARD_H = 256
+local CARD_PAD = 16
+--- The card's own type sizes, which a hundred and eighty wide cannot carry at
+--- the two hundred and eighty's numbers.
+local NAME_SIZE, SMALL_SIZE, CTA_SIZE = 27, 15, 20
+local FACT_PAD = 18
+
+local function useLayout(small: boolean)
+	phone = small
+	if small then
+		PAIR_W, PANEL_H, HEADER = 796, 284, 56
+		CARD_COLUMNS = 4
+		CARD_H = 210
+		CARD_PAD = 12
+		NAME_SIZE, SMALL_SIZE, CTA_SIZE = 20, 13, 14
+		FACT_PAD = 12
+	else
+		PAIR_W, PANEL_H, HEADER = 1040, 638, 104
+		CARD_COLUMNS = 2
+		CARD_H = 256
+		CARD_PAD = 16
+		NAME_SIZE, SMALL_SIZE, CTA_SIZE = 27, 15, 20
+		FACT_PAD = 18
+	end
+end
+
 --------------------------------------------------------------------
 -- Pieces
 --------------------------------------------------------------------
@@ -387,18 +430,19 @@ local function drawCard(world: Types.WorldDef, order: number)
 	facts.Position = UDim2.fromScale(0, 0.42)
 	facts.BackgroundTransparency = 1
 	facts.Parent = card
-	Theme.pad(facts, 14, 18, 16, 18)
+	Theme.pad(facts, FACT_PAD - 4, FACT_PAD, FACT_PAD - 2, FACT_PAD)
 
-	Theme.text({
+	local nameLabel = Theme.text({
 		name = "Name",
 		text = world.name,
-		size = UDim2.new(1, 0, 0, 30),
+		size = UDim2.new(1, 0, 0, if phone then 24 else 30),
 		position = UDim2.fromOffset(0, 0),
 		parent = facts,
 		align = Enum.TextXAlignment.Left,
 		color = if open then Theme.colors.ink else Theme.colors.body,
-		textSize = 27,
+		textSize = NAME_SIZE,
 	})
+	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 
 	--- The difficulty, on a pill in its own colour, dimmed on a property you
 	--- have not opened yet.
@@ -438,7 +482,7 @@ local function drawCard(world: Types.WorldDef, order: number)
 		parent = pill,
 		align = Enum.TextXAlignment.Center,
 		color = pillInk,
-		textSize = 13,
+		textSize = if phone then 11 else 13,
 	})
 
 	--[[
@@ -455,11 +499,11 @@ local function drawCard(world: Types.WorldDef, order: number)
 		name = "Tagline",
 		text = world.tagline,
 		size = UDim2.new(1, 0, 0, 18),
-		position = UDim2.fromOffset(0, 32),
+		position = UDim2.fromOffset(0, if phone then 25 else 32),
 		parent = facts,
 		align = Enum.TextXAlignment.Left,
 		color = if open then Color3.fromRGB(74, 62, 48) else Theme.colors.label,
-		textSize = 14,
+		textSize = if phone then 12 else 14,
 		bold = false,
 	})
 	--- The card clips, so without this a long tagline is sliced through a
@@ -492,11 +536,11 @@ local function drawCard(world: Types.WorldDef, order: number)
 		name = "Summary",
 		text = summary,
 		size = UDim2.new(1, 0, 0, 18),
-		position = UDim2.fromOffset(0, 52),
+		position = UDim2.fromOffset(0, if phone then 43 else 52),
 		parent = facts,
 		align = Enum.TextXAlignment.Left,
 		color = if open then Theme.colors.inkSoft else Theme.colors.label,
-		textSize = 15,
+		textSize = SMALL_SIZE,
 	})
 	summaryLabel.TextTruncate = Enum.TextTruncate.AtEnd
 
@@ -516,8 +560,8 @@ local function drawCard(world: Types.WorldDef, order: number)
 		name = "Start",
 		variant = if open then "primary" else "disabled",
 		text = if open then "START A RUN" else `BEAT {string.upper(gateName)}`,
-		textSize = if open then 20 else 16,
-		size = UDim2.new(1, 0, 0, 42),
+		textSize = if open then CTA_SIZE else CTA_SIZE - 3,
+		size = UDim2.new(1, 0, 0, if phone then 40 else 42),
 		position = UDim2.fromScale(0, 1),
 		anchor = Vector2.new(0, 1),
 		parent = facts,
@@ -527,16 +571,28 @@ local function drawCard(world: Types.WorldDef, order: number)
 	start.Modal = true
 
 	if not open then
-		--- Left of the words, in the button's own dead ink.
+		--[[
+			Left of the words, and out of their way.
+
+			Centred text on a button this narrow runs under a padlock drawn at
+			its left edge — "BEAT THE GAS STATION" arrived as a padlock with
+			"EAT THE GAS STATION" beside it. So the words are left-aligned
+			behind a padding equal to the lock, and the lock itself hangs on
+			the holder rather than the button, where that padding cannot push
+			it along too.
+		]]
+		local lockSide = if phone then 20 else 26
+		local lockLeft = if phone then 8 else 12
 		Theme.icon({
 			name = "Lock",
 			prop = "Padlock",
-			size = UDim2.fromOffset(26, 26),
-			position = UDim2.new(0, 12, 0.5, 0),
+			size = UDim2.fromOffset(lockSide, lockSide),
+			position = UDim2.new(0, lockLeft, 0.5, 0),
 			anchor = Vector2.new(0, 0.5),
-			parent = start,
+			parent = start.Parent :: GuiObject,
 		})
-		start.TextXAlignment = Enum.TextXAlignment.Center
+		start.TextXAlignment = Enum.TextXAlignment.Left
+		Theme.pad(start, 0, 6, 0, lockLeft + lockSide + 8)
 	end
 
 	if open then
@@ -602,8 +658,12 @@ function LevelSelect.refresh()
 	end
 	-- Card plus the layout's padding, less the padding the last one does not
 	-- need; the exact height means the list stops where the cards do.
-	--- Two per row, so the canvas grows by a row every second world.
-	mapHolder.CanvasSize = UDim2.fromOffset(0, math.ceil(#Worlds.list / 2) * 272 - 16)
+	--- A row of cards per `CARD_COLUMNS` worlds, so the canvas stops exactly
+	--- where the cards do.
+	mapHolder.CanvasSize = UDim2.fromOffset(
+		0,
+		math.ceil(#Worlds.list / CARD_COLUMNS) * (CARD_H + CARD_PAD) - CARD_PAD
+	)
 	refreshSettings()
 end
 
@@ -652,14 +712,13 @@ local function build()
 
 		One frame, one scale, and the gap shrinks with everything else.
 	]]
-	--- Bigger than the pair of banner lists it replaces, because the map panel
-	--- is now four picture cards two across and each of them is a card rather
-	--- than a row.
-	local PAIR_W, PANEL_H = 1040, 638
-	--- The band above the panels: what this screen is, and the sentence the
-	--- whole game is built on, said where the player commits to a run.
-	local HEADER = 104
-	local PAIR_H = HEADER + PANEL_H
+	--- Both sizes come from `useLayout`; the band above the panels is what this
+	--- screen is, and the sentence the whole game is built on, said where the
+	--- player commits to a run.
+	--- A little air under the header on a phone, where the header is a band
+	--- of controls rather than two lines of type.
+	local topGap = if phone then 10 else 0
+	local PAIR_H = HEADER + topGap + PANEL_H
 	local holder = Instance.new("Frame")
 	holder.Name = "Panels"
 	holder.Size = UDim2.fromOffset(PAIR_W, PAIR_H)
@@ -680,32 +739,126 @@ local function build()
 	Theme.text({
 		name = "Eyebrow",
 		text = "PICK A PROPERTY",
-		size = UDim2.new(1, 0, 0, 20),
-		position = UDim2.fromOffset(6, 6),
+		size = UDim2.new(1, 0, 0, if phone then 14 else 20),
+		position = UDim2.fromOffset(6, if phone then 0 else 6),
 		parent = holder,
 		align = Enum.TextXAlignment.Left,
 		color = Theme.colors.tips,
-		textSize = 16,
+		textSize = if phone then 12 else 16,
 	})
 	Theme.text({
 		name = "Headline",
 		text = "You arrive with nothing.",
-		size = UDim2.new(1, 0, 0, 54),
-		position = UDim2.fromOffset(6, 30),
+		size = UDim2.new(1, 0, 0, if phone then 32 else 54),
+		position = UDim2.fromOffset(6, if phone then 16 else 30),
 		parent = holder,
 		align = Enum.TextXAlignment.Left,
-		textSize = 44,
+		textSize = if phone then 26 else 44,
 	})
+
+	if phone then
+		--[[
+			The header carries the two things the settings panel was for.
+
+			A record of how far you have got, and the only setting there is.
+			Everything else that panel held — the three lines on how a run
+			works, the tips counter — is either printed on the cards or is not
+			what somebody choosing a property is reading.
+		]]
+		local recordChip = Theme.chip({
+			name = "Record",
+			size = UDim2.fromOffset(118, 44),
+			position = UDim2.new(1, -(44 + 8 + 228 + 8 + 118), 0, 6),
+			parent = holder,
+			radius = 14,
+			transparency = 0,
+		})
+		Theme.stroke(recordChip, 3, Theme.colors.outline, 0)
+		Theme.text({
+			name = "RecordWord",
+			text = "BEATEN",
+			size = UDim2.fromOffset(60, 16),
+			position = UDim2.fromOffset(12, 6),
+			parent = recordChip,
+			align = Enum.TextXAlignment.Left,
+			color = Theme.colors.label,
+			textSize = 12,
+		})
+		beatenValue = Theme.text({
+			name = "Beaten",
+			text = "",
+			size = UDim2.fromOffset(94, 20),
+			position = UDim2.fromOffset(12, 20),
+			parent = recordChip,
+			align = Enum.TextXAlignment.Left,
+			color = Theme.colors.cash,
+			textSize = 17,
+		})
+		--- Written to by `refreshSettings` and not drawn on this layout: the
+		--- tips a player is carrying are on the HUD's own purse behind this
+		--- screen, and there is no room here for the same number twice.
+		tipsValue = Theme.text({
+			name = "TipsHidden",
+			text = "",
+			size = UDim2.fromOffset(1, 1),
+			position = UDim2.fromOffset(0, 0),
+			parent = recordChip,
+			textSize = 12,
+		})
+		tipsValue.Visible = false
+
+		local stepper = Theme.chip({
+			name = "Party",
+			size = UDim2.fromOffset(228, 44),
+			position = UDim2.new(1, -(44 + 8 + 228), 0, 6),
+			parent = holder,
+			radius = 14,
+			transparency = 0,
+		})
+		Theme.stroke(stepper, 3, Theme.colors.outline, 0)
+		Theme.text({
+			name = "PartyWord",
+			text = "PLAYERS",
+			size = UDim2.fromOffset(72, 44),
+			position = UDim2.fromOffset(12, 0),
+			parent = stepper,
+			align = Enum.TextXAlignment.Left,
+			color = Theme.colors.label,
+			textSize = 12,
+		})
+		partyValue = Theme.text({
+			name = "PartyValue",
+			text = "1",
+			size = UDim2.fromOffset(44, 44),
+			position = UDim2.fromOffset(126, 0),
+			parent = stepper,
+			align = Enum.TextXAlignment.Center,
+			textSize = 20,
+		})
+		button(stepper, "−", UDim2.fromOffset(36, 34), UDim2.fromOffset(86, 5), "gold").Activated:Connect(
+			function()
+				party = math.max(party - 1, 1)
+				refreshSettings()
+			end
+		)
+		button(stepper, "+", UDim2.fromOffset(36, 34), UDim2.fromOffset(174, 5), "gold").Activated:Connect(
+			function()
+				party = math.min(party + 1, MAX_PARTY)
+				refreshSettings()
+			end
+		)
+	end
 
 	----------------------------------------------------------------
 	-- Left: the settings, and the number that started all this
 	----------------------------------------------------------------
+	if not phone then
 	local settings, body = titled(
 		holder,
 		"GameSettings",
 		"GAME SETTINGS",
 		UDim2.fromOffset(400, PANEL_H),
-		UDim2.new(0.5, -300, 0, HEADER + PANEL_H * 0.5)
+		UDim2.new(0.5, -300, 0, HEADER + topGap + PANEL_H * 0.5)
 	)
 
 	--[[
@@ -849,17 +1002,46 @@ local function build()
 		dismissedOnPad = true
 		LevelSelect.setOpen(false)
 	end)
+	end
 
 	----------------------------------------------------------------
-	-- Right: the maps
+	-- The maps: beside the settings, or the whole width without them
 	----------------------------------------------------------------
 	local _, mapBody = titled(
 		holder,
 		"SelectMap",
 		"THE PROPERTIES",
-		UDim2.fromOffset(580, PANEL_H),
-		UDim2.new(0.5, 210, 0, HEADER + PANEL_H * 0.5)
+		UDim2.fromOffset(if phone then PAIR_W else 580, PANEL_H),
+		UDim2.new(0.5, if phone then 0 else 210, 0, HEADER + topGap + PANEL_H * 0.5)
 	)
+
+	if phone then
+		--- No settings panel to hang the cross on, so it goes on this one.
+		local shut = Theme.chunkButton({
+			name = "Close",
+			variant = "danger",
+			size = UDim2.fromOffset(44, 44),
+			position = UDim2.new(1, 0, 0, 6),
+			anchor = Vector2.new(1, 0),
+			parent = holder,
+			radius = 14,
+			drop = 4,
+			outline = 4,
+		})
+		shut.Modal = true
+		Theme.icon({
+			name = "Mark",
+			prop = "Cross",
+			size = UDim2.fromScale(0.6, 0.6),
+			position = UDim2.fromScale(0.5, 0.5),
+			anchor = Vector2.new(0.5, 0.5),
+			parent = shut,
+		})
+		shut.Activated:Connect(function()
+			dismissedOnPad = true
+			LevelSelect.setOpen(false)
+		end)
+	end
 
 	mapHolder = Instance.new("ScrollingFrame")
 	mapHolder.Name = "Maps"
@@ -884,8 +1066,8 @@ local function build()
 		than the list needed the height.
 	]]
 	local grid = Instance.new("UIGridLayout")
-	grid.CellSize = UDim2.new(0.5, -8, 0, 256)
-	grid.CellPadding = UDim2.fromOffset(16, 16)
+	grid.CellSize = UDim2.new(1 / CARD_COLUMNS, -(CARD_PAD * (CARD_COLUMNS - 1)) // CARD_COLUMNS, 0, CARD_H)
+	grid.CellPadding = UDim2.fromOffset(CARD_PAD, CARD_PAD)
 	grid.SortOrder = Enum.SortOrder.LayoutOrder
 	grid.Parent = mapHolder
 end
@@ -949,7 +1131,37 @@ end
 
 function LevelSelect.start()
 	confirmRemote = Remotes.event(Remotes.LOBBY_CONFIRM)
-	build()
+
+	--[[
+		Built from scratch when the screen changes shape.
+
+		Same reasoning as the store: the two layouts differ in structure — a
+		settings panel and a two-across grid against no settings panel and a
+		row of four — so there is nothing to move and everything to redraw.
+		Under `xpcall`, because a viewport change that threw in here would
+		leave the pad with nothing to open.
+	]]
+	Theme.onScreenChange(function()
+		local small = Theme.isPhone()
+		if gui and small == phone then
+			return
+		end
+		xpcall(function()
+			useLayout(small)
+			local previous = gui
+			if previous then
+				previous:Destroy()
+			end
+			build()
+			if isOpen then
+				local screen = gui :: ScreenGui
+				screen.Enabled = true
+				LevelSelect.refresh()
+			end
+		end, function(err)
+			warn(`[LevelSelect] rebuilding for a {if small then "phone" else "tablet"} failed: {err}`)
+		end)
+	end)
 
 	PlayerState.Changed:Connect(function()
 		if isOpen then
