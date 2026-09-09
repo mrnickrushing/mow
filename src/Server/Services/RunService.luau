@@ -805,13 +805,28 @@ function RunService.start()
 	local mine = worldClaim
 	buildingLobby = true
 	task.spawn(function()
-		if mine ~= worldClaim then
-			buildingLobby = false
+		--[[
+			The flag comes down whatever happens.
+
+			`beginRun` waits on it, so a build that threw halfway and left it
+			standing would make every run on that server wait out the eight
+			second backstop before it started. The build is already allowed to
+			fail — that is why it is in a thread of its own — so the failure
+			has to clear up after itself.
+		]]
+		local ok = xpcall(function()
+			if mine ~= worldClaim then
+				return
+			end
+			ReplicationService.reset()
+			WorldService.load(Worlds.STARTER_ID)
+		end, function(message)
+			warn(`[Mow] the lobby's world did not build: {message}`)
+		end)
+		buildingLobby = false
+		if not ok then
 			return
 		end
-		ReplicationService.reset()
-		WorldService.load(Worlds.STARTER_ID)
-		buildingLobby = false
 		if mine ~= worldClaim then
 			--- A run began while this was building. The world is its now, and
 			--- the last thing it needs is the lobby shutting its gates.
