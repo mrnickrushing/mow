@@ -4377,26 +4377,38 @@ local function buildChurchyard(world: Types.WorldDef, parent: Folder)
 
 		Sheets rather than particles: a `ParticleEmitter` big enough to cover
 		a hundred and forty tiles is thousands of quads a frame on a tablet,
-		and this is the largest property in the game. Six wide, very
-		transparent slabs a stud and a half up, at slightly different heights
-		so they overlap into something uneven rather than reading as one
-		floor, do the same job for six parts. They cast no shadow and stop
-		nothing — you walk through them, which is the point.
+		and this is the largest property in the game. A handful of very
+		transparent sheets a stud and a half up, at slightly different
+		heights so they overlap into something uneven rather than reading as
+		one floor, do the same job for a handful of parts. They cast no
+		shadow and stop nothing — you walk through them, which is the point.
+
+		Round, not square. They were two-hundred-stud rectangles, and while
+		the grass was long that was invisible: the tufts stand higher than
+		the mist does, so all you saw was a haze between them. Mown, the
+		lawn is a flat surface with nothing on it and every one of those
+		sheets drew its own hard straight edge across it — a pale rectangle
+		lying in the middle of the churchyard with the corner of another one
+		crossing it. A disc has no corner to give itself away with, and nine
+		of them at slightly different sizes and heights pile into an uneven
+		bank rather than a floor.
 	]]
 	local mistRng = Random.new(world.gridWidth * 6151 + world.gridDepth)
-	for index = 1, 6 do
+	for _ = 1, 9 do
 		local at = Vector3.new(
-			mistRng:NextNumber(0.15, 0.85) * width,
-			1.4 + mistRng:NextNumber(0, 0.9),
-			mistRng:NextNumber(0.15, 0.85) * depth
+			mistRng:NextNumber(0.12, 0.88) * width,
+			1.2 + mistRng:NextNumber(0, 1),
+			mistRng:NextNumber(0.12, 0.88) * depth
 		)
+		local across = mistRng:NextNumber(110, 240)
 		Build.part({
 			name = "Mist",
-			size = Vector3.new(mistRng:NextNumber(150, 240), 0.4, mistRng:NextNumber(150, 240)),
-			cframe = CFrame.new(at) * CFrame.Angles(0, mistRng:NextNumber(0, math.pi), 0),
+			shape = Enum.PartType.Cylinder,
+			size = Vector3.new(0.4, across, across),
+			cframe = CFrame.new(at) * CFrame.Angles(0, 0, math.rad(90)),
 			color = Color3.fromRGB(206, 212, 224),
 			material = Enum.Material.SmoothPlastic,
-			transparency = 0.88,
+			transparency = mistRng:NextNumber(0.89, 0.93),
 			canCollide = false,
 			castShadow = false,
 			parent = yard,
