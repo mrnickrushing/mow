@@ -5225,6 +5225,26 @@ local function buildStatue(foot: CFrame, parent: Folder, body: Color3, stone: Co
 		figure.Parent = parent
 
 		--[[
+			The server keeps hold of it.
+
+			A humanoid model dropped into the workspace is an assembly with
+			someone in it, and Roblox hands the simulation of one to whichever
+			player is nearest. The client then draws what *it* thinks the
+			limbs are doing — and what it thinks, having replicated the model
+			in its unassembled state, is the pile. On screen the plinth stood
+			empty with an arm and a foot lying a hundred studs away across the
+			parterre, while the server was perfectly happy that its statue was
+			fourteen studs tall and standing on the cap.
+		]]
+		for _, thing in figure:GetDescendants() do
+			if thing:IsA("BasePart") and not thing.Anchored then
+				pcall(function()
+					thing:SetNetworkOwner(nil)
+				end)
+			end
+		end
+
+		--[[
 			Measured once it has stopped moving.
 
 			Assembly is not instant and it is not one frame either: a rig
@@ -5294,6 +5314,16 @@ local function buildStatue(foot: CFrame, parent: Folder, body: Color3, stone: Co
 				end
 			end
 		end
+
+		--[[
+			Stood once more, now that every part is anchored.
+
+			An anchored part's position is the server's to state and it is
+			replicated as a fact; an assembly's is worked out by whoever is
+			simulating it. Saying it again on this side of the anchoring costs
+			one CFrame each and leaves nothing to be worked out.
+		]]
+		figure:PivotTo(figure:GetPivot())
 	end)
 end
 
