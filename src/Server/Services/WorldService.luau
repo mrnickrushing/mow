@@ -5950,15 +5950,65 @@ function WorldService.load(worldId: string)
 		name = "SpawnPad",
 		size = Vector3.new(20, 0.4, 20),
 		cframe = CFrame.new(spawnAt + Vector3.new(0, 0.2, 0)),
-		color = Palette.color(Palette.ground.path),
+		--- On a forecourt the slab is the forecourt: the path grey it is cut
+		--- from elsewhere shows up on the lot's own concrete as a lighter
+		--- square, which is the patch the paint is supposed to be on.
+		color = if world.style == "lot"
+			then Palette.color(world.baseGround)
+			else Palette.color(Palette.ground.path),
 		material = Enum.Material.Concrete,
 		castShadow = false,
 		parent = parent,
 	})
-	--- Flush with the paths rather than stacked on the bed, so there is no
-	--- lip at the edge of it: the stones stand a tenth of a stud proud of the
-	--- concrete, which is the whole of the difference between them.
-	Build.flagstone(parent, spawnAt + Vector3.new(0, 0.25, 0), Vector2.new(18, 18), 6, rng)
+	--[[
+		What the landing is dressed in depends on what it is standing on.
+
+		Flagstone is right in a garden, on an estate and in a churchyard, and
+		wrong on a filling station's apron: a patch of garden paving in the
+		middle of a concrete forecourt is the same placeholder in a different
+		colour. The lot gets what a forecourt actually has where people are
+		meant to stand — a box painted on the concrete, hatched, in traffic
+		yellow.
+	]]
+	if world.style == "lot" then
+		local paint = Color3.fromRGB(226, 194, 74)
+		local span, line = 17, 0.8
+		for _, side in { Vector2.new(0, 1), Vector2.new(0, -1), Vector2.new(1, 0), Vector2.new(-1, 0) } do
+			Build.part({
+				name = "SpawnLine",
+				size = if side.X == 0
+					then Vector3.new(span, 0.2, line)
+					else Vector3.new(line, 0.2, span),
+				cframe = CFrame.new(
+					spawnAt + Vector3.new(side.X * span * 0.5, 0.5, side.Y * span * 0.5)
+				),
+				color = paint,
+				material = Enum.Material.Concrete,
+				canCollide = false,
+				castShadow = false,
+				parent = parent,
+			})
+		end
+		--- Three bars across the middle of it, the way a hatched box is
+		--- painted where a forecourt wants you on foot rather than driving.
+		for bar = -1, 1 do
+			Build.part({
+				name = "SpawnHatch",
+				size = Vector3.new(span - line * 2, 0.2, line * 0.75),
+				cframe = CFrame.new(spawnAt + Vector3.new(0, 0.5, bar * 4.6)),
+				color = paint,
+				material = Enum.Material.Concrete,
+				canCollide = false,
+				castShadow = false,
+				parent = parent,
+			})
+		end
+	else
+		--- Flush with the paths rather than stacked on the bed, so there is no
+		--- lip at the edge of it: the stones stand a tenth of a stud proud of
+		--- the concrete, which is the whole of the difference between them.
+		Build.flagstone(parent, spawnAt + Vector3.new(0, 0.25, 0), Vector2.new(18, 18), 6, rng)
+	end
 
 	--[[
 		Facing the work.
