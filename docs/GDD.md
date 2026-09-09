@@ -73,33 +73,74 @@ Sixteen ideas do most of the work. In rough order of how much they matter:
 12. **Golden Blades.** One hidden collectible per zone, respawned each round.
     Explicitly never required for 100%.
 
-13. **Hazards.** Sprinklers wet the ground and keep it wet; wasps sting but pay
-    a tip; the neighbour's dog takes a cut of a heavy bag.
+13. **Hazards.** Sprinklers wet the ground and keep it wet — a low-tier tool
+    stalls on it until it dries — and the neighbour's dog takes a cut of a
+    heavy bag. Two of them, on nine sections: five sprinklers and four dogs,
+    spread across all four worlds.
 
 14. **Tips.** A skill currency from stripes, blades and completions.
 
-15. **Property rotation.** Six maps, each larger and richer than the last.
+15. **Property rotation.** Four maps, each larger and richer than the last,
+    and the ladder is built to take more.
 
 16. **Contribution-split payouts.** The round bonus goes by work actually done.
 
 ## Worlds
 
-Three, each a chain of sections gated on clearing the one before it.
+Four, each a chain of sections gated on clearing the one before it.
+Twenty-five sections in all, twenty-two of them required: House 8 (6 required),
+Mansion 6 (5), Gas Station 5, Cemetery 6.
 
-**The House** (Easy) — Front Yard opens the Backyard and the Pool together,
-those open the Maze, the Maze opens the Farm, the Farm opens the Basement.
-Clear the Basement and the grate at the back of it opens.
+**The House** (Easy, 2:00:00, 1× payout) — Front Yard opens the Backyard and
+the **Pool Deck** together, those open the **Hedge Maze**, the maze opens the
+Farm, the farm opens the Basement. Clear the Basement and the grate at the back
+of it opens.
 
 Two areas sit off that path: the **Garage**, opened by finding a switch hidden
 in the front yard, and the **Rooftop**, opened by clearing the front yard.
 Neither is required to finish, which is the point of them — somewhere to go that
 nobody made you go.
 
-**The Mansion** (Medium) — Grand Lawn → East Wing → Orangery → Long Maze →
-Cellars. Bigger in every direction.
+**The Mansion** (Medium, 2:30:00, 1.6×) — Grand Lawn → **East Terrace** →
+Orangery → Long Maze → Cellars, with the **Tennis Court** off the path beside
+them. The terrace is not the old East Wing renamed: it is a raised stone
+terrace at elevation 6 with steps up to it. The court is the first hard surface
+anybody mows — tarmac inside a mesh fence, one wave, and no grass in its fill
+because nothing grows through tarmac.
 
-**The Gas Station** (Hard) — Forecourt → Wash Bay → Back Lot → Storage Yard →
-Workshop. The longest chain and the most ground.
+**The Gas Station** (Hard, 3:00:00, 2.1×) — Forecourt → Wash Bay → Back Lot →
+Storage Yard → Workshop. A commercial lot rather than a garden: chain-link
+fencing, a canopy, and gates between the parts of it.
+
+**The Cemetery** (Nightmare, 3:30:00, 2.5×) — The Lawns opens The Rows and
+**The Walks**; the rows open the Corn Maze, the maze opens the Chapel, the
+chapel opens the Crypt, and the grate is rebuilt into the crypt's far wall.
+The only property worked after dark, and the only one where a narrower tool can
+beat a wider one: The Rows carry no clutter because the headstones *are* the
+clutter, and a zero-turn spends half its time reversing out from between two
+of them. The shed and the trailer sit at opposite ends of the entrance, which
+is unique to it — on a night map the walk to sell is not the walk to upgrade.
+
+### Sections are not all at ground level
+
+A third of them are not. Basements and cellars sit at −18, the Rooftop on top
+of the house, the East Terrace at +6. Stairs and stairwells are built to reach
+them, and a section's elevation is what decides whether its ground can be
+walked onto or has to be climbed to.
+
+### One door per world is bought, not cleared
+
+| World | Section | Price |
+| --- | --- | --- |
+| The House | Pool Deck | $18 |
+| The Mansion | Orangery | $140 |
+| The Gas Station | Wash Bay | $75 |
+| The Cemetery | The Walks | $240 |
+
+Each is priced near a seventh of what the sections before it are worth. They
+were $1, $8 and $15 against worlds holding thousands, so the gate always opened
+the moment you walked up to it and the mechanic never did anything: a cash gate
+that cannot make you choose is a door with a sign on it.
 
 Later worlds pay more, but only enough to reach the gear they need. Paying
 several times the first world once made them the *easiest*, which the simulator
@@ -107,14 +148,14 @@ caught.
 
 ## Tools
 
-Sixteen, priced for a run rather than a career: $8 for a rake, $650,000 for the
-commercial deck that only the last world can reach.
+Sixteen, priced for a run rather than a career: $10 for the first mower,
+$650,000 for the commercial deck that only the last world can reach.
 
 | # | Tool | Cost | Deck | Power |
 | --- | --- | --- | --- | --- |
 | 0 | Bare Hands | free | 1 | 1 |
-| 1 | Rake | $8 | 1 | 2 |
-| 2 | Push Reel Mower | $25 | 1 | 1 |
+| 1 | Push Reel Mower | $10 | 1 | 1 |
+| 2 | Rake | $30 | 1 | 2 |
 | 3 | Gas Push Mower | $60 | 2 | 2 |
 | 4 | String Trimmer | $140 | 1 | 3 |
 | 5 | Leaf Blower | $320 | 3 | 3 |
@@ -123,11 +164,15 @@ commercial deck that only the last world can reach.
 | 8 | Pole Saw | $3.2K | 1 | 3 |
 | 9 | Chainsaw | $6.8K | 1 | 3 |
 | 10 | **Riding Mower** | $14K | 5 | 3 |
-| 11 | Backpack Blower | $30K | 6 | 3 |
-| 12 | **Zero-Turn** | $65K | 7 | 3 |
+| 11 | Industrial Backpack Blower | $30K | 6 | 3 |
+| 12 | **Zero-Turn Mower** | $65K | 7 | 3 |
 | 13 | Stump Grinder | $140K | 1 | 3 |
-| 14 | Wood Chipper | $300K | — | — |
-| 15 | **Commercial Deck** | $650K | 11 | 3 |
+| 14 | Wood Chipper | $300K | 1 | — |
+| 15 | **Commercial Deck Mower** | $650K | 11 | 3 |
+
+The first rung mows, deliberately. The rake used to sit at $8 against the reel
+mower's $25, so the opening purchase of a lawn-mowing game was a rake and the
+opening minutes were spent raking; they have swapped places and prices.
 
 **Bare hands can shift anything a tile holds.** That is a rule, not an
 accident: a section full of something you cannot afford the tool for is a dead
@@ -149,11 +194,19 @@ It now simulates a single run rather than a career, and reports whether a world
 can be beaten inside its clock, where a run stalls, and what gear you finish
 holding. Pass a player count to check wave scaling.
 
-Current: all three worlds beaten in 27–30 minutes by a player who never wastes a
-second — about a quarter of The House's two-hour clock and a third to a half of
-the later worlds'. Real players are nowhere near optimal, so the clock should
+The clocks are 2:00:00 on The House, 2:30:00 on The Mansion, 3:00:00 on The Gas
+Station and 3:30:00 on The Cemetery. The two middle ones were more than doubled
+from where this document last described them, and for a reason worth keeping in
+mind: the old ratio was satisfied by handing the player a bigger property and
+*less* time, which is not a harder world so much as an impossible one.
+
+An ROI-optimal player who never wastes a second finishes each of them in well
+under half its clock. Real players are nowhere near optimal, so the clock should
 feel tight rather than generous; The House was lengthened from ninety minutes
-after a party of three ran out with the backyard barely done.
+after a party of three ran out with the backyard barely done. The tightest
+margin in the game is The Cemetery's 0.09 seconds per unit against The Gas
+Station's 0.104 — and it still gives more clock than any other property,
+because there is about a third more ground on it.
 
 Wave scaling is invariant up to the cap: a section holds U units per wave and
 needs one wave per player, so the total is N·U shared between N people and
@@ -161,7 +214,7 @@ everybody does U. Past `Worlds.MAX_WAVES` (two) the share falls on purpose: a
 party of three owing three waves of every section ran out of the clock with the
 backyard barely done. There is a test for both halves.
 
-**Known tuning weakness:** the three worlds all sit near a third of the clock,
+**Known tuning weakness:** the worlds all sit near a third of the clock,
 so difficulty comes from length and complexity rather than from time pressure
 tightening. If the later worlds should feel tense, they need more ground rather
 than richer payouts — richer payouts made them faster last time.
@@ -204,11 +257,21 @@ Deliberately out of scope, and why:
 - **Rebirth and idle crew.** Cut during planning in favour of a linear climb.
 - **Co-op two-person hauling.** The social hook exists via the shared map and
   the contribution split; a dedicated two-player job is not built.
-- **Sound and music.** No audio at all yet.
-- **Tutorial.** New players get the free front yard and the HUD hints; there is
-  no guided first-run sequence.
-- **Art direction.** The look is placeholder geometry in a summer palette. The
-  reference game is autumnal and far more detailed; matching it properly needs
-  reference images, which no amount of reading its wikis will supply.
-- **Interiors are shells.** The garage and basement are walled rooms with props,
-  not furnished spaces, and the house itself has no interior at all.
+- **Sound and music.** Configured, not mixed. `Shared/Config/Audio.luau`
+  carries per-property notes, the churchyard's included; what is missing is the
+  pass that balances them.
+- **Art direction.** Done, and no longer this list's business.
+  `Shared/Config/Palette.luau` is a complete autumn palette with four world
+  styles — house, estate, station, churchyard — plus a night pass, and
+  `Shared/Config/Props.luau` is a catalogue of about seventy real models with
+  drawn 2D icons for twenty-three of them and for all sixteen tools. What is
+  left is eight icons for props that have none: trailer, shed, gate, grate,
+  sprinkler, dog, a sound glyph and a fuel can.
+- **Interiors are shells.** The garage, basement, cellars and workshop are
+  walled rooms with a clutter count, not furnished spaces, and the house itself
+  has no interior at all.
+
+- **A first run.** New players get the free front yard and the HUD's own
+  affordances; there is no guided opening. The redesign specs one — four steps,
+  ending on the overgrowth wall rather than on a shop tour, so the shed is
+  taught by making the player want it.
