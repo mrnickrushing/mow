@@ -1779,13 +1779,21 @@ local COPY: { [string]: { title: string, blurb: string } } = {
 		title = "Upgrades",
 		blurb = "Seven lines, all reset each run. First levels cost a dollar or two.",
 	},
+	--[[
+		"The Shed", because that is what the rest of the game calls it.
+
+		The overgrowth card's button says OPEN THE SHED, the first run's third
+		step says open the shed and spend it, and the store's header points at
+		the shed. The page they all lead to was headed "Tools", which is the
+		word on the rail beside it and not the name of the place.
+	]]
 	upgrades = {
-		title = "Tools",
+		title = "The Shed",
 		blurb = "Everything resets when the run does. Bare hands can shift anything.",
 	},
 	collection = {
-		title = "Collection",
-		blurb = "What you have turned up so far, and what is still out there.",
+		title = "Golden Blades",
+		blurb = "One hidden in every zone, back in a new place each round. Never required to finish.",
 	},
 	tips = {
 		title = "Help",

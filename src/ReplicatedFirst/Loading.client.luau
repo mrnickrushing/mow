@@ -65,14 +65,14 @@ local PRIMARY_TOP = Color3.fromRGB(143, 224, 124)
 local PRIMARY_LOW = Color3.fromRGB(79, 184, 60)
 
 --[[
-	The game's own icon, once somebody uploads it.
+	The game's own icon.
 
-	`art/branding/store-icon-512.png` is the picture; a Roblox asset id is a
-	separate thing and this file cannot make one. Empty, the lockup draws as
-	the gold badge underneath, which is the same badge the icon sits on — so
-	the screen is right either way and better with the id pasted in.
+	`art/branding/mow-all-the-lawns-icon-512.png`, uploaded. Empty, the lockup
+	still draws — the gold badge underneath carries a mower silhouette, which
+	is the same badge the picture sits on — so the screen was right without it
+	and is the game's own face with it.
 ]]
-local ICON_ASSET = ""
+local ICON_ASSET = "rbxassetid://113572916730301"
 
 --- A server holds twelve, which is the number the performance budget in
 --- docs/GDD.md is written against. The party on a lobby pad is four.
