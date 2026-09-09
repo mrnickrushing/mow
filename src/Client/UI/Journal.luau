@@ -23,18 +23,20 @@ local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local Types = require(Shared.Types)
 local ToolUpgrades = require(Shared.Config.ToolUpgrades)
-local _Monetization = require(Shared.Config.Monetization)
-local _Prices = require(Shared.Prices)
+local Monetization = require(Shared.Config.Monetization)
+local Prices = require(Shared.Prices)
 local Upgrades = require(Shared.Config.Upgrades)
 local PlayerState = require(script.Parent.Parent.PlayerState)
 local _Store = require(script.Parent.Store)
 local Theme = require(script.Parent.Theme)
+local Palette = require(Shared.Config.Palette)
 local Props = require(Shared.Config.Props)
 
 local Journal = {}
 
 local player = Players.LocalPlayer
 local purchaseRemote: RemoteEvent
+local promptRemote: RemoteEvent
 local questRemote: RemoteEvent
 
 local gui: ScreenGui
@@ -82,8 +84,13 @@ local LOCKED = Color3.fromRGB(118, 112, 104)
 local CARD = Color3.fromRGB(255, 252, 241)
 
 --[[
-	The three looks a price wears: gold when you can pay for it, flat when you
-	cannot, green when there is nothing left to buy.
+	The looks a price wears, and the one rule behind them.
+
+	Colour means one thing everywhere in this game: green is run cash, gold is
+	tips, blue is Robux for this run and purple is Robux forever. So a price
+	you can pay in cash is green, a price you can pay in tips is gold, one you
+	cannot pay is flat, and a thing there is nothing left to buy on is flat
+	with MAXED written on it — a dead button should not look pressable.
 
 	These are the slab buttons the rest of the game uses, and a slab is four
 	things — a face, a gradient, a drop and its ink. The pages repaint them
@@ -91,6 +98,12 @@ local CARD = Color3.fromRGB(255, 252, 241)
 	be swappable in place; `wear` is what swaps it.
 ]]
 local LOOK_AFFORD = {
+	top = Color3.fromRGB(143, 224, 124),
+	bottom = Color3.fromRGB(79, 184, 60),
+	shadow = Color3.fromRGB(46, 122, 36),
+	ink = Color3.fromRGB(18, 58, 12),
+}
+local LOOK_TIPS = {
 	top = Color3.fromRGB(255, 217, 104),
 	bottom = Color3.fromRGB(245, 168, 28),
 	shadow = Color3.fromRGB(169, 110, 8),
@@ -102,12 +115,7 @@ local LOOK_BROKE = {
 	shadow = Color3.fromRGB(150, 138, 116),
 	ink = Color3.fromRGB(74, 64, 52),
 }
-local LOOK_DONE = {
-	top = Color3.fromRGB(143, 224, 124),
-	bottom = Color3.fromRGB(79, 184, 60),
-	shadow = Color3.fromRGB(46, 122, 36),
-	ink = Color3.fromRGB(18, 58, 12),
-}
+local LOOK_DONE = LOOK_BROKE
 
 local function wear(button: TextButton, look: { top: Color3, bottom: Color3, shadow: Color3, ink: Color3 })
 	button.BackgroundColor3 = look.top
@@ -444,437 +452,6 @@ local function renderPlayers()
 	end
 end
 
---------------------------------------------------------------------
--- Upgrades: every tool's own three slots
---------------------------------------------------------------------
-
---- The upgrade the player has clicked, as its `toolId/slot` key.
-local selectedKey: string? = nil
-
---- A row of leaf pips over a card: one leaf per possible level, the earned
---- ones in autumn orange and the rest in pale outline. Reading your level as
---- leaves instead of a number is pure flavour, and exactly the flavour the
---- book is for.
-local function pips(parent: Instance, level: number, maxLevel: number)
-	local row = Instance.new("Frame")
-	row.Name = "Pips"
-	row.Size = UDim2.new(1, 0, 0, 16)
-	row.Position = UDim2.fromOffset(0, 22)
-	row.BackgroundTransparency = 1
-	row.Parent = parent
-
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Horizontal
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 1)
-	layout.Parent = row
-
-	for index = 1, maxLevel do
-		local pip = Theme.icon({
-			name = "Pip",
-			prop = "LeafOak",
-			size = UDim2.fromOffset(15, 15),
-			position = UDim2.fromScale(0, 0),
-			parent = row,
-		})
-		Theme.setIconTransparency(pip, if index <= level then 0 else 0.75)
-		pip.LayoutOrder = index
-		pip.Parent = row
-	end
-end
-
---[[
-	One upgrade card: name over pips over an icon tile over a price.
-
-	Cards for a tool the player does not own draw as three padlocks with
-	question marks — the tree exists, but what it teaches is the tool's secret
-	until the tool is bought.
-]]
-local function slotCard(parent: Instance, order: number, slot: any, owned: boolean, level: number)
-	local card = Instance.new("TextButton")
-	card.Name = if owned then slot.key else "Locked"
-	card.Size = UDim2.fromOffset(104, 150)
-	card.BackgroundTransparency = 1
-	card.Text = ""
-	card.LayoutOrder = order
-	card.AutoButtonColor = owned
-	card.Parent = parent
-
-	local name = Instance.new("TextLabel")
-	name.Text = if owned then slot.name else "???"
-	name.Size = UDim2.new(1, 0, 0, 22)
-	name.BackgroundTransparency = 1
-	name.Font = Theme.font
-	name.TextColor3 = Color3.fromRGB(52, 44, 36)
-	name.TextSize = 19
-	name.Parent = card
-
-	if owned then
-		pips(card, level, slot.maxLevel)
-	end
-
-	local tile = Instance.new("Frame")
-	-- Square, and most of the card: the reference's icon tiles are the card.
-	tile.Size = UDim2.fromOffset(88, 84)
-	tile.Position = UDim2.new(0.5, 0, 0, 40)
-	tile.AnchorPoint = Vector2.new(0.5, 0)
-	-- White for a slot you own, as the reference has it. Paper-grey read as
-	-- another shade of page and the tiles stopped being tiles.
-	tile.BackgroundColor3 = if owned then Color3.fromRGB(252, 250, 246) else Color3.fromRGB(96, 92, 88)
-	tile.BorderSizePixel = 0
-	tile.Parent = card
-	Theme.corner(tile, 9)
-
-	local tileStroke = Instance.new("UIStroke")
-	tileStroke.Thickness = 2
-	tileStroke.Color = INK
-	tileStroke.Transparency = if selectedKey == slot.key and owned then 0 else 0.65
-	tileStroke.Parent = tile
-
-	--[[
-		The kind of upgrade, not the tool it belongs to.
-
-		The tile used to carry the tool's own model, which made a tool's three
-		slots three identical pictures — the card said "Dexterity" and showed
-		a glove, exactly as the card beside it saying "Grasp" did. The tool is
-		named across the top of the panel already. What the tile has to say is
-		which of the three things this slot buys, and that is the same three
-		things on every tool in the book.
-	]]
-	if owned and slot.icon then
-		local picture = Instance.new("ImageLabel")
-		picture.Name = "Icon"
-		picture.Size = UDim2.fromScale(0.82, 0.82)
-		picture.Position = UDim2.fromScale(0.5, 0.5)
-		picture.AnchorPoint = Vector2.new(0.5, 0.5)
-		picture.BackgroundTransparency = 1
-		picture.Image = slot.icon
-		picture.ScaleType = Enum.ScaleType.Fit
-		picture.Parent = tile
-	else
-		Theme.icon({
-			name = "Icon",
-			prop = if owned then Props.forTool(slot.toolId, slot.category) else "Padlock",
-			size = UDim2.fromScale(0.82, 0.82),
-			position = UDim2.fromScale(0.5, 0.5),
-			anchor = Vector2.new(0.5, 0.5),
-			parent = tile,
-		})
-	end
-
-	--[[
-		A price reads like a price.
-
-		There are two money forms here on purpose: a running total is `$5.41`,
-		and a rate or a gain is `4.36$`, which is how the reference writes the
-		numbers that fly past while you work. These are neither — they are what
-		the upgrade costs — and they were printing in the rate form. The same
-		page shows the tool underneath at `Buy — $110` and your own money at
-		`$0`, so one card was writing money backwards from everything around
-		it.
-	]]
-	local cost = ToolUpgrades.costAt(slot, level)
-	local price = Instance.new("TextLabel")
-	price.Name = "Price"
-	price.Text = if not owned then "?" elseif cost then Format.cash(cost) else "MAX"
-	price.Size = UDim2.new(1, 0, 0, 22)
-	price.Position = UDim2.new(0, 0, 0, 126)
-	price.BackgroundTransparency = 1
-	price.Font = Theme.font
-	price.TextColor3 = if not owned
-		then LOCKED
-		elseif cost then Color3.fromRGB(150, 106, 30)
-		else Color3.fromRGB(126, 158, 78)
-	price.TextSize = 19
-	price.Parent = card
-
-	if owned then
-		card.Activated:Connect(function()
-			selectedKey = slot.key
-			Journal.refresh()
-		end)
-	end
-end
-
---- A tool's panel: its name in ink over its three cards in a sketched frame.
-local function toolPanel(parent: Instance, order: number, tool: Types.ToolDef, owned: boolean)
-	--[[
-		Tall enough for whatever this tool sells.
-
-		The two offers used to share one row, which is fine on the wide page
-		and was never fine on the right-hand column: two 158-pixel slabs side
-		by side in 270 pixels of column printed "Keep it — 200 tip". One
-		under the other, full width, and the panel grows a row when there are
-		two of them.
-	]]
-	local state = PlayerState.get()
-	local tipsPrice = tool.tipsPermanent
-	local sellsForCash = not owned and tool.cost > 0
-	local sellsForTips = tipsPrice ~= nil and not state.permanentTools[tool.id]
-	local offers = (if sellsForCash then 1 else 0) + (if sellsForTips then 1 else 0)
-
-	local holder = Instance.new("Frame")
-	holder.Name = tool.id
-	holder.Size = UDim2.new(1, -8, 0, 208 + offers * 44)
-	holder.BackgroundTransparency = 1
-	holder.LayoutOrder = order
-	holder.Parent = parent
-
-	local title = Instance.new("TextLabel")
-	title.Text = tool.name:upper()
-	title.Size = UDim2.new(1, 0, 0, 30)
-	title.BackgroundTransparency = 1
-	title.Font = Theme.font
-	--- The name is written on the panel, not on the mount: light, like every
-	--- other heading standing on the dark wood.
-	title.TextColor3 = Theme.colors.tips
-	title.TextSize = 26
-	title.Parent = holder
-	Theme.outline(title, Theme.OUTLINE)
-
-	--[[
-		A real card, not a wash over the page.
-
-		The three slot tiles are white with dark type on them, which needs
-		something warm behind it; a half-transparent tint of parchment over
-		dark wood is neither. This is the same cream face the objectives and
-		zone rows are cut from.
-	]]
-	local frame = Instance.new("Frame")
-	frame.Size = UDim2.new(1, -4, 0, 170)
-	frame.Position = UDim2.fromOffset(2, 34)
-	frame.BackgroundColor3 = CARD
-	frame.BorderSizePixel = 0
-	frame.Parent = holder
-	Theme.corner(frame, 16)
-	Theme.stroke(frame, 4, Theme.colors.outline, 0)
-	local mount = Instance.new("UIGradient")
-	mount.Color = ColorSequence.new(PAPER, PAPER_EDGE)
-	mount.Rotation = 90
-	mount.Parent = frame
-
-	local row = Instance.new("Frame")
-	row.Size = UDim2.new(1, -12, 1, -12)
-	row.Position = UDim2.fromOffset(6, 6)
-	row.BackgroundTransparency = 1
-	row.Parent = frame
-
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Horizontal
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 6)
-	layout.Parent = row
-
-	for index, slot in ToolUpgrades.treeFor(tool.id) do
-		slotCard(row, index, slot, owned, state.upgrades[slot.key] or 0)
-	end
-
-	--[[
-		What the page can sell you, and where it puts it.
-
-		Two offers, because a tool has two prices that mean different things:
-		cash buys it for this run, tips buy it for every run after. They share
-		one row so the panel keeps its height — centred when only one applies,
-		side by side when both do.
-	]]
-	local placed = 0
-	local function offer(text: string, affordable: () -> boolean, onBuy: () -> ())
-		local buy = Theme.chunkButton({
-			name = "Offer",
-			variant = "gold",
-			text = text,
-			textSize = 17,
-			size = UDim2.new(1, -12, 0, 38),
-			position = UDim2.new(0.5, 0, 0, 210 + placed * 44),
-			anchor = Vector2.new(0.5, 0),
-			parent = holder,
-			radius = 12,
-			outline = 3,
-		})
-		placed += 1
-		live(function()
-			wear(buy, if affordable() then LOOK_AFFORD else LOOK_BROKE)
-		end)
-		buy.Activated:Connect(onBuy)
-	end
-
-	if sellsForCash then
-		offer(
-			`Buy it — {Format.cash(tool.cost)}`,
-			function()
-				return PlayerState.get().cash >= tool.cost
-			end,
-			function()
-				purchaseRemote:FireServer("tool", tool.id)
-			end
-		)
-	end
-
-	if sellsForTips then
-		local price = tipsPrice :: number
-		offer(
-			`Keep it for good — {Format.count(price)} tips`,
-			function()
-				return PlayerState.get().tips >= price
-			end,
-			function()
-				purchaseRemote:FireServer("permanent", tool.id)
-			end
-		)
-	end
-end
-
---[[
-	Every tool, on one page.
-
-	This showed three: what was in your hands, and the next two rungs of the
-	ladder. Sixteen tools exist and the book is the only place in the game
-	that sells them without a walk to the shed, so fourteen of them could not
-	be looked at, compared or bought from here — you got whichever two the
-	list happened to hand you, and to reach the one you actually wanted you
-	had to buy your way up to it.
-
-	The right page is a scrolling column now and it holds all of them. Order
-	still matters, because the top of a list is where a page is read from: the
-	rungs you do not own come first, in the order the ladder climbs, and the
-	ones you already have follow. The next purchase is on the page, and so is
-	every purchase after it.
-]]
-local function panelTools(): { Types.ToolDef }
-	local state = PlayerState.get()
-	local out: { Types.ToolDef } = {}
-	local seen: { [string]: boolean } = {}
-
-	local equipped = if state.equippedTool ~= "" then Tools.get(state.equippedTool) else nil
-	if equipped then
-		table.insert(out, equipped)
-		seen[equipped.id] = true
-	end
-
-	for _, tool in Tools.list do
-		if not seen[tool.id] and not state.ownedTools[tool.id] and tool.currency == "Cash" then
-			table.insert(out, tool)
-			seen[tool.id] = true
-		end
-	end
-	for _, tool in Tools.list do
-		if not seen[tool.id] then
-			table.insert(out, tool)
-			seen[tool.id] = true
-		end
-	end
-
-	return out
-end
-
-local function renderUpgrades()
-	local state = PlayerState.get()
-	local shown = panelTools()
-
-	-- Left page: the tool in hand, then the chooser and the BUY button.
-	local left = body(leftPage)
-	if shown[1] then
-		toolPanel(left, 1, shown[1], state.ownedTools[shown[1].id] == true)
-	end
-
-	-- The detail panel: what the selected upgrade does, or the standing
-	-- instruction when nothing is picked yet.
-	--- A dark well, like the chips the HUD reads its numbers off, rather than
-	--- the lilac slab this was: nothing else in the game is that colour.
-	local detail = Theme.chip({
-		name = "Detail",
-		size = UDim2.new(1, -16, 0, 96),
-		parent = left,
-		radius = 16,
-	})
-	detail.LayoutOrder = 2
-	Theme.stroke(detail, 3, Theme.colors.outline, 0)
-
-	local selectedSlot, selectedTool = nil, nil
-	if selectedKey then
-		selectedSlot, selectedTool = ToolUpgrades.slotByKey(selectedKey)
-	end
-
-	local detailText = Instance.new("TextLabel")
-	detailText.Size = UDim2.new(1, -28, 1, -16)
-	detailText.Position = UDim2.fromOffset(14, 8)
-	detailText.BackgroundTransparency = 1
-	detailText.Font = Theme.font
-	detailText.TextColor3 = Theme.colors.body
-	detailText.TextSize = 19
-	detailText.TextWrapped = true
-	detailText.Parent = detail
-	Theme.outline(detailText, Theme.OUTLINE)
-
-	local selectedCost: number? = nil
-	if selectedSlot and selectedTool then
-		local level = state.upgrades[selectedSlot.key] or 0
-		selectedCost = ToolUpgrades.costAt(selectedSlot, level)
-		detailText.Text = `{selectedTool.name} — {selectedSlot.name}\n{selectedSlot.description}`
-	else
-		detailText.Text = "Select an upgrade!"
-	end
-
-	local buyButton = Theme.chunkButton({
-		name = "Buy",
-		variant = "primary",
-		text = if selectedCost then `BUY  —  {Format.cash(selectedCost :: number)}` else "BUY",
-		textSize = 24,
-		size = UDim2.new(0.86, 0, 0, 52),
-		parent = left,
-		radius = 14,
-		outline = 4,
-	})
-	--- `chunkButton` returns the face; the holder is what the list lays out.
-	local buySeat = buyButton.Parent :: Frame
-	buySeat.LayoutOrder = 3
-	-- Gold the instant the money lands, without the page being rebuilt under
-	-- the cursor to do it.
-	live(function()
-		local cost = selectedCost
-		wear(buyButton, if cost and PlayerState.get().cash >= cost then LOOK_AFFORD else LOOK_BROKE)
-	end)
-
-	-- Connected whether or not the money is there yet. Wiring this only when
-	-- the price was already met left a button that stayed dead after the cash
-	-- arrived, because the page no longer rebuilds itself to notice. The server
-	-- is the one that decides, and it says no politely.
-	if selectedKey then
-		local key = selectedKey :: string
-		buyButton.Activated:Connect(function()
-			purchaseRemote:FireServer("toolUpgrade", key)
-		end)
-	end
-
-	-- Right page: everything else there is, in a column you scroll.
-	local right = body(rightPage)
-	for index = 2, #shown do
-		local tool = shown[index]
-		toolPanel(right, index, tool, state.ownedTools[tool.id] == true)
-	end
-end
-
---------------------------------------------------------------------
--- Yourself: the bag, the legs, the rate and the reach
---------------------------------------------------------------------
-
---[[
-	The player's own stat lines, sold from the book.
-
-	These five — how much you carry, how fast you walk, what you charge, how
-	long the tank lasts, how far the trailer reaches — used to be sold only at
-	the boards standing in front of the shed. That meant the single most
-	important purchase in the early game, the bag, was invisible to anyone who
-	had not already walked up to the right board, while the tips page told them
-	to buy it first and a toast announced they could now afford it. Three parts
-	of the game pointing at a thing with no way to reach it.
-
-	They are still on the boards. They are also here, because "where do I buy
-	the bag" should never be a question the game leaves you holding.
-]]
 --[[
 	A level as a row of slabs rather than as a fraction.
 
@@ -925,6 +502,542 @@ local function paintPips(pips: { Frame }, level: number)
 	end
 end
 
+--------------------------------------------------------------------
+-- Tools: the shed, as a shelf you pick from
+--------------------------------------------------------------------
+
+--[[
+	Which tool is being read about.
+
+	The page used to be a column of sixteen tall panels, each carrying its own
+	three upgrade cards and its own buy buttons — about two hundred and forty
+	studs of scroll to compare two tools, and no way to see more than one and
+	a half of them at a time. It is a shelf now: every tool as a card in a
+	grid on the left, and one pane on the right that says everything about
+	whichever one you tapped.
+]]
+local selectedTool: string? = nil
+
+--- A small dark pill with a number on it, for a stat that fits in two words.
+local function statPill(parent: Instance, order: number, text: string, colour: Color3): Frame
+	local pill = Theme.chip({
+		name = "Stat",
+		size = UDim2.fromOffset(0, 20),
+		parent = parent,
+		radius = Theme.PILL,
+		autoSize = Enum.AutomaticSize.X,
+	})
+	pill.LayoutOrder = order
+
+	local label = Theme.text({
+		name = "Text",
+		text = text,
+		size = UDim2.fromOffset(0, 20),
+		position = UDim2.fromScale(0, 0),
+		parent = pill,
+		align = Enum.TextXAlignment.Center,
+		color = colour,
+		textSize = 13,
+	})
+	label.AutomaticSize = Enum.AutomaticSize.X
+	Theme.pad(pill, 0, 9, 0, 9)
+	return pill
+end
+
+--[[
+	One tool on the shelf: a picture, a name, what it cuts, and what it costs.
+
+	The footer is the tool's whole status in one line — OWNED, or the price in
+	the colour that says whether you can pay it — because a grid is read by
+	scanning down one column, not by reading each card.
+]]
+local function toolCard(parent: Instance, order: number, tool: Types.ToolDef, state: PlayerState.State)
+	local owned = state.ownedTools[tool.id] == true
+	local picked = selectedTool == tool.id
+
+	local face = Theme.cardFace({
+		name = tool.id,
+		size = UDim2.fromScale(1, 1),
+		parent = parent,
+		radius = 16,
+		drop = 5,
+		outline = 4,
+	})
+	local seat = face.Parent :: Frame
+	seat.LayoutOrder = order
+	if picked then
+		local ring = face:FindFirstChildOfClass("UIStroke")
+		if ring then
+			ring.Color = Theme.colors.tips
+		end
+	end
+	Theme.pad(face, 10, 10, 10, 10)
+
+	local well = Instance.new("Frame")
+	well.Name = "Well"
+	well.Size = UDim2.new(1, 0, 0, 68)
+	well.BackgroundColor3 = Color3.fromRGB(44, 33, 24)
+	well.BorderSizePixel = 0
+	well.Parent = face
+	Theme.corner(well, 11)
+	Theme.stroke(well, 3, Theme.colors.outline, 0)
+
+	Theme.icon({
+		name = "Icon",
+		prop = Props.forTool(tool.id, tool.category),
+		size = UDim2.fromScale(0.84, 0.84),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		parent = well,
+	})
+
+	local name = Theme.text({
+		name = "Name",
+		text = tool.name,
+		size = UDim2.new(1, 0, 0, 20),
+		position = UDim2.fromOffset(0, 74),
+		parent = face,
+		align = Enum.TextXAlignment.Left,
+		color = INK,
+		textSize = 16,
+	})
+	name.TextTruncate = Enum.TextTruncate.AtEnd
+
+	local stats = Instance.new("Frame")
+	stats.Name = "Stats"
+	stats.Size = UDim2.new(1, 0, 0, 20)
+	stats.Position = UDim2.fromOffset(0, 96)
+	stats.BackgroundTransparency = 1
+	stats.Parent = face
+	local statFlow = Instance.new("UIListLayout")
+	statFlow.FillDirection = Enum.FillDirection.Horizontal
+	statFlow.SortOrder = Enum.SortOrder.LayoutOrder
+	statFlow.Padding = UDim.new(0, 5)
+	statFlow.Parent = stats
+
+	--- Deck first and in gold: the width of the swath is the headline number
+	--- of every tool in this game.
+	statPill(stats, 1, `{tool.deck} wide`, Theme.colors.tips)
+	statPill(stats, 2, `×{tool.power}`, Palette.color(Palette.grass.blade))
+
+	--- The footer says the one thing a scan is looking for.
+	local footer
+	if owned then
+		footer = Theme.chunkButton({
+			name = "Footer",
+			variant = "disabled",
+			text = "OWNED",
+			textSize = 15,
+			size = UDim2.new(1, 0, 0, 34),
+			position = UDim2.fromScale(0, 1),
+			anchor = Vector2.new(0, 1),
+			parent = face,
+			radius = 11,
+			outline = 3,
+		})
+	else
+		footer = Theme.chunkButton({
+			name = "Footer",
+			variant = "primary",
+			text = if tool.cost > 0 then Format.cash(tool.cost) else "FREE",
+			textSize = 16,
+			size = UDim2.new(1, 0, 0, 34),
+			position = UDim2.fromScale(0, 1),
+			anchor = Vector2.new(0, 1),
+			parent = face,
+			radius = 11,
+			outline = 3,
+		})
+		live(function()
+			wear(footer, if PlayerState.get().cash >= tool.cost then LOOK_AFFORD else LOOK_BROKE)
+		end)
+	end
+	footer.Active = false
+
+	--[[
+		The whole card is the button.
+
+		A footer that reads as a price and a card that has to be tapped
+		somewhere else is two targets for one intention, and on a tablet the
+		one you hit is whichever your thumb landed on.
+	]]
+	local hit = Instance.new("TextButton")
+	hit.Name = "Hit"
+	hit.Size = UDim2.fromScale(1, 1)
+	hit.BackgroundTransparency = 1
+	hit.Text = ""
+	hit.AutoButtonColor = false
+	hit.Modal = true
+	hit.ZIndex = face.ZIndex + 2
+	hit.Parent = face
+	hit.Activated:Connect(function()
+		selectedTool = tool.id
+		Journal.refresh()
+	end)
+end
+
+--- A label and a value on a dark row, for the detail pane's numbers.
+local function statRow(parent: Instance, order: number, label: string, value: string, colour: Color3)
+	local row = Theme.chip({
+		name = label,
+		size = UDim2.new(1, 0, 0, 34),
+		parent = parent,
+		radius = 10,
+	})
+	row.LayoutOrder = order
+	Theme.pad(row, 0, 11, 0, 11)
+
+	Theme.text({
+		name = "Label",
+		text = label,
+		size = UDim2.fromScale(0.55, 1),
+		position = UDim2.fromScale(0, 0),
+		parent = row,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.label,
+		textSize = 14,
+	})
+	Theme.text({
+		name = "Value",
+		text = value,
+		size = UDim2.fromScale(0.45, 1),
+		position = UDim2.fromScale(1, 0),
+		anchor = Vector2.new(1, 0),
+		parent = row,
+		align = Enum.TextXAlignment.Right,
+		color = colour,
+		textSize = 16,
+	})
+end
+
+--- One of the tool's three upgrade slots, as a row you can buy from directly.
+local function slotRow(parent: Instance, order: number, slot: any, level: number)
+	local row = card(parent, 78)
+	row.Name = slot.key
+	row.LayoutOrder = order
+
+	local well = Instance.new("Frame")
+	well.Name = "Well"
+	well.Size = UDim2.fromOffset(44, 44)
+	well.Position = UDim2.fromOffset(12, 17)
+	well.BackgroundColor3 = Color3.fromRGB(252, 250, 246)
+	well.BorderSizePixel = 0
+	well.Parent = row
+	Theme.corner(well, 10)
+	Theme.stroke(well, 2.5, Theme.colors.outline, 0)
+
+	if slot.icon then
+		local picture = Instance.new("ImageLabel")
+		picture.Name = "Icon"
+		picture.Size = UDim2.fromScale(0.82, 0.82)
+		picture.Position = UDim2.fromScale(0.5, 0.5)
+		picture.AnchorPoint = Vector2.new(0.5, 0.5)
+		picture.BackgroundTransparency = 1
+		picture.Image = slot.icon
+		picture.ScaleType = Enum.ScaleType.Fit
+		picture.Parent = well
+	end
+
+	Theme.text({
+		name = "Name",
+		text = slot.name,
+		size = UDim2.new(1, -190, 0, 20),
+		position = UDim2.fromOffset(66, 12),
+		parent = row,
+		align = Enum.TextXAlignment.Left,
+		color = INK,
+		textSize = 17,
+	})
+
+	local pips = levelPips(row, slot.maxLevel, 66, 38)
+	paintPips(pips, level)
+
+	local cost = ToolUpgrades.costAt(slot, level)
+	local buy = Theme.chunkButton({
+		name = "Buy",
+		variant = "primary",
+		text = if cost then Format.cash(cost) else "MAXED",
+		textSize = 16,
+		size = UDim2.fromOffset(96, 40),
+		position = UDim2.new(1, -12, 0.5, 0),
+		anchor = Vector2.new(1, 0.5),
+		parent = row,
+		radius = 12,
+		outline = 3,
+	})
+	if cost then
+		live(function()
+			wear(buy, if PlayerState.get().cash >= cost then LOOK_AFFORD else LOOK_BROKE)
+		end)
+		buy.Activated:Connect(function()
+			purchaseRemote:FireServer("toolUpgrade", slot.key)
+		end)
+	else
+		wear(buy, LOOK_DONE)
+	end
+end
+
+--[[
+	Which tool the pane opens on.
+
+	The equipped one, because that is the one the player is holding and the
+	one whose upgrades they are most likely to be here for.
+]]
+local function defaultTool(state: PlayerState.State): Types.ToolDef
+	local equipped = if state.equippedTool ~= "" then Tools.get(state.equippedTool) else nil
+	return equipped or Tools.list[1]
+end
+
+local function renderUpgrades()
+	local state = PlayerState.get()
+
+	--------------------------------------------------------------
+	-- Left: the shelf
+	--------------------------------------------------------------
+	local shelf = body(leftPage)
+	--- `body` lays its children out in a column; a shelf is a grid, and two
+	--- layouts in one frame means neither of them is the one you asked for —
+	--- the first attempt drew a single card the size of the page.
+	local column = shelf:FindFirstChildOfClass("UIListLayout")
+	if column then
+		column:Destroy()
+	end
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.new(1 / 3, -10, 0, 190)
+	grid.CellPadding = UDim2.fromOffset(14, 14)
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = shelf
+
+	for order, tool in Tools.list do
+		toolCard(shelf, order, tool, state)
+	end
+
+	--------------------------------------------------------------
+	-- Right: everything about the one you tapped
+	--------------------------------------------------------------
+	local chosen = if selectedTool then Tools.get(selectedTool) else nil
+	local tool = chosen or defaultTool(state)
+	selectedTool = tool.id
+
+	local right = body(rightPage)
+	local owned = state.ownedTools[tool.id] == true
+	local kept = state.permanentTools[tool.id] == true
+
+	local pane = Instance.new("Frame")
+	pane.Name = "Detail"
+	pane.Size = UDim2.new(1, -12, 0, 388)
+	pane.BackgroundColor3 = Color3.fromRGB(30, 22, 16)
+	pane.BorderSizePixel = 0
+	pane.LayoutOrder = 1
+	pane.Parent = right
+	Theme.corner(pane, 18)
+	Theme.stroke(pane, 4, Theme.colors.outline, 0)
+	Theme.pad(pane, 16, 16, 16, 16)
+
+	local well = Instance.new("Frame")
+	well.Name = "Well"
+	well.Size = UDim2.new(1, 0, 0, 140)
+	well.BackgroundColor3 = Color3.fromRGB(44, 33, 24)
+	well.BorderSizePixel = 0
+	well.Parent = pane
+	Theme.corner(well, 14)
+	Theme.stroke(well, 3, Theme.colors.outline, 0)
+
+	Theme.icon({
+		name = "Icon",
+		prop = Props.forTool(tool.id, tool.category),
+		size = UDim2.fromScale(0.8, 0.8),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		parent = well,
+	})
+
+	Theme.text({
+		name = "Name",
+		text = tool.name,
+		size = UDim2.new(1, 0, 0, 30),
+		position = UDim2.fromOffset(0, 148),
+		parent = pane,
+		align = Enum.TextXAlignment.Left,
+		textSize = 24,
+	})
+
+	local blurb = Theme.text({
+		name = "Blurb",
+		text = tool.description,
+		size = UDim2.new(1, 0, 0, 52),
+		position = UDim2.fromOffset(0, 180),
+		parent = pane,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.body,
+		textSize = 15,
+		bold = false,
+	})
+	blurb.TextWrapped = true
+	blurb.TextYAlignment = Enum.TextYAlignment.Top
+
+	local rows = Instance.new("Frame")
+	rows.Name = "Stats"
+	rows.Size = UDim2.new(1, 0, 0, 118)
+	rows.Position = UDim2.fromOffset(0, 238)
+	rows.BackgroundTransparency = 1
+	rows.Parent = pane
+	local rowFlow = Instance.new("UIListLayout")
+	rowFlow.SortOrder = Enum.SortOrder.LayoutOrder
+	rowFlow.Padding = UDim.new(0, 8)
+	rowFlow.Parent = rows
+
+	statRow(rows, 1, "DECK", `{tool.deck} tiles wide`, Theme.colors.tips)
+	statRow(rows, 2, "CUT POWER", `×{tool.power}`, Palette.color(Palette.grass.blade))
+	statRow(
+		rows,
+		3,
+		"FUEL",
+		if tool.fuelBurn > 0 then `{Format.stat(tool.fuelBurn)} L/s` else "none",
+		if tool.fuelBurn > 0 then Theme.colors.warn else Theme.colors.label
+	)
+
+	--------------------------------------------------------------
+	-- The three ways to have it
+	--------------------------------------------------------------
+	local order = 2
+	if not owned and tool.cost > 0 then
+		local buy = Theme.chunkButton({
+			name = "Buy",
+			variant = "primary",
+			text = `BUY — {Format.cash(tool.cost)}`,
+			textSize = 20,
+			size = UDim2.new(1, -12, 0, 52),
+			parent = right,
+			radius = 14,
+			outline = 4,
+		})
+		;(buy.Parent :: Frame).LayoutOrder = order
+		order += 1
+		live(function()
+			wear(buy, if PlayerState.get().cash >= tool.cost then LOOK_AFFORD else LOOK_BROKE)
+		end)
+		buy.Activated:Connect(function()
+			purchaseRemote:FireServer("tool", tool.id)
+		end)
+	end
+
+	--[[
+		Robux, in the two colours that mean what they mean everywhere else in
+		the game: blue is this run, purple is forever. Drawn dead rather than
+		hidden when the product has no real id yet, so the pane does not
+		change shape the day the ids arrive.
+	]]
+	local runKey, foreverKey = Monetization.toolProductKeys(tool.id)
+	local runProduct = Monetization.productByKey[runKey]
+	local foreverProduct = Monetization.productByKey[foreverKey]
+	if runProduct or foreverProduct then
+		local pair = Instance.new("Frame")
+		pair.Name = "Robux"
+		pair.Size = UDim2.new(1, -12, 0, 46)
+		pair.BackgroundTransparency = 1
+		pair.LayoutOrder = order
+		pair.Parent = right
+		order += 1
+
+		local function robux(product, variant: string, tail: string, x: number, dead: boolean)
+			local price = Prices.robux(product.id, product.robux)
+			local button = Theme.chunkButton({
+				name = variant,
+				variant = if dead then "disabled" else variant :: any,
+				text = `R$ {price} · {tail}`,
+				textSize = 15,
+				size = UDim2.new(0.5, -5, 1, 0),
+				position = UDim2.new(x, if x == 0 then 0 else 5, 0, 0),
+				anchor = Vector2.new(x, 0),
+				parent = pair,
+				radius = 12,
+				outline = 3,
+			})
+			if not dead then
+				button.Activated:Connect(function()
+					promptRemote:FireServer("product", product.key)
+				end)
+			end
+		end
+
+		if runProduct then
+			robux(runProduct, "robuxRun", "RUN", 0, owned or not Monetization.isConfigured(runProduct.id))
+		end
+		if foreverProduct then
+			robux(
+				foreverProduct,
+				"robuxKeep",
+				"KEEP",
+				1,
+				kept or not Monetization.isConfigured(foreverProduct.id)
+			)
+		end
+	end
+
+	local tipsPrice = tool.tipsPermanent
+	if tipsPrice and not kept then
+		local keep = Theme.chunkButton({
+			name = "Keep",
+			variant = "gold",
+			text = `KEEP IT FOR GOOD — {Format.count(tipsPrice)} TIPS`,
+			textSize = 15,
+			size = UDim2.new(1, -12, 0, 44),
+			parent = right,
+			radius = 12,
+			outline = 3,
+		})
+		;(keep.Parent :: Frame).LayoutOrder = order
+		order += 1
+		live(function()
+			wear(keep, if PlayerState.get().tips >= tipsPrice then LOOK_TIPS else LOOK_BROKE)
+		end)
+		keep.Activated:Connect(function()
+			purchaseRemote:FireServer("permanent", tool.id)
+		end)
+	end
+
+	--------------------------------------------------------------
+	-- And its own three lines
+	--------------------------------------------------------------
+	local title = Instance.new("TextLabel")
+	title.Name = "UpgradesHeading"
+	title.Text = if owned then "ITS THREE LINES" else "LOCKED UNTIL YOU OWN IT"
+	title.Size = UDim2.new(1, -12, 0, 22)
+	title.BackgroundTransparency = 1
+	title.Font = Theme.font
+	title.TextColor3 = Theme.colors.label
+	title.TextSize = 15
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.LayoutOrder = order
+	title.Parent = right
+	order += 1
+
+	if owned then
+		for index, slot in ToolUpgrades.treeFor(tool.id) do
+			slotRow(right, order + index, slot, state.upgrades[slot.key] or 0)
+		end
+	end
+end
+
+--------------------------------------------------------------------
+-- Yourself: the bag, the legs, the rate and the reach
+--------------------------------------------------------------------
+
+--[[
+	The player's own stat lines, sold from the book.
+
+	These five — how much you carry, how fast you walk, what you charge, how
+	long the tank lasts, how far the trailer reaches — used to be sold only at
+	the boards standing in front of the shed. That meant the single most
+	important purchase in the early game, the bag, was invisible to anyone who
+	had not already walked up to the right board, while the tips page told them
+	to buy it first and a toast announced they could now afford it. Three parts
+	of the game pointing at a thing with no way to reach it.
+
+	They are still on the boards. They are also here, because "where do I buy
+	the bag" should never be a question the game leaves you holding.
+]]
 local function renderStats()
 	heading(leftPage, "Upgrades")
 	local scroll = body(leftPage)
@@ -1001,7 +1114,7 @@ local function renderStats()
 
 		local buy = Theme.chunkButton({
 			name = "Buy",
-			variant = "gold",
+			variant = "primary",
 			text = "",
 			textSize = 18,
 			size = UDim2.fromOffset(146, 46),
@@ -1021,7 +1134,7 @@ local function renderStats()
 
 			if not cost then
 				change.Text = `{Format.stat(Upgrades.valueAt(def, level))}{def.suffix} — the top of the line`
-				buy.Text = "MAX"
+				buy.Text = "MAXED"
 				wear(buy, LOOK_DONE)
 				return
 			end
@@ -1357,7 +1470,7 @@ end
 ]]
 local function signature(): string
 	local state = PlayerState.get()
-	local parts = { activeTab, state.equippedTool, selectedKey or "-", tostring(state.hasPortableTrailer) }
+	local parts = { activeTab, state.equippedTool, selectedTool or "-", tostring(state.hasPortableTrailer) }
 
 	local owned = {}
 	for id in state.ownedTools do
@@ -1971,6 +2084,7 @@ end
 
 function Journal.start()
 	purchaseRemote = Remotes.event(Remotes.PURCHASE)
+	promptRemote = Remotes.event(Remotes.PROMPT_PURCHASE)
 	questRemote = Remotes.event(Remotes.QUESTS)
 
 	build()

@@ -319,7 +319,36 @@ end
 -- Flow
 --------------------------------------------------------------------
 
+--[[
+	Who owns the world right now, and whether the lobby is still building one.
+
+	The lobby's own build runs in a thread of its own so that a slow one
+	cannot take the server down with it — and a run can begin while it is
+	still in flight. Press START A RUN inside the first seconds of a fresh
+	server and `beginRun` loads the property and opens its first gate, and
+	then the lobby's thread, still working, reloads the starter world over the
+	top of it and shuts every gate on the way past. The property still looked
+	right, because the starter world *is* The House; nothing on it could be
+	cut, because nothing on it was open, and the completion panel had no
+	section to name. Measured on the broadcast: eight sections, every one of
+	them `open=false`, including the one the run starts in.
+
+	Every claim on the world takes the next number. A build that finds the
+	number has moved on knows it has been overtaken, and stops.
+]]
+local worldClaim = 0
+local buildingLobby = false
+
 local function beginRun(id: string, partySize: number?)
+	worldClaim += 1
+	--- Wait for a build already in flight rather than racing it: whichever of
+	--- the two loses destroys the other's world.
+	local waited = 0
+	while buildingLobby and waited < 8 do
+		task.wait(0.1)
+		waited += 0.1
+	end
+
 	worldId = id
 	runStartedAt = os.clock()
 	local world = Worlds.expect(id)
@@ -773,9 +802,21 @@ function RunService.start()
 	]]
 	phase = "lobby"
 	endsAt = os.clock() + LOBBY_SECONDS
+	local mine = worldClaim
+	buildingLobby = true
 	task.spawn(function()
+		if mine ~= worldClaim then
+			buildingLobby = false
+			return
+		end
 		ReplicationService.reset()
 		WorldService.load(Worlds.STARTER_ID)
+		buildingLobby = false
+		if mine ~= worldClaim then
+			--- A run began while this was building. The world is its now, and
+			--- the last thing it needs is the lobby shutting its gates.
+			return
+		end
 		ReplicationService.broadcastWorldInfo()
 		WorldService.closeAllSections()
 		broadcast()
