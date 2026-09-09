@@ -9,6 +9,7 @@
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -54,44 +55,101 @@ local choose: (order: number) -> ()
 ]]
 local MAX_SLOTS = 10
 
+--[[
+	One slot, in the same chrome as everything else on the screen.
+
+	Roblox has no `box-shadow`, so a slot is a transparent holder with a drop
+	behind it and the face on top — the arrangement `Theme.chunkPanel` makes,
+	written out here because the face has to be the `TextButton` a player
+	presses rather than a frame with one over it.
+
+	The icon sits in a well rather than on the face. A picture drawn straight
+	onto a panel is a sticker; the same picture in a recess with its own
+	outline is a thing in a slot, and it is what tells eight of these apart at
+	a glance on a phone.
+]]
+local SLOT = 82
+
 local function buildSlot(order: number): TextButton
+	--- Not `holder`: that name already belongs to the row this goes into,
+	--- and shadowing it made every slot its own parent.
+	local seat = Instance.new("Frame")
+	seat.Name = `Slot{order}Seat`
+	seat.Size = UDim2.fromOffset(SLOT, SLOT)
+	seat.BackgroundTransparency = 1
+	seat.BorderSizePixel = 0
+	seat.LayoutOrder = order
+	seat.Parent = holder
+
+	local drop = Instance.new("Frame")
+	drop.Name = "Drop"
+	drop.Size = UDim2.fromScale(1, 1)
+	drop.Position = UDim2.fromOffset(0, 6)
+	drop.BackgroundColor3 = Theme.colors.outline
+	drop.BorderSizePixel = 0
+	drop.ZIndex = 0
+	drop.Parent = seat
+	Theme.corner(drop, 18)
+
 	local button = Instance.new("TextButton")
 	button.Name = `Slot{order}`
-	button.Size = UDim2.fromOffset(64, 64)
-	button.BackgroundColor3 = Theme.colors.panel
-	button.BackgroundTransparency = 0.2
+	button.Size = UDim2.fromScale(1, 1)
+	button.BackgroundColor3 = Theme.colors.panelLight
 	button.BorderSizePixel = 0
 	button.Text = ""
 	button.AutoButtonColor = false
-	button.LayoutOrder = order
-	button.Parent = holder
-	Theme.corner(button, 12)
+	button.Parent = seat
+	Theme.corner(button, 18)
+	local face = Instance.new("UIGradient")
+	face.Color = ColorSequence.new(Theme.colors.panelLight, Theme.colors.panel)
+	face.Rotation = 90
+	face.Parent = button
 
 	local stroke = Instance.new("UIStroke")
 	stroke.Name = "Edge"
-	stroke.Thickness = 3
+	stroke.Thickness = 4
 	stroke.Color = Theme.colors.outline
 	stroke.Parent = button
+
+	local bevel = Instance.new("Frame")
+	bevel.Name = "Bevel"
+	bevel.Size = UDim2.new(1, -8, 0, 3)
+	bevel.Position = UDim2.fromOffset(4, 3)
+	bevel.BackgroundColor3 = Color3.new(1, 1, 1)
+	bevel.BackgroundTransparency = 0.86
+	bevel.BorderSizePixel = 0
+	bevel.Parent = button
+	Theme.corner(bevel, 2)
+
+	local well = Instance.new("Frame")
+	well.Name = "Well"
+	well.Size = UDim2.fromOffset(52, 52)
+	well.Position = UDim2.fromScale(0.5, 0.5)
+	well.AnchorPoint = Vector2.new(0.5, 0.5)
+	well.BackgroundColor3 = Color3.fromRGB(36, 26, 18)
+	well.BorderSizePixel = 0
+	well.Parent = button
+	Theme.corner(well, 11)
+	Theme.stroke(well, 3, Theme.colors.outline, 0)
 
 	local number = Instance.new("TextLabel")
 	number.Name = "Number"
 	number.Text = tostring(order)
 	number.Size = UDim2.fromOffset(18, 18)
-	number.Position = UDim2.fromOffset(4, 2)
+	number.Position = UDim2.fromOffset(8, 4)
 	number.BackgroundTransparency = 1
 	number.Font = Theme.font
-	number.TextColor3 = Theme.colors.text
-	number.TextSize = 16
+	number.TextColor3 = Theme.colors.label
+	number.TextSize = 14
 	number.Parent = button
-	Theme.outline(number, 2)
 
 	Theme.icon({
 		name = "Icon",
 		prop = Props.FALLBACK_TOOL_ICON,
-		size = UDim2.fromScale(0.86, 0.86),
+		size = UDim2.fromScale(0.92, 0.92),
 		position = UDim2.fromScale(0.5, 0.5),
 		anchor = Vector2.new(0.5, 0.5),
-		parent = button,
+		parent = well,
 	})
 
 	--[[
@@ -105,7 +163,7 @@ local function buildSlot(order: number): TextButton
 	more.Text = ""
 	more.Size = UDim2.fromOffset(20, 16)
 	more.AnchorPoint = Vector2.new(1, 1)
-	more.Position = UDim2.new(1, -3, 1, -2)
+	more.Position = UDim2.new(1, -6, 1, -4)
 	more.BackgroundTransparency = 1
 	more.Font = Theme.font
 	more.TextColor3 = Theme.colors.text
@@ -114,24 +172,28 @@ local function buildSlot(order: number): TextButton
 	more.Parent = button
 	Theme.outline(more, 2)
 
-	-- The selected slot fills in behind the icon and takes a white border. A
-	-- lift alone is easy to lose against a lawn covered in bright leaves on a
-	-- phone; a filled tile is not, and it is what tells you at a glance which
-	-- tool is in your hands.
+	--[[
+		The selected slot is underlined, and its well lights up.
+
+		It used to fill the whole tile blue behind the icon, because a lift
+		alone is easy to lose against a lawn covered in bright leaves. A bar
+		hanging under the slot is not easy to lose either — it is the only
+		blue on the screen and it sits outside the row's own outline — and it
+		leaves the tile looking like the other seven, which is what makes a
+		row of them read as a row. The well brightening carries the rest of
+		what the fill was doing.
+	]]
 	local selected = Instance.new("Frame")
 	selected.Name = "Selected"
-	selected.Size = UDim2.fromScale(1, 1)
+	selected.Size = UDim2.new(1, -20, 0, 7)
+	selected.Position = UDim2.new(0.5, 0, 1, 9)
+	selected.AnchorPoint = Vector2.new(0.5, 0)
 	selected.BackgroundColor3 = Palette.color(Palette.ui.selected)
 	selected.BorderSizePixel = 0
-	selected.ZIndex = 0
 	selected.Visible = false
 	selected.Parent = button
-	Theme.corner(selected, 12)
-
-	local selectedEdge = Instance.new("UIStroke")
-	selectedEdge.Thickness = 3.5
-	selectedEdge.Color = Palette.color(Palette.ui.text)
-	selectedEdge.Parent = selected
+	Theme.corner(selected, 4)
+	Theme.stroke(selected, 2, Theme.colors.outline, 0)
 
 	button.Activated:Connect(function()
 		choose(order)
@@ -253,22 +315,35 @@ local function refresh()
 
 	for order, button in slotFrames do
 		local toolId = layout[order]
-		local icon = button:FindFirstChild("Icon") :: ViewportFrame?
+		--- The icon lives in the well now, so this has to look past the face.
+		local icon = button:FindFirstChild("Icon", true) :: ViewportFrame?
 		local stroke = button:FindFirstChild("Edge") :: UIStroke?
 		local selected = button:FindFirstChild("Selected") :: Frame?
 
-		button.Visible = toolId ~= nil
+		--- The holder is what the row lays out and what carries the drop, so
+		--- hiding the face alone left a shadow with an empty gap over it.
+		;(button.Parent :: Frame).Visible = toolId ~= nil
 		if toolId and icon and stroke and selected then
 			local tool = Tools.get(toolId)
 			Theme.setIcon(icon, if tool then Props.forTool(tool.id, tool.category) else Props.FALLBACK_TOOL_ICON)
 
+			--[[
+				The slot no longer grows or fades when it is picked.
+
+				Eight tiles that change size as you cycle through them is a row
+				that moves under your thumb, and the fade left the selected one
+				lighter than its neighbours on a bright lawn and darker on a
+				dark one. The underline and the lit well say it instead, and
+				every tile stays where it is.
+			]]
 			local equipped = state.equippedTool == toolId
-			stroke.Color = if equipped then Theme.colors.text else Theme.colors.outline
-			stroke.Transparency = if equipped then 0 else 0.35
-			button.BackgroundTransparency = if equipped then 1 else 0.5
-			button.Size = if equipped then UDim2.fromOffset(72, 72) else UDim2.fromOffset(60, 60)
 			selected.Visible = equipped
-			icon.ZIndex = 2
+			local well = button:FindFirstChild("Well") :: Frame?
+			if well then
+				well.BackgroundColor3 = if equipped
+					then Color3.fromRGB(64, 48, 32)
+					else Color3.fromRGB(36, 26, 18)
+			end
 
 			local more = button:FindFirstChild("More") :: TextLabel?
 			local stack = slotTools[order]
@@ -291,9 +366,31 @@ function Hotbar.start()
 	holder = Instance.new("Frame")
 	holder.Name = "Slots"
 	RunOnly.add(holder)
-	holder.Size = UDim2.fromOffset(MAX_SLOTS * 74, 80)
-	holder.Position = UDim2.new(0.5, 0, 1, -12)
-	holder.AnchorPoint = Vector2.new(0.5, 1)
+	--- Eighty-two of slot and ten of gap, plus the drop and the underline
+	--- hanging below the last row.
+	holder.Size = UDim2.fromOffset(MAX_SLOTS * 92, 104)
+	--[[
+		Bottom left with a mouse, centred under a thumb.
+
+		It was centred on every screen, which put it between the bag in one
+		corner and the clock in the other and made it the one piece of UI that
+		had to be told about both. The clock is part of the completion bar
+		across the top now and the bag has gone to the top-left column, so the
+		bottom-left is free — with a mouse.
+
+		On touch it is not: Roblox draws the movement thumbstick over that
+		corner, and its rest area is wider than the stick you can see. That is
+		the same corner the bag was moved out of, for the same reason, so the
+		row stays in the middle where a thumb on either side can reach it and
+		neither thumb is standing on it.
+	]]
+	if UserInputService.TouchEnabled then
+		holder.Position = UDim2.new(0.5, 0, 1, -22)
+		holder.AnchorPoint = Vector2.new(0.5, 1)
+	else
+		holder.Position = UDim2.new(0, 26, 1, -22)
+		holder.AnchorPoint = Vector2.new(0, 1)
+	end
 	holder.BackgroundTransparency = 1
 	holder.Parent = gui
 
@@ -323,13 +420,17 @@ function Hotbar.start()
 	-- The round timer is 240 wide and sits 22 in from the edge. Only the first
 	-- of those shrinks on a phone, so they are passed separately; together they
 	-- are the same 262 this reserved before.
-	local CORNER_WIDGET, CORNER_INSET = 240, 22
-	Theme.fitToViewport(holder, MAX_SLOTS * 74, 120, 0, CORNER_WIDGET, CORNER_INSET)
+	--- The tool button parks itself bottom-right and is the only thing the
+	--- row can still run into, so that corner is what it stands down for.
+	local CORNER_WIDGET, CORNER_INSET = 200, 26
+	Theme.fitToViewport(holder, MAX_SLOTS * 92, 140, 0, CORNER_WIDGET, CORNER_INSET)
 
 	local layoutOrder = Instance.new("UIListLayout")
 	layoutOrder.FillDirection = Enum.FillDirection.Horizontal
-	layoutOrder.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layoutOrder.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	layoutOrder.HorizontalAlignment = if UserInputService.TouchEnabled
+		then Enum.HorizontalAlignment.Center
+		else Enum.HorizontalAlignment.Left
+	layoutOrder.VerticalAlignment = Enum.VerticalAlignment.Top
 	layoutOrder.SortOrder = Enum.SortOrder.LayoutOrder
 	layoutOrder.Padding = UDim.new(0, 10)
 	layoutOrder.Parent = holder

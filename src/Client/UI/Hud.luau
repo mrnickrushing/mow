@@ -49,6 +49,7 @@ local toolIcon: Frame
 local toolStateLabel: TextLabel
 local toolNameLabel: TextLabel
 local bagSack: Frame? = nil
+local bagFill: Frame
 --- The sack's own colour, kept so the full-bag red can be undone.
 local BAG_SACK_COLOUR = Color3.fromRGB(158, 158, 160)
 local journalBadge: Frame
@@ -125,147 +126,235 @@ end
 --------------------------------------------------------------------
 
 local function buildCrosshair(gui: ScreenGui)
-	-- A small hollow diamond: a rotated square outline, which is exactly what
-	-- the reference uses. Big enough to find, small enough not to cover the leaf
-	-- it is sitting on.
+	--[[
+		A small hollow diamond: a rotated square outline. Big enough to find,
+		small enough not to cover the leaf it is sitting on.
+
+		Two rings, not one. A white outline alone disappears into a pale
+		flagstone and into the sky over a roof; the ink halo behind it is what
+		makes the same eleven pixels legible on every surface in the game
+		without making them any bigger.
+	]]
+	local halo = Instance.new("Frame")
+	halo.Name = "Crosshair"
+	halo.Size = UDim2.fromOffset(14, 14)
+	halo.Position = UDim2.fromScale(0.5, 0.5)
+	halo.AnchorPoint = Vector2.new(0.5, 0.5)
+	halo.Rotation = 45
+	halo.BackgroundTransparency = 1
+	halo.Parent = gui
+	RunOnly.add(halo)
+	Theme.corner(halo, 2)
+
+	local outer = Instance.new("UIStroke")
+	outer.Thickness = 5
+	outer.Color = Theme.colors.outline
+	outer.Transparency = 0.55
+	outer.Parent = halo
+
 	local mark = Instance.new("Frame")
-	mark.Name = "Crosshair"
-	mark.Size = UDim2.fromOffset(11, 11)
-	mark.Position = UDim2.fromScale(0.5, 0.5)
-	mark.AnchorPoint = Vector2.new(0.5, 0.5)
-	mark.Rotation = 45
+	mark.Name = "Mark"
+	mark.Size = UDim2.fromScale(1, 1)
 	mark.BackgroundTransparency = 1
-	mark.Parent = gui
-	RunOnly.add(mark)
+	mark.Parent = halo
+	Theme.corner(mark, 2)
 
 	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 2
+	stroke.Thickness = 3
 	stroke.Color = Theme.colors.text
-	stroke.Transparency = 0.15
+	stroke.Transparency = 0.08
 	stroke.Parent = mark
 end
 
+--[[
+	Everything down the right-hand edge, and the two controls at the bottom.
+
+	Three groups, and the order they are read in: what you have (money, top
+	right), where you can go (the rail), and what you are holding (the tool,
+	bottom right, where the hand already is).
+
+	The rail used to be two cream tiles at six and four degrees of tilt with
+	the store pill at five. Straight tiles with a caption under each read as
+	deliberate; tilted ones read as a mistake, and they were the loudest thing
+	on the screen saying so.
+]]
 local function buildRightColumn(gui: ScreenGui)
 	local column = Instance.new("Frame")
 	column.Name = "Status"
-	column.Size = UDim2.fromOffset(220, 420)
-	column.Position = UDim2.new(1, -20, 0, 78)
+	column.Size = UDim2.fromOffset(240, 460)
+	column.Position = UDim2.new(1, -22, 0, 22)
 	column.AnchorPoint = Vector2.new(1, 0)
 	column.BackgroundTransparency = 1
 	column.Parent = gui
 
 	--[[
-		The column is laid out in fixed pixels running down from 78 below the
-		top edge, so on a short viewport its lower half — the fuel gauge, the
-		tool button that doubles as the touch action control, and the word under
-		it — ran off the bottom of the screen and sat on top of the round timer.
+		The column is laid out in fixed pixels running down from the top edge,
+		so on a short viewport its lower half ran off the bottom of the screen.
 		Scaling it to the room actually left below its start keeps the whole
 		column on screen, and leaves it untouched at its designed size on any
 		display tall enough for it.
 	]]
-	Theme.fitToViewport(column, 240, 420, 90)
+	Theme.fitToViewport(column, 260, 460, 40)
 
-	multiplierLabel = Theme.text({
-		name = "Multiplier",
-		text = "",
-		-- Half the column each. At two hundred wide this box reached back
-		-- across the tips beside it; the words did not touch at the lengths
-		-- they happen to be, which is not the same as not overlapping.
-		size = UDim2.fromOffset(100, 22),
-		position = UDim2.new(1, -6, 0, 0),
+	----------------------------------------------------------------
+	-- Money
+	----------------------------------------------------------------
+
+	local purse = Theme.chunkPanel({
+		name = "Purse",
+		size = UDim2.fromOffset(212, 58),
+		position = UDim2.new(1, 0, 0, 0),
 		anchor = Vector2.new(1, 0),
 		parent = column,
-		align = Enum.TextXAlignment.Right,
-		color = Theme.colors.tips,
-		textSize = 18,
-	})
-
-	--[[
-		Tips, opposite the multiplier on a row that is usually empty.
-
-		They were shown nowhere on the HUD at all — only as a line buried in
-		the journal's stats — which was survivable while they bought nothing.
-		Now that they buy tools outright, a currency you cannot see is a
-		currency nobody spends. It shares the top row with the multiplier
-		because that one is blank until something raises it, and both are short
-		and pinned to opposite ends.
-	]]
-	tipsLabel = Theme.text({
-		name = "Tips",
-		text = "",
-		size = UDim2.fromOffset(100, 22),
-		position = UDim2.fromOffset(4, 0),
-		parent = column,
-		align = Enum.TextXAlignment.Left,
-		color = Theme.colors.tips,
-		textSize = 18,
-	})
-
-	cashLabel = Theme.text({
-		name = "Cash",
-		text = "$0.00",
-		size = UDim2.fromOffset(170, 40),
-		position = UDim2.new(1, -46, 0, 22),
-		anchor = Vector2.new(1, 0),
-		parent = column,
-		align = Enum.TextXAlignment.Right,
-		textSize = 32,
+		radius = Theme.PILL,
 	})
 
 	-- The coin is drawn rather than an image so there is no asset to upload, and
 	-- it reads at a glance as "this number is money" the way a $ alone does not.
-	local coin = circle(column, 38, Theme.colors.tips)
+	local coin = circle(purse, 40, Color3.fromRGB(255, 224, 138))
 	coin.Name = "Coin"
-	coin.Position = UDim2.new(1, -2, 0, 23)
-	coin.AnchorPoint = Vector2.new(1, 0)
-	Theme.stroke(coin, 3, Theme.colors.outline, 0.1)
+	coin.Position = UDim2.new(0, 10, 0.5, 0)
+	coin.AnchorPoint = Vector2.new(0, 0.5)
+	Theme.stroke(coin, 3, Theme.colors.outline, 0)
+	local coinGrade = Instance.new("UIGradient")
+	coinGrade.Color = ColorSequence.new(Color3.fromRGB(255, 224, 138), Color3.fromRGB(255, 176, 32))
+	coinGrade.Rotation = 90
+	coinGrade.Parent = coin
 
-	local inner = circle(coin, 22, Color3.fromRGB(246, 196, 84))
+	local inner = circle(coin, 18, Color3.fromRGB(246, 196, 84))
 	inner.Position = UDim2.fromScale(0.5, 0.5)
 	inner.AnchorPoint = Vector2.new(0.5, 0.5)
+	Theme.stroke(inner, 2.5, Color3.fromRGB(200, 138, 24), 0)
 
-	-- The journal, with a badge when something in it is waiting to be read.
-	-- Pressing it opens the book, which matters most on touch where B does
-	-- not exist.
-	local book = Instance.new("TextButton")
-	book.Name = "Journal"
-	book.Size = UDim2.fromOffset(62, 62)
-	book.Position = UDim2.new(1, -14, 0, 76)
-	book.AnchorPoint = Vector2.new(1, 0)
-	book.BackgroundColor3 = Theme.colors.progress
-	book.BorderSizePixel = 0
-	book.Rotation = -6
-	book.Text = ""
-	book.AutoButtonColor = true
-	book.Parent = column
-	Theme.corner(book, 8)
-	Theme.stroke(book, 3, Theme.colors.outline, 0.05)
+	cashLabel = Theme.text({
+		name = "Cash",
+		text = "$0.00",
+		size = UDim2.new(1, -74, 1, 0),
+		position = UDim2.new(1, -18, 0, 0),
+		anchor = Vector2.new(1, 0),
+		parent = purse,
+		align = Enum.TextXAlignment.Right,
+		textSize = 34,
+	})
+
 	--[[
-		The journal fills its tile and hangs over the bottom of it.
+		Tips and the multiplier, on two chips under the purse.
 
-		At 0.78 it was a small picture centred in a cream square, which is
-		what "a square with a drawn journal in it" describes. Drawn edge to
-		edge, with the ribbon crossing the border, the square reads as
-		something the journal is resting on rather than a frame around a
-		symbol.
+		Both are hidden at zero, as they always were: a brand new run should
+		not carry a decoration that says nothing. They were plain text on the
+		lawn before, which is the one place two small numbers cannot be read.
 	]]
+	local tipsChip = Theme.chip({
+		name = "TipsChip",
+		size = UDim2.fromOffset(110, 28),
+		position = UDim2.new(1, -108, 0, 68),
+		anchor = Vector2.new(1, 0),
+		parent = column,
+	})
+
+	local tipsDot = circle(tipsChip, 11, Theme.colors.tips)
+	tipsDot.Position = UDim2.new(0, 13, 0.5, 0)
+	tipsDot.AnchorPoint = Vector2.new(0, 0.5)
+
+	tipsLabel = Theme.text({
+		name = "Tips",
+		text = "",
+		size = UDim2.new(1, -37, 1, 0),
+		position = UDim2.fromOffset(31, 0),
+		parent = tipsChip,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.tips,
+		textSize = 16,
+	})
+
+	local multiplierChip = Theme.chip({
+		name = "MultiplierChip",
+		size = UDim2.fromOffset(92, 28),
+		position = UDim2.new(1, 0, 0, 68),
+		anchor = Vector2.new(1, 0),
+		parent = column,
+	})
+
+	multiplierLabel = Theme.text({
+		name = "Multiplier",
+		text = "",
+		size = UDim2.fromScale(1, 1),
+		position = UDim2.fromScale(0, 0),
+		parent = multiplierChip,
+		align = Enum.TextXAlignment.Center,
+		color = Theme.colors.cash,
+		textSize = 16,
+	})
+
+	----------------------------------------------------------------
+	-- The rail
+	----------------------------------------------------------------
+
+	--- One cream tile, straight, with the ink outline and drop the rest of
+	--- the chrome uses.
+	local function tile(name: string, y: number): TextButton
+		local face = Theme.cardFace({
+			name = name,
+			size = UDim2.fromOffset(76, 76),
+			position = UDim2.new(1, 0, 0, y),
+			anchor = Vector2.new(1, 0),
+			parent = column,
+			radius = 20,
+			drop = 6,
+			top = Color3.fromRGB(255, 246, 238),
+			bottom = Color3.fromRGB(232, 205, 188),
+		})
+		local hit = Instance.new("TextButton")
+		hit.Name = "Hit"
+		hit.Size = UDim2.fromScale(1, 1)
+		hit.BackgroundTransparency = 1
+		hit.Text = ""
+		hit.AutoButtonColor = false
+		hit.ZIndex = face.ZIndex + 2
+		hit.Parent = face
+		return hit
+	end
+
+	--- The word under a tile, on a dark chip. A name works on every screen,
+	--- where a key hint is a lie on one with no keyboard.
+	local function caption(name: string, word: string, y: number): TextLabel
+		local chip = Theme.chip({
+			name = name .. "Chip",
+			size = UDim2.fromOffset(104, 24),
+			position = UDim2.new(1, -(76 - 104) * 0.5, 0, y),
+			anchor = Vector2.new(1, 0),
+			parent = column,
+		})
+		return Theme.text({
+			name = name,
+			text = word,
+			size = UDim2.fromScale(1, 1),
+			position = UDim2.fromScale(0, 0),
+			parent = chip,
+			align = Enum.TextXAlignment.Center,
+			color = Theme.colors.progress,
+			textSize = 14,
+		})
+	end
+
+	local book = tile("Journal", 128)
 	Theme.icon({
 		name = "BookIcon",
 		prop = "Journal",
-		size = UDim2.fromScale(1.02, 1.02),
+		size = UDim2.fromScale(0.55, 0.55),
 		position = UDim2.fromScale(0.5, 0.5),
 		anchor = Vector2.new(0.5, 0.5),
-		parent = book,
+		parent = book.Parent :: GuiObject,
 	})
-
 	book.Activated:Connect(function()
 		Journal.toggle()
 	end)
 
-	journalBadge = circle(book, 22, Theme.colors.danger)
+	journalBadge = circle(book.Parent :: GuiObject, 28, Theme.colors.danger)
 	journalBadge.Name = "Badge"
-	journalBadge.Position = UDim2.fromOffset(-8, -6)
-	Theme.stroke(journalBadge, 2.5, Theme.colors.outline, 0.05)
+	journalBadge.Position = UDim2.fromOffset(-8, -8)
+	journalBadge.ZIndex = book.ZIndex + 1
+	Theme.stroke(journalBadge, 3, Theme.colors.outline, 0)
 
 	local bang = Theme.text({
 		name = "Bang",
@@ -278,164 +367,74 @@ local function buildRightColumn(gui: ScreenGui)
 	})
 	bang.TextYAlignment = Enum.TextYAlignment.Center
 
-	--[[
-		A word under each tile, the way the reference labels its own.
+	local bookLabel = caption("BookLabel", "JOURNAL", 210)
 
-		These used to be key hints — a small pill reading "Tab" or "G" — and
-		a key hint is a lie on a screen with no keyboard, so on a tablet they
-		were switched off and the two buttons went out unlabelled. That is
-		most of the people who play this: two coloured squares in the corner
-		with a picture on them and nothing saying what either one is.
-
-		A name works on every screen, and the keyboard's shortcut rides along
-		with it where there is a keyboard to press. One line, not two.
-	]]
-	local hasKeyboard = Theme.hasKeyboard()
-
-	--[[
-		The word alone, with no key beside it.
-
-		The key used to ride along where there was a keyboard to press, and
-		that worked while the word was "Book". "Journal  Tab" wants eighty-eight
-		pixels in a seventy-pixel pill sitting seventy-two from its neighbour,
-		and widening the pill collides with the one next to it. The keys are
-		listed on the journal's own controls page, which is where a keyboard
-		player can read all of them at once rather than one per tile.
-	]]
-	local function caption(name: string, word: string, _key: string, x: number): TextLabel
-		local label = Theme.text({
-			name = name,
-			text = word,
-			-- Seventy-two apart, so seventy wide leaves a hair between them.
-			-- `layoutTiles` sets that spacing, whatever is written above.
-			size = UDim2.fromOffset(70, 22),
-			position = UDim2.new(1, x, 0, 142),
-			anchor = Vector2.new(1, 0),
-			parent = column,
-			align = Enum.TextXAlignment.Center,
-			color = Theme.colors.outline,
-			textSize = 15,
-		})
-		label.BackgroundColor3 = Theme.colors.progress
-		label.BackgroundTransparency = 0
-		Theme.corner(label, 5)
-		Theme.stroke(label, 2, Theme.colors.outline, 0.2)
-		return label
-	end
-
-	-- Centred under a 62-wide tile whose right edge is 14 in from the screen:
-	-- the caption is 70 wide, so it hangs four pixels proud either side.
-	local bookLabel = caption("BookLabel", "Journal", "B", -8)
-
-	--[[
-		The store, which is a button and not a third icon.
-
-		It was bound to G and to nothing else, which meant that on a tablet —
-		the way most of this game is played — the Robux store could not be
-		opened at all. There was no button anywhere on the screen, and the only
-		place the key was written down was a line on the journal's tips page
-		that you needed the journal open to read.
-
-		So it became a tile, and that was the wrong shape. Three identical
-		squares in a row say "three settings"; nothing about a coin on a yellow
-		square says the third one spends real money, and the player who wants
-		to buy something has to guess which square to press. A wide pill with
-		the word on it is the only one of the three that reads as somewhere to
-		go rather than something to toggle, which is what it is.
-
-		It also gets the icon column back down to two, which is the difference
-		between furniture and clutter down the edge of a phone.
-	]]
-	local shop = Instance.new("TextButton")
-	shop.Name = "Store"
-	shop.AnchorPoint = Vector2.new(1, 0)
-	shop.BackgroundColor3 = Theme.colors.tips
-	shop.BorderSizePixel = 0
-	shop.Text = ""
-	shop.AutoButtonColor = true
-	shop.Parent = column
-	Theme.corner(shop, 10)
-	Theme.stroke(shop, 3, Theme.colors.outline, 0.05)
-
-	local shopIcon = Theme.icon({
-		name = "StoreIcon",
-		prop = "Coin",
-		size = UDim2.fromOffset(26, 26),
-		position = UDim2.new(0, 11, 0.5, 0),
-		anchor = Vector2.new(0, 0.5),
-		parent = shop,
+	local soundHit = tile("Sound", 246)
+	local soundFace = soundHit.Parent :: Frame
+	local note = Theme.text({
+		name = "Note",
+		text = utf8.char(0x266A),
+		size = UDim2.fromScale(1, 1),
+		position = UDim2.fromScale(0, 0),
+		parent = soundFace,
+		align = Enum.TextXAlignment.Center,
+		color = Theme.colors.outline,
+		textSize = 36,
 	})
+	note.TextYAlignment = Enum.TextYAlignment.Center
+
+	local soundLabel = caption("SoundLabel", "SOUND ON", 328)
+
+	--[[
+		The store is a pill, not a third tile.
+
+		Three identical squares in a row say "three settings"; nothing about a
+		coin on a yellow square says the third one spends real money. A wide
+		pill with the word on it is the only one of the three that reads as
+		somewhere to go rather than something to toggle, which is what it is.
+	]]
+	local shop = Theme.chunkButton({
+		name = "Store",
+		variant = "gold",
+		size = UDim2.fromOffset(158, 52),
+		position = UDim2.new(1, 0, 0, 364),
+		anchor = Vector2.new(1, 0),
+		parent = column,
+		radius = Theme.PILL,
+		drop = 6,
+		outline = 4,
+	})
+
+	local shopCoin = circle(shop, 30, Color3.fromRGB(255, 240, 188))
+	shopCoin.Name = "StoreCoin"
+	shopCoin.Position = UDim2.new(0, 12, 0.5, 0)
+	shopCoin.AnchorPoint = Vector2.new(0, 0.5)
+	shopCoin.ZIndex = shop.ZIndex + 1
+	Theme.stroke(shopCoin, 3, Theme.colors.outline, 0)
 
 	local shopWord = Theme.text({
 		name = "StoreWord",
-		text = if hasKeyboard then "STORE  G" else "STORE",
-		size = UDim2.new(1, -48, 1, 0),
-		position = UDim2.fromOffset(44, 0),
+		text = "STORE",
+		size = UDim2.new(1, -56, 1, 0),
+		position = UDim2.fromOffset(50, 0),
 		parent = shop,
 		align = Enum.TextXAlignment.Left,
 		color = Theme.colors.outline,
-		textSize = 17,
+		textSize = 20,
 	})
+	shopWord.ZIndex = shop.ZIndex + 1
 
 	shop.Activated:Connect(function()
 		Store.toggle()
 	end)
 
 	--[[
-		A way to turn the noise off.
+		On a phone the rail stacks smaller and drops its captions.
 
-		The profile has carried `sfxEnabled` since the beginning, saved and
-		loaded with everything else, and nothing anywhere read it — there was
-		no control, so the setting could never be anything but true. A game
-		that cuts, sells and chops ten times a second and cannot be muted is
-		a game people play on silent, which loses the sound altogether rather
-		than only when they want it gone.
-
-		Third tile in the same row, labelled with its own state the way the
-		reference labels its music toggle.
-	]]
-	local soundTile = Instance.new("TextButton")
-	soundTile.Name = "Sound"
-	soundTile.Size = UDim2.fromOffset(62, 62)
-	soundTile.Position = UDim2.new(1, -158, 0, 76)
-	soundTile.AnchorPoint = Vector2.new(1, 0)
-	soundTile.BackgroundColor3 = Theme.colors.progress
-	soundTile.BorderSizePixel = 0
-	soundTile.Rotation = 4
-	soundTile.Text = ""
-	soundTile.AutoButtonColor = true
-	soundTile.Parent = column
-	Theme.corner(soundTile, 8)
-	Theme.stroke(soundTile, 3, Theme.colors.outline, 0.05)
-
-	local note = Theme.text({
-		name = "Note",
-		text = utf8.char(0x266A),
-		size = UDim2.fromScale(1, 1),
-		position = UDim2.fromScale(0, 0),
-		parent = soundTile,
-		align = Enum.TextXAlignment.Center,
-		textSize = 34,
-	})
-	note.TextYAlignment = Enum.TextYAlignment.Center
-
-	local soundLabel = caption("SoundLabel", "Sound", "", -152)
-
-	--[[
-		On a phone the three tiles stack down the edge instead of across it.
-
-		A row grows leftward from the right edge, so the third tile is three
-		tile-widths in — measured on an iPhone 17 in landscape, the far one
-		sat a fifth of the screen width inside the edge and a third of the way
-		down, right over the grass being cut. A phone is short and wide: there
-		is no vertical room to spare in the middle and plenty of it at the
-		sides, which is the opposite of a tablet.
-
-		So they go into a column hard against the right edge, starting near
-		the top, smaller, and without their captions — three words stacked
-		down the edge of a four-hundred-point screen is more furniture than
-		the icons themselves. Every other device keeps the row, which is what
-		the labels were added for.
+		A phone is short and wide: there is no vertical room to spare in the
+		middle and plenty of it at the sides, which is the opposite of a
+		tablet. Three words stacked down the edge of a four-hundred-point
+		screen is more furniture than the icons themselves.
 	]]
 	local function isPhone(): boolean
 		local camera = workspace.CurrentCamera
@@ -444,62 +443,187 @@ local function buildRightColumn(gui: ScreenGui)
 
 	local function layoutTiles()
 		local phone = isPhone()
-		--[[
-			Book first, because the captions are placed from this same index.
-
-			They used to be two lists: the tiles were laid out left-to-right from
-			one array and the captions were positioned by hand from constants
-			written when the row had a different order in it. The row said
-			Sound, Store, Book and the captions underneath said Book, Shop,
-			Sound — every label under the wrong tile, on every desktop. Deriving
-			both from one loop is what stops that coming back.
-		]]
-		local tiles = { book, soundTile }
+		local tiles = { book.Parent :: Frame, soundFace }
 		local labels = { bookLabel, soundLabel }
-		local spins = { -6, 4 }
-		for index, tile in tiles do
+		for index, face in tiles do
+			local holder = face.Parent :: Frame
 			if phone then
-				tile.Size = UDim2.fromOffset(52, 52)
-				tile.Position = UDim2.new(1, -4, 0, 8 + (index - 1) * 58)
-				tile.Rotation = 0
+				holder.Size = UDim2.fromOffset(54, 54)
+				holder.Position = UDim2.new(1, 0, 0, 86 + (index - 1) * 62)
 			else
-				tile.Size = UDim2.fromOffset(62, 62)
-				tile.Position = UDim2.new(1, -14 - (index - 1) * 72, 0, 76)
-				tile.Rotation = spins[index]
-				labels[index].Position = UDim2.new(1, -8 - (index - 1) * 72, 0, 142)
+				holder.Size = UDim2.fromOffset(76, 76)
+				holder.Position = UDim2.new(1, 0, 0, 128 + (index - 1) * 118)
 			end
-			labels[index].Visible = not phone
+			local chip = labels[index].Parent :: Frame
+			chip.Visible = not phone
 		end
 
-		-- Under the icons either way, so it is the widest thing in the corner
-		-- and the last thing the eye lands on rather than one of a set.
+		local shopHolder = shop.Parent :: Frame
 		if phone then
-			shop.Size = UDim2.fromOffset(112, 36)
-			shop.Position = UDim2.new(1, -4, 0, 8 + #tiles * 58)
-			shop.Rotation = 0
+			shopHolder.Size = UDim2.fromOffset(122, 40)
+			shopHolder.Position = UDim2.new(1, 0, 0, 86 + #tiles * 62)
+			shopWord.TextSize = 16
+			shopCoin.Size = UDim2.fromOffset(24, 24)
 		else
-			shop.Size = UDim2.fromOffset(132, 40)
-			shop.Position = UDim2.new(1, -14, 0, 176)
-			shop.Rotation = 5
+			shopHolder.Size = UDim2.fromOffset(158, 52)
+			shopHolder.Position = UDim2.new(1, 0, 0, 364)
+			shopWord.TextSize = 20
+			shopCoin.Size = UDim2.fromOffset(30, 30)
 		end
-		shopWord.TextSize = if phone then 15 else 17
-		shopIcon.Size = if phone then UDim2.fromOffset(22, 22) else UDim2.fromOffset(26, 26)
 	end
 
 	layoutTiles()
 	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(layoutTiles)
 
-	--[[
-		Puts the tool button just above Roblox's jump button.
+	----------------------------------------------------------------
+	-- Fuel and the tool
+	----------------------------------------------------------------
 
-		Measured rather than guessed: the jump control is drawn by Roblox at a
-		size and place of its own choosing, which is not the same on a phone
-		as on a tablet. Where there is no jump button — a mouse, where this is
-		a readout rather than a control — the fallback inset is used, which is
-		clear of the store either way.
+	fuelPanel = Theme.chunkPanel({
+		name = "Fuel",
+		size = UDim2.fromOffset(196, 62),
+		position = UDim2.new(1, -22, 1, -300),
+		anchor = Vector2.new(1, 1),
+		parent = gui,
+		radius = 16,
+	})
+	Theme.pad(fuelPanel, 9, 12, 11, 12)
+	;(fuelPanel.Parent :: Frame).Visible = false
+	Theme.chromeScale(fuelPanel.Parent :: Frame)
+
+	Theme.text({
+		name = "FuelWord",
+		text = "FUEL",
+		size = UDim2.fromOffset(60, 18),
+		position = UDim2.fromOffset(0, 0),
+		parent = fuelPanel,
+		color = Theme.colors.warn,
+		textSize = 14,
+	})
+
+	fuelLabel = Theme.text({
+		name = "FuelLabel",
+		text = "",
+		size = UDim2.fromOffset(100, 18),
+		position = UDim2.new(1, 0, 0, 0),
+		anchor = Vector2.new(1, 0),
+		parent = fuelPanel,
+		align = Enum.TextXAlignment.Right,
+		color = Theme.colors.progress,
+		textSize = 15,
+	})
+
+	local fuelTrack = Instance.new("Frame")
+	fuelTrack.Name = "Track"
+	fuelTrack.Size = UDim2.new(1, 0, 0, 16)
+	fuelTrack.Position = UDim2.fromOffset(0, 25)
+	fuelTrack.BackgroundColor3 = Theme.colors.outline
+	fuelTrack.BorderSizePixel = 0
+	fuelTrack.ClipsDescendants = true
+	fuelTrack.Parent = fuelPanel
+	Theme.corner(fuelTrack, 8)
+
+	fuelFill = Instance.new("Frame")
+	fuelFill.Name = "Fill"
+	fuelFill.Size = UDim2.fromScale(0, 1)
+	fuelFill.BackgroundColor3 = Color3.fromRGB(255, 192, 103)
+	fuelFill.BorderSizePixel = 0
+	fuelFill.Parent = fuelTrack
+	Theme.corner(fuelFill, 8)
+	local fuelGrade = Instance.new("UIGradient")
+	fuelGrade.Color = ColorSequence.new(Color3.fromRGB(255, 192, 103), Color3.fromRGB(240, 130, 28))
+	fuelGrade.Rotation = 90
+	fuelGrade.Parent = fuelFill
+
+	--[[
+		The tool button sits above Roblox's jump button, not in the column.
+
+		`parkTool` measures the real jump control rather than guessing an
+		inset, because Roblox sizes and places that one itself and it is not
+		the same on a phone as on a tablet. The redesign changes the sizes and
+		nothing else about how it is measured.
+	]]
+	toolButton = Instance.new("TextButton")
+	toolButton.Name = "Tool"
+	toolButton.Size = UDim2.fromOffset(124, 124)
+	toolButton.Position = UDim2.new(1, -22, 1, -240)
+	toolButton.AnchorPoint = Vector2.new(1, 1)
+	toolButton.BackgroundColor3 = Color3.fromRGB(78, 58, 40)
+	toolButton.BorderSizePixel = 0
+	toolButton.Text = ""
+	toolButton.AutoButtonColor = false
+	-- Off until the first refresh says otherwise, so it cannot flash up in
+	-- the lobby on the frame between being built and being told.
+	toolButton.Visible = false
+	toolButton.Parent = gui
+
+	local round = Instance.new("UICorner")
+	round.CornerRadius = UDim.new(0.5, 0)
+	round.Parent = toolButton
+	local toolGrade = Instance.new("UIGradient")
+	toolGrade.Color = ColorSequence.new(Color3.fromRGB(78, 58, 40), Color3.fromRGB(44, 33, 24))
+	toolGrade.Rotation = 90
+	toolGrade.Parent = toolButton
+	Theme.stroke(toolButton, 5, Theme.colors.outline, 0)
+
+	toolIcon = Theme.icon({
+		name = "Icon",
+		prop = Props.FALLBACK_TOOL_ICON,
+		size = UDim2.fromScale(0.63, 0.63),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		parent = toolButton,
+	})
+
+	--[[
+		The name of the thing in your hand.
+
+		The button showed a picture and a verb — PICK UP, MOW — and never once
+		said what you were holding. With one icon per family that was close to
+		unreadable: six mowers shared a drawing, so the only way to know which
+		you had was to remember what you last bought.
+	]]
+	toolNameLabel = Theme.text({
+		name = "ToolName",
+		text = "",
+		size = UDim2.fromOffset(220, 26),
+		position = UDim2.new(1, -5, 1, -238),
+		anchor = Vector2.new(1, 1),
+		parent = gui,
+		align = Enum.TextXAlignment.Center,
+		color = Theme.colors.text,
+		textSize = 21,
+	})
+	RunOnly.add(toolNameLabel)
+
+	local stateChip = Theme.chip({
+		name = "StateChip",
+		size = UDim2.fromOffset(160, 34),
+		position = UDim2.new(1, -5, 1, -212),
+		anchor = Vector2.new(1, 1),
+		parent = gui,
+	})
+	RunOnly.add(stateChip)
+
+	toolStateLabel = Theme.text({
+		name = "State",
+		text = "",
+		size = UDim2.fromScale(1, 1),
+		position = UDim2.fromScale(0, 0),
+		parent = stateChip,
+		align = Enum.TextXAlignment.Center,
+		color = Theme.colors.cash,
+		textSize = 22,
+	})
+
+	--[[
+		Puts the tool button, its two labels and the fuel gauge above the jump
+		button. Measured rather than guessed; where there is no jump button —
+		a mouse, where this is a readout rather than a control — the fallback
+		inset is used.
 	]]
 	local function parkTool()
-		if not (toolButton and toolStateLabel and toolNameLabel) then
+		if not (toolButton and toolStateLabel and toolNameLabel and stateChip) then
 			return false
 		end
 		local touchGui = player:FindFirstChild("PlayerGui") and (player.PlayerGui :: any):FindFirstChild("TouchGui")
@@ -514,40 +638,35 @@ local function buildRightColumn(gui: ScreenGui)
 			fromRight = area.X - (jump.AbsolutePosition.X + jump.AbsoluteSize.X * 0.5) + width * 0.5
 			--[[
 				The daylight over the jump button has to hold the word as well
-				as the button.
-
-				It was sixteen pixels, and the word that hangs under the button
-				— PICK UP, MOW — is twenty-six tall, so it was printed across
-				the top of Roblox's jump button: measured in the running game,
-				seventy-three pixels wide by ten deep of overlap.
-
-				The clearance is the label's own height plus a margin either
-				side, measured rather than assumed, so it still holds if the
-				text size changes.
+				as the button. The clearance is the chip's own height plus a
+				margin either side, measured rather than assumed, so it still
+				holds if the text size changes.
 			]]
-			local stateRoom = toolStateLabel.AbsoluteSize.Y + 10
+			local stateRoom = stateChip.AbsoluteSize.Y + 10
 			fromBottom = area.Y - jump.AbsolutePosition.Y + stateRoom
 		else
-			fromRight, fromBottom = 22, 240
+			fromRight, fromBottom = 26, 250
 		end
 		toolButton.Position = UDim2.new(1, -fromRight, 1, -fromBottom)
-		--[[
-			The name above, the state below, both centred on the button.
 
-			Anchored bottom-right, so the offset is where each label's bottom
-			edge sits: the name clears the top of the button, the state hangs
-			just under it. Getting these the same way round put the name across
-			the button's face and the word on top of the icon.
-		]]
+		--- Anchored bottom-right, so each offset is where that element's
+		--- bottom edge sits: the name clears the top of the button, the chip
+		--- hangs just under it, and the gauge sits above the name.
 		local centreFromRight = fromRight - width * 0.5
+		local nameBottom = fromBottom + height + 6
 		toolNameLabel.Position =
-			UDim2.new(1, -(centreFromRight - toolNameLabel.AbsoluteSize.X * 0.5), 1, -(fromBottom + height + 4))
-		-- Its bottom edge, so it sits in the gap the button just reserved.
-		toolStateLabel.Position = UDim2.new(
+			UDim2.new(1, -(centreFromRight - toolNameLabel.AbsoluteSize.X * 0.5), 1, -nameBottom)
+		stateChip.Position = UDim2.new(
 			1,
-			-(centreFromRight - toolStateLabel.AbsoluteSize.X * 0.5),
+			-(centreFromRight - stateChip.AbsoluteSize.X * 0.5),
 			1,
-			-(fromBottom - (toolStateLabel.AbsoluteSize.Y + 2))
+			-(fromBottom - (stateChip.AbsoluteSize.Y + 4))
+		)
+		;(fuelPanel.Parent :: Frame).Position = UDim2.new(
+			1,
+			-(centreFromRight - (fuelPanel.Parent :: Frame).AbsoluteSize.X * 0.5),
+			1,
+			-(nameBottom + toolNameLabel.AbsoluteSize.Y + 8)
 		)
 		return jump ~= nil
 	end
@@ -557,9 +676,7 @@ local function buildRightColumn(gui: ScreenGui)
 
 		`TouchGui` does not exist when this builds, so the first call always
 		falls back to a fixed inset and the button ends up in roughly the right
-		place rather than the right one. Re-parking until the jump button turns
-		up costs a handful of frames and is the difference between measured and
-		guessed.
+		place rather than the right one.
 	]]
 	task.spawn(function()
 		for _ = 1, 40 do
@@ -569,13 +686,12 @@ local function buildRightColumn(gui: ScreenGui)
 			task.wait(0.25)
 		end
 	end)
-	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(parkTool)
 
 	local function paintSound()
 		local on = not SoundController.isMuted()
-		soundLabel.Text = if on then "Sound ON" else "Sound OFF"
+		soundLabel.Text = if on then "SOUND ON" else "SOUND OFF"
 		note.TextTransparency = if on then 0 else 0.55
-		soundTile.BackgroundColor3 = if on then Theme.colors.progress else Theme.colors.panel
+		soundFace.BackgroundTransparency = if on then 0 else 0.35
 	end
 
 	--[[
@@ -594,7 +710,7 @@ local function buildRightColumn(gui: ScreenGui)
 		paintSound()
 	end)
 
-	soundTile.Activated:Connect(function()
+	soundHit.Activated:Connect(function()
 		local nowMuted = not SoundController.isMuted()
 		SoundController.setMuted(nowMuted)
 		paintSound()
@@ -602,10 +718,7 @@ local function buildRightColumn(gui: ScreenGui)
 			One button, both settings.
 
 			A player pressing a speaker icon means "stop making noise", not
-			"stop the effects but keep the music". Both fields are written so
-			the profile matches what they actually asked for, and so
-			`musicEnabled` is a real setting rather than a field nothing
-			reads — which is what it was until there was music to enable.
+			"stop the effects but keep the music".
 		]]
 		local remote = Remotes.event(Remotes.SETTINGS)
 		remote:FireServer("sfx", not nowMuted)
@@ -613,189 +726,121 @@ local function buildRightColumn(gui: ScreenGui)
 	end)
 	paintSound()
 
-	-- The tool, and whether it is running. On touch this is also the button that
-	-- runs it; on a mouse the camera is locked to the centre of the screen, so
-	-- it can only ever be a readout.
-	--[[
-		The tool button sits above the jump button, not on top of the store.
-
-		It lived in the top-right column at a fixed drop of 190, and the store
-		pill above it runs from 176 to 216 — so on every screen that is not a
-		phone the two overlapped, and the word PICK UP was printed across the
-		store. It also put the one control a player holds down at the top of
-		the screen, as far from a thumb as the layout allows.
-
-		So it comes out of the column and parks itself against the bottom
-		right, just above Roblox's jump button, which is where the hand
-		already is. `parkTool` measures the real jump button rather than
-		guessing an inset, because Roblox sizes and places that control
-		itself and it is not the same on every screen.
-	]]
-	toolButton = Instance.new("TextButton")
-	toolButton.Name = "Tool"
-	toolButton.Size = UDim2.fromOffset(86, 86)
-	toolButton.Position = UDim2.new(1, -22, 1, -240)
-	toolButton.AnchorPoint = Vector2.new(1, 1)
-	toolButton.BackgroundColor3 = Theme.colors.panelLight
-	toolButton.BackgroundTransparency = 0.15
-	toolButton.BorderSizePixel = 0
-	toolButton.Text = ""
-	toolButton.AutoButtonColor = false
-	-- Off until the first refresh says otherwise, so it cannot flash up in
-	-- the lobby on the frame between being built and being told.
-	toolButton.Visible = false
-	toolButton.Parent = gui
-
-	local round = Instance.new("UICorner")
-	round.CornerRadius = UDim.new(0.5, 0)
-	round.Parent = toolButton
-	Theme.stroke(toolButton, 3, Theme.colors.outline, 0.05)
-
-	toolIcon = Theme.icon({
-		name = "Icon",
-		prop = Props.FALLBACK_TOOL_ICON,
-		size = UDim2.fromScale(0.82, 0.82),
-		position = UDim2.fromScale(0.5, 0.5),
-		anchor = Vector2.new(0.5, 0.5),
-		parent = toolButton,
-	})
-
-	--[[
-		The name of the thing in your hand.
-
-		The button showed a picture and a verb — PICK UP, MOW — and never once
-		said what you were holding. With one icon per family that was close to
-		unreadable: six mowers shared a drawing, so the only way to know
-		whether you had the reel mower or the zero-turn was to remember what
-		you last bought. The icons are per tool now and this says the name
-		outright, which between them is the whole answer.
-	]]
-	toolNameLabel = Theme.text({
-		name = "ToolName",
-		text = "",
-		size = UDim2.fromOffset(190, 24),
-		position = UDim2.new(1, -5, 1, -238),
-		anchor = Vector2.new(1, 1),
-		parent = gui,
-		align = Enum.TextXAlignment.Right,
-		color = Theme.colors.text,
-		textSize = 19,
-	})
-	RunOnly.add(toolNameLabel)
-
-	toolStateLabel = Theme.text({
-		name = "State",
-		text = "",
-		size = UDim2.fromOffset(120, 26),
-		-- Under the button, wherever `parkTool` has put it.
-		position = UDim2.new(1, -5, 1, -212),
-		anchor = Vector2.new(1, 1),
-		parent = gui,
-		align = Enum.TextXAlignment.Center,
-		color = Theme.colors.cash,
-		textSize = 22,
-	})
-	RunOnly.add(toolStateLabel)
-
-	-- Only now: `parkTool` moves the button and both of its labels, and until
-	-- this line one of them did not exist. Called earlier it threw, and a throw
-	-- here takes the rest of the HUD with it — the bag, the rate and the
-	-- toasts never got built at all.
 	parkTool()
 	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(parkTool)
 	task.defer(parkTool)
-
-	fuelPanel = Instance.new("Frame")
-	fuelPanel.Name = "Fuel"
-	fuelPanel.Size = UDim2.fromOffset(150, 34)
-	fuelPanel.Position = UDim2.new(1, -8, 0, 304)
-	fuelPanel.AnchorPoint = Vector2.new(1, 0)
-	fuelPanel.BackgroundTransparency = 1
-	fuelPanel.Visible = false
-	fuelPanel.Parent = column
-
-	local _, fill = Theme.bar(fuelPanel, UDim2.fromOffset(140, 13), UDim2.fromOffset(6, 18), Theme.colors.warn)
-	fuelFill = fill
-
-	fuelLabel = Theme.text({
-		name = "FuelLabel",
-		text = "",
-		size = UDim2.fromOffset(140, 18),
-		position = UDim2.fromOffset(6, 0),
-		parent = fuelPanel,
-		align = Enum.TextXAlignment.Right,
-		textSize = 15,
-	})
 end
 
+--[[
+	The bag, which is a sack with a level in it.
+
+	The number alone was not readable: "34" beside "90" is arithmetic, and a
+	player glancing at the corner of the screen while walking backwards does
+	not do arithmetic. The sack has a fill inside it now — the same green the
+	completion bar uses, anchored to the bottom and as tall as the fraction —
+	so how full it is arrives as a shape before the digits are read.
+]]
 local function buildBag(gui: ScreenGui)
-	local holder = Instance.new("Frame")
-	holder.Name = "Bag"
-	holder.Size = UDim2.fromOffset(190, 74)
+	local panel = Theme.chunkPanel({
+		name = "Bag",
+		size = UDim2.fromOffset(212, 86),
+		parent = gui,
+	})
+	Theme.pad(panel, 10, 16, 12, 12)
+	local holder = panel.Parent :: Frame
 	--[[
-		Bottom-left on a keyboard; top-left, under the objective panel, on touch.
+		Bottom-left on a keyboard; top-left, under the job panel, on touch.
 
 		The bottom-left corner of a touch screen is where Roblox draws the
-		movement thumbstick, and the bag sat squarely on it — measured, the
-		thumbstick's rest area and the sack overlapped on every touch device.
-		A readout under a thumb is a readout nobody reads and a thumbstick
-		that starts on a sack. On touch it joins the stack of information at
-		the top-left instead, where the objective panel already is; with a
-		mouse there is no thumbstick and the corner is free.
+		movement thumbstick, and the bag sat squarely on it — a readout under
+		a thumb is a readout nobody reads and a thumbstick that starts on a
+		sack. With a mouse there is no thumbstick and the corner is free.
 	]]
-	if UserInputService.TouchEnabled then
-		--- Under the job panel, which is 22 down, 143 tall and wants 12 of air.
-		holder.Position = UDim2.new(0, 22, 0, 177)
-		holder.AnchorPoint = Vector2.new(0, 0)
-	else
-		holder.Position = UDim2.new(0, 20, 1, -22)
-		holder.AnchorPoint = Vector2.new(0, 1)
-	end
-	holder.BackgroundTransparency = 1
-	holder.Parent = gui
+	--[[
+		Top left, under the job panel, on every screen.
+
+		It used to sit bottom-left with a mouse and move to the top-left only
+		on touch, where Roblox draws the movement thumbstick over that corner
+		— a readout under a thumb is a readout nobody reads. Now that the
+		hotbar has the bottom-left on every screen, one place for the bag is
+		both simpler and the only one that is free everywhere: the job panel
+		is 22 down and 121 tall and wants 12 of air under it.
+	]]
+	holder.Position = UDim2.new(0, 22, 0, 155)
+	holder.AnchorPoint = Vector2.new(0, 0)
 	RunOnly.add(holder)
 	Theme.chromeScale(holder)
 
 	-- A sack: a rounded body with a pinched neck above it.
+	local neck = Instance.new("Frame")
+	neck.Name = "Neck"
+	neck.Size = UDim2.fromOffset(24, 15)
+	neck.Position = UDim2.fromOffset(16, 0)
+	neck.BackgroundColor3 = Color3.fromRGB(120, 120, 124)
+	neck.BorderSizePixel = 0
+	neck.Parent = panel
+	Theme.corner(neck, 6)
+	Theme.stroke(neck, 3, Theme.colors.outline, 0)
+
 	local sack = Instance.new("Frame")
 	sack.Name = "Sack"
 	bagSack = sack
-	sack.Size = UDim2.fromOffset(64, 56)
-	sack.Position = UDim2.fromOffset(2, 16)
-	sack.BackgroundColor3 = Color3.fromRGB(158, 158, 160)
+	sack.Size = UDim2.fromOffset(56, 51)
+	sack.Position = UDim2.fromOffset(0, 11)
+	sack.BackgroundColor3 = BAG_SACK_COLOUR
 	sack.BorderSizePixel = 0
-	sack.Parent = holder
+	sack.ClipsDescendants = true
+	sack.Parent = panel
 	Theme.corner(sack, 18)
-	Theme.stroke(sack, 3, Theme.colors.outline, 0.05)
+	Theme.stroke(sack, 3, Theme.colors.outline, 0)
+	local sackGrade = Instance.new("UIGradient")
+	sackGrade.Color = ColorSequence.new(Color3.fromRGB(182, 182, 184), Color3.fromRGB(142, 142, 146))
+	sackGrade.Rotation = 90
+	sackGrade.Parent = sack
 
-	local neck = Instance.new("Frame")
-	neck.Name = "Neck"
-	neck.Size = UDim2.fromOffset(26, 16)
-	neck.Position = UDim2.fromOffset(21, 4)
-	neck.BackgroundColor3 = Color3.fromRGB(120, 120, 124)
-	neck.BorderSizePixel = 0
-	neck.Parent = holder
-	Theme.corner(neck, 6)
-	Theme.stroke(neck, 3, Theme.colors.outline, 0.05)
-
-	bagCapacityLabel = Theme.text({
-		name = "Capacity",
-		text = "0",
-		size = UDim2.fromScale(1, 1),
-		position = UDim2.fromScale(0, 0),
-		parent = sack,
-		align = Enum.TextXAlignment.Center,
-		textSize = 22,
-	})
+	bagFill = Instance.new("Frame")
+	bagFill.Name = "Level"
+	bagFill.Size = UDim2.new(1, -6, 0, 0)
+	bagFill.Position = UDim2.new(0, 3, 1, -3)
+	bagFill.AnchorPoint = Vector2.new(0, 1)
+	bagFill.BackgroundColor3 = Color3.fromRGB(168, 237, 140)
+	bagFill.BorderSizePixel = 0
+	bagFill.Parent = sack
+	Theme.corner(bagFill, 14)
+	local levelGrade = Instance.new("UIGradient")
+	levelGrade.Color = ColorSequence.new(Color3.fromRGB(168, 237, 140), Color3.fromRGB(95, 194, 70))
+	levelGrade.Rotation = 90
+	levelGrade.Parent = bagFill
 
 	bagCountLabel = Theme.text({
 		name = "Count",
 		text = "0",
-		size = UDim2.fromOffset(110, 44),
-		position = UDim2.fromOffset(74, 24),
-		parent = holder,
+		size = UDim2.fromOffset(70, 36),
+		position = UDim2.fromOffset(68, 4),
+		parent = panel,
 		align = Enum.TextXAlignment.Left,
-		textSize = 30,
+		textSize = 34,
+	})
+
+	bagCapacityLabel = Theme.text({
+		name = "Capacity",
+		text = "/ 0",
+		size = UDim2.fromOffset(70, 26),
+		position = UDim2.fromOffset(138, 12),
+		parent = panel,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.body,
+		textSize = 22,
+	})
+
+	Theme.text({
+		name = "BagWord",
+		text = "BAG WEIGHT",
+		size = UDim2.fromOffset(140, 18),
+		position = UDim2.fromOffset(68, 42),
+		parent = panel,
+		color = Theme.colors.label,
+		textSize = 14,
 	})
 end
 
@@ -916,12 +961,12 @@ function Hud.gain(amount: number)
 		label = Theme.text({
 			name = "Tally",
 			text = "",
-			size = UDim2.fromOffset(280, 44),
+			size = UDim2.fromOffset(280, 50),
 			position = UDim2.fromOffset(10, 40),
 			parent = gainHolder,
 			align = Enum.TextXAlignment.Center,
 			color = Theme.colors.tips,
-			textSize = 34,
+			textSize = 40,
 		})
 		tallyLabel = label
 	end
@@ -986,23 +1031,38 @@ end
 function Hud.toast(kind: string, message: string)
 	toastOrder += 1
 
+	local ink = NOTICE_COLORS[kind] or Theme.colors.text
+
+	--[[
+		A capsule with a dot on it, not a rectangle with a corner radius of
+		four. It sits over the lawn with nothing behind it, so it needs the
+		same ink border everything else on this screen has, and the dot in the
+		notice's own colour says which kind of thing happened before the
+		sentence is read.
+	]]
 	local frame = Instance.new("Frame")
 	frame.Name = "Toast"
-	frame.Size = UDim2.fromOffset(520, 34)
+	frame.Size = UDim2.fromOffset(520, 42)
 	frame.BackgroundColor3 = Theme.colors.outline
-	frame.BackgroundTransparency = 0.45
+	frame.BackgroundTransparency = 0.18
 	frame.BorderSizePixel = 0
 	frame.LayoutOrder = toastOrder
 	frame.Parent = toastHolder
-	Theme.corner(frame, 4)
+	Theme.corner(frame, 21)
+	local edge = Theme.stroke(frame, 3, Theme.colors.outline, 0)
 
-	Theme.text({
+	local dot = circle(frame, 12, ink)
+	dot.Name = "Dot"
+	dot.Position = UDim2.new(0, 22, 0.5, 0)
+	dot.AnchorPoint = Vector2.new(0, 0.5)
+
+	local text = Theme.text({
 		text = message,
-		size = UDim2.new(1, -20, 1, 0),
-		position = UDim2.fromOffset(10, 0),
+		size = UDim2.new(1, -70, 1, 0),
+		position = UDim2.fromOffset(44, 0),
 		parent = frame,
-		align = Enum.TextXAlignment.Center,
-		color = NOTICE_COLORS[kind] or Theme.colors.text,
+		align = Enum.TextXAlignment.Left,
+		color = ink,
 		textSize = 21,
 	})
 
@@ -1010,7 +1070,13 @@ function Hud.toast(kind: string, message: string)
 		if not frame.Parent then
 			return
 		end
-		local fade = TweenService:Create(frame, TweenInfo.new(0.35), { BackgroundTransparency = 1 })
+		--- The border and the dot fade with the fill, or a ring and a spot are
+		--- left hanging on the lawn after the message has gone.
+		local span = TweenInfo.new(0.35)
+		TweenService:Create(edge, span, { Transparency = 1 }):Play()
+		TweenService:Create(dot, span, { BackgroundTransparency = 1 }):Play()
+		TweenService:Create(text, span, { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+		local fade = TweenService:Create(frame, span, { BackgroundTransparency = 1 })
 		fade:Play()
 		fade.Completed:Wait()
 		frame:Destroy()
@@ -1129,16 +1195,21 @@ local function refresh()
 
 	-- Only shown once something has actually raised it, so a brand new run is
 	-- not carrying a decoration that says nothing.
+	--- On a chip of its own now, so the brackets that used to separate it
+	--- from the lawn behind it are two characters doing nothing.
 	multiplierLabel.Text = if state.cashMultiplier > 1.001
-		then `(×{string.format("%.2f", state.cashMultiplier)})`
+		then `×{string.format("%.2f", state.cashMultiplier)}`
 		else ""
 
 	-- Hidden at zero, like the multiplier: a new player has none and does not
-	-- need a counter telling them so.
+	-- need a counter telling them so. The chip goes with the words, or an
+	-- empty dark pill is left sitting on the lawn saying nothing.
 	tipsLabel.Text = if state.tips > 0 then `{Format.count(state.tips)} tips` else ""
+	;(tipsLabel.Parent :: Frame).Visible = state.tips > 0
+	;(multiplierLabel.Parent :: Frame).Visible = state.cashMultiplier > 1.001
 
 	bagCountLabel.Text = Format.count(state.bagWeight)
-	bagCapacityLabel.Text = Format.count(state.bagCapacity)
+	bagCapacityLabel.Text = `/ {Format.count(state.bagCapacity)}`
 	bagCountLabel.TextColor3 = if state.bagWeight >= state.bagCapacity
 		then Theme.colors.danger
 		elseif state.bagWeight >= state.bagCapacity * 0.8 then Theme.colors.warn
@@ -1181,11 +1252,16 @@ local function refresh()
 	toolNameLabel.Visible = toolButton.Visible
 
 	local burnsFuel = tool ~= nil and tool.fuelBurn > 0
-	fuelPanel.Visible = burnsFuel and state.fuelCapacity > 0
-	if fuelPanel.Visible then
+	--- The holder carries the drop shadow, so hiding the body alone would
+	--- leave a dark rectangle sitting on the lawn with nothing on it.
+	local fuelHolder = fuelPanel.Parent :: Frame
+	fuelHolder.Visible = burnsFuel and state.fuelCapacity > 0 and RunOnly.isRunning()
+	if fuelHolder.Visible then
 		local fuelFraction = math.clamp(state.fuel / state.fuelCapacity, 0, 1)
 		fuelFill.Size = UDim2.fromScale(fuelFraction, 1)
-		fuelFill.BackgroundColor3 = if fuelFraction <= 0.15 then Theme.colors.danger else Theme.colors.warn
+		fuelFill.BackgroundColor3 = if fuelFraction <= 0.15
+			then Theme.colors.danger
+			else Color3.fromRGB(255, 192, 103)
 		fuelLabel.Text = `{math.floor(state.fuel)} / {math.floor(state.fuelCapacity)}`
 	end
 
@@ -1201,10 +1277,12 @@ local function refresh()
 	]]
 	local full = fraction >= 1
 	bagCountLabel.TextColor3 = if full then Theme.colors.danger else Theme.colors.text
-	bagCapacityLabel.TextColor3 = if full then Theme.colors.danger else Theme.colors.subtext
+	bagCapacityLabel.TextColor3 = if full then Theme.colors.danger else Theme.colors.body
 	if bagSack then
 		bagSack.BackgroundColor3 = if full then Theme.colors.danger else BAG_SACK_COLOUR
 	end
+	--- The level inside the sack, which is the part anyone actually reads.
+	bagFill.Size = UDim2.new(1, -6, math.clamp(fraction, 0, 1), 0)
 	local rideable = tool ~= nil and tool.vehicle ~= nil
 	if state.rentalSecondsLeft > 0 and state.rentalToolId ~= "" then
 		local rented = Tools.get(state.rentalToolId)
