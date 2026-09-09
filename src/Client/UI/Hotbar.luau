@@ -69,6 +69,28 @@ local MAX_SLOTS = 10
 	a glance on a phone.
 ]]
 local SLOT = 82
+--[[
+	Three slots on a phone, and a chip for the rest.
+
+	Ten slots is nine hundred and twenty pixels of bar. On an eight-hundred-
+	and-forty-point screen `fitToViewport` used to shrink that to fit, which
+	is how ten fifty-three point tiles ended up under a thumb — under the
+	forty-four the handoff sets as the floor for anything a finger has to hit,
+	and three-quarters of the bottom edge of the screen.
+
+	Three at fifty-six with a `+5` beside them is the same ten tools, in a bar
+	a third of the width, at a size a thumb can actually land on. The chip
+	pages: press it and the next three come round, which is one more press
+	than a tablet needs and no tool out of reach.
+]]
+local PHONE_SLOTS = 3
+local PHONE_SLOT = 56
+--- Which window of `PHONE_SLOTS` the bar is showing, from zero.
+local page = 0
+--- What was in the player's hand last time the bar was drawn, so a change of
+--- tool can turn the page to it without undoing one the player just turned.
+local lastEquipped = ""
+local overflow: TextButton? = nil
 
 local function buildSlot(order: number): TextButton
 	--- Not `holder`: that name already belongs to the row this goes into,
@@ -313,6 +335,38 @@ local function refresh()
 		end
 	end
 
+	--[[
+		How many slots have something in them, and where the window starts.
+
+		The page is clamped rather than kept, because selling nothing but
+		buying a category can make the bar shorter than the page a player last
+		turned to and an empty bar with a `+0` on it is not a state worth
+		having.
+	]]
+	local filled = #layout
+	local phone = Theme.isPhone()
+	local pages = if phone then math.max(math.ceil(filled / PHONE_SLOTS), 1) else 1
+
+	--[[
+		The bar's promise is that whatever you are holding is on it.
+
+		Three slots of ten cannot keep that on its own, so a change of tool
+		turns the page to the slot holding it. Only a change: turning to a
+		page and having it snap back the next time the bar redrew would make
+		the chip useless, and the bar redraws on every push of player state.
+	]]
+	if phone and state.equippedTool ~= lastEquipped then
+		local held = table.find(layout, state.equippedTool)
+		if held then
+			page = (held - 1) // PHONE_SLOTS
+		end
+	end
+	lastEquipped = state.equippedTool
+
+	page = if phone then page % pages else 0
+	local first = page * PHONE_SLOTS + 1
+	local last = first + PHONE_SLOTS - 1
+
 	for order, button in slotFrames do
 		local toolId = layout[order]
 		--- The icon lives in the well now, so this has to look past the face.
@@ -322,7 +376,8 @@ local function refresh()
 
 		--- The holder is what the row lays out and what carries the drop, so
 		--- hiding the face alone left a shadow with an empty gap over it.
-		;(button.Parent :: Frame).Visible = toolId ~= nil
+		local inWindow = not phone or (order >= first and order <= last)
+		;(button.Parent :: Frame).Visible = toolId ~= nil and inWindow
 		if toolId and icon and stroke and selected then
 			local tool = Tools.get(toolId)
 			Theme.setIcon(icon, if tool then Props.forTool(tool.id, tool.category) else Props.FALLBACK_TOOL_ICON)
@@ -352,6 +407,13 @@ local function refresh()
 				more.Text = if stack and #stack > 1 then `+{#stack - 1}` else ""
 			end
 		end
+	end
+
+	local chip = overflow
+	if chip then
+		local hidden = math.max(filled - PHONE_SLOTS, 0)
+		;(chip.Parent :: Frame).Visible = phone and hidden > 0
+		chip.Text = `+{hidden}`
 	end
 end
 
@@ -423,7 +485,7 @@ function Hotbar.start()
 	--- The tool button parks itself bottom-right and is the only thing the
 	--- row can still run into, so that corner is what it stands down for.
 	local CORNER_WIDGET, CORNER_INSET = 200, 26
-	Theme.fitToViewport(holder, MAX_SLOTS * 92, 140, 0, CORNER_WIDGET, CORNER_INSET)
+	Theme.fitToViewport(holder, MAX_SLOTS * 92, 140, 0, CORNER_WIDGET, CORNER_INSET, true)
 
 	local layoutOrder = Instance.new("UIListLayout")
 	layoutOrder.FillDirection = Enum.FillDirection.Horizontal
@@ -438,6 +500,87 @@ function Hotbar.start()
 	for order = 1, MAX_SLOTS do
 		table.insert(slotFrames, buildSlot(order))
 	end
+
+	----------------------------------------------------------------
+	-- The rest of the bar, on a phone
+	----------------------------------------------------------------
+	local chipSeat = Instance.new("Frame")
+	chipSeat.Name = "OverflowSeat"
+	chipSeat.Size = UDim2.fromOffset(48, PHONE_SLOT)
+	chipSeat.BackgroundTransparency = 1
+	chipSeat.LayoutOrder = MAX_SLOTS + 1
+	chipSeat.Visible = false
+	chipSeat.Parent = holder
+
+	local chipDrop = Instance.new("Frame")
+	chipDrop.Name = "Drop"
+	chipDrop.Size = UDim2.fromScale(1, 1)
+	chipDrop.Position = UDim2.fromOffset(0, 4)
+	chipDrop.BackgroundColor3 = Theme.colors.outline
+	chipDrop.BorderSizePixel = 0
+	chipDrop.ZIndex = 0
+	chipDrop.Parent = chipSeat
+	Theme.corner(chipDrop, 12)
+
+	local chip = Instance.new("TextButton")
+	chip.Name = "Overflow"
+	chip.Size = UDim2.fromScale(1, 1)
+	chip.BackgroundColor3 = Color3.fromRGB(44, 33, 24)
+	chip.BorderSizePixel = 0
+	chip.AutoButtonColor = false
+	chip.Font = Theme.font
+	chip.Text = ""
+	chip.TextColor3 = Theme.colors.tips
+	chip.TextSize = 18
+	chip.Parent = chipSeat
+	Theme.corner(chip, 12)
+	Theme.stroke(chip, 4, Theme.colors.outline, 0)
+	overflow = chip
+
+	chip.Activated:Connect(function()
+		page += 1
+		refresh()
+	end)
+
+	--[[
+		The bar's two shapes.
+
+		The tablet one is what it always was. The phone one is narrower tiles,
+		a shorter row and no number in the corner of a slot — there is no key
+		to press, and a digit that means nothing is worse than no digit.
+	]]
+	local function layoutBar()
+		local phone = Theme.isPhone()
+		local side = if phone then PHONE_SLOT else SLOT
+		for _, button in slotFrames do
+			local seat = button.Parent :: Frame
+			seat.Size = UDim2.fromOffset(side, side)
+			Theme.reround(button, if phone then 12 else 18)
+			local well = button:FindFirstChild("Well") :: Frame?
+			if well then
+				well.Size = UDim2.fromOffset(if phone then 36 else 52, if phone then 36 else 52)
+				local corner = well:FindFirstChildOfClass("UICorner")
+				if corner then
+					corner.CornerRadius = UDim.new(0, if phone then 8 else 11)
+				end
+			end
+			local number = button:FindFirstChild("Number") :: TextLabel?
+			if number then
+				number.Visible = not phone
+			end
+			local drop = seat:FindFirstChild("Drop") :: Frame?
+			if drop then
+				drop.Position = UDim2.fromOffset(0, if phone then 4 else 6)
+			end
+		end
+
+		chipSeat.Size = UDim2.fromOffset(48, side)
+		holder.Size = if phone
+			then UDim2.fromOffset(PHONE_SLOTS * (PHONE_SLOT + 10) + 48, PHONE_SLOT + 24)
+			else UDim2.fromOffset(MAX_SLOTS * 92, 104)
+		refresh()
+	end
+	Theme.onScreenChange(layoutBar)
 
 	-- Nine and zero for the last two, the way every game with ten slots does it.
 	local keys = {

@@ -194,7 +194,7 @@ local function buildRightColumn(gui: ScreenGui)
 		column on screen, and leaves it untouched at its designed size on any
 		display tall enough for it.
 	]]
-	Theme.fitToViewport(column, 260, 460, 40)
+	Theme.fitToViewport(column, 260, 460, 40, nil, nil, true)
 
 	----------------------------------------------------------------
 	-- Money
@@ -429,51 +429,66 @@ local function buildRightColumn(gui: ScreenGui)
 	end)
 
 	--[[
-		On a phone the rail stacks smaller and drops its captions.
+		On a phone the rail stacks down the edge and drops its captions.
 
 		A phone is short and wide: there is no vertical room to spare in the
 		middle and plenty of it at the sides, which is the opposite of a
 		tablet. Three words stacked down the edge of a four-hundred-point
-		screen is more furniture than the icons themselves.
-	]]
-	local function isPhone(): boolean
-		local camera = workspace.CurrentCamera
-		return camera ~= nil and camera.ViewportSize.Y <= 500
-	end
+		screen is more furniture than the icons themselves, and the store stops
+		being a wide pill for the same reason — at fifty square with the word
+		on it, it is still the only gold thing on the rail and still says what
+		it is.
 
+		Fifty rather than the seventy-six a tablet gets, and no smaller: the
+		handoff's floor is forty-four points on the shortest side of anything
+		a finger has to hit, which is why the column is `ownLayout` and stays
+		at full size here instead of being shrunk to fit.
+	]]
 	local function layoutTiles()
-		local phone = isPhone()
+		local phone = Theme.isPhone()
 		local tiles = { book.Parent :: Frame, soundFace }
 		local labels = { bookLabel, soundLabel }
 		for index, face in tiles do
 			local holder = face.Parent :: Frame
 			if phone then
-				holder.Size = UDim2.fromOffset(54, 54)
-				holder.Position = UDim2.new(1, 0, 0, 86 + (index - 1) * 62)
+				holder.Size = UDim2.fromOffset(50, 50)
+				--- A hundred and four, not eighty-six: the tips and multiplier
+				--- chips sit at sixty-eight and are twenty-eight tall, and the
+				--- first tile was drawn over the end of the multiplier.
+				holder.Position = UDim2.new(1, 0, 0, 104 + (index - 1) * 58)
 			else
 				holder.Size = UDim2.fromOffset(76, 76)
 				holder.Position = UDim2.new(1, 0, 0, 128 + (index - 1) * 118)
 			end
+			Theme.reround(face, if phone then 14 else 20)
 			local chip = labels[index].Parent :: Frame
 			chip.Visible = not phone
 		end
 
 		local shopHolder = shop.Parent :: Frame
 		if phone then
-			shopHolder.Size = UDim2.fromOffset(122, 40)
-			shopHolder.Position = UDim2.new(1, 0, 0, 86 + #tiles * 62)
-			shopWord.TextSize = 16
-			shopCoin.Size = UDim2.fromOffset(24, 24)
+			shopHolder.Size = UDim2.fromOffset(50, 50)
+			shopHolder.Position = UDim2.new(1, 0, 0, 104 + #tiles * 58)
+			shopCoin.Visible = false
+			shopWord.TextSize = 11
+			shopWord.TextXAlignment = Enum.TextXAlignment.Center
+			shopWord.Size = UDim2.fromScale(1, 1)
+			shopWord.Position = UDim2.fromOffset(0, 0)
+			Theme.reround(shop, 14)
 		else
 			shopHolder.Size = UDim2.fromOffset(158, 52)
 			shopHolder.Position = UDim2.new(1, 0, 0, 364)
-			shopWord.TextSize = 20
+			shopCoin.Visible = true
 			shopCoin.Size = UDim2.fromOffset(30, 30)
+			shopWord.TextSize = 20
+			shopWord.TextXAlignment = Enum.TextXAlignment.Left
+			shopWord.Size = UDim2.new(1, -56, 1, 0)
+			shopWord.Position = UDim2.fromOffset(50, 0)
+			Theme.reround(shop, Theme.PILL)
 		end
 	end
 
-	layoutTiles()
-	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(layoutTiles)
+	Theme.onScreenChange(layoutTiles)
 
 	----------------------------------------------------------------
 	-- Fuel and the tool
@@ -489,7 +504,7 @@ local function buildRightColumn(gui: ScreenGui)
 	})
 	Theme.pad(fuelPanel, 9, 12, 11, 12)
 	;(fuelPanel.Parent :: Frame).Visible = false
-	Theme.chromeScale(fuelPanel.Parent :: Frame)
+	Theme.chromeScale(fuelPanel.Parent :: Frame, true)
 
 	Theme.text({
 		name = "FuelWord",
@@ -622,6 +637,27 @@ local function buildRightColumn(gui: ScreenGui)
 		a mouse, where this is a readout rather than a control — the fallback
 		inset is used.
 	]]
+	--[[
+		The tool button and the gauge, on a phone.
+
+		A phone has three hundred and ninety points of height and Roblox's jump
+		button is already eating the bottom right of it. A hundred and
+		twenty-four point button with a gauge stacked over the name over the
+		state word is most of that column; at eighty-four, with the gauge
+		tucked in beside the button rather than above it, the stack is two
+		items instead of three and the lawn is visible behind it.
+	]]
+	local function sizeTool()
+		local phone = Theme.isPhone()
+		local side = if phone then 84 else 124
+		toolButton.Size = UDim2.fromOffset(side, side)
+		;(fuelPanel.Parent :: Frame).Size = UDim2.fromOffset(if phone then 126 else 196, 62)
+		fuelLabel.TextSize = if phone then 13 else 15
+		toolNameLabel.TextSize = if phone then 16 else 21
+		toolStateLabel.TextSize = if phone then 17 else 22
+		stateChip.Size = UDim2.fromOffset(if phone then 120 else 160, if phone then 28 else 34)
+	end
+
 	local function parkTool()
 		if not (toolButton and toolStateLabel and toolNameLabel and stateChip) then
 			return false
@@ -662,12 +698,24 @@ local function buildRightColumn(gui: ScreenGui)
 			1,
 			-(fromBottom - (stateChip.AbsoluteSize.Y + 4))
 		)
-		;(fuelPanel.Parent :: Frame).Position = UDim2.new(
-			1,
-			-(centreFromRight - (fuelPanel.Parent :: Frame).AbsoluteSize.X * 0.5),
-			1,
-			-(nameBottom + toolNameLabel.AbsoluteSize.Y + 8)
-		)
+		local gauge = fuelPanel.Parent :: Frame
+		if Theme.isPhone() then
+			--[[
+				Beside the button, sharing its bottom edge, because there is no
+				room for a fourth thing in that column.
+
+				The gauge is anchored bottom-right, so the offset is where its
+				right edge goes: ten short of the button's left edge.
+			]]
+			gauge.Position = UDim2.new(1, -(fromRight + width + 10), 1, -fromBottom)
+		else
+			gauge.Position = UDim2.new(
+				1,
+				-(centreFromRight - gauge.AbsoluteSize.X * 0.5),
+				1,
+				-(nameBottom + toolNameLabel.AbsoluteSize.Y + 8)
+			)
+		end
 		return jump ~= nil
 	end
 
@@ -726,7 +774,10 @@ local function buildRightColumn(gui: ScreenGui)
 	end)
 	paintSound()
 
-	parkTool()
+	Theme.onScreenChange(function()
+		sizeTool()
+		parkTool()
+	end)
 	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(parkTool)
 	task.defer(parkTool)
 end
@@ -769,7 +820,7 @@ local function buildBag(gui: ScreenGui)
 	holder.Position = UDim2.fromOffset(22, 155)
 	holder.AnchorPoint = Vector2.new(0, 0)
 	RunOnly.add(holder)
-	Theme.chromeScale(holder)
+	Theme.chromeScale(holder, true)
 
 	-- A sack: a rounded body with a pinched neck above it.
 	local neck = Instance.new("Frame")
@@ -833,7 +884,7 @@ local function buildBag(gui: ScreenGui)
 		textSize = 22,
 	})
 
-	Theme.text({
+	local bagWord = Theme.text({
 		name = "BagWord",
 		text = "BAG WEIGHT",
 		size = UDim2.fromOffset(140, 18),
@@ -842,6 +893,37 @@ local function buildBag(gui: ScreenGui)
 		color = Theme.colors.label,
 		textSize = 14,
 	})
+
+	--[[
+		On a phone the sack shrinks and the caption goes.
+
+		The panel is two hundred and twelve wide against a screen of three
+		hundred and ninety points, and the word BAG WEIGHT under a number that
+		already has a slash and a capacity beside it is the third way of saying
+		the same thing. Thirty-two by thirty-six is small, and it is allowed to
+		be: the sack is a readout, not something a finger has to hit.
+
+		The top-left corner is the same on both, because the alternative is the
+		bottom-left and that is where Roblox draws the movement thumbstick.
+	]]
+	Theme.onScreenChange(function()
+		local phone = Theme.isPhone()
+		holder.Size = UDim2.fromOffset(if phone then 138 else 212, if phone then 56 else 86)
+		--- The objective panel is off on a phone, so the corner it was leaving
+		--- room for is empty and the bag takes it.
+		holder.Position = UDim2.fromOffset(22, if phone then 22 else 155)
+		neck.Size = UDim2.fromOffset(if phone then 15 else 24, if phone then 9 else 15)
+		neck.Position = UDim2.fromOffset(if phone then 9 else 16, 0)
+		sack.Size = UDim2.fromOffset(if phone then 32 else 56, if phone then 36 else 51)
+		sack.Position = UDim2.fromOffset(0, if phone then 7 else 11)
+		bagCountLabel.TextSize = if phone then 22 else 34
+		bagCountLabel.Size = UDim2.fromOffset(if phone then 48 else 70, if phone then 24 else 36)
+		bagCountLabel.Position = UDim2.fromOffset(if phone then 42 else 68, if phone then 4 else 4)
+		bagCapacityLabel.TextSize = if phone then 15 else 22
+		bagCapacityLabel.Size = UDim2.fromOffset(if phone then 48 else 70, if phone then 20 else 26)
+		bagCapacityLabel.Position = UDim2.fromOffset(if phone then 88 else 138, if phone then 8 else 12)
+		bagWord.Visible = not phone
+	end)
 end
 
 local function buildMiddle(gui: ScreenGui)
@@ -868,6 +950,11 @@ local function buildMiddle(gui: ScreenGui)
 	})
 	RunOnly.add(rateLabel)
 	Theme.chromeScale(rateLabel)
+	--- The bar above it is two rows on a phone rather than three, so the line
+	--- under it moves up with it rather than leaving a hole.
+	Theme.onScreenChange(function()
+		rateLabel.Position = UDim2.new(0.5, 0, 0, 22 + (if Theme.isPhone() then 98 else 128) + 8)
+	end)
 
 	gainHolder = Instance.new("Frame")
 	gainHolder.Name = "Gains"

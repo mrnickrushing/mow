@@ -440,13 +440,54 @@ local function chromeFactor(area: Vector2): number
 	return math.clamp(area.Y / CHROME_HEIGHT, CHROME_FLOOR, 1)
 end
 
+--[[
+	Where a phone starts.
+
+	A phone held sideways is about three hundred and ninety points tall and
+	eight hundred and forty wide: short and wide, which is the opposite of a
+	tablet. Everything above this gets the tablet layout, shrunk by
+	`chromeFactor` if it has to be; below it, the pieces that have a phone
+	layout of their own use it instead of a smaller copy of the tablet one.
+]]
+Theme.PHONE_HEIGHT = 500
+
+function Theme.isPhone(): boolean
+	local camera = workspace.CurrentCamera
+	return camera ~= nil and camera.ViewportSize.Y <= Theme.PHONE_HEIGHT
+end
+
+--[[
+	Run `fn` now and again whenever the screen changes shape.
+
+	Three panels lay themselves out differently on a phone and each of them
+	needs the same three connections to notice — the camera's viewport, and
+	the camera being swapped out from under it, which happens on every respawn.
+]]
+function Theme.onScreenChange(fn: () -> ())
+	fn()
+	local camera = workspace.CurrentCamera
+	if camera then
+		camera:GetPropertyChangedSignal("ViewportSize"):Connect(fn)
+	end
+	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+		local current = workspace.CurrentCamera
+		if current then
+			current:GetPropertyChangedSignal("ViewportSize"):Connect(fn)
+		end
+		fn()
+	end)
+end
+
 function Theme.fitToViewport(
 	panel: GuiObject,
 	width: number,
 	height: number,
 	reservedY: number?,
 	reservedX: number?,
-	reservedXInset: number?
+	reservedXInset: number?,
+	--- The panel has a phone layout of its own and is not to be shrunk into
+	--- one. See `Theme.chromeScale`.
+	ownLayout: boolean?
 ): UIScale
 	local scale = Instance.new("UIScale")
 	scale.Parent = panel
@@ -493,6 +534,10 @@ function Theme.fitToViewport(
 		local usableY = math.max(area.Y - (reservedY or 0), 1)
 		local reserve = (reservedXInset or 0) + (reservedX or 0) * chromeFactor(area)
 		local usableX = math.max(area.X - reserve * 2, 1)
+		if ownLayout and area.Y <= Theme.PHONE_HEIGHT then
+			scale.Scale = 1
+			return
+		end
 		scale.Scale = math.clamp(math.min(usableX / width, usableY / height), 0.35, 1)
 	end
 
@@ -538,7 +583,17 @@ end
 	position, so a bag pinned to the bottom-left shrinks towards the corner it
 	is pinned to rather than drifting off it.
 ]]
-function Theme.chromeScale(element: GuiObject): UIScale
+--[[
+	`ownLayout` elements keep their designed size on a phone.
+
+	Shrinking is the right answer for a panel that has one shape: below six
+	hundred and forty the chrome stands down rather than running off the edge.
+	It is the wrong answer for the three panels that have a second shape — the
+	hero bar, the bag, the rail — because a phone layout drawn at sixty-two
+	per cent is a phone layout nobody can read. Those pass `true` and lay
+	themselves out instead.
+]]
+function Theme.chromeScale(element: GuiObject, ownLayout: boolean?): UIScale
 	local scale = Instance.new("UIScale")
 	scale.Parent = element
 
@@ -555,7 +610,7 @@ function Theme.chromeScale(element: GuiObject): UIScale
 		if area.Y <= 0 then
 			return
 		end
-		scale.Scale = chromeFactor(area)
+		scale.Scale = if ownLayout and area.Y <= Theme.PHONE_HEIGHT then 1 else chromeFactor(area)
 	end
 
 	fit()
@@ -1027,6 +1082,31 @@ end
 	Same four pieces, a light gradient, and a stronger bevel because white on
 	cream at fourteen per cent is not there at all.
 ]]
+--[[
+	Re-rounds a chunk panel or button, drop included.
+
+	The radius is set when the piece is built, and two of them change shape on
+	a phone: the rail's tiles go from twenty to fourteen, and the store stops
+	being a capsule. Missing the drop leaves a rounder shadow sticking out from
+	under a squarer face, which is the sort of thing nobody names and everybody
+	sees.
+]]
+function Theme.reround(face: GuiObject, radius: number)
+	local shape = if radius == Theme.PILL then UDim.new(0.5, 0) else UDim.new(0, radius)
+	local holder = face.Parent
+	local pieces: { Instance } = { face }
+	local drop = if holder then holder:FindFirstChild("Drop") else nil
+	if drop then
+		table.insert(pieces, drop)
+	end
+	for _, object in pieces do
+		local corner = object:FindFirstChildOfClass("UICorner")
+		if corner then
+			corner.CornerRadius = shape
+		end
+	end
+end
+
 function Theme.cardFace(options: ChunkOptions): Frame
 	local card = Theme.chunkPanel({
 		name = options.name or "Card",

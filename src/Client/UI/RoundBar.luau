@@ -54,6 +54,13 @@ local edgeChip: Frame
 local edgeText: TextLabel
 local jobRows: { { box: Frame, tick: Frame, text: TextLabel, count: TextLabel } } = {}
 local jobPanel: Frame
+local heroHolder: Frame
+local heroTrack: Frame
+local heroClock: Frame
+local jobHolder_: Frame
+--- True while the panel is wearing its phone shape, so the section title
+--- knows whether it is carrying the third row's place line as well.
+local phone = false
 
 local secondsLeft = 0
 local phase = "playing"
@@ -76,6 +83,19 @@ local rows: { SectionRow } = {}
 
 local HERO_WIDTH = 566
 local HERO_HEIGHT = 128
+--[[
+	The hero bar, on a phone.
+
+	Three hundred and ninety wide and two rows instead of three. The third row
+	carries the section's place in the property and what clearing it opens,
+	which is fourteen point text — at the sixty-two per cent a phone would
+	otherwise shrink the whole panel to, that is eight and a half points and
+	nobody reads it. So the place moves up into the title, where it is
+	`FRONT YARD · 1 OF 6` and legible, and the gate line waits for a screen
+	with room for it.
+]]
+local PHONE_WIDTH = 390
+local PHONE_HEIGHT = 98
 local JOB_ROWS = 3
 --- Wide enough for the longest job line the journal writes. At 280, with a
 --- 74-pixel column for a count that never needs more than "100/100", "Sell 5
@@ -105,8 +125,9 @@ local function build()
 	--- The holder is what carries the position, so it is the holder that has
 	--- to be hidden in the lobby and scaled on a phone.
 	local holder = hero.Parent :: Frame
+	heroHolder = holder
 	RunOnly.add(holder)
-	Theme.chromeScale(holder)
+	Theme.chromeScale(holder, true)
 
 	--- Row one: badge, name, clock.
 	local top = Instance.new("Frame")
@@ -157,6 +178,7 @@ local function build()
 		anchor = Vector2.new(1, 0.5),
 		parent = top,
 	})
+	heroClock = clock
 
 	local tick = Instance.new("Frame")
 	tick.Name = "Tick"
@@ -180,6 +202,7 @@ local function build()
 	--- Row two: the bar. The percentage is centred over the whole track
 	--- rather than sitting at the end of the fill, so it does not move.
 	local track = Instance.new("Frame")
+	heroTrack = track
 	track.Name = "Track"
 	track.Size = UDim2.new(1, 0, 0, 26)
 	track.Position = UDim2.fromOffset(0, 44)
@@ -310,6 +333,7 @@ local function build()
 	})
 	Theme.pad(jobPanel, 12, 14, 12, 14)
 	local jobHolder = jobPanel.Parent :: Frame
+	jobHolder_ = jobHolder
 	RunOnly.add(jobHolder)
 	Theme.chromeScale(jobHolder)
 
@@ -425,10 +449,10 @@ end
 	"section three of six" to anybody, and the gate line names whichever
 	section says it `requires` this one.
 ]]
-local function place(row: SectionRow): (string, string)
+local function place(row: SectionRow): (string, string, string)
 	local world = PlayerState.world()
 	if not world then
-		return "", ""
+		return "", "", ""
 	end
 
 	local index, total = 0, 0
@@ -447,6 +471,9 @@ local function place(row: SectionRow): (string, string)
 	if row.waves > 1 then
 		foot ..= ` · WAVE {math.min(row.wave + 1, row.waves)} OF {row.waves}`
 	end
+	--- The same fact in four characters, for the phone title: the property's
+	--- name is on the world-select card and the wave is on the bar.
+	local short = if index > 0 then `{index} OF {total}` else ""
 
 	--[[
 		Whichever section this one opens, preferring one you have to do.
@@ -468,7 +495,7 @@ local function place(row: SectionRow): (string, string)
 			end
 		end
 	end
-	return foot, if gate ~= "" then gate else spare
+	return foot, (if gate ~= "" then gate else spare), short
 end
 
 --[[
@@ -568,7 +595,19 @@ local function refreshSection()
 	local done = if row.total > 0 then 1 - row.remaining / row.total else 1
 	fill.Size = UDim2.fromScale(math.clamp(done, 0, 1), 1)
 
-	local foot, gate = place(row)
+	local foot, gate, short = place(row)
+	--[[
+		On a phone the title carries the place as well.
+
+		There is no third row to put it on, and "FRONT YARD" alone does not
+		say how much of the property is left — which is the one thing the
+		third row was there for.
+	]]
+	if phone and phase ~= "won" and phase ~= "lost" then
+		sectionLabel.Text = if short ~= ""
+			then `{string.upper(row.name)} · {short}`
+			else string.upper(row.name)
+	end
 
 	--[[
 		The last few tiles, counted rather than rounded.
@@ -721,8 +760,39 @@ end
 -- Lifecycle
 --------------------------------------------------------------------
 
+--[[
+	The panel's two shapes.
+
+	Not a scaled copy: on a phone the third row goes, the section's place in
+	the property moves up into the title beside its name, and the whole panel
+	is drawn at its own size rather than at the sixty-two per cent the chrome
+	scale would otherwise pick. The objective panel goes with it — a phone has
+	no vertical room in the middle and the top-left corner is where the bag
+	already is.
+]]
+local function layoutHero()
+	local small = Theme.isPhone()
+	phone = small
+
+	local width = if small then PHONE_WIDTH else HERO_WIDTH
+	local height = if small then PHONE_HEIGHT else HERO_HEIGHT
+	heroHolder.Size = UDim2.fromOffset(width, height)
+	heroTrack.Position = UDim2.fromOffset(0, if small then 42 else 44)
+	heroClock.Size = UDim2.fromOffset(if small then 106 else 118, 28)
+	sectionLabel.Size = UDim2.new(1, if small then -164 else -190, 1, 0)
+	sectionLabel.TextSize = if small then 17 else 24
+	footLabel.Visible = not small
+	gateLabel.Visible = not small
+
+	edgeChip.Position = UDim2.new(0.5, 0, 0, 22 + height + 8 + 38)
+	RunOnly.suppress(jobHolder_, small)
+
+	refreshSection()
+end
+
 function RoundBar.start()
 	build()
+	Theme.onScreenChange(layoutHero)
 
 	local roundState = Remotes.event(Remotes.ROUND_STATE)
 	roundState.OnClientEvent:Connect(function(state: any)
