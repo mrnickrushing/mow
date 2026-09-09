@@ -61,6 +61,10 @@ local nameOf: { [GuiObject]: string } = {}
 ]]
 local gated: { [GuiObject]: boolean } = {}
 local gate: { [string]: boolean }? = nil
+--- Called after the gate changes, for owners whose own rule decides whether a
+--- piece is up as well — the rail's captions are off on a phone whatever the
+--- gate says, and this module cannot know that.
+local gateWatchers: { () -> () } = {}
 local running = false
 
 local function held(object: GuiObject): boolean
@@ -146,6 +150,14 @@ function RunOnly.reveal(names: { string }?)
 		gate = nil
 	end
 	apply()
+	for _, watcher in gateWatchers do
+		watcher()
+	end
+end
+
+--- Runs `fn` whenever the reveal gate changes.
+function RunOnly.onGate(fn: () -> ())
+	table.insert(gateWatchers, fn)
 end
 
 --- Whether this piece may be on screen: a run is under way and nothing is

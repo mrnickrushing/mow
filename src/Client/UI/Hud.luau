@@ -398,7 +398,9 @@ local function buildRightColumn(gui: ScreenGui)
 	--- The holder, not the face: the face's parent carries the drop, and
 	--- hiding the face alone leaves a black square on the lawn.
 	RunOnly.piece("rail", (book.Parent :: Frame).Parent :: GuiObject, true)
-	RunOnly.piece("rail", (bookLabel.Parent :: Frame), true)
+	--- Named, but not hidden from here: `layoutTiles` owns whether a caption
+	--- is up, because on a phone it is down whatever the gate says.
+	RunOnly.piece("rail", bookLabel.Parent :: Frame)
 
 	local soundHit = tile("Sound", 246)
 	local soundFace = soundHit.Parent :: Frame
@@ -454,7 +456,7 @@ local function buildRightColumn(gui: ScreenGui)
 
 	local soundLabel = caption("SoundLabel", "SOUND ON", 328)
 	RunOnly.piece("rail", soundFace.Parent :: GuiObject, true)
-	RunOnly.piece("rail", (soundLabel.Parent :: Frame), true)
+	RunOnly.piece("rail", soundLabel.Parent :: Frame)
 
 	--[[
 		The store is a pill, not a third tile.
@@ -564,6 +566,9 @@ local function buildRightColumn(gui: ScreenGui)
 	end
 
 	Theme.onScreenChange(layoutTiles)
+	--- The captions are the one piece two rules decide, so the gate has to say
+	--- when it moves.
+	RunOnly.onGate(layoutTiles)
 
 	----------------------------------------------------------------
 	-- Fuel and the tool
