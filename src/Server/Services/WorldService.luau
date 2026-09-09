@@ -5142,7 +5142,17 @@ local function buildStatue(foot: CFrame, parent: Folder, body: Color3, stone: Co
 		--- tablet is, and wide enough for a name to sit on one line.
 		size = Vector3.new(DIE + 1.6, 1.7, 0.4),
 		cframe = foot * CFrame.new(0, TALL * 0.58, -(DIE * 0.5 + 0.15)),
-		color = Palette.color(Palette.estate.lead),
+		--[[
+			Bronze, not lead.
+
+			In the estate's grey it was a flat plate the colour of the gutters
+			with white lettering on it, which from the drive reads as a label
+			stuck to the stone rather than as part of the monument. An
+			inscription tablet is cast in bronze and goes green in the rain,
+			and dark letters cut into a warm plate are what an engraving looks
+			like at any distance.
+		]]
+		color = Color3.fromRGB(126, 96, 52),
 		material = Enum.Material.Metal,
 		canCollide = false,
 		parent = parent,
@@ -5152,7 +5162,7 @@ local function buildStatue(foot: CFrame, parent: Folder, body: Color3, stone: Co
 	--- the world does not wait on one.
 	local label = Build.painted(plaque, Enum.NormalId.Front, 0.86)
 	label.Text = ""
-	label.TextColor3 = Palette.color(Palette.estate.quoin)
+	label.TextColor3 = Color3.fromRGB(38, 28, 14)
 	--[[
 		A fixed size on one line, not scaled to the box.
 
@@ -5181,6 +5191,80 @@ local function buildStatue(foot: CFrame, parent: Folder, body: Color3, stone: Co
 			return
 		end
 		local figure = model :: Model
+
+		--[[
+			Parented before it is measured, and measured before it is stone.
+
+			A model that has never been in the DataModel has never had its
+			joints assembled: `CreateHumanoidModelFromUserId` hands back a
+			pile of limbs sitting wherever the rig builder left them, and
+			measuring one measures the pile. Straight off the web this avatar
+			reports a bounding box 13.3 studs tall with its left foot two feet
+			above its head; parented for a single frame it reports 5.6 and
+			stands like a person.
+
+			So the statue was scaled to make a *pile* fourteen studs tall,
+			which left the part of it that looks like somebody about seven —
+			a doll on a big stone box, with a foot and a lock of hair floating
+			beside it where nobody could quite see what they were.
+
+			Parent it, let the rig assemble, size it, stand it on the cap, and
+			only then take the humanoid out and turn the whole thing to stone.
+		]]
+		for _, thing in figure:GetDescendants() do
+			if thing:IsA("BasePart") then
+				--- Not a thing in the world yet: no collision, no raycast, no
+				--- weight, from the first frame it is in the tree.
+				thing.CanCollide = false
+				thing.CanQuery = false
+				thing.CanTouch = false
+				thing.Massless = true
+			end
+		end
+		figure.Name = "Statue"
+		figure.Parent = parent
+
+		--[[
+			Measured once it has stopped moving.
+
+			Assembly is not instant and it is not one frame either: a rig
+			measured on the frame it was parented reports about eight studs on
+			its way from thirteen to five and a half, and a statue scaled
+			against that number stands ten studs tall on a plinth that expects
+			fourteen — which is to say it stands in the plinth, sunk to the
+			thigh. Wait for the height to stop changing before believing it.
+		]]
+		local function settle(): Vector3
+			local last = -1
+			local box = Vector3.zero
+			for _ = 1, 40 do
+				task.wait(0.05)
+				local _, measured = figure:GetBoundingBox()
+				box = measured
+				if math.abs(measured.Y - last) < 0.005 then
+					break
+				end
+				last = measured.Y
+			end
+			return box
+		end
+
+		local natural = settle()
+		if natural.Y > 0.1 then
+			figure:ScaleTo(14 / natural.Y)
+			settle()
+		end
+		figure:PivotTo(foot * CFrame.new(0, TALL + 1.2, 0))
+		--[[
+			Stood on the cap rather than trusted to the pivot: an avatar's
+			pivot is its root part, which is at the hips, so pivoting it to
+			the top of the plinth buries it to the waist.
+		]]
+		local pivot, size = figure:GetBoundingBox()
+		local floor = pivot.Position.Y - size.Y * 0.5
+		local want = (foot * CFrame.new(0, TALL + 1.2, 0)).Position.Y
+		figure:PivotTo(CFrame.new(0, want - floor, 0) * figure:GetPivot())
+
 		--- Anything that would move it, dress it or colour it.
 		for _, thing in figure:GetDescendants() do
 			if
@@ -5201,10 +5285,6 @@ local function buildStatue(foot: CFrame, parent: Folder, body: Color3, stone: Co
 		for _, thing in figure:GetDescendants() do
 			if thing:IsA("BasePart") then
 				thing.Anchored = true
-				thing.CanCollide = false
-				thing.CanQuery = false
-				thing.CanTouch = false
-				thing.Massless = true
 				thing.Color = stone
 				thing.Material = Enum.Material.Sandstone
 				thing.Transparency = 0
@@ -5214,23 +5294,6 @@ local function buildStatue(foot: CFrame, parent: Folder, body: Color3, stone: Co
 				end
 			end
 		end
-
-		local _, natural = figure:GetBoundingBox()
-		if natural.Y > 0.1 then
-			figure:ScaleTo(14 / natural.Y)
-		end
-		figure:PivotTo(foot * CFrame.new(0, TALL + 1.2, 0))
-		--[[
-			Stood on the cap rather than trusted to the pivot: an avatar's
-			pivot is its root part, which is at the hips, so pivoting it to
-			the top of the plinth buries it to the waist.
-		]]
-		local pivot, size = figure:GetBoundingBox()
-		local base = pivot.Position.Y - size.Y * 0.5
-		local want = (foot * CFrame.new(0, TALL + 1.2, 0)).Position.Y
-		figure:PivotTo(CFrame.new(0, want - base, 0) * figure:GetPivot())
-		figure.Name = "Statue"
-		figure.Parent = parent
 	end)
 end
 
