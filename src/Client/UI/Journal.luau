@@ -18,7 +18,6 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
 local GameConfig = require(Shared.Config.GameConfig)
-local Worlds = require(Shared.Config.Worlds)
 local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local Types = require(Shared.Types)
@@ -1266,101 +1265,223 @@ end
 -- Collection and tips
 --------------------------------------------------------------------
 
+--[[
+	One zone's blade: found, or still out there.
+
+	The card is the whole record — a medal if it has been found, a dark disc
+	if it has not — because the collection page is read by scanning for the
+	gaps rather than by reading the list.
+]]
+local function bladeCard(parent: Instance, order: number, section: Types.ZoneDef, mine: boolean)
+	local face: Frame
+	if mine then
+		face = Theme.cardFace({
+			name = section.id,
+			size = UDim2.fromScale(1, 1),
+			parent = parent,
+			radius = 16,
+			drop = 5,
+			outline = 4,
+		})
+	else
+		face = Theme.chunkPanel({
+			name = section.id,
+			size = UDim2.fromScale(1, 1),
+			parent = parent,
+			radius = 16,
+			drop = 5,
+			outline = 4,
+			top = Color3.fromRGB(44, 33, 24),
+			bottom = Color3.fromRGB(44, 33, 24),
+		})
+	end
+	;(face.Parent :: Frame).LayoutOrder = order
+	Theme.pad(face, 14, 10, 13, 10)
+
+	local disc = Instance.new("Frame")
+	disc.Name = "Medal"
+	disc.Size = UDim2.fromOffset(56, 56)
+	disc.Position = UDim2.fromScale(0.5, 0)
+	disc.AnchorPoint = Vector2.new(0.5, 0)
+	disc.BackgroundColor3 = if mine then Color3.fromRGB(255, 224, 138) else Color3.fromRGB(58, 44, 30)
+	disc.BorderSizePixel = 0
+	disc.Parent = face
+	Theme.corner(disc, Theme.PILL)
+	Theme.stroke(disc, 4, Theme.colors.outline, 0)
+	if mine then
+		local shine = Instance.new("UIGradient")
+		shine.Color = ColorSequence.new(Color3.fromRGB(255, 224, 138), Color3.fromRGB(255, 176, 32))
+		shine.Rotation = 90
+		shine.Parent = disc
+	end
+
+	local mark = Instance.new("Frame")
+	mark.Name = "Mark"
+	mark.Size = UDim2.fromOffset(22, 22)
+	mark.Position = UDim2.fromScale(0.5, 0.5)
+	mark.AnchorPoint = Vector2.new(0.5, 0.5)
+	mark.Rotation = 45
+	mark.BackgroundColor3 = if mine then Theme.colors.outline else Color3.fromRGB(74, 56, 38)
+	mark.BorderSizePixel = 0
+	mark.Parent = disc
+	Theme.corner(mark, 3)
+
+	local name = Theme.text({
+		name = "Name",
+		text = section.name,
+		size = UDim2.new(1, 0, 0, 22),
+		position = UDim2.fromOffset(0, 64),
+		parent = face,
+		align = Enum.TextXAlignment.Center,
+		color = if mine then INK else Theme.colors.body,
+		textSize = 17,
+	})
+	name.TextTruncate = Enum.TextTruncate.AtEnd
+
+	--[[
+		Where it was, or what stands between you and it.
+
+		A side area has to be found before it can be searched, and the page
+		should say so rather than leaving a dark disc with no explanation.
+	]]
+	local note = if mine
+		then "found"
+		elseif not PlayerState.isSectionOpen(section.id) then "behind a gate"
+		elseif section.optional then "off the path"
+		else "still out there"
+	Theme.text({
+		name = "Note",
+		text = note,
+		size = UDim2.new(1, 0, 0, 20),
+		position = UDim2.fromOffset(0, 86),
+		parent = face,
+		align = Enum.TextXAlignment.Center,
+		color = if mine then Theme.colors.inkSoft else Theme.colors.label,
+		textSize = 13,
+		bold = false,
+	})
+end
+
 local function renderCollection()
-	heading(leftPage, "Zones")
+	heading(leftPage, "Golden blades")
 	local scroll = body(leftPage)
 
+	--- Four across, which is what a page of eight reads as: two rows.
+	local column = scroll:FindFirstChildOfClass("UIListLayout")
+	if column then
+		column:Destroy()
+	end
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.new(0.25, -11, 0, 132)
+	grid.CellPadding = UDim2.fromOffset(14, 14)
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = scroll
+
 	local world = PlayerState.world()
+	local total, mine = 0, 0
 	if world then
 		for order, section in world.sections do
-			local owned = PlayerState.isSectionOpen(section.id)
-			local kind = Worlds.unlockKind(section)
-
-			local row = card(scroll, 44)
-			row.LayoutOrder = order
-
-			local name = Instance.new("TextLabel")
-			name.Text = if owned then section.name else `    {section.name}`
-			if not owned then
-				Theme.icon({
-					name = "Lock",
-					prop = "Padlock",
-					size = UDim2.fromOffset(22, 22),
-					position = UDim2.fromOffset(10, 11),
-					parent = row,
-				})
+			local has = PlayerState.hasBlade(section.id)
+			total += 1
+			if has then
+				mine += 1
 			end
-			name.Position = UDim2.fromOffset(10, 0)
-			name.Size = UDim2.new(1, -110, 1, 0)
-			name.BackgroundTransparency = 1
-			name.Font = Theme.font
-			name.TextColor3 = if owned then Color3.fromRGB(52, 44, 36) else LOCKED
-			name.TextSize = 19
-			name.TextXAlignment = Enum.TextXAlignment.Left
-			name.Parent = row
-
-			if owned then
-				Theme.icon({
-					name = "Done",
-					prop = "Tick",
-					size = UDim2.fromOffset(24, 24),
-					position = UDim2.new(1, -40, 0, 10),
-					parent = row,
-				})
-			end
-
-			local how = Instance.new("TextLabel")
-			how.Text = if owned
-				then ""
-				elseif kind == "completion" then "clear first"
-				elseif kind == "button" then "find switch"
-				else Format.cash(section.cost)
-			how.Size = UDim2.new(0, 96, 1, 0)
-			how.Position = UDim2.new(1, -10, 0, 0)
-			how.AnchorPoint = Vector2.new(1, 0)
-			how.BackgroundTransparency = 1
-			how.Font = Theme.fontRegular
-			how.TextColor3 = LOCKED
-			how.TextSize = 16
-			how.TextXAlignment = Enum.TextXAlignment.Right
-			how.Parent = row
+			bladeCard(scroll, order, section, has)
 		end
 	end
 
-	heading(rightPage, "Records")
-	local right = body(rightPage)
-	-- One card holding all three, because these are facts about the same run
-	-- rather than a list of separate choices — a list of cards read as three
-	-- unrelated things instead of one summary.
-	local panel = card(right, 34 * 3 + 24)
-	panel.LayoutOrder = 1
+	--[[
+		What the whole set is worth, said in words.
 
-	-- Written out of the state each time rather than baked into a string, so
-	-- the records keep counting while the page stays still.
-	local lines: { (PlayerState.State) -> string } = {
-		function(mine)
-			return `Earned this run: {Format.cash(mine.earned)}`
-		end,
-		function(mine)
-			return `Tips banked: {Format.count(mine.tips)}`
-		end,
-		function(mine)
-			return `Bag capacity: {Format.count(mine.bagCapacity)}`
-		end,
+		The blades are the one thing in the game nobody is made to do — the
+		design note is explicit that they are never required for a hundred per
+		cent — so the page has to give a reason to go looking that is not a
+		completion bar.
+	]]
+	heading(rightPage, "The hunt")
+	local right = body(rightPage)
+
+	local tally = card(right, 108)
+	tally.LayoutOrder = 1
+	Theme.pad(tally, 14, 16, 14, 16)
+	Theme.text({
+		name = "Heading",
+		text = "THIS PROPERTY",
+		size = UDim2.new(1, 0, 0, 18),
+		position = UDim2.fromOffset(0, 0),
+		parent = tally,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.inkSoft,
+		textSize = 13,
+	})
+	Theme.text({
+		name = "Count",
+		text = `{mine} / {total}`,
+		size = UDim2.new(1, 0, 0, 40),
+		position = UDim2.fromOffset(0, 20),
+		parent = tally,
+		align = Enum.TextXAlignment.Left,
+		color = INK,
+		textSize = 34,
+	})
+	Theme.text({
+		name = "Note",
+		text = if mine >= total and total > 0
+			then "every one of them, this run"
+			else `{total - mine} still hidden — one to a zone`,
+		size = UDim2.new(1, 0, 0, 20),
+		position = UDim2.fromOffset(0, 62),
+		parent = tally,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.inkSoft,
+		textSize = 15,
+		bold = false,
+	})
+
+	local words = card(right, 0)
+	words.LayoutOrder = 2
+	words.AutomaticSize = Enum.AutomaticSize.Y
+	Theme.pad(words, 14, 16, 16, 16)
+	local flow = Instance.new("UIListLayout")
+	flow.SortOrder = Enum.SortOrder.LayoutOrder
+	flow.Padding = UDim.new(0, 8)
+	flow.Parent = words
+
+	local lines: { { text: string, size: number, ink: Color3 } } = {
+		{ text = "WHAT THEY PAY", size = 15, ink = Theme.colors.inkSoft },
+		{
+			text = "A flat finder's fee in cash and a handful of tips, wherever you find it.",
+			size = 17,
+			ink = INK,
+		},
+		{ text = "WHERE THEY ARE", size = 15, ink = Theme.colors.inkSoft },
+		{
+			text = "One hidden in every zone, in the same place on every server, put back each round.",
+			size = 17,
+			ink = INK,
+		},
+		{ text = "AND THE RULE", size = 15, ink = Theme.colors.inkSoft },
+		{
+			text = "Never needed to finish a property. Somewhere to go that nobody made you go.",
+			size = 17,
+			ink = INK,
+		},
 	}
 	for order, line in lines do
 		local label = Instance.new("TextLabel")
-		live(function()
-			label.Text = line(PlayerState.get())
-		end)
-		label.Size = UDim2.new(1, -24, 0, 34)
-		label.Position = UDim2.fromOffset(12, 12 + (order - 1) * 34)
+		label.Name = `Line{order}`
+		label.Text = line.text
+		label.Size = UDim2.fromScale(1, 0)
+		label.AutomaticSize = Enum.AutomaticSize.Y
 		label.BackgroundTransparency = 1
-		label.Font = Theme.fontRegular
-		label.TextColor3 = Color3.fromRGB(52, 44, 36)
-		label.TextSize = 18
+		label.Font = if line.size >= 17 then Theme.fontRegular else Theme.font
+		label.TextColor3 = line.ink
+		label.TextSize = line.size
 		label.TextXAlignment = Enum.TextXAlignment.Left
-		label.Parent = panel
+		label.TextYAlignment = Enum.TextYAlignment.Top
+		label.TextWrapped = true
+		label.LayoutOrder = order
+		label.Parent = words
 	end
 end
 

@@ -756,6 +756,11 @@ function RoundBar.start()
 			PlayerState.setOpenSections(open)
 		end
 
+		--- The blades are shared the same way, and arrive on the same wire.
+		if type(state.blades) == "table" then
+			PlayerState.setFoundBlades(state.blades :: { string })
+		end
+
 		refreshSection()
 	end)
 

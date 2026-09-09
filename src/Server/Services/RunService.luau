@@ -27,6 +27,7 @@ local Worlds = require(Shared.Config.Worlds)
 local BagService = require(script.Parent.BagService)
 local Loop = require(Shared.Util.Loop)
 local BoostService = require(script.Parent.BoostService)
+local CollectibleService = require(script.Parent.CollectibleService)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
@@ -166,6 +167,9 @@ local function broadcast()
 		elapsed = finishedElapsed,
 		worlds = worldChoices(),
 		sections = sectionSnapshot(),
+		--- Which sections have given up their golden blade, for the journal's
+		--- collection page. Shared, because the blade is.
+		blades = CollectibleService.found(),
 	})
 end
 
