@@ -26,7 +26,6 @@ local Monetization = require(Shared.Config.Monetization)
 local Prices = require(Shared.Prices)
 local Upgrades = require(Shared.Config.Upgrades)
 local PlayerState = require(script.Parent.Parent.PlayerState)
-local _Store = require(script.Parent.Store)
 local Theme = require(script.Parent.Theme)
 local Palette = require(Shared.Config.Palette)
 local Props = require(Shared.Config.Props)
@@ -2245,6 +2244,20 @@ end
 ]]
 function Journal.openTool(toolId: string)
 	selectedTool = toolId
+	setTab("upgrades")
+	Journal.setOpen(true)
+end
+
+--[[
+	Open the shed's shelf, with nothing picked out on it.
+
+	The store sells the passes and the boosts and deliberately does not sell
+	the sixteen tools a second time — each tool's own page already carries its
+	two Robux buttons beside the cash price, which is where somebody deciding
+	between the three is looking. So the store points here rather than
+	repeating thirty rows of it.
+]]
+function Journal.openUpgrades()
 	setTab("upgrades")
 	Journal.setOpen(true)
 end

@@ -20,6 +20,16 @@ export type PassDef = {
 	name: string,
 	robux: number,
 	description: string,
+	--[[
+		The same thing said in four words, for a single-line shop row.
+
+		`description` is a sentence, and the store's rows are one line each
+		with the name beside them — so a sentence in that space is a name and
+		then eleven words of nothing, cut off mid-clause. The sentence is
+		still what the featured slab and the purchase prompt say; this is
+		what the list says.
+	]]
+	effect: string,
 }
 
 export type ProductKind =
@@ -44,6 +54,8 @@ export type ProductDef = {
 	robux: number,
 	kind: ProductKind,
 	description: string,
+	--- The one-line form, for a shop row. See `PassDef.effect`.
+	effect: string,
 	--- Rentals: the tool granted, and for how long.
 	toolId: string?,
 	seconds: number?,
@@ -64,6 +76,7 @@ local passes: { PassDef } = {
 		name = "2x Cash",
 		robux = 199,
 		description = "Every load you sell is worth double, forever.",
+		effect = "Every load sells for double",
 	},
 	{
 		key = "doubleBag",
@@ -71,6 +84,7 @@ local passes: { PassDef } = {
 		name = "2x Bag",
 		robux = 249,
 		description = "Twice the capacity. Half the trips to the trailer.",
+		effect = "Twice the capacity, half the trips",
 	},
 	--[[
 		This said "Cut debris drifts to you instead of waiting to be walked
@@ -88,6 +102,7 @@ local passes: { PassDef } = {
 		name = "Auto-Collect",
 		robux = 399,
 		description = "Dropped log piles and Golden Blades come to you as you walk, no prompts.",
+		effect = "Log piles and blades come to you",
 	},
 	--[[
 		VIP said "A VIP-only estate, gold equipment skins and a permanent
@@ -117,6 +132,7 @@ local passes: { PassDef } = {
 		]]
 		robux = 299,
 		description = "A permanent 1.25x on everything you earn, and double tips from every stripe, blade and daily streak.",
+		effect = "1.25x on everything, and double tips",
 	},
 	{
 		key = "fastFeet",
@@ -124,6 +140,7 @@ local passes: { PassDef } = {
 		name = "Fast Feet",
 		robux = 149,
 		description = "Move 30% faster on foot.",
+		effect = "Move 30% faster on foot",
 	},
 	{
 		key = "infiniteFuel",
@@ -131,6 +148,7 @@ local passes: { PassDef } = {
 		name = "Infinite Fuel",
 		robux = 349,
 		description = "Gas tools and vehicles never need refilling.",
+		effect = "Gas tools never need refilling",
 	},
 	{
 		key = "instantDump",
@@ -138,6 +156,7 @@ local passes: { PassDef } = {
 		name = "Instant Dump",
 		robux = 599,
 		description = "Sell your bag from anywhere on the property.",
+		effect = "Sell your bag from anywhere",
 	},
 }
 
@@ -155,6 +174,7 @@ local products: { ProductDef } = {
 		toolId = "zero_turn",
 		seconds = 120,
 		description = "Two minutes on the mower everybody wants. Watch the lawn vanish.",
+		effect = "Seven tiles wide, two minutes",
 	},
 	{
 		key = "rentRidingMower",
@@ -165,6 +185,7 @@ local products: { ProductDef } = {
 		toolId = "riding_mower",
 		seconds = 120,
 		description = "A cheaper first taste of sitting down to work.",
+		effect = "Two minutes sitting down",
 	},
 	{
 		key = "fuelCan",
@@ -173,6 +194,7 @@ local products: { ProductDef } = {
 		robux = 10,
 		kind = "fuel",
 		description = "Instantly refill your tank to full.",
+		effect = "Refill the tank to full",
 	},
 	{
 		key = "cashBoost3x",
@@ -183,6 +205,7 @@ local products: { ProductDef } = {
 		multiplier = 3,
 		seconds = 300,
 		description = "Triple payout for five minutes. Fill the bag first.",
+		effect = "Triple payout, five minutes",
 	},
 	{
 		key = "emptyBag",
@@ -191,6 +214,7 @@ local products: { ProductDef } = {
 		robux = 15,
 		kind = "bag",
 		description = "Sell everything you are carrying without walking back.",
+		effect = "Sell without walking back",
 	},
 	{
 		key = "cleanSweep",
@@ -200,6 +224,7 @@ local products: { ProductDef } = {
 		kind = "sweep",
 		fraction = 0.05,
 		description = "Instantly clears 5% of the zone you are standing in.",
+		effect = "Clears 5% of this section",
 	},
 	{
 		key = "serverBoost",
@@ -210,6 +235,7 @@ local products: { ProductDef } = {
 		multiplier = 2,
 		seconds = 600,
 		description = "2x cash for everyone on the server. Your name goes on the announcement.",
+		effect = "2x cash for the whole server",
 	},
 	{
 		key = "extendRound",
@@ -219,6 +245,7 @@ local products: { ProductDef } = {
 		kind = "roundTime",
 		seconds = 600,
 		description = "Ten more minutes on the clock for the whole server.",
+		effect = "Ten more minutes, everyone",
 	},
 }
 
@@ -277,6 +304,7 @@ for _, tool in Tools.list do
 			kind = "toolRun",
 			toolId = tool.id,
 			description = `Skip the grind for {tool.name} once. Yours until the run ends.`,
+			effect = "Yours until the run ends",
 		})
 		table.insert(products, {
 			key = `tool_{tool.id}_forever`,
@@ -286,6 +314,7 @@ for _, tool in Tools.list do
 			kind = "toolPermanent",
 			toolId = tool.id,
 			description = `Start every run with the {tool.name} already in your hands.`,
+			effect = "In your hands every run",
 		})
 	end
 end

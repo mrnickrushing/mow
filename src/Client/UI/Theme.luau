@@ -1250,4 +1250,53 @@ function Theme.flow(
 	return layout
 end
 
+--[[
+	The full-bleed ground the two destination screens stand on.
+
+	World select and the store are not overlays — the handoff is explicit that
+	the store "is a destination, not a modal" and gives both the same treatment:
+	a dark vertical gradient with a slow diagonal of amber laid over it at five
+	per cent. The diagonal is what stops eight hundred pixels of brown reading
+	as a loading screen; it is faint enough that nothing in front of it has to
+	fight it, and it runs the same way as the mow stripes so the two screens
+	feel cut by the same machine.
+
+	Nine bands rather than a repeating gradient, because `UIGradient` cannot
+	repeat: a band is a rotated frame two and a half screens wide, which is the
+	only width that still reaches both corners at twenty-five degrees. Band and
+	gap are the same width, which is the whole of the effect — a narrow bright
+	line against a wide dark one reads as bunting, and the first build of this
+	was exactly that.
+]]
+function Theme.backdrop(parent: Instance): Frame
+	local back = Instance.new("Frame")
+	back.Name = "Backdrop"
+	back.Size = UDim2.fromScale(1, 1)
+	back.BackgroundColor3 = Color3.fromRGB(42, 31, 21)
+	back.BorderSizePixel = 0
+	back.ZIndex = 0
+	back.Parent = parent
+
+	local grade = Instance.new("UIGradient")
+	grade.Color = ColorSequence.new(Color3.fromRGB(42, 31, 21), Color3.fromRGB(26, 19, 13))
+	grade.Rotation = 90
+	grade.Parent = back
+
+	for index = 1, 9 do
+		local band = Instance.new("Frame")
+		band.Name = `Band{index}`
+		band.AnchorPoint = Vector2.new(0.5, 0.5)
+		band.Size = UDim2.fromScale(2.5, 0.115)
+		band.Position = UDim2.fromScale(0.5, index * 0.235 - 0.6)
+		band.Rotation = -25
+		band.BackgroundColor3 = Color3.fromRGB(255, 206, 74)
+		band.BackgroundTransparency = 0.95
+		band.BorderSizePixel = 0
+		band.ZIndex = 0
+		band.Parent = back
+	end
+
+	return back
+end
+
 return Theme

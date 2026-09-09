@@ -43,6 +43,19 @@ Remotes.NOTIFY = "Notify"
 Remotes.OVERGROWTH = "Overgrowth"
 --- Client -> server: prompt a Robux purchase.
 Remotes.PROMPT_PURCHASE = "PromptPurchase"
+--[[
+	Server -> client: how the free reward loops are doing.
+
+	The streak day, and how long until the next playtime tips and the next
+	free rental. The store draws them along its bottom edge, and the point of
+	that strip is that the paid list is not the only thing on the screen —
+	`Monetization.rewards` exists so progression never depends on spending,
+	and until now nothing told the player it was running.
+
+	Sent on join and whenever one of the loops pays out, with the remaining
+	seconds counted down on the client between pushes.
+]]
+Remotes.REWARDS = "Rewards"
 --- Client -> server: park the portable trailer where the player stands.
 Remotes.PLACE_TRAILER = "PlaceTrailer"
 --- Client -> server: mount or dismount a vehicle.
@@ -89,6 +102,7 @@ local EVENTS = {
 	Remotes.NOTIFY,
 	Remotes.OVERGROWTH,
 	Remotes.PROMPT_PURCHASE,
+	Remotes.REWARDS,
 	Remotes.PLACE_TRAILER,
 	Remotes.VEHICLE,
 	Remotes.QUESTS,
