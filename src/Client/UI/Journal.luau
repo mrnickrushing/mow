@@ -23,11 +23,11 @@ local Remotes = require(Shared.Remotes)
 local Tools = require(Shared.Config.Tools)
 local Types = require(Shared.Types)
 local ToolUpgrades = require(Shared.Config.ToolUpgrades)
-local Monetization = require(Shared.Config.Monetization)
-local Prices = require(Shared.Prices)
+local _Monetization = require(Shared.Config.Monetization)
+local _Prices = require(Shared.Prices)
 local Upgrades = require(Shared.Config.Upgrades)
 local PlayerState = require(script.Parent.Parent.PlayerState)
-local Store = require(script.Parent.Store)
+local _Store = require(script.Parent.Store)
 local Theme = require(script.Parent.Theme)
 local Props = require(Shared.Config.Props)
 
@@ -44,14 +44,28 @@ local rightPage: Frame
 local moneyLabel: TextLabel
 local tabButtons: { [string]: TextButton } = {}
 local bookTitle: TextLabel
+local tabBlurb: TextLabel
+local railCash: TextLabel
+local railTips: TextLabel
 local activeTab = "objectives"
 local isOpen = false
 local questState: { any } = {}
 
-local PAPER = Color3.fromRGB(246, 236, 210)
-local PAPER_EDGE = Color3.fromRGB(222, 206, 172)
-local INK = Color3.fromRGB(58, 46, 96)
-local COVER = Color3.fromRGB(58, 118, 186)
+--[[
+	The book is gone.
+
+	It was a cream book with a blue cover, paper pages and a spine shadow
+	down the middle, with the tab strip hanging a hundred and sixty-four
+	pixels off its left edge. That reads as a different game from the HUD in
+	front of it — and the overhang is why it needed a scale hack to survive a
+	narrow screen at all. It is a panel in the same chrome as everything else
+	now, and the parchment survives only as the face of the cards on it,
+	which is where a warm surface actually helps: dark type on cream is the
+	one combination in this palette that reads at fifteen points.
+]]
+local PAPER = Color3.fromRGB(255, 252, 241)
+local PAPER_EDGE = Color3.fromRGB(237, 225, 200)
+local INK = Theme.colors.ink
 --[[
 	Greys dark enough to read.
 
@@ -64,12 +78,50 @@ local COVER = Color3.fromRGB(58, 118, 186)
 	the counters at 4.2 and the button lettering above 4.
 ]]
 local LOCKED = Color3.fromRGB(118, 112, 104)
---- The can't-afford button, MAX, and the detail panel with nothing selected.
-local UNAFFORDABLE = Color3.fromRGB(116, 110, 100)
-local MAXED = Color3.fromRGB(122, 114, 102)
-local NOTHING_SELECTED = Color3.fromRGB(104, 100, 118)
 --- A brighter, opaque card on the parchment page it sits on.
 local CARD = Color3.fromRGB(255, 252, 241)
+
+--[[
+	The three looks a price wears: gold when you can pay for it, flat when you
+	cannot, green when there is nothing left to buy.
+
+	These are the slab buttons the rest of the game uses, and a slab is four
+	things — a face, a gradient, a drop and its ink. The pages repaint them
+	inside a `live` poll rather than rebuilding the row, so the colour has to
+	be swappable in place; `wear` is what swaps it.
+]]
+local LOOK_AFFORD = {
+	top = Color3.fromRGB(255, 217, 104),
+	bottom = Color3.fromRGB(245, 168, 28),
+	shadow = Color3.fromRGB(169, 110, 8),
+	ink = Color3.fromRGB(24, 18, 10),
+}
+local LOOK_BROKE = {
+	top = Color3.fromRGB(179, 166, 142),
+	bottom = Color3.fromRGB(179, 166, 142),
+	shadow = Color3.fromRGB(150, 138, 116),
+	ink = Color3.fromRGB(74, 64, 52),
+}
+local LOOK_DONE = {
+	top = Color3.fromRGB(143, 224, 124),
+	bottom = Color3.fromRGB(79, 184, 60),
+	shadow = Color3.fromRGB(46, 122, 36),
+	ink = Color3.fromRGB(18, 58, 12),
+}
+
+local function wear(button: TextButton, look: { top: Color3, bottom: Color3, shadow: Color3, ink: Color3 })
+	button.BackgroundColor3 = look.top
+	button.TextColor3 = look.ink
+	local grade = button:FindFirstChildOfClass("UIGradient")
+	if grade then
+		grade.Color = ColorSequence.new(look.top, look.bottom)
+	end
+	local holder = button.Parent
+	local drop = if holder then holder:FindFirstChild("Drop") else nil
+	if drop and drop:IsA("Frame") then
+		drop.BackgroundColor3 = look.shadow
+	end
+end
 
 --[[
 	The tabs, in the order a player needs them.
@@ -80,7 +132,10 @@ local CARD = Color3.fromRGB(255, 252, 241)
 	trees are "Tools", which is what they were always about.
 ]]
 local TABS = {
-	{ id = "objectives", label = "Journal", icon = "Scroll", color = Color3.fromRGB(226, 198, 150) },
+	--- "Objectives", not "Journal": a tab inside the journal called Journal
+	--- named the book rather than the page, and the page it opened was headed
+	--- Objectives anyway.
+	{ id = "objectives", label = "Objectives", icon = "Scroll", color = Color3.fromRGB(226, 198, 150) },
 	{ id = "stats", label = "Upgrades", icon = "Sack", color = Color3.fromRGB(178, 214, 168) },
 	{ id = "upgrades", label = "Tools", icon = "Toolbox", color = Color3.fromRGB(190, 210, 226) },
 	{ id = "collection", label = "Collection", icon = "LeafMaple", color = Color3.fromRGB(232, 196, 156) },
@@ -133,13 +188,15 @@ local function heading(page: Frame, text: string)
 	local label = Instance.new("TextLabel")
 	label.Name = "Heading"
 	label.Text = text:upper()
-	label.Size = UDim2.new(1, -24, 0, 40)
-	label.Position = UDim2.fromOffset(12, 8)
+	label.Size = UDim2.new(1, -8, 0, 24)
+	label.Position = UDim2.fromOffset(4, 0)
 	label.BackgroundTransparency = 1
 	label.Font = Theme.font
-	label.TextColor3 = INK
-	label.TextSize = 30
-	label.TextXAlignment = Enum.TextXAlignment.Center
+	--- On the panel now rather than on paper, so it takes the small-label
+	--- colour the rest of the dark chrome uses.
+	label.TextColor3 = Theme.colors.label
+	label.TextSize = 15
+	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Parent = page
 end
 
@@ -160,12 +217,14 @@ local function card(parent: Instance, height: number): Frame
 	row.BackgroundColor3 = CARD
 	row.BorderSizePixel = 0
 	row.Parent = parent
-	Theme.corner(row, 8)
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 1.5
-	stroke.Color = INK
-	stroke.Transparency = 0.75
-	stroke.Parent = row
+	Theme.corner(row, 16)
+	--- The same four-pixel ink border every card face in the game wears; the
+	--- pale hairline this had was invisible the moment the page went dark.
+	Theme.stroke(row, 4, Theme.colors.outline, 0)
+	local grade = Instance.new("UIGradient")
+	grade.Color = ColorSequence.new(PAPER, PAPER_EDGE)
+	grade.Rotation = 90
+	grade.Parent = row
 	return row
 end
 
@@ -173,8 +232,8 @@ end
 local function body(page: Frame): ScrollingFrame
 	local scroll = Instance.new("ScrollingFrame")
 	scroll.Name = "Body"
-	scroll.Size = UDim2.new(1, -20, 1, -60)
-	scroll.Position = UDim2.fromOffset(10, 52)
+	scroll.Size = UDim2.new(1, -8, 1, -30)
+	scroll.Position = UDim2.fromOffset(0, 28)
 	scroll.BackgroundTransparency = 1
 	scroll.BorderSizePixel = 0
 	--[[
@@ -188,8 +247,8 @@ local function body(page: Frame): ScrollingFrame
 		mark on the edge of the paper, which is what a scrollbar is.
 	]]
 	scroll.ScrollBarThickness = 7
-	scroll.ScrollBarImageColor3 = INK
-	scroll.ScrollBarImageTransparency = 0.45
+	scroll.ScrollBarImageColor3 = Theme.colors.outline
+	scroll.ScrollBarImageTransparency = 0.15
 	-- And a gutter of its own, so the bar does not lie across the last word
 	-- of every line it passes.
 	scroll.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
@@ -199,7 +258,7 @@ local function body(page: Frame): ScrollingFrame
 
 	local layout = Instance.new("UIListLayout")
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 8)
+	layout.Padding = UDim.new(0, 12)
 	layout.Parent = scroll
 	return scroll
 end
@@ -540,37 +599,60 @@ end
 
 --- A tool's panel: its name in ink over its three cards in a sketched frame.
 local function toolPanel(parent: Instance, order: number, tool: Types.ToolDef, owned: boolean)
+	--[[
+		Tall enough for whatever this tool sells.
+
+		The two offers used to share one row, which is fine on the wide page
+		and was never fine on the right-hand column: two 158-pixel slabs side
+		by side in 270 pixels of column printed "Keep it — 200 tip". One
+		under the other, full width, and the panel grows a row when there are
+		two of them.
+	]]
+	local state = PlayerState.get()
+	local tipsPrice = tool.tipsPermanent
+	local sellsForCash = not owned and tool.cost > 0
+	local sellsForTips = tipsPrice ~= nil and not state.permanentTools[tool.id]
+	local offers = (if sellsForCash then 1 else 0) + (if sellsForTips then 1 else 0)
+
 	local holder = Instance.new("Frame")
 	holder.Name = tool.id
-	holder.Size = UDim2.new(1, -8, 0, 242)
+	holder.Size = UDim2.new(1, -8, 0, 208 + offers * 44)
 	holder.BackgroundTransparency = 1
 	holder.LayoutOrder = order
 	holder.Parent = parent
 
 	local title = Instance.new("TextLabel")
 	title.Text = tool.name:upper()
-	title.Size = UDim2.new(1, 0, 0, 34)
+	title.Size = UDim2.new(1, 0, 0, 30)
 	title.BackgroundTransparency = 1
 	title.Font = Theme.font
-	title.TextColor3 = INK
-	title.TextSize = 30
+	--- The name is written on the panel, not on the mount: light, like every
+	--- other heading standing on the dark wood.
+	title.TextColor3 = Theme.colors.tips
+	title.TextSize = 26
 	title.Parent = holder
+	Theme.outline(title, Theme.OUTLINE)
 
+	--[[
+		A real card, not a wash over the page.
+
+		The three slot tiles are white with dark type on them, which needs
+		something warm behind it; a half-transparent tint of parchment over
+		dark wood is neither. This is the same cream face the objectives and
+		zone rows are cut from.
+	]]
 	local frame = Instance.new("Frame")
 	frame.Size = UDim2.new(1, -4, 0, 170)
-	frame.Position = UDim2.fromOffset(2, 38)
-	frame.BackgroundColor3 = PAPER
-	frame.BackgroundTransparency = 0.5
+	frame.Position = UDim2.fromOffset(2, 34)
+	frame.BackgroundColor3 = CARD
 	frame.BorderSizePixel = 0
 	frame.Parent = holder
-	Theme.corner(frame, 6)
-
-	-- The sketched corner-mark border of a scrapbook photo mount.
-	local frameStroke = Instance.new("UIStroke")
-	frameStroke.Thickness = 1.5
-	frameStroke.Color = INK
-	frameStroke.Transparency = 0.55
-	frameStroke.Parent = frame
+	Theme.corner(frame, 16)
+	Theme.stroke(frame, 4, Theme.colors.outline, 0)
+	local mount = Instance.new("UIGradient")
+	mount.Color = ColorSequence.new(PAPER, PAPER_EDGE)
+	mount.Rotation = 90
+	mount.Parent = frame
 
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, -12, 1, -12)
@@ -586,7 +668,6 @@ local function toolPanel(parent: Instance, order: number, tool: Types.ToolDef, o
 	layout.Padding = UDim.new(0, 6)
 	layout.Parent = row
 
-	local state = PlayerState.get()
 	for index, slot in ToolUpgrades.treeFor(tool.id) do
 		slotCard(row, index, slot, owned, state.upgrades[slot.key] or 0)
 	end
@@ -599,38 +680,30 @@ local function toolPanel(parent: Instance, order: number, tool: Types.ToolDef, o
 		one row so the panel keeps its height — centred when only one applies,
 		side by side when both do.
 	]]
-	local tipsPrice = tool.tipsPermanent
-	local sellsForCash = not owned and tool.cost > 0
-	local sellsForTips = tipsPrice ~= nil and not state.permanentTools[tool.id]
-
-	local function offer(text: string, x: number, width: number, affordable: () -> boolean, onBuy: () -> ())
-		local buy = Instance.new("TextButton")
-		buy.Text = text
-		buy.Size = UDim2.fromOffset(width, 26)
-		buy.Position = UDim2.new(0.5, x, 0, 212)
-		buy.AnchorPoint = Vector2.new(0.5, 0)
+	local placed = 0
+	local function offer(text: string, affordable: () -> boolean, onBuy: () -> ())
+		local buy = Theme.chunkButton({
+			name = "Offer",
+			variant = "gold",
+			text = text,
+			textSize = 17,
+			size = UDim2.new(1, -12, 0, 38),
+			position = UDim2.new(0.5, 0, 0, 210 + placed * 44),
+			anchor = Vector2.new(0.5, 0),
+			parent = holder,
+			radius = 12,
+			outline = 3,
+		})
+		placed += 1
 		live(function()
-			buy.BackgroundColor3 = if affordable()
-				then Color3.fromRGB(126, 158, 78)
-				else UNAFFORDABLE
+			wear(buy, if affordable() then LOOK_AFFORD else LOOK_BROKE)
 		end)
-		buy.BorderSizePixel = 0
-		buy.Font = Theme.font
-		buy.TextColor3 = Color3.fromRGB(250, 244, 228)
-		buy.TextSize = 16
-		buy.Parent = holder
-		Theme.corner(buy, 7)
 		buy.Activated:Connect(onBuy)
 	end
 
-	local both = sellsForCash and sellsForTips
-	local width = if both then 148 else 172
-
 	if sellsForCash then
 		offer(
-			`Buy — {Format.cash(tool.cost)}`,
-			if both then -76 else 0,
-			width,
+			`Buy it — {Format.cash(tool.cost)}`,
 			function()
 				return PlayerState.get().cash >= tool.cost
 			end,
@@ -643,9 +716,7 @@ local function toolPanel(parent: Instance, order: number, tool: Types.ToolDef, o
 	if sellsForTips then
 		local price = tipsPrice :: number
 		offer(
-			`Keep it — {Format.count(price)} tips`,
-			if both then 76 else 0,
-			width,
+			`Keep it for good — {Format.count(price)} tips`,
 			function()
 				return PlayerState.get().tips >= price
 			end,
@@ -711,14 +782,16 @@ local function renderUpgrades()
 
 	-- The detail panel: what the selected upgrade does, or the standing
 	-- instruction when nothing is picked yet.
-	local detail = Instance.new("Frame")
-	detail.Size = UDim2.new(1, -16, 0, 96)
-	detail.BackgroundColor3 = NOTHING_SELECTED
-	detail.BackgroundTransparency = 0.2
-	detail.BorderSizePixel = 0
+	--- A dark well, like the chips the HUD reads its numbers off, rather than
+	--- the lilac slab this was: nothing else in the game is that colour.
+	local detail = Theme.chip({
+		name = "Detail",
+		size = UDim2.new(1, -16, 0, 96),
+		parent = left,
+		radius = 16,
+	})
 	detail.LayoutOrder = 2
-	detail.Parent = left
-	Theme.corner(detail, 14)
+	Theme.stroke(detail, 3, Theme.colors.outline, 0)
 
 	local selectedSlot, selectedTool = nil, nil
 	if selectedKey then
@@ -726,15 +799,15 @@ local function renderUpgrades()
 	end
 
 	local detailText = Instance.new("TextLabel")
-	detailText.Size = UDim2.new(1, -20, 1, -10)
-	detailText.Position = UDim2.fromOffset(10, 5)
+	detailText.Size = UDim2.new(1, -28, 1, -16)
+	detailText.Position = UDim2.fromOffset(14, 8)
 	detailText.BackgroundTransparency = 1
 	detailText.Font = Theme.font
-	detailText.TextColor3 = Color3.fromRGB(250, 246, 238)
-	detailText.TextSize = 20
+	detailText.TextColor3 = Theme.colors.body
+	detailText.TextSize = 19
 	detailText.TextWrapped = true
 	detailText.Parent = detail
-	Theme.outline(detailText, 2)
+	Theme.outline(detailText, Theme.OUTLINE)
 
 	local selectedCost: number? = nil
 	if selectedSlot and selectedTool then
@@ -745,25 +818,25 @@ local function renderUpgrades()
 		detailText.Text = "Select an upgrade!"
 	end
 
-	local buyButton = Instance.new("TextButton")
-	buyButton.Text = if selectedCost then `BUY  —  {Format.cash(selectedCost :: number)}` else "BUY"
-	buyButton.Size = UDim2.new(0.8, 0, 0, 48)
-	-- Green the instant the money lands, without the page being rebuilt under
+	local buyButton = Theme.chunkButton({
+		name = "Buy",
+		variant = "primary",
+		text = if selectedCost then `BUY  —  {Format.cash(selectedCost :: number)}` else "BUY",
+		textSize = 24,
+		size = UDim2.new(0.86, 0, 0, 52),
+		parent = left,
+		radius = 14,
+		outline = 4,
+	})
+	--- `chunkButton` returns the face; the holder is what the list lays out.
+	local buySeat = buyButton.Parent :: Frame
+	buySeat.LayoutOrder = 3
+	-- Gold the instant the money lands, without the page being rebuilt under
 	-- the cursor to do it.
 	live(function()
 		local cost = selectedCost
-		buyButton.BackgroundColor3 = if cost and PlayerState.get().cash >= cost
-			then Color3.fromRGB(126, 158, 78)
-			else UNAFFORDABLE
+		wear(buyButton, if cost and PlayerState.get().cash >= cost then LOOK_AFFORD else LOOK_BROKE)
 	end)
-	buyButton.BorderSizePixel = 0
-	buyButton.Font = Theme.font
-	buyButton.TextColor3 = Color3.fromRGB(250, 246, 238)
-	buyButton.TextSize = 26
-	buyButton.LayoutOrder = 3
-	buyButton.Parent = left
-	Theme.corner(buyButton, 12)
-	Theme.outline(buyButton, 2)
 
 	-- Connected whether or not the money is there yet. Wiring this only when
 	-- the price was already met left a button that stayed dead after the cash
@@ -807,21 +880,12 @@ local function renderStats()
 	local scroll = body(leftPage)
 
 	for order, def in Upgrades.list do
-		local row = Instance.new("Frame")
+		--- The same card every other list in the book is made of. This row was
+		--- a 45%-transparent tint of the page with a hairline round it, which
+		--- was a card on parchment and is a smudge on dark wood.
+		local row = card(scroll, 84)
 		row.Name = def.id
-		row.Size = UDim2.new(1, -12, 0, 80)
-		row.BackgroundColor3 = PAPER
-		row.BackgroundTransparency = 0.45
-		row.BorderSizePixel = 0
 		row.LayoutOrder = order
-		row.Parent = scroll
-		Theme.corner(row, 8)
-
-		local stroke = Instance.new("UIStroke")
-		stroke.Thickness = 1.5
-		stroke.Color = INK
-		stroke.Transparency = 0.6
-		stroke.Parent = row
 
 		--[[
 			The same badge the board in the yard wears.
@@ -844,8 +908,8 @@ local function renderStats()
 		end
 
 		-- Text starts clear of the badge, and still stops clear of the button.
-		local textX = if def.icon then 78 else 12
-		local textInset = if def.icon then -196 else -130
+		local textX = if def.icon then 78 else 14
+		local textInset = if def.icon then -204 else -140
 
 		local name = Instance.new("TextLabel")
 		name.Text = def.name:upper()
@@ -883,19 +947,18 @@ local function renderStats()
 		change.TextXAlignment = Enum.TextXAlignment.Left
 		change.Parent = row
 
-		local buy = Instance.new("TextButton")
-		buy.Name = "Buy"
-		buy.Size = UDim2.fromOffset(104, 44)
-		buy.Position = UDim2.new(1, -12, 0.5, 0)
-		buy.AnchorPoint = Vector2.new(1, 0.5)
-		buy.BorderSizePixel = 0
-		buy.Font = Theme.font
-		buy.TextColor3 = Color3.fromRGB(250, 246, 238)
-		buy.TextSize = 17
-		buy.AutoButtonColor = true
-		buy.Parent = row
-		Theme.corner(buy, 8)
-		Theme.outline(buy, 2)
+		local buy = Theme.chunkButton({
+			name = "Buy",
+			variant = "gold",
+			text = "",
+			textSize = 18,
+			size = UDim2.fromOffset(110, 46),
+			position = UDim2.new(1, -14, 0.5, 0),
+			anchor = Vector2.new(1, 0.5),
+			parent = row,
+			radius = 13,
+			outline = 3,
+		})
 
 		live(function()
 			local state = PlayerState.get()
@@ -905,7 +968,7 @@ local function renderStats()
 			if not cost then
 				change.Text = `{Format.stat(Upgrades.valueAt(def, level))}{def.suffix} — the top of the line`
 				buy.Text = "MAX"
-				buy.BackgroundColor3 = MAXED
+				wear(buy, LOOK_DONE)
 				return
 			end
 
@@ -913,9 +976,7 @@ local function renderStats()
 			local next_ = Upgrades.valueAt(def, level + 1)
 			change.Text = `Lv {level}   {Format.stat(now)} --> {Format.stat(next_)}{def.suffix}`
 			buy.Text = Format.cash(cost)
-			buy.BackgroundColor3 = if state.cash >= cost
-				then Color3.fromRGB(126, 158, 78)
-				else UNAFFORDABLE
+			wear(buy, if state.cash >= cost then LOOK_AFFORD else LOOK_BROKE)
 		end)
 
 		buy.Activated:Connect(function()
@@ -958,7 +1019,10 @@ local function renderStats()
 		label.Size = UDim2.new(0.4, 0, 1, 0)
 		label.BackgroundTransparency = 1
 		label.Font = Theme.font
-		label.TextColor3 = INK
+		--- The right page is the dark panel itself, not paper: ink on it is
+		--- the colour of the panel, which is how these five readouts came to
+		--- be all but invisible.
+		label.TextColor3 = Theme.colors.label
 		label.TextSize = 19
 		label.TextXAlignment = Enum.TextXAlignment.Left
 		label.Parent = row
@@ -969,7 +1033,7 @@ local function renderStats()
 		value.AnchorPoint = Vector2.new(1, 0)
 		value.BackgroundTransparency = 1
 		value.Font = Theme.fontRegular
-		value.TextColor3 = Color3.fromRGB(52, 44, 36)
+		value.TextColor3 = Theme.colors.body
 		value.TextSize = 18
 		value.TextXAlignment = Enum.TextXAlignment.Right
 		value.Parent = row
@@ -984,7 +1048,7 @@ local function renderStats()
 	note.Size = UDim2.new(1, -12, 0, 48)
 	note.BackgroundTransparency = 1
 	note.Font = Theme.fontRegular
-	note.TextColor3 = LOCKED
+	note.TextColor3 = Theme.colors.label
 	note.TextSize = 15
 	note.TextXAlignment = Enum.TextXAlignment.Left
 	note.TextYAlignment = Enum.TextYAlignment.Top
@@ -1105,15 +1169,34 @@ end
 	nobody can explain is a currency nobody spends.
 ]]
 local function renderTips()
-	heading(leftPage, "Tips")
-	local scroll = body(leftPage)
+	--[[
+		Every word on this spread is on a card now.
 
-	local function paragraph(parent: Instance, text: string, order: number, height: number, size: number, colour: Color3)
+		It was bare text, and it was written in the book's ink — which was
+		right while the pages were parchment and is invisible now that the
+		spread is dark wood: two columns of near-black type on a near-black
+		panel, the only page in the journal you could not read at all.
+	]]
+	local function note(parent: Instance, order: number): Frame
+		local sheet = card(parent, 0)
+		sheet.LayoutOrder = order
+		sheet.AutomaticSize = Enum.AutomaticSize.Y
+		Theme.pad(sheet, 14, 16, 16, 16)
+
+		local flow = Instance.new("UIListLayout")
+		flow.SortOrder = Enum.SortOrder.LayoutOrder
+		flow.Padding = UDim.new(0, 6)
+		flow.Parent = sheet
+		return sheet
+	end
+
+	local function line(parent: Instance, text: string, order: number, size: number, colour: Color3)
 		local label = Instance.new("TextLabel")
 		label.Text = text
-		label.Size = UDim2.new(1, -12, 0, height)
+		label.Size = UDim2.fromScale(1, 0)
+		label.AutomaticSize = Enum.AutomaticSize.Y
 		label.BackgroundTransparency = 1
-		label.Font = Theme.fontRegular
+		label.Font = if size >= 18 then Theme.font else Theme.fontRegular
 		label.TextColor3 = colour
 		label.TextSize = size
 		label.TextXAlignment = Enum.TextXAlignment.Left
@@ -1124,15 +1207,17 @@ local function renderTips()
 		return label
 	end
 
-	paragraph(
-		scroll,
-		"Cash is for this run and goes when it ends. Tips are yours to keep — a run never takes them back.",
-		1,
-		56,
-		18,
-		INK
-	)
-	paragraph(scroll, "You earn them by:", 2, 24, 17, Color3.fromRGB(52, 44, 36))
+	local SOFT = Color3.fromRGB(92, 80, 66)
+
+	heading(leftPage, "Tips")
+	local scroll = body(leftPage)
+
+	local what = note(scroll, 1)
+	line(what, "Cash is for this run and goes when it ends.", 1, 19, INK)
+	line(what, "Tips are yours to keep — a run never takes them back.", 2, 17, SOFT)
+
+	local sources = note(scroll, 2)
+	line(sources, "YOU EARN THEM BY", 1, 15, SOFT)
 	local earned = {
 		"logging in — more each day in a row",
 		"every eight minutes of work",
@@ -1140,20 +1225,23 @@ local function renderTips()
 		"finding the Golden Blade hidden in a section",
 		"finishing a property, by your share of the work",
 	}
-	for order, line in earned do
-		paragraph(scroll, `• {line}`, 2 + order, 26, 16, Color3.fromRGB(72, 62, 52))
+	for order, text in earned do
+		line(sources, `•  {text}`, 1 + order, 17, INK)
 	end
-	paragraph(
-		scroll,
-		"Spend them on the Tools page: a tool bought with tips is yours for good, and you start every run already holding it.",
-		20,
-		60,
+
+	local spend = note(scroll, 3)
+	line(spend, "WHAT THEY BUY", 1, 15, SOFT)
+	line(
+		spend,
+		"A tool bought with tips on the Tools page is yours for good, and you start every run already holding it.",
+		2,
 		17,
-		Color3.fromRGB(52, 44, 36)
+		INK
 	)
 
 	heading(rightPage, "Controls")
 	local right = body(rightPage)
+
 	--[[
 		What the controls actually do, for the screen in the player's hands.
 
@@ -1163,8 +1251,6 @@ local function renderTips()
 		keys. It also used to promise that B opened "the shed", which it never
 		did: B and TAB are bound to the same action, and both open this book.
 	]]
-	-- Annotated, because an `if` between two array literals infers as a union
-	-- that the generic `for` below will not accept as iterable.
 	local controls: { string } = if Theme.hasKeyboard()
 		then {
 			"Hold left mouse or E — work",
@@ -1172,7 +1258,6 @@ local function renderTips()
 			"G — the Robux store",
 			"F — mount a riding mower",
 			"T — park the portable trailer",
-			"",
 		}
 		else {
 			"Hold the tool button — work",
@@ -1180,44 +1265,25 @@ local function renderTips()
 			"Tap STORE — the Robux store",
 			"Tap Ride — mount a riding mower",
 			"Tap Trailer — park the portable trailer",
-			"",
 		}
-	for _, line in {
-		"Upgrades and tools are bought in this journal,",
-		"or at the boards outside the shed.",
-		"",
-		"• Hold to work. Your deck cuts a swath as wide as the tool.",
-		"• The bag is the bottleneck early. Buy it on Upgrades, first.",
-		"• Walk into the trailer to sell — there is no button to press.",
-		"• Grass too thick for your tool will bog it down. Buy better.",
-		"• Cut in long straight lines to bank a Clean Stripe bonus.",
-		"• Some sections are not for sale. Clear a yard, or find the switch.",
-	} do
-		table.insert(controls, line)
-	end
-	--[[
-		These wrap and size themselves to what they hold.
 
-		The list was key bindings, all of them short, on fixed 34-pixel rows —
-		so the hints that moved here off the tips page ran straight off the
-		edge of the paper: "Hold to work. Your deck cuts a swath as wide as
-		the to". Letting a row be as tall as its own text costs nothing for a
-		binding and is the whole difference for a sentence.
-	]]
-	for order, line in controls do
-		local label = Instance.new("TextLabel")
-		label.Text = line
-		label.Size = UDim2.new(1, -12, 0, if line == "" then 12 else 30)
-		label.AutomaticSize = Enum.AutomaticSize.Y
-		label.TextWrapped = true
-		label.BackgroundTransparency = 1
-		label.Font = Theme.fontRegular
-		label.TextColor3 = Color3.fromRGB(52, 44, 36)
-		label.TextSize = 18
-		label.TextXAlignment = Enum.TextXAlignment.Left
-		label.TextYAlignment = Enum.TextYAlignment.Top
-		label.LayoutOrder = order
-		label.Parent = right
+	local keys = note(right, 1)
+	for order, text in controls do
+		line(keys, text, order, 17, INK)
+	end
+	line(keys, "Upgrades and tools are bought in this journal, or at the boards outside the shed.", #controls + 1, 15, SOFT)
+
+	local hints = note(right, 2)
+	line(hints, "WORTH KNOWING", 1, 15, SOFT)
+	for order, text in {
+		"Hold to work. Your deck cuts a swath as wide as the tool.",
+		"The bag is the bottleneck early. Buy it on Upgrades, first.",
+		"Walk into the trailer to sell — there is no button to press.",
+		"Grass too thick for your tool will bog it down. Buy better.",
+		"Cut in long straight lines to bank a Clean Stripe bonus.",
+		"Some sections are not for sale. Clear a yard, or find the switch.",
+	} do
+		line(hints, `•  {text}`, 1 + order, 17, INK)
 	end
 end
 
@@ -1303,7 +1369,9 @@ local function render()
 		return
 	end
 
-	moneyLabel.Text = `your money :  {Format.cash(PlayerState.get().cash)}`
+	local purse = PlayerState.get()
+	railCash.Text = Format.cash(purse.cash)
+	railTips.Text = if purse.tips > 0 then `{Format.count(purse.tips)} tips` else ""
 
 	local now = signature()
 	if now == lastSignature then
@@ -1375,82 +1443,160 @@ local function refreshBadge()
 	end
 end
 
+--- The title and the sentence under it, per tab. A window that opens on a
+--- list of objectives under the heading UPGRADE JOURNAL is lying to you.
+local COPY: { [string]: { title: string, blurb: string } } = {
+	objectives = {
+		title = "Objectives",
+		blurb = "Tick these off for tips and cash. Nothing here is required to finish.",
+	},
+	stats = {
+		title = "Upgrades",
+		blurb = "Seven lines, all reset each run. First levels cost a dollar or two.",
+	},
+	upgrades = {
+		title = "Tools",
+		blurb = "Everything resets when the run does. Bare hands can shift anything.",
+	},
+	collection = {
+		title = "Collection",
+		blurb = "What you have turned up so far, and what is still out there.",
+	},
+	tips = {
+		title = "Help",
+		blurb = "How the run works, and every key this game listens for.",
+	},
+}
+
 local function setTab(id: string)
 	activeTab = id
-	if bookTitle then
-		for _, tab in TABS do
-			if tab.id == id then
-				bookTitle.Text = string.upper(tab.label)
-				break
-			end
-		end
+	local copy = COPY[id]
+	if bookTitle and copy then
+		bookTitle.Text = copy.title
 	end
+	if tabBlurb and copy then
+		tabBlurb.Text = copy.blurb
+	end
+	--[[
+		Gold when it is the page you are on, dark when it is not.
+
+		The rail used to say it with size — a selected tab twenty pixels wider
+		than the others — which is a difference you can only see by comparing
+		it with its neighbours. Colour says it on its own, and it is the same
+		gold the store pill and the section badge use for "this one".
+	]]
 	for tabId, button in tabButtons do
 		local selected = tabId == id
-		button.TextColor3 = if selected then INK else Color3.fromRGB(120, 104, 84)
-		button.Size = if selected then UDim2.fromOffset(196, 46) else UDim2.fromOffset(176, 44)
+		local face = button:FindFirstChild("Face") :: Frame?
+		local label = button:FindFirstChild("Label") :: TextLabel?
+		local well = button:FindFirstChild("Well") :: Frame?
+		if face then
+			face.BackgroundColor3 = if selected
+				then Color3.fromRGB(255, 217, 104)
+				else Color3.fromRGB(44, 33, 24)
+			local grade = face:FindFirstChildOfClass("UIGradient")
+			if grade then
+				grade.Enabled = selected
+			end
+			local drop = button:FindFirstChild("Drop") :: Frame?
+			if drop then
+				drop.Visible = selected
+			end
+		end
+		if label then
+			label.TextColor3 = if selected then Theme.colors.outline else Theme.colors.body
+		end
+		if well then
+			well.BackgroundColor3 = if selected
+				then Color3.fromRGB(255, 240, 188)
+				else Color3.fromRGB(74, 56, 38)
+		end
 	end
 	render()
 end
 
 local function buildTab(parent: Instance, order: number, tab: { id: string, label: string, icon: string, color: Color3 })
-	local button = Instance.new("TextButton")
-	button.Name = tab.id
-	button.Size = UDim2.fromOffset(176, 44)
-	button.Position = UDim2.fromOffset(0, (order - 1) * 56)
-	button.BackgroundColor3 = tab.color
-	button.BorderSizePixel = 0
-	-- The label alone. `tab.icon` names a model, and a model goes in a viewport
-	-- beside the words rather than into them — printed into the text it read as
-	-- "Scroll Journal", which is the catalogue talking to the player.
-	button.Text = tab.label
-	button.Font = Theme.font
-	button.TextColor3 = Color3.fromRGB(120, 104, 84)
-	button.TextSize = 20
-	button.TextXAlignment = Enum.TextXAlignment.Left
-	button.AutoButtonColor = false
-	button.Parent = parent
+	local seat = Instance.new("TextButton")
+	seat.Name = tab.id
+	seat.Size = UDim2.new(1, 0, 0, 46)
+	seat.LayoutOrder = order
+	seat.BackgroundTransparency = 1
+	seat.Text = ""
+	seat.AutoButtonColor = false
+	--- Modal, like the close button: the camera pins the cursor to the centre
+	--- of the screen, so without it the rail cannot be clicked on a desktop.
+	seat.Modal = true
+	seat.Parent = parent
 
-	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, 46)
-	padding.Parent = button
+	local drop = Instance.new("Frame")
+	drop.Name = "Drop"
+	drop.Size = UDim2.fromScale(1, 1)
+	drop.Position = UDim2.fromOffset(0, 4)
+	drop.BackgroundColor3 = Color3.fromRGB(169, 110, 8)
+	drop.BorderSizePixel = 0
+	drop.ZIndex = 0
+	drop.Visible = false
+	drop.Parent = seat
+	Theme.corner(drop, 14)
+
+	local face = Instance.new("Frame")
+	face.Name = "Face"
+	face.Size = UDim2.fromScale(1, 1)
+	face.BackgroundColor3 = Color3.fromRGB(44, 33, 24)
+	face.BorderSizePixel = 0
+	face.Parent = seat
+	Theme.corner(face, 14)
+	Theme.stroke(face, 3, Theme.colors.outline, 0)
+	local grade = Instance.new("UIGradient")
+	grade.Color = ColorSequence.new(Color3.fromRGB(255, 217, 104), Color3.fromRGB(245, 168, 28))
+	grade.Rotation = 90
+	grade.Enabled = false
+	grade.Parent = face
+
+	local well = Instance.new("Frame")
+	well.Name = "Well"
+	well.Size = UDim2.fromOffset(26, 26)
+	well.Position = UDim2.new(0, 12, 0.5, 0)
+	well.AnchorPoint = Vector2.new(0, 0.5)
+	well.BackgroundColor3 = Color3.fromRGB(74, 56, 38)
+	well.BorderSizePixel = 0
+	well.Parent = seat
+	Theme.corner(well, 8)
+	Theme.stroke(well, 2.5, Theme.colors.outline, 0)
 
 	--[[
-		The tab's model sits beside its word.
+		The thing the tab is about, in the well.
 
-		It hangs off the tab column rather than off the button, because the
-		padding that indents the label indents everything inside the button
-		with it — put in there, the icon lands underneath its own text.
+		Every tab in `TABS` has carried an icon name since the rail was
+		written and nothing had ever drawn it, so the rail was five empty
+		boxes down the side of the book — furniture that looked like it was
+		waiting for something rather than like a row of buttons.
 	]]
 	Theme.icon({
-		name = `TabIcon{tab.id}`,
+		name = "Icon",
 		prop = tab.icon,
-		size = UDim2.fromOffset(32, 32),
-		position = UDim2.fromOffset(10, (order - 1) * 56 + 6),
-		parent = parent,
-		zIndex = 4,
+		size = UDim2.fromScale(0.82, 0.82),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		parent = well,
 	})
 
-	-- Square off the right edge so the tab reads as tucked into the spine.
-	Theme.corner(button, 8)
-	local mask = Instance.new("Frame")
-	mask.Size = UDim2.fromOffset(14, 44)
-	mask.Position = UDim2.new(1, -14, 0, 0)
-	mask.BackgroundColor3 = tab.color
-	mask.BorderSizePixel = 0
-	mask.ZIndex = button.ZIndex
-	mask.Parent = button
+	local label = Instance.new("TextLabel")
+	label.Name = "Label"
+	label.Text = tab.label
+	label.Size = UDim2.new(1, -54, 1, 0)
+	label.Position = UDim2.fromOffset(48, 0)
+	label.BackgroundTransparency = 1
+	label.Font = Theme.font
+	label.TextColor3 = Theme.colors.body
+	label.TextSize = 18
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = seat
 
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 2
-	stroke.Color = Color3.fromRGB(146, 124, 96)
-	stroke.Transparency = 0.4
-	stroke.Parent = button
-
-	button.Activated:Connect(function()
+	seat.Activated:Connect(function()
 		setTab(tab.id)
 	end)
-	tabButtons[tab.id] = button
+	tabButtons[tab.id] = seat
 end
 
 local function build()
@@ -1464,136 +1610,148 @@ local function build()
 	local shade = Instance.new("Frame")
 	shade.Size = UDim2.fromScale(1, 1)
 	shade.BackgroundColor3 = Color3.new(0, 0, 0)
-	shade.BackgroundTransparency = 0.5
+	shade.BackgroundTransparency = 0.38
 	shade.BorderSizePixel = 0
 	shade.Parent = gui
 
-	-- The cover: a coloured border the pages sit inside.
-	local book = Instance.new("Frame")
-	book.Name = "Book"
-	book.Size = UDim2.fromOffset(940, 560)
-	book.Position = UDim2.fromScale(0.5, 0.52)
-	book.AnchorPoint = Vector2.new(0.5, 0.5)
-	book.BackgroundColor3 = COVER
-	book.BorderSizePixel = 0
-	book.Parent = gui
-	Theme.corner(book, 14)
-
-	-- The tab strip hangs 164 pixels off the book's left edge, so the room the
-	-- journal really needs is wider than the book itself.
-	Theme.fitToViewport(book, 940 + 220, 560 + 60)
-
 	--[[
-		The title says which page you are on.
+		One panel, in the chrome everything else on the screen wears.
 
-		It had no title at all once — five tabs down the spine and nothing to
-		say what they hang off — and then it had a fixed one, "UPGRADE
-		JOURNAL", chosen because most of what a player comes in here to do is
-		buy. Both of those are worse than this. The fixed one was wrong four
-		times out of five: you press a button labelled Journal, and a window
-		headed UPGRADE JOURNAL opens on a list of objectives.
+		This was a book: a blue cover, cream pages, a spine shadow down the
+		middle and a tab strip hanging a hundred and sixty-four pixels off its
+		left edge. A different game from the HUD behind it — and the overhang
+		is why it needed to be scaled to fit at all, because the first thing
+		to leave a narrow screen was the tabs and the close button.
 
-		Naming the open tab is right every time, and on the tab it opens on it
-		reads JOURNAL, which is the word on the button that got you here.
+		Nothing hangs outside it now, so `fitToViewport` is measuring the
+		panel and not the panel plus what is sticking off it.
 	]]
-	bookTitle = Instance.new("TextLabel")
-	bookTitle.Name = "BookTitle"
-	bookTitle.Text = "JOURNAL"
-	bookTitle.Size = UDim2.new(1, -40, 0, 34)
-	bookTitle.Position = UDim2.new(0.5, 0, 0, -38)
-	bookTitle.AnchorPoint = Vector2.new(0.5, 0)
-	bookTitle.BackgroundTransparency = 1
-	bookTitle.Font = Theme.font
-	bookTitle.TextColor3 = Color3.fromRGB(252, 250, 244)
-	bookTitle.TextSize = 30
-	bookTitle.Parent = book
-	Theme.outline(bookTitle, 3)
+	local book = Theme.chunkPanel({
+		name = "Book",
+		size = UDim2.fromOffset(1024, 678),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		parent = gui,
+		radius = 26,
+		drop = 12,
+		outline = 5,
+		top = Color3.fromRGB(66, 49, 31),
+		bottom = Color3.fromRGB(42, 31, 21),
+	})
+	book.ClipsDescendants = true
+	Theme.fitToViewport(book.Parent :: Frame, 1024 + 40, 678 + 40)
 
-	local spread = Instance.new("Frame")
-	spread.Name = "Pages"
-	spread.Size = UDim2.new(1, -24, 1, -24)
-	spread.Position = UDim2.fromOffset(12, 12)
-	spread.BackgroundColor3 = PAPER
-	spread.BorderSizePixel = 0
-	spread.Parent = book
-	Theme.corner(spread, 8)
+	----------------------------------------------------------------
+	-- The rail
+	----------------------------------------------------------------
 
-	-- The spine shadow down the middle is what sells it as one open book
-	-- rather than two panels side by side.
-	local spine = Instance.new("Frame")
-	spine.Size = UDim2.new(0, 16, 1, -20)
-	spine.Position = UDim2.new(0.5, 0, 0, 10)
-	spine.AnchorPoint = Vector2.new(0.5, 0)
-	spine.BackgroundColor3 = PAPER_EDGE
-	spine.BackgroundTransparency = 0.25
-	spine.BorderSizePixel = 0
-	spine.Parent = spread
-
-	leftPage = Instance.new("Frame")
-	leftPage.Name = "Left"
-	leftPage.Size = UDim2.new(0.5, -22, 1, -50)
-	leftPage.Position = UDim2.fromOffset(14, 10)
-	leftPage.BackgroundTransparency = 1
-	leftPage.Parent = spread
-
-	rightPage = Instance.new("Frame")
-	rightPage.Name = "Right"
-	rightPage.Size = UDim2.new(0.5, -22, 1, -50)
-	rightPage.Position = UDim2.new(0.5, 8, 0, 10)
-	rightPage.BackgroundTransparency = 1
-	rightPage.Parent = spread
-
-	moneyLabel = Instance.new("TextLabel")
-	moneyLabel.Name = "Money"
-	moneyLabel.Text = "your money :  $0.00"
-	moneyLabel.Size = UDim2.new(0.5, -30, 0, 32)
-	-- Stops short of the right edge, because a coin sits there.
-	moneyLabel.Position = UDim2.new(1, -50, 1, -14)
-	moneyLabel.AnchorPoint = Vector2.new(1, 1)
-	moneyLabel.BackgroundTransparency = 1
-	moneyLabel.Font = Theme.font
-	moneyLabel.TextColor3 = Color3.fromRGB(90, 70, 40)
-	moneyLabel.TextSize = 21
-	moneyLabel.TextXAlignment = Enum.TextXAlignment.Right
-	moneyLabel.Parent = spread
-
-	--[[
-		A coin after the number, which is how the reference writes it.
-
-		"your money : $0.00" on its own is a line of type at the bottom of a
-		page. The coin is what makes it the running total rather than another
-		price, and it is the same coin the run pays you in.
-	]]
-	local moneyCoin = Instance.new("ImageLabel")
-	moneyCoin.Name = "MoneyCoin"
-	moneyCoin.Size = UDim2.fromOffset(28, 28)
-	moneyCoin.Position = UDim2.new(1, -16, 1, -16)
-	moneyCoin.AnchorPoint = Vector2.new(1, 1)
-	moneyCoin.BackgroundTransparency = 1
-	local coinProp = Props.get("Coin")
-	moneyCoin.Image = if coinProp then coinProp.icon or "" else ""
-	moneyCoin.ScaleType = Enum.ScaleType.Fit
-	moneyCoin.Parent = spread
-
-	-- Tabs hang off the left edge, behind the cover.
 	local rail = Instance.new("Frame")
-	rail.Name = "Tabs"
-	rail.Size = UDim2.fromOffset(180, #TABS * 56 + 80)
-	rail.Position = UDim2.new(0, -164, 0, 60)
-	rail.BackgroundTransparency = 1
-	rail.ZIndex = 0
+	rail.Name = "Rail"
+	rail.Size = UDim2.new(0, 196, 1, 0)
+	rail.BackgroundColor3 = Color3.fromRGB(30, 22, 16)
+	rail.BorderSizePixel = 0
 	rail.Parent = book
+
+	--- A five-pixel ink edge down its right-hand side. A `UIStroke` would put
+	--- one on all four, and three of those are behind the panel's own border.
+	local railEdge = Instance.new("Frame")
+	railEdge.Name = "Edge"
+	railEdge.Size = UDim2.new(0, 5, 1, 0)
+	railEdge.Position = UDim2.new(1, -5, 0, 0)
+	railEdge.BackgroundColor3 = Theme.colors.outline
+	railEdge.BorderSizePixel = 0
+	railEdge.Parent = rail
+
+	local railInner = Instance.new("Frame")
+	railInner.Name = "Inner"
+	railInner.Size = UDim2.new(1, -33, 1, -40)
+	railInner.Position = UDim2.fromOffset(14, 20)
+	railInner.BackgroundTransparency = 1
+	railInner.Parent = rail
+
+	local railWord = Instance.new("TextLabel")
+	railWord.Name = "Word"
+	railWord.Text = "JOURNAL"
+	railWord.Size = UDim2.new(1, 0, 0, 20)
+	railWord.BackgroundTransparency = 1
+	railWord.Font = Theme.font
+	railWord.TextColor3 = Theme.colors.label
+	railWord.TextSize = 13
+	railWord.TextXAlignment = Enum.TextXAlignment.Left
+	railWord.LayoutOrder = 0
+	railWord.Parent = railInner
+
+	local railFlow = Instance.new("UIListLayout")
+	railFlow.SortOrder = Enum.SortOrder.LayoutOrder
+	railFlow.Padding = UDim.new(0, 10)
+	railFlow.Parent = railInner
+
 	for order, tab in TABS do
-		buildTab(rail, order, tab)
+		buildTab(railInner, order, tab)
 	end
 
-	-- The red ! on the Upgrades tab: something in the book is affordable right
-	-- now. Same signal the HUD's journal icon carries, for the same reason —
-	-- the moment a purchase comes into reach is invisible unless something says.
+	--[[
+		What you have to spend, at the foot of the rail.
+
+		It used to be one line at the bottom-right of the right-hand page,
+		which is the last place a player looks and the furthest from every
+		price on the page. Money belongs beside the tabs, where it is in
+		view whichever page is open.
+	]]
+	local purse = Instance.new("Frame")
+	purse.Name = "Purse"
+	purse.Size = UDim2.fromOffset(168, 92)
+	purse.Position = UDim2.new(0, 14, 1, -20)
+	purse.AnchorPoint = Vector2.new(0, 1)
+	purse.BackgroundColor3 = Color3.fromRGB(44, 33, 24)
+	purse.BorderSizePixel = 0
+	purse.Parent = rail
+	Theme.corner(purse, 14)
+	Theme.stroke(purse, 3, Theme.colors.outline, 0)
+	Theme.pad(purse, 12, 12, 12, 12)
+
+	local purseWord = Instance.new("TextLabel")
+	purseWord.Text = "RUN CASH"
+	purseWord.Size = UDim2.new(1, 0, 0, 16)
+	purseWord.BackgroundTransparency = 1
+	purseWord.Font = Theme.font
+	purseWord.TextColor3 = Theme.colors.label
+	purseWord.TextSize = 13
+	purseWord.TextXAlignment = Enum.TextXAlignment.Left
+	purseWord.Parent = purse
+
+	railCash = Instance.new("TextLabel")
+	railCash.Name = "Cash"
+	railCash.Text = "$0.00"
+	railCash.Size = UDim2.new(1, 0, 0, 30)
+	railCash.Position = UDim2.fromOffset(0, 18)
+	railCash.BackgroundTransparency = 1
+	railCash.Font = Theme.font
+	railCash.TextColor3 = Theme.colors.cash
+	railCash.TextSize = 26
+	railCash.TextXAlignment = Enum.TextXAlignment.Left
+	railCash.Parent = purse
+
+	railTips = Instance.new("TextLabel")
+	railTips.Name = "Tips"
+	railTips.Text = ""
+	railTips.Size = UDim2.new(1, 0, 0, 20)
+	railTips.Position = UDim2.fromOffset(0, 48)
+	railTips.BackgroundTransparency = 1
+	railTips.Font = Theme.font
+	railTips.TextColor3 = Theme.colors.tips
+	railTips.TextSize = 15
+	railTips.TextXAlignment = Enum.TextXAlignment.Left
+	railTips.Parent = purse
+
+	-- The red ! : something in the book is affordable right now. Same signal
+	-- the HUD's journal tile carries, for the same reason — the moment a
+	-- purchase comes into reach is invisible unless something says.
 	local badge = Instance.new("Frame")
 	badge.Name = "UpgradeBadge"
 	badge.Size = UDim2.fromOffset(24, 24)
-	badge.Position = UDim2.fromOffset(158, 48)
+	badge.Position = UDim2.new(1, -18, 0, 8)
+	badge.AnchorPoint = Vector2.new(1, 0)
 	badge.BackgroundColor3 = Theme.colors.danger
 	badge.BorderSizePixel = 0
 	badge.Visible = false
@@ -1604,7 +1762,7 @@ local function build()
 	local badgeRound = Instance.new("UICorner")
 	badgeRound.CornerRadius = UDim.new(0.5, 0)
 	badgeRound.Parent = badge
-	Theme.stroke(badge, 2.5, Theme.colors.outline, 0.05)
+	Theme.stroke(badge, 2.5, Theme.colors.outline, 0)
 
 	local bang = Instance.new("TextLabel")
 	bang.Text = "!"
@@ -1616,103 +1774,112 @@ local function build()
 	bang.ZIndex = 3
 	bang.Parent = badge
 
+	----------------------------------------------------------------
+	-- Header and the two columns
+	----------------------------------------------------------------
+
+	local content = Instance.new("Frame")
+	content.Name = "Content"
+	content.Size = UDim2.new(1, -196, 1, 0)
+	content.Position = UDim2.fromOffset(196, 0)
+	content.BackgroundTransparency = 1
+	content.Parent = book
+
+	bookTitle = Instance.new("TextLabel")
+	bookTitle.Name = "BookTitle"
+	bookTitle.Text = "Objectives"
+	bookTitle.Size = UDim2.new(1, -120, 0, 38)
+	bookTitle.Position = UDim2.fromOffset(26, 22)
+	bookTitle.BackgroundTransparency = 1
+	bookTitle.Font = Theme.font
+	bookTitle.TextColor3 = Theme.colors.text
+	bookTitle.TextSize = 32
+	bookTitle.TextXAlignment = Enum.TextXAlignment.Left
+	bookTitle.Parent = content
+	Theme.outline(bookTitle, 3)
+
+	tabBlurb = Instance.new("TextLabel")
+	tabBlurb.Name = "Blurb"
+	tabBlurb.Text = ""
+	tabBlurb.Size = UDim2.new(1, -120, 0, 22)
+	tabBlurb.Position = UDim2.fromOffset(26, 60)
+	tabBlurb.BackgroundTransparency = 1
+	tabBlurb.Font = Theme.font
+	tabBlurb.TextColor3 = Theme.colors.body
+	tabBlurb.TextSize = 16
+	tabBlurb.TextXAlignment = Enum.TextXAlignment.Left
+	tabBlurb.Parent = content
+
 	--[[
-		The Robux quick-buy hanging under the tabs.
+		Close, top right, in the danger variant.
 
-		Its price used to be the string "180", which matched no pass in the
-		catalogue at any point — and it was shown even on a place where none of
-		the passes have been created yet, so pressing it opened a store that
-		said "nothing here yet". A button advertising a price for a thing that
-		cannot be bought is worse than no button, so it now names the cheapest
-		pass that actually exists and hides itself when none do.
+		It was an eighty-eight pixel red square overhanging the cover's
+		corner, which made it the first thing off a short screen — the
+		journal with no visible way to shut it. Inside the panel, in the same
+		button language as everything else, it cannot leave.
+
+		Modal is what gives the journal a usable mouse: the camera is locked
+		to first person, which pins the cursor to the centre of the screen, so
+		without it every control in here sits somewhere the cursor can never
+		reach — and tools are only ever bought from this panel.
 	]]
-	local cheapest: Monetization.PassDef? = nil
-	for _, def in Monetization.passes do
-		if Monetization.isConfigured(def.id) and (cheapest == nil or def.robux < cheapest.robux) then
-			cheapest = def
-		end
-	end
-
-	local quick = Instance.new("TextButton")
-	quick.Name = "RobuxQuick"
-	quick.Size = UDim2.fromOffset(120, 56)
-	-- Below the last tab, wherever the last tab now ends: the tabs are laid out
-	-- 56 apart from the top of the rail, and this sat at a hardcoded 208 that
-	-- was one row short the moment a fifth tab was added.
-	quick.Position = UDim2.fromOffset(24, #TABS * 56 + 12)
-	quick.BackgroundTransparency = 1
-	-- The Robux mark stays a character: it is Roblox's, not ours to redraw.
-	quick.Text = if cheapest then `\n\n⬡ {Prices.robux(cheapest.id, cheapest.robux)}` else ""
-	quick.Visible = cheapest ~= nil
-	quick.Font = Theme.font
-	quick.TextColor3 = Theme.colors.cash
-	quick.TextSize = 20
-	quick.ZIndex = 0
-	quick.Parent = rail
-	Theme.outline(quick, 2.5)
-	Theme.icon({
-		name = "QuickIcon",
-		prop = "LeafBlower",
-		size = UDim2.fromOffset(40, 30),
-		position = UDim2.new(0.5, 0, 0, 2),
-		anchor = Vector2.new(0.5, 0),
-		parent = quick,
+	local close = Theme.chunkButton({
+		name = "Close",
+		variant = "danger",
+		text = "×",
+		textSize = 26,
+		size = UDim2.fromOffset(48, 48),
+		position = UDim2.new(1, -26, 0, 22),
+		anchor = Vector2.new(1, 0),
+		parent = content,
+		radius = 14,
+		outline = 4,
 	})
-
-	quick.Activated:Connect(function()
-		Store.toggle()
-	end)
-
-	local close = Instance.new("TextButton")
-	close.Name = "Close"
-	--[[
-		Big, and sitting on the corner rather than inside it.
-
-		At fifty-six pixels inset from the edge it was a full head smaller
-		than the reference's and a long way from the corner your thumb goes
-		to. This is the one control on the panel every player uses every
-		time they open it.
-	]]
-	close.Size = UDim2.fromOffset(88, 88)
-	-- Tucked inside the cover rather than overhanging its top-right corner:
-	-- overhung, it was the first thing to leave the screen on a short viewport,
-	-- which left the journal with no visible way to shut it.
-	close.Position = UDim2.new(1, 10, 0, -10)
-	close.AnchorPoint = Vector2.new(1, 0)
-	close.Text = ""
-	Theme.icon({
-		name = "CloseIcon",
-		prop = "Cross",
-		size = UDim2.fromScale(0.6, 0.6),
-		position = UDim2.fromScale(0.5, 0.5),
-		anchor = Vector2.new(0.5, 0.5),
-		parent = close,
-	})
-	close.BackgroundColor3 = Color3.fromRGB(214, 72, 60)
-	close.TextColor3 = Color3.fromRGB(255, 246, 240)
-	close.BorderSizePixel = 0
-	--[[
-		Modal is what gives the journal a usable mouse.
-
-		The camera is locked to first person, which pins the cursor to the
-		centre of the screen — so every control in here, the tabs, the tool Buy
-		buttons and this button itself, sat somewhere the cursor could never
-		reach. Tools are only ever bought from this panel, so on a desktop the
-		whole sixteen-tool ladder was unreachable and the run ended at bare
-		hands. A visible modal button releases the mouse for as long as the
-		panel is open, and re-locks it the moment the panel closes.
-	]]
 	close.Modal = true
-	close.Parent = book
-	Theme.corner(close, 10)
-	Theme.outline(close, 3)
-	local closeStroke = Instance.new("UIStroke")
-	closeStroke.Thickness = 3
-	closeStroke.Color = Color3.fromRGB(122, 34, 28)
-	closeStroke.Parent = close
 	close.Activated:Connect(function()
 		Journal.setOpen(false)
 	end)
+
+	--[[
+		Two columns, which is what every page in here already assumed.
+
+		The book was a spread — a left page and a right page — and all five
+		renderers write into those two frames. The Tools page in particular is
+		a grid on one side and a detail pane on the other, which is exactly
+		the shape the redesign asks for, so the two survive as columns rather
+		than as pages: the wide one takes whatever is left, the narrow one is
+		the two hundred and eighty-four the detail pane wants.
+	]]
+	local columns = Instance.new("Frame")
+	columns.Name = "Columns"
+	columns.Size = UDim2.new(1, -52, 1, -122)
+	columns.Position = UDim2.fromOffset(26, 96)
+	columns.BackgroundTransparency = 1
+	columns.Parent = content
+
+	leftPage = Instance.new("Frame")
+	leftPage.Name = "Left"
+	leftPage.Size = UDim2.new(1, -302, 1, 0)
+	leftPage.BackgroundTransparency = 1
+	leftPage.Parent = columns
+
+	rightPage = Instance.new("Frame")
+	rightPage.Name = "Right"
+	rightPage.Size = UDim2.new(0, 284, 1, 0)
+	rightPage.Position = UDim2.new(1, 0, 0, 0)
+	rightPage.AnchorPoint = Vector2.new(1, 0)
+	rightPage.BackgroundTransparency = 1
+	rightPage.Parent = columns
+
+	--- Kept so `render` has somewhere to write the running total; the rail
+	--- carries the visible one.
+	moneyLabel = Instance.new("TextLabel")
+	moneyLabel.Name = "Money"
+	moneyLabel.Text = ""
+	moneyLabel.Size = UDim2.fromOffset(1, 1)
+	moneyLabel.BackgroundTransparency = 1
+	moneyLabel.Visible = false
+	moneyLabel.Parent = content
 end
 
 function Journal.setOpen(open: boolean)

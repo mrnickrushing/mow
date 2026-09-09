@@ -26,60 +26,80 @@ local listFrame: ScrollingFrame
 local emptyLabel: TextLabel
 local isOpen = false
 
-local function addEntry(order: number, title: string, description: string, robux: number, buy: () -> ())
-	local row = Theme.panel({
+--[[
+	One thing for sale: what it is, what it does, and what it costs.
+
+	The price is a slab in one of the two Robux colours — blue for what lasts
+	this run, purple for what you keep — which is the one distinction in this
+	shop a player has to be able to make without reading. Everything else on
+	the row is dark type on a cream card, the same card the journal is built
+	out of.
+]]
+local function addEntry(
+	order: number,
+	title: string,
+	description: string,
+	robux: number,
+	keeps: boolean,
+	buy: () -> ()
+)
+	local row = Theme.cardFace({
 		name = title,
-		size = UDim2.new(1, -12, 0, 68),
-		position = UDim2.fromScale(0, 0),
+		size = UDim2.new(1, -12, 0, 78),
 		parent = listFrame,
-		transparency = 0.25,
+		radius = 16,
+		drop = 5,
+		outline = 4,
 	})
-	row.LayoutOrder = order
+	local seat = row.Parent :: Frame
+	seat.LayoutOrder = order
 
 	Theme.text({
 		name = "Title",
 		text = title,
-		size = UDim2.new(1, -140, 0, 22),
-		position = UDim2.fromOffset(12, 10),
+		size = UDim2.new(1, -160, 0, 24),
+		position = UDim2.fromOffset(16, 10),
 		parent = row,
-		textSize = 17,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.ink,
+		textSize = 19,
 	})
+
 	--[[
 		Wrapped, because these lines are what the thing does.
 
 		A single unwrapped line in a box a hundred and forty short of the
 		price button fits about sixty characters, and VIP's is a hundred:
 		"...and double tips from every strip" and then nothing. The row is
-		sixty-eight tall with thirty of it given to this label, which at
-		thirteen point is two lines — there was always room, the label just
-		was not allowed to use it.
+		tall enough for two lines of it — the label just was not allowed to
+		use them.
 	]]
 	local detail = Theme.text({
 		name = "Detail",
 		text = description,
-		size = UDim2.new(1, -140, 0, 30),
-		position = UDim2.fromOffset(12, 32),
+		size = UDim2.new(1, -160, 0, 34),
+		position = UDim2.fromOffset(16, 34),
 		parent = row,
-		color = Theme.colors.subtext,
-		textSize = 13,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.inkSoft,
+		textSize = 14,
 		bold = false,
 	})
 	detail.TextWrapped = true
 	detail.TextYAlignment = Enum.TextYAlignment.Top
 
-	local button = Instance.new("TextButton")
-	button.Name = "Buy"
-	button.Size = UDim2.fromOffset(110, 40)
-	button.Position = UDim2.new(1, -12, 0.5, 0)
-	button.AnchorPoint = Vector2.new(1, 0.5)
-	button.Text = `R$ {robux}`
-	button.Font = Theme.font
-	button.TextSize = 16
-	button.BackgroundColor3 = Theme.colors.tips
-	button.TextColor3 = Color3.fromRGB(40, 30, 0)
-	button.BorderSizePixel = 0
-	button.Parent = row
-	Theme.corner(button, 8)
+	local button = Theme.chunkButton({
+		name = "Buy",
+		variant = if keeps then "robuxKeep" else "robuxRun",
+		text = `R$ {robux}`,
+		textSize = 18,
+		size = UDim2.fromOffset(122, 46),
+		position = UDim2.new(1, -14, 0.5, 0),
+		anchor = Vector2.new(1, 0.5),
+		parent = row,
+		radius = 13,
+		outline = 3,
+	})
 	button.Activated:Connect(buy)
 end
 
@@ -103,11 +123,11 @@ local function addHeading(order: number, text: string)
 		name = "Text",
 		text = text,
 		size = UDim2.new(1, -8, 1, 0),
-		position = UDim2.fromOffset(4, 0),
+		position = UDim2.fromOffset(6, 0),
 		parent = heading,
 		align = Enum.TextXAlignment.Left,
 		textSize = 15,
-		color = Theme.colors.subtext,
+		color = Theme.colors.label,
 	})
 	local _ = label
 end
@@ -150,7 +170,7 @@ local function render()
 		addHeading(order, "YOURS FOR GOOD")
 		for _, def in passes do
 			order += 1
-			addEntry(order, def.name, def.description, Prices.robux(def.id, def.robux), function()
+			addEntry(order, def.name, def.description, Prices.robux(def.id, def.robux), true, function()
 				promptRemote:FireServer("pass", def.key)
 			end)
 		end
@@ -161,7 +181,8 @@ local function render()
 		addHeading(order, "BOOSTS AND REFILLS")
 		for _, def in boosts do
 			order += 1
-			addEntry(order, def.name, def.description, Prices.robux(def.id, def.robux), function()
+			--- A boost or a refill runs out; only a pass is kept.
+			addEntry(order, def.name, def.description, Prices.robux(def.id, def.robux), false, function()
 				promptRemote:FireServer("product", def.key)
 			end)
 		end
@@ -172,9 +193,16 @@ local function render()
 		addHeading(order, "TOOLS")
 		for _, def in tools do
 			order += 1
-			addEntry(order, def.name, def.description, Prices.robux(def.id, def.robux), function()
-				promptRemote:FireServer("product", def.key)
-			end)
+			addEntry(
+				order,
+				def.name,
+				def.description,
+				Prices.robux(def.id, def.robux),
+				def.kind == "toolPermanent",
+				function()
+					promptRemote:FireServer("product", def.key)
+				end
+			)
 		end
 	end
 
@@ -212,37 +240,65 @@ local function build()
 		a small screen, where it scales down exactly as before.
 	]]
 	local WINDOW = Vector2.new(600, 760)
-	local window = Theme.panel({
+	local window = Theme.chunkPanel({
 		name = "Window",
 		size = UDim2.fromOffset(WINDOW.X, WINDOW.Y),
 		position = UDim2.fromScale(0.5, 0.5),
 		anchor = Vector2.new(0.5, 0.5),
 		parent = gui,
-		transparency = 0.02,
+		radius = 26,
+		drop = 12,
+		outline = 5,
+		top = Color3.fromRGB(66, 49, 31),
+		bottom = Color3.fromRGB(42, 31, 21),
 	})
-	Theme.fitToViewport(window, WINDOW.X + 40, WINDOW.Y + 40)
+	Theme.fitToViewport(window.Parent :: GuiObject, WINDOW.X + 40, WINDOW.Y + 40)
+
+	--- The gold diamond that heads every panel in the game.
+	local badge = Instance.new("Frame")
+	badge.Name = "Badge"
+	badge.Size = UDim2.fromOffset(13, 13)
+	badge.Position = UDim2.fromOffset(22, 26)
+	badge.Rotation = 45
+	badge.BackgroundColor3 = Theme.colors.tips
+	badge.BorderSizePixel = 0
+	badge.Parent = window
 
 	Theme.text({
 		name = "Title",
 		text = "STORE",
-		size = UDim2.fromOffset(300, 30),
-		position = UDim2.fromOffset(20, 16),
+		size = UDim2.fromOffset(300, 26),
+		position = UDim2.fromOffset(46, 20),
 		parent = window,
-		textSize = 24,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.tips,
+		textSize = 21,
+	})
+	Theme.text({
+		name = "Blurb",
+		text = "Blue lasts the run. Purple is yours for good.",
+		size = UDim2.fromOffset(400, 20),
+		position = UDim2.fromOffset(46, 45),
+		parent = window,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.label,
+		textSize = 15,
 	})
 
-	local close = Instance.new("TextButton")
+	local close = Theme.chunkButton({
+		name = "Close",
+		variant = "danger",
+		size = UDim2.fromOffset(46, 46),
+		position = UDim2.new(1, -18, 0, 18),
+		anchor = Vector2.new(1, 0),
+		parent = window,
+		radius = Theme.PILL,
+		drop = 4,
+		outline = 4,
+	})
 	-- Releases the first-person mouse lock while the store is open, so its rows
 	-- can actually be clicked. See the note in Journal.
 	close.Modal = true
-	close.Size = UDim2.fromOffset(36, 36)
-	close.Position = UDim2.new(1, -16, 0, 14)
-	close.AnchorPoint = Vector2.new(1, 0)
-	close.Text = ""
-	close.BackgroundColor3 = Theme.colors.panelLight
-	close.BorderSizePixel = 0
-	close.Parent = window
-	Theme.corner(close, 8)
 	Theme.icon({
 		name = "CloseIcon",
 		prop = "Cross",
@@ -256,19 +312,21 @@ local function build()
 	end)
 
 	listFrame = Instance.new("ScrollingFrame")
-	listFrame.Size = UDim2.new(1, -28, 1, -70)
-	listFrame.Position = UDim2.fromOffset(14, 58)
+	listFrame.Size = UDim2.new(1, -32, 1, -96)
+	listFrame.Position = UDim2.fromOffset(16, 80)
 	listFrame.BackgroundTransparency = 1
 	listFrame.BorderSizePixel = 0
-	listFrame.ScrollBarThickness = 5
-	listFrame.ScrollBarImageColor3 = Theme.colors.stroke
+	listFrame.ScrollBarThickness = 7
+	listFrame.ScrollBarImageColor3 = Theme.colors.outline
+	listFrame.ScrollBarImageTransparency = 0.15
+	listFrame.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
 	listFrame.CanvasSize = UDim2.new()
 	listFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	listFrame.Parent = window
 
 	local layout = Instance.new("UIListLayout")
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 8)
+	layout.Padding = UDim.new(0, 10)
 	layout.Parent = listFrame
 
 	emptyLabel = Theme.text({
@@ -278,7 +336,7 @@ local function build()
 		position = UDim2.fromScale(0.5, 0.45),
 		anchor = Vector2.new(0.5, 0.5),
 		parent = window,
-		color = Theme.colors.subtext,
+		color = Theme.colors.label,
 		align = Enum.TextXAlignment.Center,
 		textSize = 16,
 		bold = false,
