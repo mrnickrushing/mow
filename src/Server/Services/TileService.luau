@@ -38,6 +38,8 @@ local WorldService = require(script.Parent.WorldService)
 local TileService = {}
 
 local limiters: { [Player]: RateLimiter.RateLimiter } = {}
+--- Handed out in `start`, because the remote does not exist before then.
+local overgrowth: RemoteEvent
 --- Fractional passes carried between ticks, so a slow tool still makes progress.
 local progress: { [Player]: number } = {}
 local lastIntentAt: { [Player]: number } = {}
@@ -98,6 +100,17 @@ export type CutResult = {
 	tilesTouched: number,
 	unitsCollected: number,
 	stalled: boolean,
+	--[[
+		What stalled it, for the card that has to name both sides.
+
+		"The mower bogs down here" is true and useless: the player cannot see
+		which tile refused, how tall it was, or what would take it. These are
+		the three answers, filled in on the tile that did the refusing.
+	]]
+	stalledDebris: number?,
+	stalledHeight: number?,
+	stalledWet: boolean?,
+	stalledAt: Vector3?,
 	--- Debris the held tool is simply not for, when that is why nothing moved.
 	wrongTool: number?,
 	blockedBySection: string?,
@@ -128,6 +141,10 @@ function TileService.applyPasses(
 		tilesTouched = 0,
 		unitsCollected = 0,
 		stalled = false,
+		stalledDebris = nil,
+		stalledHeight = nil,
+		stalledWet = nil,
+		stalledAt = nil,
 		wrongTool = nil,
 		blockedBySection = nil,
 		bagFull = false,
@@ -193,6 +210,15 @@ function TileService.applyPasses(
 			result.blockedBySection = sectionId
 		elseif outcome.status == "overgrown" or outcome.status == "wet" then
 			result.stalled = true
+			--- The first tile that refused is the one the card is about, and
+			--- the one the box on the ground is drawn over.
+			if result.stalledDebris == nil then
+				result.stalledDebris = ChunkCodec.debris(byte)
+				result.stalledHeight = ChunkCodec.height(byte)
+				result.stalledWet = outcome.status == "wet"
+				local tx, tz = Grid.fromIndex(grid, index)
+				result.stalledAt = WorldService.tilePointToWorld(tx, tz)
+			end
 		elseif outcome.status == "bagFull" then
 			result.bagFull = true
 		elseif outcome.status == "wrongTool" then
@@ -421,7 +447,37 @@ local function onMowIntent(player: Player, payload: any)
 	if result.blockedBySection and result.tilesTouched == 0 then
 		say(player, "locked", "You have not bought this zone yet")
 	elseif result.stalled and result.tilesTouched == 0 then
-		say(player, "stall", `The {tool.name} bogs down here — you need better gear`)
+		--[[
+			The wall, sent as facts rather than as a sentence.
+
+			A toast can only say one side of this — "the mower bogs down" —
+			and leaves the player holding a tool that does nothing on ground
+			they can see. The card names what refused, how tall it was, what
+			would take it and what that costs, so the refusal is a decision
+			rather than a dead end. Wet ground keeps the toast: there is
+			nothing to buy for it, it dries.
+		]]
+		if result.stalledWet or result.stalledDebris == nil then
+			say(player, "stall", `The {tool.name} bogs down here — the ground is soaked`)
+		else
+			local debrisId = result.stalledDebris :: number
+			local height = result.stalledHeight or 3
+			local fix = Tools.cheapestForHeight(debrisId, height)
+			overgrowth:FireClient(player, {
+				debris = DebrisConfig.get(debrisId).name,
+				height = height,
+				toolName = tool.name,
+				toolHeight = tool.maxHeight,
+				fixId = if fix then fix.id else nil,
+				fixName = if fix then fix.name else nil,
+				fixHeight = if fix then fix.maxHeight else nil,
+				fixDeck = if fix then fix.deck else nil,
+				fixCost = if fix then fix.cost else nil,
+				owned = if fix then run.ownedTools[fix.id] == true else false,
+				cash = run.cash,
+				at = result.stalledAt,
+			})
+		end
 	elseif result.wrongTool and result.tilesTouched == 0 then
 		--[[
 			Name the thing and name what shifts it.
@@ -460,6 +516,7 @@ local function onMowIntent(player: Player, payload: any)
 end
 
 function TileService.start()
+	overgrowth = Remotes.event(Remotes.OVERGROWTH)
 	local intent = Remotes.unreliable(Remotes.MOW_INTENT)
 	intent.OnServerEvent:Connect(onMowIntent)
 

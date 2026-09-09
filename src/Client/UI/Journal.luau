@@ -2114,6 +2114,20 @@ function Journal.isOpen(): boolean
 	return isOpen
 end
 
+--[[
+	Open the book on one tool, from somewhere else in the game.
+
+	The overgrowth card's whole job is to name the fix, so its button has to
+	land on that tool's page rather than on the shed's front door — "open the
+	shed" and then a shelf of sixteen is the toast's answer with an extra
+	click on it.
+]]
+function Journal.openTool(toolId: string)
+	selectedTool = toolId
+	setTab("upgrades")
+	Journal.setOpen(true)
+end
+
 function Journal.toggle()
 	Journal.setOpen(not isOpen)
 end
