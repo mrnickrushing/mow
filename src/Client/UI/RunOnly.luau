@@ -26,11 +26,20 @@ local Remotes = require(Shared.Remotes)
 local RunOnly = {}
 
 local watched: { GuiObject } = {}
+--[[
+	Registered elements that a second rule is currently keeping down.
+
+	The phone layout drops the objective panel and the rail's captions, and
+	`Visible` on those is already owned by this module — a phone that hid one
+	would have it handed back the moment the round started. A suppressed
+	element is hidden whatever the round is doing.
+]]
+local suppressed: { [GuiObject]: boolean } = {}
 local running = false
 
 local function apply()
 	for _, object in watched do
-		object.Visible = running
+		object.Visible = running and not suppressed[object]
 	end
 end
 
@@ -49,7 +58,13 @@ end
 --- Hides this element until a run is actually under way.
 function RunOnly.add(object: GuiObject)
 	table.insert(watched, object)
-	object.Visible = running
+	object.Visible = running and not suppressed[object]
+end
+
+--- Keeps `object` hidden even during a run, for as long as `on` holds.
+function RunOnly.suppress(object: GuiObject, on: boolean)
+	suppressed[object] = on
+	object.Visible = running and not on
 end
 
 function RunOnly.start()
