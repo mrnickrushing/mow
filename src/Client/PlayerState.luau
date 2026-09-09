@@ -176,6 +176,36 @@ function PlayerState.isSectionOpen(sectionId: string): boolean
 	return sectionId ~= "" and openSections[sectionId] == true
 end
 
+--[[
+	Sections that have given up their golden blade this run.
+
+	Same reasoning as the gates: one blade per section, respawned every round,
+	and found for everybody the moment anybody picks it up. The journal's
+	collection page draws this, so it has to be the run's record rather than
+	the profile's lifetime tally.
+]]
+local foundBlades: { [string]: boolean } = {}
+
+function PlayerState.setFoundBlades(sections: { string })
+	local next_: { [string]: boolean } = {}
+	for _, sectionId in sections do
+		next_[sectionId] = true
+	end
+	foundBlades = next_
+end
+
+function PlayerState.hasBlade(sectionId: string): boolean
+	return foundBlades[sectionId] == true
+end
+
+function PlayerState.bladesFound(): number
+	local count = 0
+	for _ in foundBlades do
+		count += 1
+	end
+	return count
+end
+
 function PlayerState.bagFraction(): number
 	if state.bagCapacity <= 0 then
 		return 0

@@ -52,6 +52,27 @@ local rng = Random.new()
 --- Blade part -> the function that awards it, shared with AutoCollectService.
 local collectors: { [BasePart]: (Player) -> () } = {}
 
+--[[
+	Which sections have given up their blade this run.
+
+	One per section, respawned every round, and shared: whoever finds it, it
+	is found for everybody. The journal's collection page is a picture of this
+	table, so it has to be the run's own record rather than the profile's
+	lifetime count — a player on their fortieth property does not want to be
+	told they have found ninety-one blades in a world that holds six.
+]]
+local found: { [string]: boolean } = {}
+
+--- Read by the round broadcast, so every client can draw the same page.
+function CollectibleService.found(): { string }
+	local out = {}
+	for sectionId in found do
+		table.insert(out, sectionId)
+	end
+	table.sort(out)
+	return out
+end
+
 local function spawnBlade(position: Vector3, section: Types.ZoneDef, parent: Instance)
 	local part = Build.mesh({
 		prop = "GoldenBlade",
@@ -91,6 +112,7 @@ local function spawnBlade(position: Vector3, section: Types.ZoneDef, parent: Ins
 		local paid = EconomyService.awardRaw(player, BLADE_CASH)
 		EconomyService.awardTips(player, BLADE_TIPS)
 
+		found[section.id] = true
 		local run = RunState.find(player)
 		if run then
 			run.blades += 1
@@ -201,6 +223,7 @@ function CollectibleService.generate(world: Types.WorldDef)
 	]]
 	rng = Random.new(WorldService.seed + 37)
 	table.clear(collectors)
+	table.clear(found)
 	if container then
 		container:Destroy()
 	end
