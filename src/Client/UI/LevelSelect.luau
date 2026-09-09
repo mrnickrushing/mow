@@ -604,7 +604,11 @@ local function build()
 	--- Bigger than the pair of banner lists it replaces, because the map panel
 	--- is now four picture cards two across and each of them is a card rather
 	--- than a row.
-	local PAIR_W, PAIR_H = 1040, 638
+	local PAIR_W, PANEL_H = 1040, 638
+	--- The band above the panels: what this screen is, and the sentence the
+	--- whole game is built on, said where the player commits to a run.
+	local HEADER = 104
+	local PAIR_H = HEADER + PANEL_H
 	local holder = Instance.new("Frame")
 	holder.Name = "Panels"
 	holder.Size = UDim2.fromOffset(PAIR_W, PAIR_H)
@@ -614,6 +618,34 @@ local function build()
 	holder.Parent = gui
 	Theme.fitToViewport(holder, PAIR_W + 40, PAIR_H + 60)
 
+	--[[
+		"You arrive with nothing."
+
+		The premise of the game, in the one place a player is deciding whether
+		to spend two hours on it. It was a fifteen-point line under a panel
+		title; the design puts it at the top of the screen at three times the
+		size, and it is the only sentence here that is not an instruction.
+	]]
+	Theme.text({
+		name = "Eyebrow",
+		text = "PICK A PROPERTY",
+		size = UDim2.new(1, 0, 0, 20),
+		position = UDim2.fromOffset(6, 6),
+		parent = holder,
+		align = Enum.TextXAlignment.Left,
+		color = Theme.colors.tips,
+		textSize = 16,
+	})
+	Theme.text({
+		name = "Headline",
+		text = "You arrive with nothing.",
+		size = UDim2.new(1, 0, 0, 54),
+		position = UDim2.fromOffset(6, 30),
+		parent = holder,
+		align = Enum.TextXAlignment.Left,
+		textSize = 44,
+	})
+
 	----------------------------------------------------------------
 	-- Left: the settings, and the number that started all this
 	----------------------------------------------------------------
@@ -621,8 +653,8 @@ local function build()
 		holder,
 		"GameSettings",
 		"GAME SETTINGS",
-		UDim2.fromOffset(400, PAIR_H),
-		UDim2.new(0.5, -300, 0.5, 0)
+		UDim2.fromOffset(400, PANEL_H),
+		UDim2.new(0.5, -300, 0, HEADER + PANEL_H * 0.5)
 	)
 
 	--[[
@@ -684,7 +716,7 @@ local function build()
 	]]
 	local guide = Theme.chip({
 		name = "Guide",
-		size = UDim2.new(1, 0, 0, PAIR_H - 70 - 310 - 28),
+		size = UDim2.new(1, 0, 0, PANEL_H - 70 - 310 - 28),
 		position = UDim2.fromOffset(0, 310),
 		parent = body,
 		radius = 18,
@@ -773,10 +805,9 @@ local function build()
 	local _, mapBody = titled(
 		holder,
 		"SelectMap",
-		"PICK A PROPERTY",
-		UDim2.fromOffset(580, PAIR_H),
-		UDim2.new(0.5, 210, 0.5, 0),
-		"You arrive with nothing."
+		"THE PROPERTIES",
+		UDim2.fromOffset(580, PANEL_H),
+		UDim2.new(0.5, 210, 0, HEADER + PANEL_H * 0.5)
 	)
 
 	mapHolder = Instance.new("ScrollingFrame")

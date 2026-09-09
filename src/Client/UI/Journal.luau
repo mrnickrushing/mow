@@ -875,6 +875,56 @@ end
 	They are still on the boards. They are also here, because "where do I buy
 	the bag" should never be a question the game leaves you holding.
 ]]
+--[[
+	A level as a row of slabs rather than as a fraction.
+
+	The rows said "Lv 3" and nothing else, and a player comparing seven lines
+	reads seven fractions one at a time. Filled slabs are countable at a
+	glance and they show the whole ladder — how far along you are *and* how
+	much of it is left, which the number on its own never said.
+
+	Fifteen rungs get thinner slabs rather than a row that runs under the
+	price button. Built once and repainted, because the page polls.
+]]
+local PIP_ROOM = 210
+
+local function levelPips(parent: Instance, maxLevel: number, x: number, y: number): { Frame }
+	local gap = if maxLevel > 10 then 3 else 4
+	local width = math.min(15, (PIP_ROOM - gap * (maxLevel - 1)) / maxLevel)
+	local pips: { Frame } = {}
+	for step = 1, maxLevel do
+		local pip = Instance.new("Frame")
+		pip.Name = `Pip{step}`
+		pip.Size = UDim2.fromOffset(width, 22)
+		pip.Position = UDim2.fromOffset(x + (step - 1) * (width + gap), y)
+		pip.BackgroundColor3 = Color3.fromRGB(207, 192, 166)
+		pip.BorderSizePixel = 0
+		pip.Parent = parent
+		Theme.corner(pip, 4)
+		Theme.stroke(pip, 2.5, Theme.colors.outline, 0)
+
+		local grade = Instance.new("UIGradient")
+		grade.Color = ColorSequence.new(Color3.fromRGB(143, 224, 124), Color3.fromRGB(79, 184, 60))
+		grade.Rotation = 90
+		grade.Enabled = false
+		grade.Parent = pip
+
+		table.insert(pips, pip)
+	end
+	return pips
+end
+
+local function paintPips(pips: { Frame }, level: number)
+	for step, pip in pips do
+		local earned = step <= level
+		pip.BackgroundColor3 = if earned then Color3.fromRGB(143, 224, 124) else Color3.fromRGB(207, 192, 166)
+		local grade = pip:FindFirstChildOfClass("UIGradient")
+		if grade then
+			grade.Enabled = earned
+		end
+	end
+end
+
 local function renderStats()
 	heading(leftPage, "Upgrades")
 	local scroll = body(leftPage)
@@ -883,7 +933,7 @@ local function renderStats()
 		--- The same card every other list in the book is made of. This row was
 		--- a 45%-transparent tint of the page with a hairline round it, which
 		--- was a card on parchment and is a smudge on dark wood.
-		local row = card(scroll, 84)
+		local row = card(scroll, 110)
 		row.Name = def.id
 		row.LayoutOrder = order
 
@@ -900,7 +950,7 @@ local function renderStats()
 			local badge = Instance.new("ImageLabel")
 			badge.Name = "Icon"
 			badge.Size = UDim2.fromOffset(56, 56)
-			badge.Position = UDim2.fromOffset(12, 12)
+			badge.Position = UDim2.fromOffset(12, 20)
 			badge.BackgroundTransparency = 1
 			badge.Image = def.icon
 			badge.ScaleType = Enum.ScaleType.Fit
@@ -909,7 +959,7 @@ local function renderStats()
 
 		-- Text starts clear of the badge, and still stops clear of the button.
 		local textX = if def.icon then 78 else 14
-		local textInset = if def.icon then -204 else -140
+		local textInset = if def.icon then -246 else -182
 
 		local name = Instance.new("TextLabel")
 		name.Text = def.name:upper()
@@ -924,8 +974,8 @@ local function renderStats()
 
 		local blurb = Instance.new("TextLabel")
 		blurb.Text = def.description
-		blurb.Size = UDim2.new(1, textInset, 0, 30)
-		blurb.Position = UDim2.fromOffset(textX, 28)
+		blurb.Size = UDim2.new(1, textInset, 0, 34)
+		blurb.Position = UDim2.fromOffset(textX, 30)
 		blurb.BackgroundTransparency = 1
 		blurb.Font = Theme.fontRegular
 		blurb.TextColor3 = Color3.fromRGB(92, 84, 74)
@@ -937,9 +987,11 @@ local function renderStats()
 
 		-- "25 --> 39 units" rather than "+1 level": the purchase has to be
 		-- legible as the thing it does, not as an abstraction over it.
+		local pips = levelPips(row, def.maxLevel, textX, 64)
+
 		local change = Instance.new("TextLabel")
-		change.Size = UDim2.new(1, textInset, 0, 22)
-		change.Position = UDim2.fromOffset(textX, 56)
+		change.Size = UDim2.new(1, textInset, 0, 20)
+		change.Position = UDim2.fromOffset(textX, 88)
 		change.BackgroundTransparency = 1
 		change.Font = Theme.font
 		change.TextColor3 = Color3.fromRGB(150, 106, 30)
@@ -952,7 +1004,7 @@ local function renderStats()
 			variant = "gold",
 			text = "",
 			textSize = 18,
-			size = UDim2.fromOffset(110, 46),
+			size = UDim2.fromOffset(146, 46),
 			position = UDim2.new(1, -14, 0.5, 0),
 			anchor = Vector2.new(1, 0.5),
 			parent = row,
@@ -965,6 +1017,8 @@ local function renderStats()
 			local level = state.upgrades[def.id] or 0
 			local cost = Upgrades.costAt(def, level)
 
+			paintPips(pips, level)
+
 			if not cost then
 				change.Text = `{Format.stat(Upgrades.valueAt(def, level))}{def.suffix} — the top of the line`
 				buy.Text = "MAX"
@@ -974,7 +1028,9 @@ local function renderStats()
 
 			local now = Upgrades.valueAt(def, level)
 			local next_ = Upgrades.valueAt(def, level + 1)
-			change.Text = `Lv {level}   {Format.stat(now)} --> {Format.stat(next_)}{def.suffix}`
+			--- The level is the row of slabs above this line now, so the line
+			--- is free to say only what the money buys.
+			change.Text = `{Format.stat(now)} --> {Format.stat(next_)}{def.suffix}`
 			buy.Text = Format.cash(cost)
 			wear(buy, if state.cash >= cost then LOOK_AFFORD else LOOK_BROKE)
 		end)
