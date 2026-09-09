@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Monetization = require(Shared.Config.Monetization)
+local Remotes = require(Shared.Remotes)
 local BoostService = require(script.Parent.BoostService)
 local Loop = require(Shared.Util.Loop)
 local DataService = require(script.Parent.DataService)
@@ -23,10 +24,40 @@ local RewardService = {}
 local rewards = Monetization.rewards
 local SECONDS_PER_DAY = 86400
 
+local rewardRemote: RemoteEvent
+
 --- Seconds of play accumulated this session, per player.
 local sessionPlaytime: { [Player]: number } = {}
 local nextPlaytimeReward: { [Player]: number } = {}
 local nextFreeRental: { [Player]: number } = {}
+
+--[[
+	Tell the client where the three free loops have got to.
+
+	Sent on join and again each time one of them pays out, rather than on
+	every five-second tick: the two numbers are countdowns, and a countdown
+	the client can run itself needs a starting point and not a stream. A
+	minute of drift on an eight-minute timer would be worth the traffic to
+	avoid; a second of it is not.
+]]
+local function push(player: Player)
+	if not rewardRemote then
+		return
+	end
+	local profile = DataService.get(player)
+	local elapsed = sessionPlaytime[player] or 0
+	rewardRemote:FireClient(player, {
+		streak = if profile then profile.dailyStreak else 0,
+		streakOf = #rewards.dailyStreak,
+		streakTips = rewards.dailyStreak[math.clamp(
+			if profile then profile.dailyStreak else 1,
+			1,
+			#rewards.dailyStreak
+		)],
+		nextTips = math.max((nextPlaytimeReward[player] or rewards.playtimeInterval) - elapsed, 0),
+		nextRental = math.max((nextFreeRental[player] or rewards.freeRentalInterval) - elapsed, 0),
+	})
+end
 
 --------------------------------------------------------------------
 -- Daily streak
@@ -76,15 +107,22 @@ local function tick(player: Player, delta: number)
 		profile.playtime += delta
 	end)
 
+	local paid = false
 	if elapsed >= (nextPlaytimeReward[player] or rewards.playtimeInterval) then
 		nextPlaytimeReward[player] = elapsed + rewards.playtimeInterval
 		EconomyService.awardTips(player, rewards.playtimeTips)
 		EconomyService.notify(player, "reward", `Still going — {rewards.playtimeTips} tips`, nil)
+		paid = true
 	end
 
 	if elapsed >= (nextFreeRental[player] or rewards.freeRentalInterval) then
 		nextFreeRental[player] = elapsed + rewards.freeRentalInterval
 		BoostService.grantRental(player, rewards.freeRentalToolId, rewards.freeRentalSeconds)
+		paid = true
+	end
+
+	if paid then
+		push(player)
 	end
 end
 
@@ -110,11 +148,14 @@ function RewardService.awardFirstCompletion(player: Player)
 end
 
 function RewardService.start()
+	rewardRemote = Remotes.event(Remotes.REWARDS)
+
 	DataService.ProfileLoaded:Connect(function(player: Player)
 		claimDaily(player)
 		sessionPlaytime[player] = 0
 		nextPlaytimeReward[player] = rewards.playtimeInterval
 		nextFreeRental[player] = rewards.freeRentalInterval
+		push(player)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
@@ -123,7 +164,7 @@ function RewardService.start()
 		nextFreeRental[player] = nil
 	end)
 
-		local step = 5
+	local step = 5
 	Loop.forever("Reward.playtime", function()
 		task.wait(step)
 		for _, player in Players:GetPlayers() do

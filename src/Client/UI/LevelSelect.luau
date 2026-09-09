@@ -571,15 +571,20 @@ local function build()
 	gui.ResetOnSpawn = false
 	gui.Enabled = false
 	gui.DisplayOrder = 10
+	gui.IgnoreGuiInset = true
 	gui.Parent = player:WaitForChild("PlayerGui")
 
-	local shade = Instance.new("Frame")
-	shade.Name = "Shade"
-	shade.Size = UDim2.fromScale(1, 1)
-	shade.BackgroundColor3 = Color3.new(0, 0, 0)
-	shade.BackgroundTransparency = 0.4
-	shade.BorderSizePixel = 0
-	shade.Parent = gui
+	--[[
+		Ground, not a shade over the lobby.
+
+		This was forty per cent black over whatever the camera happened to be
+		pointing at, which is the shape of a dialogue box — and the thing it is
+		asking for is a two-hour commitment. The handoff gives world select and
+		the store the same treatment for that reason, and gives it a name: it
+		is a destination. `Theme.backdrop` is that ground, and the store stands
+		on the same one so the two read as rooms in one building.
+	]]
+	Theme.backdrop(gui)
 
 	--[[
 		Both panels live in one frame, and that frame is what gets scaled.
