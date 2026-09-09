@@ -22,13 +22,16 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared.Util.Format)
 local Loop = require(Shared.Util.Loop)
 local RunOnly = require(script.Parent.RunOnly)
 local Remotes = require(Shared.Remotes)
+local MissedSpotController = require(script.Parent.Parent.Controllers.MissedSpotController)
 local PlayerState = require(script.Parent.Parent.PlayerState)
+local Hud = require(script.Parent.Hud)
 local Journal = require(script.Parent.Journal)
 local Theme = require(script.Parent.Theme)
 
@@ -42,6 +45,12 @@ local percentLabel: TextLabel
 local footLabel: TextLabel
 local gateLabel: TextLabel
 local fill: Frame
+local heroPanel: Frame
+local heroStroke: UIStroke
+local heroGrade: UIGradient
+local fillGrade: UIGradient
+local edgeChip: Frame
+local edgeText: TextLabel
 local jobRows: { { box: Frame, tick: Frame, text: TextLabel, count: TextLabel } } = {}
 local jobPanel: Frame
 
@@ -89,6 +98,9 @@ local function build()
 		radius = 20,
 	})
 	Theme.pad(hero, 14, 18, 16, 18)
+	heroPanel = hero
+	heroStroke = hero:FindFirstChildOfClass("UIStroke") :: UIStroke
+	heroGrade = hero:FindFirstChildOfClass("UIGradient") :: UIGradient
 	--- The holder is what carries the position, so it is the holder that has
 	--- to be hidden in the lobby and scaled on a phone.
 	local holder = hero.Parent :: Frame
@@ -183,7 +195,7 @@ local function build()
 	fill.BorderSizePixel = 0
 	fill.Parent = track
 	Theme.corner(fill, 11)
-	local fillGrade = Instance.new("UIGradient")
+	fillGrade = Instance.new("UIGradient")
 	fillGrade.Color = ColorSequence.new(Color3.fromRGB(168, 237, 140), Color3.fromRGB(95, 194, 70))
 	fillGrade.Rotation = 90
 	fillGrade.Parent = fill
@@ -232,6 +244,51 @@ local function build()
 		color = Theme.colors.tips,
 		align = Enum.TextXAlignment.Right,
 		textSize = 14,
+	})
+
+	--[[
+		The stragglers you cannot see.
+
+		The markers stand over every tile that is left, which is no help at all
+		for the one behind you — and at the end of a section that is usually
+		where it is, because you have just walked past everything else. The
+		chip counts what is off screen and says which way.
+	]]
+	edgeChip = Theme.chip({
+		name = "OffScreen",
+		size = UDim2.fromOffset(268, 34),
+		--- Under the rate, which is already under the bar: the HUD stacks
+		--- downward from the panel and the rate is thirty-four tall.
+		position = UDim2.new(0.5, 0, 0, 22 + HERO_HEIGHT + 8 + 38),
+		anchor = Vector2.new(0.5, 0),
+		parent = gui,
+		radius = Theme.PILL,
+		transparency = 0.14,
+	})
+	edgeChip.Visible = false
+	Theme.stroke(edgeChip, 3, Theme.colors.tips, 0)
+	RunOnly.add(edgeChip)
+	Theme.chromeScale(edgeChip)
+
+	local edgeMark = Instance.new("Frame")
+	edgeMark.Name = "Mark"
+	edgeMark.Size = UDim2.fromOffset(14, 14)
+	edgeMark.Position = UDim2.new(0, 18, 0.5, 0)
+	edgeMark.AnchorPoint = Vector2.new(0, 0.5)
+	edgeMark.Rotation = 45
+	edgeMark.BackgroundColor3 = Theme.colors.tips
+	edgeMark.BorderSizePixel = 0
+	edgeMark.Parent = edgeChip
+	Theme.corner(edgeMark, 3)
+
+	edgeText = Theme.text({
+		name = "Text",
+		text = "",
+		size = UDim2.new(1, -52, 1, 0),
+		position = UDim2.fromOffset(42, 0),
+		parent = edgeChip,
+		color = Theme.colors.progress,
+		textSize = 18,
 	})
 
 	--[[
@@ -413,6 +470,58 @@ local function place(row: SectionRow): (string, string)
 	return foot, if gate ~= "" then gate else spare
 end
 
+--[[
+	Past ninety-five per cent the bar stops being a percentage.
+
+	"You missed a spot" is the reference game's most-repeated complaint, and
+	the honest answer to it is not a bigger number — three tiles left reads as
+	99.8% whichever way you round it. So at the end of a section the whole
+	panel changes state: it warms, the fill goes gold, and the figure in the
+	middle of the track becomes a count of what is actually left. The true
+	percentage stays on the bottom row for anyone who wants it.
+
+	Both faces are written out here rather than tweaked in place, because a
+	state that only ever sets half its properties leaves the other half
+	wherever the last state left them.
+]]
+local NORMAL_FACE = {
+	top = Theme.colors.panelLight,
+	bottom = Theme.colors.panel,
+	outline = Theme.colors.outline,
+	thickness = 4,
+	fillTop = Color3.fromRGB(168, 237, 140),
+	fillBottom = Color3.fromRGB(95, 194, 70),
+	percentInk = Theme.colors.text,
+}
+local NEARLY_FACE = {
+	top = Color3.fromRGB(74, 58, 34),
+	bottom = Color3.fromRGB(46, 34, 20),
+	outline = Theme.colors.tips,
+	thickness = 4,
+	fillTop = Color3.fromRGB(255, 224, 138),
+	fillBottom = Color3.fromRGB(255, 176, 32),
+	--- Dark ink on gold, so this is the one label in the game that wants no
+	--- outline behind it.
+	percentInk = Theme.colors.outline,
+}
+
+local wearingNearly = false
+
+local function wear(face: typeof(NORMAL_FACE))
+	heroPanel.BackgroundColor3 = face.top
+	heroGrade.Color = ColorSequence.new(face.top, face.bottom)
+	heroStroke.Color = face.outline
+	heroStroke.Thickness = face.thickness
+	fill.BackgroundColor3 = face.fillTop
+	fillGrade.Color = ColorSequence.new(face.fillTop, face.fillBottom)
+	percentLabel.TextColor3 = face.percentInk
+
+	local outline = percentLabel:FindFirstChildOfClass("UIStroke")
+	if outline then
+		outline.Enabled = face.percentInk ~= Theme.colors.outline
+	end
+end
+
 local function blank()
 	sectionLabel.Text = ""
 	percentLabel.Text = ""
@@ -457,11 +566,101 @@ local function refreshSection()
 	-- what an empty denominator would otherwise give.
 	local done = if row.total > 0 then 1 - row.remaining / row.total else 1
 	fill.Size = UDim2.fromScale(math.clamp(done, 0, 1), 1)
-	percentLabel.Text = Format.percent(done)
 
 	local foot, gate = place(row)
-	footLabel.Text = foot
-	gateLabel.Text = gate
+
+	--[[
+		The last few tiles, counted rather than rounded.
+
+		`MissedSpotController` is already walking the tile buffer to put a mark
+		over every straggler; the number it found is the number to print, and
+		it is a tile count rather than a unit count — "3 spots left" means
+		three places to stand, which is what the markers are showing.
+	]]
+	local straggle = MissedSpotController.sectionState(row.id)
+	local nearly = straggle ~= nil and straggle.past
+	if nearly ~= wearingNearly then
+		wearingNearly = nearly
+		wear(if nearly then NEARLY_FACE else NORMAL_FACE)
+		--[[
+			Said once, on the way in, and said kindly.
+
+			At ninety-seven per cent the player is not doing anything wrong,
+			which is the whole difference between this game and the one whose
+			complaint it answers: the message is that they are nearly there,
+			not that they missed something.
+		]]
+		if nearly and straggle then
+			local spots = straggle.remaining
+			Hud.toast(
+				"round",
+				if spots == 1
+					then "Nearly there — one spot and the gate opens"
+					else `Nearly there — {spots} spots and the gate opens`
+			)
+		end
+	end
+
+	if nearly and straggle then
+		local spots = straggle.remaining
+		percentLabel.Text = if spots == 1 then "1 SPOT LEFT" else `{spots} SPOTS LEFT`
+		footLabel.Text = "FOLLOW THE MARKERS"
+		footLabel.TextColor3 = Theme.colors.tips
+		gateLabel.Text = `{Format.percent(straggle.cleared)} · {Format.tally(spots)} TILES`
+		gateLabel.TextColor3 = Theme.colors.label
+	else
+		percentLabel.Text = Format.percent(done)
+		footLabel.Text = foot
+		footLabel.TextColor3 = Theme.colors.label
+		gateLabel.Text = gate
+		gateLabel.TextColor3 = Theme.colors.tips
+	end
+end
+
+--[[
+	How many marks are off screen, and whether they are behind you.
+
+	A point is "on screen" by the camera's own reckoning — `WorldToViewportPoint`
+	returns that as its second value — so this counts what the player cannot
+	see rather than what is merely far away. Behind is the common case at the
+	end of a section, and it is worth saying which, because "three more" with
+	no direction is a search and "three more behind you" is a turn.
+]]
+local function refreshEdgeChip()
+	if not edgeChip then
+		return
+	end
+	if not wearingNearly or phase ~= "running" then
+		edgeChip.Visible = false
+		return
+	end
+
+	local camera = Workspace.CurrentCamera
+	local spots = MissedSpotController.spots()
+	if not camera or #spots == 0 then
+		edgeChip.Visible = false
+		return
+	end
+
+	local hidden, behind = 0, 0
+	for _, spot in spots do
+		local _, onScreen = camera:WorldToViewportPoint(spot)
+		if not onScreen then
+			hidden += 1
+			if camera.CFrame.LookVector:Dot((spot - camera.CFrame.Position).Unit) < 0 then
+				behind += 1
+			end
+		end
+	end
+
+	if hidden == 0 then
+		edgeChip.Visible = false
+		return
+	end
+
+	local where = if behind >= hidden then "behind you" else "off screen"
+	edgeText.Text = if hidden == 1 then `1 more {where}` else `{hidden} more {where}`
+	edgeChip.Visible = true
 end
 
 --[[
@@ -565,6 +764,7 @@ function RoundBar.start()
 	Loop.forever("RoundBar.tick", function()
 		task.wait(0.35)
 		refreshSection()
+		refreshEdgeChip()
 
 		refreshJobs()
 	end)
