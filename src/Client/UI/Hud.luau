@@ -392,17 +392,47 @@ local function buildRightColumn(gui: ScreenGui)
 
 	local soundHit = tile("Sound", 246)
 	local soundFace = soundHit.Parent :: Frame
-	local note = Theme.text({
-		name = "Note",
-		text = utf8.char(0x266A),
-		size = UDim2.fromScale(1, 1),
-		position = UDim2.fromScale(0, 0),
-		parent = soundFace,
-		align = Enum.TextXAlignment.Center,
-		color = Theme.colors.outline,
-		textSize = 36,
-	})
-	note.TextYAlignment = Enum.TextYAlignment.Center
+
+	--[[
+		A quaver drawn from three rectangles, not the character U+266A.
+
+		Every other icon on this screen is art the game ships. This one was a
+		glyph, which is drawn by whatever font the player's device resolves and
+		is the exact fault `Props.luau` calls out about typeset symbols — and
+		there is no `Speaker` or `Note` prop to reach for instead. A circle, a
+		bar and a tilted bar is a note on every device there is, and it takes
+		the tile's ink colour like everything else here.
+	]]
+	local note = Instance.new("Frame")
+	note.Name = "Note"
+	note.Size = UDim2.fromScale(0.52, 0.52)
+	note.Position = UDim2.fromScale(0.5, 0.5)
+	note.AnchorPoint = Vector2.new(0.5, 0.5)
+	note.BackgroundTransparency = 1
+	note.Parent = soundFace
+
+	local noteParts: { Frame } = {}
+	local function notePart(name: string, size: UDim2, position: UDim2, radius: number, rotation: number): Frame
+		local part = Instance.new("Frame")
+		part.Name = name
+		part.Size = size
+		part.Position = position
+		part.AnchorPoint = Vector2.new(0.5, 0.5)
+		part.Rotation = rotation
+		part.BackgroundColor3 = Theme.colors.outline
+		part.BorderSizePixel = 0
+		part.Parent = note
+		Theme.corner(part, radius)
+		table.insert(noteParts, part)
+		return part
+	end
+
+	--- The head sits low and left, the stem rises from its right shoulder, and
+	--- the flag falls off the top of the stem — which is where the eye looks
+	--- to tell a quaver from a lollipop.
+	notePart("Head", UDim2.fromScale(0.46, 0.38), UDim2.fromScale(0.3, 0.78), 999, -18)
+	notePart("Stem", UDim2.fromScale(0.11, 0.78), UDim2.fromScale(0.52, 0.39), 2, 0)
+	notePart("Flag", UDim2.fromScale(0.1, 0.34), UDim2.fromScale(0.68, 0.19), 2, 32)
 
 	local soundLabel = caption("SoundLabel", "SOUND ON", 328)
 	RunOnly.piece("rail", soundFace.Parent :: GuiObject, true)
@@ -806,7 +836,9 @@ local function buildRightColumn(gui: ScreenGui)
 	local function paintSound()
 		local on = not SoundController.isMuted()
 		soundLabel.Text = if on then "SOUND ON" else "SOUND OFF"
-		note.TextTransparency = if on then 0 else 0.55
+		for _, part in noteParts do
+			part.BackgroundTransparency = if on then 0 else 0.55
+		end
 		soundFace.BackgroundTransparency = if on then 0 else 0.35
 	end
 
