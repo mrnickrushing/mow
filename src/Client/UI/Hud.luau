@@ -355,10 +355,20 @@ local function buildRightColumn(gui: ScreenGui)
 	end
 
 	local book = tile("Journal", 128)
+	--[[
+		Filling the tile, ribbon over the edge and all.
+
+		This was fixed once — the icon was a small drawing centred in a cream
+		square, which reads as a picture of a journal rather than as a journal
+		— and the wave that rebuilt the rail put it back to a little over half.
+		The handoff is explicit about keeping the larger number, and the reason
+		is the same one as the first time: at tile size an object that touches
+		its frame is a thing, and one that floats inside it is a drawing.
+	]]
 	Theme.icon({
 		name = "BookIcon",
 		prop = "Journal",
-		size = UDim2.fromScale(0.55, 0.55),
+		size = UDim2.fromScale(1.02, 1.02),
 		position = UDim2.fromScale(0.5, 0.5),
 		anchor = Vector2.new(0.5, 0.5),
 		parent = book.Parent :: GuiObject,
@@ -392,17 +402,55 @@ local function buildRightColumn(gui: ScreenGui)
 
 	local soundHit = tile("Sound", 246)
 	local soundFace = soundHit.Parent :: Frame
-	local note = Theme.text({
-		name = "Note",
-		text = utf8.char(0x266A),
-		size = UDim2.fromScale(1, 1),
-		position = UDim2.fromScale(0, 0),
-		parent = soundFace,
-		align = Enum.TextXAlignment.Center,
-		color = Theme.colors.outline,
-		textSize = 36,
-	})
-	note.TextYAlignment = Enum.TextYAlignment.Center
+
+	--[[
+		A quaver drawn from three rectangles, not the character U+266A.
+
+		Every other icon on this screen is art the game ships. This one was a
+		glyph, which is drawn by whatever font the player's device resolves and
+		is the exact fault `Props.luau` calls out about typeset symbols — and
+		there is no `Speaker` or `Note` prop to reach for instead. A circle, a
+		bar and a tilted bar is a note on every device there is, and it takes
+		the tile's ink colour like everything else here.
+	]]
+	local note = Instance.new("Frame")
+	note.Name = "Note"
+	note.Size = UDim2.fromScale(0.52, 0.52)
+	note.Position = UDim2.fromScale(0.5, 0.5)
+	note.AnchorPoint = Vector2.new(0.5, 0.5)
+	note.BackgroundTransparency = 1
+	note.Parent = soundFace
+
+	local noteParts: { Frame } = {}
+	local function notePart(name: string, size: UDim2, position: UDim2, radius: number, rotation: number): Frame
+		local part = Instance.new("Frame")
+		part.Name = name
+		part.Size = size
+		part.Position = position
+		part.AnchorPoint = Vector2.new(0.5, 0.5)
+		part.Rotation = rotation
+		part.BackgroundColor3 = Theme.colors.outline
+		part.BorderSizePixel = 0
+		part.Parent = note
+		Theme.corner(part, radius)
+		table.insert(noteParts, part)
+		return part
+	end
+
+	--[[
+		A beamed pair, not a single quaver.
+
+		Two heads under two stems with a bar across their tops, which is what
+		the handoff's mock draws and the shape everything else in the world
+		uses for "sound". One note on its own reads as a note; two joined read
+		as music, and the beam gives the thing a top edge at tile size where a
+		lone flag is three pixels of nothing.
+	]]
+	notePart("HeadLeft", UDim2.fromScale(0.36, 0.27), UDim2.fromScale(0.25, 0.82), 999, -18)
+	notePart("HeadRight", UDim2.fromScale(0.36, 0.27), UDim2.fromScale(0.75, 0.7), 999, -18)
+	notePart("StemLeft", UDim2.fromScale(0.09, 0.72), UDim2.fromScale(0.42, 0.47), 2, 0)
+	notePart("StemRight", UDim2.fromScale(0.09, 0.72), UDim2.fromScale(0.92, 0.35), 2, 0)
+	notePart("Beam", UDim2.fromScale(0.58, 0.15), UDim2.fromScale(0.67, 0.14), 3, -12)
 
 	local soundLabel = caption("SoundLabel", "SOUND ON", 328)
 	RunOnly.piece("rail", soundFace.Parent :: GuiObject, true)
@@ -806,7 +854,9 @@ local function buildRightColumn(gui: ScreenGui)
 	local function paintSound()
 		local on = not SoundController.isMuted()
 		soundLabel.Text = if on then "SOUND ON" else "SOUND OFF"
-		note.TextTransparency = if on then 0 else 0.55
+		for _, part in noteParts do
+			part.BackgroundTransparency = if on then 0 else 0.55
+		end
 		soundFace.BackgroundTransparency = if on then 0 else 0.35
 	end
 
