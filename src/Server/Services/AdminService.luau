@@ -55,6 +55,7 @@ local ADMINS: { [number]: string } = {
 	-- names are a reminder of who, never the thing that is checked.
 	[8772161919] = "zacksigma472",
 	[5481735034] = "Whisk2626",
+	[8311775092] = "Ticklemonster9921",
 }
 
 --- The most one command may hand over. Not a security control — an admin can
