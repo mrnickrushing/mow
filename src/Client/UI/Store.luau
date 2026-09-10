@@ -122,8 +122,7 @@ local function useLayout(small: boolean)
 	ROW_W = COLUMN_W - BAR
 end
 
-local INK = Color3.fromRGB(24, 18, 10)
-local WELL = Color3.fromRGB(58, 44, 30)
+local WELL = Theme.colors.wellDark
 local TILE = Color3.fromRGB(44, 33, 24)
 local PASS_TINT = Color3.fromRGB(199, 155, 240)
 local BOOST_TINT = Color3.fromRGB(127, 198, 245)
@@ -191,7 +190,7 @@ local function well(parent: Instance, key: string, tint: Color3, size: number, p
 	tile.BorderSizePixel = 0
 	tile.Parent = parent
 	Theme.corner(tile, if size > 60 then 14 else 8)
-	Theme.stroke(tile, 3, INK, 0)
+	Theme.stroke(tile, 3, Theme.colors.outline, 0)
 
 	local prop = ICON_FOR[key]
 	if prop then
@@ -244,7 +243,7 @@ local function addRow(
 	row.LayoutOrder = order
 	row.Parent = list
 	Theme.corner(row, 12)
-	Theme.stroke(row, 3, INK, 0)
+	Theme.stroke(row, 3, Theme.colors.outline, 0)
 
 	local tint = if keeps then PASS_TINT else BOOST_TINT
 	well(row, key, tint, WELL_SIZE, UDim2.fromOffset(10, (ROW_H - WELL_SIZE) // 2))
@@ -294,7 +293,7 @@ local function makeList(parent: Instance, x: number, y: number, width: number, h
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
 	list.ScrollBarThickness = BAR
-	list.ScrollBarImageColor3 = INK
+	list.ScrollBarImageColor3 = Theme.colors.outline
 	list.ScrollBarImageTransparency = 0.2
 	list.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
 	list.CanvasSize = UDim2.new()
@@ -422,7 +421,7 @@ local function addFeatured(parent: Instance, order: number?, def: Monetization.P
 	pill.BorderSizePixel = 0
 	pill.Parent = slab
 	Theme.corner(pill, Theme.PILL)
-	Theme.stroke(pill, 2.5, INK, 0)
+	Theme.stroke(pill, 2.5, Theme.colors.outline, 0)
 	Theme.text({
 		name = "Text",
 		text = "MOST POPULAR",
@@ -430,7 +429,7 @@ local function addFeatured(parent: Instance, order: number?, def: Monetization.P
 		position = UDim2.fromScale(0, 0),
 		parent = pill,
 		align = Enum.TextXAlignment.Center,
-		color = INK,
+		color = Theme.colors.outline,
 		textSize = if phone then 11 else 13,
 	})
 
@@ -600,7 +599,7 @@ local function headerChip(parent: Instance, name: string, width: number, x: numb
 	chip.Text = ""
 	chip.Parent = parent
 	Theme.corner(chip, 14)
-	Theme.stroke(chip, 3, INK, 0)
+	Theme.stroke(chip, 3, Theme.colors.outline, 0)
 
 	local diamond = Instance.new("Frame")
 	diamond.Name = "Dot"
@@ -849,7 +848,7 @@ local function build()
 	strip.BorderSizePixel = 0
 	strip.Parent = stage
 	Theme.corner(strip, 16)
-	Theme.stroke(strip, 3, INK, 0)
+	Theme.stroke(strip, 3, Theme.colors.outline, 0)
 
 	Theme.text({
 		name = "Always",
