@@ -156,6 +156,58 @@ local function clear(page: Frame)
 end
 
 --[[
+	Where each page was scrolled to, so a purchase does not send you back to
+	the top of it.
+
+	Buying an upgrade changes a level, a level changes `signature`, and a
+	changed signature tears the spread down and builds it again — which is
+	what the redraw is for and is not going to change. What it must not do is
+	throw the reader's place away with it. The Tools page is three screens of
+	ladders and the buttons that matter are near the bottom of whichever one
+	you are working on, so without this, buying three levels of Blades means
+	scrolling down three times.
+
+	Keyed by tab and page, because opening a different tab genuinely should
+	start at the top, and the two pages of a spread scroll separately.
+]]
+local scrollAt: { [string]: number } = {}
+
+local function scrollKey(page: Frame): string
+	return activeTab .. "/" .. page.Name
+end
+
+--- Remembers where a page's body is, just before it is torn down.
+local function rememberScroll(page: Frame)
+	local scroll = page:FindFirstChild("Body")
+	if scroll and scroll:IsA("ScrollingFrame") then
+		scrollAt[scrollKey(page)] = scroll.CanvasPosition.Y
+	end
+end
+
+--[[
+	Puts it back, once the layout has worked out how tall the page is.
+
+	`AutomaticCanvasSize` fills in on the next layout pass, and a
+	`CanvasPosition` written before that is clamped against a canvas that is
+	still nought pixels tall — which is the same as not restoring it at all.
+]]
+local function restoreScroll(page: Frame)
+	local want = scrollAt[scrollKey(page)]
+	if not want or want <= 0 then
+		return
+	end
+	local scroll = page:FindFirstChild("Body")
+	if not scroll or not scroll:IsA("ScrollingFrame") then
+		return
+	end
+	task.defer(function()
+		if scroll.Parent then
+			scroll.CanvasPosition = Vector2.new(0, want)
+		end
+	end)
+end
+
+--[[
 	The numbers on the open spread that move on their own.
 
 	The server pushes state five times a second, and the book used to redraw
@@ -1725,6 +1777,8 @@ local function render()
 	lastSignature = now
 
 	table.clear(liveBits)
+	rememberScroll(leftPage)
+	rememberScroll(rightPage)
 	clear(leftPage)
 	clear(rightPage)
 
@@ -1740,6 +1794,9 @@ local function render()
 	else
 		renderTips()
 	end
+
+	restoreScroll(leftPage)
+	restoreScroll(rightPage)
 end
 
 --- Re-renders the open spread in place. Cards call this after a selection.

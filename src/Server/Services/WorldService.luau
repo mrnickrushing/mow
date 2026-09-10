@@ -107,13 +107,21 @@ local stationSignal = Instance.new("BindableEvent")
 --- Fires with (player, upgradeId) when someone uses an upgrade station.
 WorldService.StationTried = stationSignal.Event
 
---- The section whose switch raises the garage door.
-local GARAGE_SECTION = "garage"
 --- Courses in one bay, so the tween can stagger by height rather than by index.
 local GARAGE_COURSES_PER_BAY = 6
 type GarageSlat = { part: Part, shut: CFrame, rolled: CFrame }
-local garageSlats: { GarageSlat } = {}
-local garageOpen = false
+--[[
+	Roller doors, by the section whose gate opens them.
+
+	There are two of them on The House and they are not the same door: the
+	pair on the front of the building is the garage seen from the street, and
+	the one across the room's own doorway is the garage seen from the back
+	yard, which is the one you walk through. The switch opens the Garage, so
+	the switch opens both — which is why this is keyed by section rather than
+	being a single list called "the garage door".
+]]
+local shutters: { [string]: { GarageSlat } } = {}
+local shutterOpen: { [string]: boolean } = {}
 
 local switchSignal = Instance.new("BindableEvent")
 --- Fires with (player, sectionId) when someone flips a hidden switch. The
@@ -1958,8 +1966,9 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 	]]
 	local bayWidth, bays = GARAGE_BAY_WIDTH, GARAGE_BAYS
 	-- A freshly built door is a shut door, whatever the last world's was doing.
-	table.clear(garageSlats)
-	garageOpen = false
+	local frontSlats: { GarageSlat } = {}
+	shutters["garage"] = frontSlats
+	shutterOpen["garage"] = false
 	--[[
 		The doors run from the driveway up, not from the plinth up.
 
@@ -2003,7 +2012,7 @@ local function buildHouse(world: Types.WorldDef, parent: Folder)
 				garageHeight - 1.1 - course * 0.62,
 				frontZ - 0.5 - 0.55 - course * 0.22
 			) * CFrame.Angles(math.rad(-16 - course * 3), 0, 0)
-			table.insert(garageSlats, { part = slat, shut = slat.CFrame, rolled = rolled })
+			table.insert(frontSlats, { part = slat, shut = slat.CFrame, rolled = rolled })
 		end
 	end
 	--[[
@@ -3837,6 +3846,58 @@ local function buildSectionStructures(world: Types.WorldDef, parent: Folder)
 					so the opener does not have to reconstruct the frame it
 					was hung in.
 				]]
+				--[[
+					A roller shutter, on the room a switch opens.
+
+					The block below hangs a swinging grille on rooms earned by
+					finishing the one before them, and skipped the Garage on
+					the grounds that "the garage has its shutter". It did not.
+					The shutter it meant is the pair of doors on the front of
+					the house, forty studs away and facing the street; the
+					doorway you actually walk through stood permanently open,
+					so the switch — the one thing in the property you have to
+					go and find — opened a room that was never shut, and did
+					it out of sight of whoever flipped it.
+
+					So the doorway gets a door, built in courses like the ones
+					on the front and rolled by the same code. Both are filed
+					under this section, so one flip lifts both.
+				]]
+				if approach and Worlds.unlockKind(section) == "button" then
+					local slats = shutters[section.id]
+					if not slats then
+						slats = {}
+						shutters[section.id] = slats
+						shutterOpen[section.id] = false
+					end
+					local base = approach.edge + Vector3.new(0, elevation + 0.06, 0)
+					local facing = CFrame.lookAt(base, base + approach.normal)
+					local height = 15
+					local courses = math.max(math.floor(height / 2.6), 1)
+					local courseHeight = height / courses
+					for course = 0, courses - 1 do
+						local shut = facing
+							* CFrame.new(0, courseHeight * (course + 0.5), 0)
+						local slat = Build.mesh({
+							prop = "GarageDoor",
+							name = "GarageShutter",
+							untextured = true,
+							color = Palette.color(Palette.house.garage),
+							size = Vector3.new(DOOR_WIDTH, courseHeight * 0.97, 1.2),
+							collisionSize = Vector3.new(DOOR_WIDTH, courseHeight, 0.9),
+							cframe = shut,
+							parent = parent,
+						})
+						-- Gathered under the lintel in the order they arrive,
+						-- the bottom course travelling furthest, exactly as
+						-- the pair on the front of the house does.
+						local rolled = facing
+							* CFrame.new(0, height - 1.1 - course * 0.62, -0.55 - course * 0.22)
+							* CFrame.Angles(math.rad(-16 - course * 3), 0, 0)
+						table.insert(slats, { part = slat, shut = shut, rolled = rolled })
+					end
+				end
+
 				if approach and Worlds.unlockKind(section) == "completion" then
 					--[[
 						A cellar's gate stands at the head of its steps.
@@ -5348,6 +5409,10 @@ function WorldService.load(worldId: string)
 	-- Keyed by section id, and ids repeat between properties, so last world's
 	-- gates would otherwise be found and raised on this one.
 	table.clear(sectionGates)
+	-- And the roller doors, for the same reason: "garage" names a different
+	-- door on a different property.
+	table.clear(shutters)
+	table.clear(shutterOpen)
 	table.clear(WorldService.buriedTiles)
 
 	-- Before anything is sown or scattered, so the whole property comes out
@@ -6121,12 +6186,13 @@ end
 	a player who flips the switch and walks straight at the opening is not
 	stopped by a slat that has not finished travelling.
 ]]
-local function rollGarage(open: boolean)
-	if #garageSlats == 0 or garageOpen == open then
+local function rollShutter(sectionId: string, open: boolean)
+	local slats = shutters[sectionId]
+	if not slats or #slats == 0 or shutterOpen[sectionId] == open then
 		return
 	end
-	garageOpen = open
-	for index, slat in garageSlats do
+	shutterOpen[sectionId] = open
+	for index, slat in slats do
 		local part = slat.part
 		if not part.Parent then
 			continue
@@ -6145,9 +6211,7 @@ local function rollGarage(open: boolean)
 end
 
 function WorldService.setSectionOpen(sectionId: string, open: boolean)
-	if sectionId == GARAGE_SECTION then
-		rollGarage(open)
-	end
+	rollShutter(sectionId, open)
 	if open then
 		openSections[sectionId] = true
 		--[[

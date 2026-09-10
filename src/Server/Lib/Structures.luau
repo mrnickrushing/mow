@@ -2517,14 +2517,27 @@ function Structures.pool(context: Context, zone: Types.ZoneDef)
 	local halfW, halfD = width * 0.5, depth * 0.5
 	local steel = Color3.fromRGB(196, 200, 208)
 
-	--- The ladder, at the deep end's near corner.
-	local ladderAt = lip + Vector3.new(halfW - 7, 0, halfD)
+	--[[
+		The ladder goes into the water, because that is what a ladder is for.
+
+		Both of these stood on the rim line — the rails seven studs in from the
+		east wall and the plinth a stud inside the west one — and the rim line
+		is the top of a six-stud hole. From the deck it read as a chrome
+		gantry hanging over the deep end and a plank balanced on a box in
+		mid-air, with nothing under either of them, which is exactly what a
+		player photographed and sent back.
+
+		So the rails now run from above the coping down under the surface with
+		rungs between them, and the board stands on the deck *outside* the
+		basin and reaches in over the water from there.
+	]]
+	local ladderAt = lip + Vector3.new(halfW - 7, 0, halfD - 1.4)
 	for _, side in { -1, 1 } do
 		Build.part({
 			name = "PoolRail",
 			shape = Enum.PartType.Cylinder,
-			size = Vector3.new(7, 0.7, 0.7),
-			cframe = CFrame.new(ladderAt + Vector3.new(side * 1.6, 3.4, 0))
+			size = Vector3.new(10, 0.7, 0.7),
+			cframe = CFrame.new(ladderAt + Vector3.new(side * 1.6, 0.6, 0))
 				* CFrame.Angles(0, 0, math.rad(90)),
 			color = steel,
 			material = Enum.Material.Metal,
@@ -2533,23 +2546,50 @@ function Structures.pool(context: Context, zone: Types.ZoneDef)
 			parent = folder,
 		})
 	end
-	Build.part({
-		name = "PoolRailArc",
-		size = Vector3.new(3.9, 0.7, 0.7),
-		cframe = CFrame.new(ladderAt + Vector3.new(0, 6.9, 0)),
-		color = steel,
-		material = Enum.Material.Metal,
-		canCollide = false,
-		castShadow = false,
-		parent = folder,
-	})
+	--- Three rungs, all of them under the surface where they are needed.
+	for step = 1, 3 do
+		Build.part({
+			name = "PoolRung",
+			shape = Enum.PartType.Cylinder,
+			size = Vector3.new(3.2, 0.5, 0.5),
+			cframe = CFrame.new(ladderAt + Vector3.new(0, -0.8 - (step - 1) * 1.4, 0)),
+			color = steel,
+			material = Enum.Material.Metal,
+			canCollide = false,
+			castShadow = false,
+			parent = folder,
+		})
+	end
+	--[[
+		Two handrails that turn out over the deck, not a crossbar between them.
 
-	--- The board, cantilevered out over the shallow end.
-	local boardAt = lip + Vector3.new(-halfW + 2, 0, 0)
+		A straight bar joining the tops made a doorframe standing in the
+		water. A pool ladder's rails bend away over the coping, which is what
+		you hold on the way out, and two of those read as a ladder from any
+		angle.
+	]]
+	for _, side in { -1, 1 } do
+		Build.part({
+			name = "PoolRailTop",
+			shape = Enum.PartType.Cylinder,
+			size = Vector3.new(3.4, 0.7, 0.7),
+			-- Turned a quarter about Y, so the cylinder's own X lies along Z.
+			cframe = CFrame.new(ladderAt + Vector3.new(side * 1.6, 5.6, 1.5))
+				* CFrame.Angles(0, math.rad(90), 0),
+			color = steel,
+			material = Enum.Material.Metal,
+			canCollide = false,
+			castShadow = false,
+			parent = folder,
+		})
+	end
+
+	--- The board: on the deck at the shallow end, cantilevered in over it.
+	local boardAt = lip + Vector3.new(-halfW - rim - 1.4, -0.2, 0)
 	Build.part({
 		name = "DivingPlinth",
 		size = Vector3.new(3, 2.6, 5),
-		cframe = CFrame.new(boardAt + Vector3.new(-1, 1.3, 0)),
+		cframe = CFrame.new(boardAt + Vector3.new(0, 1.3, 0)),
 		color = Palette.color(Palette.ground.stone),
 		material = Enum.Material.Concrete,
 		parent = folder,
@@ -2557,7 +2597,8 @@ function Structures.pool(context: Context, zone: Types.ZoneDef)
 	Build.part({
 		name = "DivingBoard",
 		size = Vector3.new(11, 0.7, 4),
-		cframe = CFrame.new(boardAt + Vector3.new(3.5, 2.8, 0)),
+		-- Sitting on the plinth's top face, not floating a fraction above it.
+		cframe = CFrame.new(boardAt + Vector3.new(4.6, 2.95, 0)),
 		color = Color3.fromRGB(238, 240, 236),
 		material = Enum.Material.SmoothPlastic,
 		canCollide = false,
