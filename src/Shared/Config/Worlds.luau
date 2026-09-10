@@ -412,7 +412,7 @@ local mansion: Types.WorldDef = {
 		{
 			id = "orangery",
 			name = "Orangery",
-			cost = 140,
+			cost = 45,
 			unlock = "cash",
 			requires = "east_terrace",
 			rect = { x = 4, z = 52, w = 31, d = 44 },

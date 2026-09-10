@@ -312,6 +312,9 @@ end
 -- Report
 --------------------------------------------------------------------
 
+--- Worlds that cannot be finished as configured, counted for the exit code.
+local broken = 0
+
 print(string.format("== Run simulation, %d player%s ==", PLAYERS, if PLAYERS == 1 then "" else "s"))
 
 for _, world in Worlds.list do
@@ -339,4 +342,31 @@ for _, world in Worlds.list do
 		)
 	end
 	print(string.format("  finished holding %s, %s banked", Tools.expect(state.toolId).name, Format.cash(state.cash)))
+
+	--[[
+		Say so in the exit code, not only on the screen.
+
+		This has always printed STALLED and returned zero, so nothing could
+		gate on it — and the test that guards gate prices says in its own
+		comment that it is "a ceiling, not a proof... `scripts/simulate.luau`
+		is the thing that can [prove it]". Nothing ran the thing that can. The
+		Mansion shipped with a $140 door in front of a player holding $69.68,
+		the ceiling test passed the whole time, and the only way to find out
+		was to run this by hand and read it.
+	]]
+	if stalled or state.seconds > budget then
+		broken += 1
+	end
+end
+
+--[[
+	The exit code, so something can gate on this.
+
+	A stall or an overrun is a world that cannot be finished as configured,
+	which is the one result here that is not a matter of taste.
+]]
+if broken > 0 then
+	print("")
+	print(string.format("%d world%s cannot be finished as configured", broken, if broken == 1 then "" else "s"))
+	os.exit(1)
 end
