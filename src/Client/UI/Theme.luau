@@ -276,6 +276,34 @@ end
 	already candlelight and the warm things on this property are the
 	landmarks.
 ]]
+--[[
+	Repaint a face that was built by one of the builders, keeping it registered.
+
+	The night pass rewrites every registered gradient from the top and bottom
+	it was *built* with, so a caller that sets `grade.Color` by hand has its
+	change thrown away the next time a churchyard loads — and if it is already
+	night, the hand-set colour arrives undimmed. The hotbar's equipped slot is
+	the first thing that needed to change a face's colour after the fact, and
+	this is the way to do it: tell the register, and it stays a face.
+]]
+function Theme.repaintFace(face: GuiObject, top: Color3, bottom: Color3)
+	local grade = face:FindFirstChildOfClass("UIGradient")
+	if not grade then
+		return
+	end
+	for _, known in faces do
+		if known.grade == grade then
+			known.top = top
+			known.bottom = bottom
+			grade.Color = if nightFall
+				then ColorSequence.new(dim(top, NIGHT_DROP), dim(bottom, NIGHT_DROP))
+				else ColorSequence.new(top, bottom)
+			return
+		end
+	end
+	grade.Color = ColorSequence.new(top, bottom)
+end
+
 function Theme.setNight(on: boolean)
 	if on == nightFall then
 		return

@@ -69,6 +69,30 @@ local MAX_SLOTS = 10
 	a glance on a phone.
 ]]
 local SLOT = 82
+
+--[[
+	The well, on each layout.
+
+	62 of the 82 tile and 46 of the 56. The phone number is the one that
+	matters: at 36 the icon came out 33 pixels, under the 44-point floor
+	`docs/ICONS.md` sets for a picture. 46 at 0.95 fill is 44 exactly, and the
+	tile stays 56 so the touch target does not move.
+]]
+local WELL = 62
+local PHONE_WELL = 46
+
+--[[
+	The two faces a well wears.
+
+	Gold-tinted cream is "this one is in your hand"; plain cream is every
+	other slot. Brightening cream does not read — there is nowhere up to go —
+	so the equipped slot is tinted rather than lit, which is the same signal
+	the store uses. The blue underline still carries most of the load.
+]]
+local WELL_IDLE_TOP = Color3.fromRGB(255, 252, 241)
+local WELL_IDLE_BOTTOM = Color3.fromRGB(237, 225, 200)
+local WELL_LIVE_TOP = Color3.fromRGB(255, 236, 178)
+local WELL_LIVE_BOTTOM = Color3.fromRGB(242, 220, 168)
 --[[
 	Three slots on a phone, and a chip for the rest.
 
@@ -143,16 +167,34 @@ local function buildSlot(order: number): TextButton
 	bevel.Parent = button
 	Theme.corner(bevel, 2)
 
-	local well = Instance.new("Frame")
-	well.Name = "Well"
-	well.Size = UDim2.fromOffset(52, 52)
-	well.Position = UDim2.fromScale(0.5, 0.5)
-	well.AnchorPoint = Vector2.new(0.5, 0.5)
-	well.BackgroundColor3 = Color3.fromRGB(36, 26, 18)
-	well.BorderSizePixel = 0
-	well.Parent = button
-	Theme.corner(well, 11)
-	Theme.stroke(well, 3, Theme.colors.outline, 0)
+	--[[
+		Cream, because the icons are drawn with a heavy dark outline.
+
+		The well was near-black, and every tool icon in `TOOL_ID_ICON` is
+		drawn the way `Props.luau` specifies: flat, one colour, a heavy dark
+		ink contour. That contour is the strongest part of the drawing and it
+		merged straight into the recess, leaving a small mid-tone shape
+		floating in a black square — which is the whole of the "too dark,
+		doesn't look right" complaint. The journal's cards carry the same
+		drawings on cream and read correctly, so this is that treatment
+		rather than a new one.
+
+		Built with `cardFace` rather than by hand: it registers its gradient
+		with `Theme.setNight`, so the wells come down with the rest of the
+		chrome on the churchyard. Ten undimmed cream squares along the bottom
+		edge at midnight is the exact fault that pass exists to prevent.
+	]]
+	local well = Theme.cardFace({
+		name = "Well",
+		size = UDim2.fromOffset(WELL, WELL),
+		position = UDim2.fromScale(0.5, 0.5),
+		anchor = Vector2.new(0.5, 0.5),
+		parent = button,
+		radius = 13,
+		--- No drop: a face set into a tile, not a card lying on one.
+		drop = 0,
+		outline = 3,
+	})
 
 	local number = Instance.new("TextLabel")
 	number.Name = "Number"
@@ -168,7 +210,14 @@ local function buildSlot(order: number): TextButton
 	Theme.icon({
 		name = "Icon",
 		prop = Props.FALLBACK_TOOL_ICON,
-		size = UDim2.fromScale(0.92, 0.92),
+		--[[
+			Nearly the whole well, now the drawing is not fighting its
+			surround. At 0.92 of a 52 well a tool came out 48 pixels in an 82
+			pixel slot; `ICON_PULL_BACK`'s own note says the target is filling
+			the tile almost edge to edge, and the hotbar is the one place that
+			never got it.
+		]]
+		size = UDim2.fromScale(0.95, 0.95),
 		position = UDim2.fromScale(0.5, 0.5),
 		anchor = Vector2.new(0.5, 0.5),
 		parent = well,
@@ -393,11 +442,33 @@ local function refresh()
 			]]
 			local equipped = state.equippedTool == toolId
 			selected.Visible = equipped
-			local well = button:FindFirstChild("Well") :: Frame?
+			--[[
+				Recursive, because the well is a `cardFace` now.
+
+				`chunkPanel` parents the face to a holder it makes, so the
+				thing named `Well` is a grandchild of the button rather than a
+				child — and `FindFirstChild` without the flag only looks one
+				level down. Both call sites below quietly did nothing until
+				this was passed: the tile never resized on a phone and the
+				equipped slot never took its tint.
+			]]
+			local well = button:FindFirstChild("Well", true) :: Frame?
 			if well then
-				well.BackgroundColor3 = if equipped
-					then Color3.fromRGB(64, 48, 32)
-					else Color3.fromRGB(36, 26, 18)
+				--[[
+					Through `repaintFace`, not `BackgroundColor3`.
+
+					`cardFace` paints through a `UIGradient`, so writing the
+					background colour leaves the gradient on top of it and
+					nothing appears to happen — and writing the gradient by
+					hand loses the tint the next time the night pass runs,
+					because that repaints every registered face from the
+					colours it was built with.
+				]]
+				if equipped then
+					Theme.repaintFace(well, WELL_LIVE_TOP, WELL_LIVE_BOTTOM)
+				else
+					Theme.repaintFace(well, WELL_IDLE_TOP, WELL_IDLE_BOTTOM)
+				end
 			end
 
 			local more = button:FindFirstChild("More") :: TextLabel?
@@ -557,12 +628,26 @@ function Hotbar.start()
 			local seat = button.Parent :: Frame
 			seat.Size = UDim2.fromOffset(side, side)
 			Theme.reround(button, if phone then 12 else 18)
-			local well = button:FindFirstChild("Well") :: Frame?
+			--[[
+				Recursive, because the well is a `cardFace` now.
+
+				`chunkPanel` parents the face to a holder it makes, so the
+				thing named `Well` is a grandchild of the button rather than a
+				child — and `FindFirstChild` without the flag only looks one
+				level down. Both call sites below quietly did nothing until
+				this was passed: the tile never resized on a phone and the
+				equipped slot never took its tint.
+			]]
+			local well = button:FindFirstChild("Well", true) :: Frame?
 			if well then
-				well.Size = UDim2.fromOffset(if phone then 36 else 52, if phone then 36 else 52)
+				--- `cardFace` returns the face and makes a holder above it,
+				--- and the holder is what carries the size.
+				local wellSeat = well.Parent :: Frame
+				local wellSide = if phone then PHONE_WELL else WELL
+				wellSeat.Size = UDim2.fromOffset(wellSide, wellSide)
 				local corner = well:FindFirstChildOfClass("UICorner")
 				if corner then
-					corner.CornerRadius = UDim.new(0, if phone then 8 else 11)
+					corner.CornerRadius = UDim.new(0, if phone then 9 else 13)
 				end
 			end
 			local number = button:FindFirstChild("Number") :: TextLabel?
