@@ -25,6 +25,7 @@ local GameConfig = require(Shared.Config.GameConfig)
 local LobbyPad = require(Shared.LobbyPad)
 local Palette = require(Shared.Config.Palette)
 local Remotes = require(Shared.Remotes)
+local Types = require(Shared.Types)
 local Worlds = require(Shared.Config.Worlds)
 local Build = require(script.Parent.Parent.Lib.Build)
 local Trees = require(script.Parent.Parent.Lib.Trees)
@@ -68,7 +69,6 @@ local CENTRE = Vector3.new(-2600, 0, -2600)
 	are, so what falls matches what it fell off.
 ]]
 --- The drawn marquee panel that faces the gate.
-local MARQUEE_IMAGE = "rbxassetid://129115569426351"
 
 local LEAF_TEXTURES = {
 	"rbxassetid://109856879793416",
@@ -117,6 +117,48 @@ local folder: Folder? = nil
 	Each carries its own map, party size and countdown, so two groups in the
 	yard are setting up two runs rather than fighting over one.
 ]]
+--- The pieces of a pad's floating panel, repainted rather than rebuilt.
+export type PadFace = {
+	panel: Frame,
+	drop: Frame,
+	count: TextLabel,
+	call: TextLabel,
+	dots: { Frame },
+	dotRow: Frame,
+	shade: UIGradient,
+}
+
+--- The pieces of a board's painted face. Every state is these, repainted.
+export type BoardFace = {
+	ground: Frame,
+	shade: UIGradient,
+	--- The open-job state: two lines and nothing else.
+	open: Frame,
+	openTitle: TextLabel,
+	openLine: TextLabel,
+	--- The picked state.
+	picked: Frame,
+	swatch: Frame,
+	plate: Frame,
+	icon: Frame,
+	name: TextLabel,
+	chips: Frame,
+	grade: Frame,
+	gradeText: TextLabel,
+	sections: Frame,
+	sectionsText: TextLabel,
+	clock: Frame,
+	clockText: TextLabel,
+	requirement: TextLabel,
+	--- The counting-down state.
+	going: Frame,
+	tick: TextLabel,
+	heading: TextLabel,
+	track: Frame,
+	fill: Frame,
+	aboard: TextLabel,
+}
+
 export type Slot = {
 	index: number,
 	pad: BasePart,
@@ -124,7 +166,8 @@ export type Slot = {
 	--- The white "0/4" over the green invitation, kept apart so each keeps its
 	--- own colour.
 	padCount: TextLabel,
-	boardLabel: TextLabel,
+	padFace: PadFace,
+	boardFace: BoardFace,
 	worldId: string?,
 	cap: number,
 	countdown: number?,
@@ -134,8 +177,9 @@ export type Slot = {
 
 local slots: { Slot } = {}
 local statusLabel: TextLabel? = nil
---- The board over the pads that says how many of you are going.
-local outcomeLabel: TextLabel? = nil
+--- The live band's chip, whose colour is the whole state change.
+local marqueeChip: Frame? = nil
+local marqueeChipText: TextLabel? = nil
 
 --[[
 	The party size the pads were set to, from the settings panel.
@@ -154,35 +198,505 @@ local lastPhase = "lobby"
 -- Building
 --------------------------------------------------------------------
 
+
+
+--------------------------------------------------------------------
+-- In-world signage, in the interface's own language
+--------------------------------------------------------------------
+
 --[[
-	Text in this room lives on surfaces, not on billboards.
+	The rule this section is built to:
 
-	A BillboardGui is drawn at a fixed pixel size however far away it is, so a
-	sign fifty studs behind another sign lands on top of it: the first build of
-	this lobby was four legible words and a pile of overlapping ones. A board is
-	a board — it shrinks with distance, it sits where it was put, and two of
-	them never occupy the same piece of screen.
+		In-world signage is the UI language rendered as paint on timber.
+
+	Same ink outline, same gold, same bevel and drop as the HUD — but on a
+	cream ground rather than the HUD's dark brown, because a dark panel
+	standing in daylight reads as a hole cut in the yard. The outline carries
+	the family resemblance; the ground keeps it outdoors.
+
+	The two exceptions are the pad labels and the marquee's live band, which
+	are dark on purpose: both are read against sky rather than against grass,
+	and both are information rather than signage.
 ]]
-local function surface(part: BasePart, face: Enum.NormalId, scale: number): TextLabel
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = face
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 24
-	gui.LightInfluence = 0
-	gui.Parent = part
+local SIGN_INK = Color3.fromRGB(24, 18, 10)
+local SIGN_GOLD = Color3.fromRGB(255, 206, 74)
+local SIGN_CREAM = Color3.fromRGB(248, 244, 233)
+local SIGN_CREAM_LOW = Color3.fromRGB(230, 223, 200)
+local SIGN_SOFT = Color3.fromRGB(107, 91, 69)
 
+--- What each difficulty is signText, matching `LevelSelect.GRADE` exactly: a
+--- property is the same colour on the board as it is on its card.
+local GRADE: { [string]: { fill: Color3, ink: Color3 } } = {
+	Easy = { fill = Color3.fromRGB(79, 184, 60), ink = Color3.fromRGB(14, 50, 8) },
+	Medium = { fill = Palette.color(Palette.ui.warn), ink = Color3.fromRGB(58, 28, 0) },
+	Hard = { fill = Palette.color(Palette.ui.danger), ink = Color3.fromRGB(255, 240, 238) },
+	Nightmare = { fill = Color3.fromRGB(126, 74, 196), ink = Color3.fromRGB(250, 240, 255) },
+}
+
+--- A run's clock in the units a run is measured in. `Format.clock` is a
+--- stopwatch and prints "02:00:00", which reads as two hours already spent.
+local function clockSpan(seconds: number): string
+	local minutes = math.floor(seconds / 60)
+	local hours = minutes // 60
+	if hours == 0 then
+		return `{minutes}m`
+	elseif minutes % 60 == 0 then
+		return `{hours}h`
+	end
+	return `{hours}h {minutes % 60}m`
+end
+
+local function corner(parent: Instance, radius: number)
+	local round = Instance.new("UICorner")
+	round.CornerRadius = UDim.new(0, radius)
+	round.Parent = parent
+end
+
+local function inkEdge(parent: Instance, thickness: number, colour: Color3?)
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = thickness
+	stroke.Color = colour or SIGN_INK
+	stroke.Parent = parent
+end
+
+--- The bar of white inside a top inkEdge, which is what makes a flat rectangle
+--- read as something moulded.
+local function bevel(parent: GuiObject, inset: number, alpha: number)
+	local gleam = Instance.new("Frame")
+	gleam.Name = "Gleam"
+	gleam.Size = UDim2.new(1, -inset * 2, 0, math.max(inset, 4))
+	gleam.Position = UDim2.fromOffset(inset, inset)
+	gleam.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	gleam.BackgroundTransparency = 1 - alpha
+	gleam.BorderSizePixel = 0
+	gleam.ZIndex = parent.ZIndex
+	gleam.Parent = parent
+	corner(gleam, 3)
+end
+
+local function signText(
+	parent: Instance,
+	name: string,
+	text: string,
+	size: UDim2,
+	position: UDim2,
+	px: number,
+	colour: Color3,
+	align: Enum.TextXAlignment
+): TextLabel
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(0.92, scale)
-	label.Position = UDim2.fromScale(0.04, (1 - scale) * 0.5)
+	label.Name = name
+	label.Text = text
+	label.Size = size
+	label.Position = position
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.GothamBold
-	label.TextScaled = true
-	label.TextColor3 = Color3.fromRGB(255, 255, 255)
-	label.Text = ""
-	label.Parent = gui
+	label.Font = Enum.Font.FredokaOne
+	label.TextSize = px
+	label.TextColor3 = colour
+	label.TextXAlignment = align
+	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.ZIndex = 3
+	label.Parent = parent
 	return label
 end
 
+--- A chip: a small hard-edged pill with a number or a word on it.
+local function signChip(parent: Instance, name: string, order: number, fill: Color3): (Frame, TextLabel)
+	local box = Instance.new("Frame")
+	box.Name = name
+	box.Size = UDim2.fromOffset(10, 40)
+	box.AutomaticSize = Enum.AutomaticSize.X
+	box.BackgroundColor3 = fill
+	box.BorderSizePixel = 0
+	box.LayoutOrder = order
+	box.ZIndex = 3
+	box.Parent = parent
+	corner(box, 8)
+	inkEdge(box, 5)
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 14)
+	pad.PaddingRight = UDim.new(0, 14)
+	pad.Parent = box
+
+	local text = signText(box, "Text", "", UDim2.fromOffset(10, 40), UDim2.new(), 24,
+		SIGN_INK, Enum.TextXAlignment.Center)
+	text.AutomaticSize = Enum.AutomaticSize.X
+	return box, text
+end
+
+--[[
+	A game board's face: every state it can show, built once and repainted.
+
+	Four states — open, picked, locked, counting down — and the seven-piece
+	carpentry underneath is untouched. A board that reads identically whether
+	nothing is happening or a run leaves in four seconds is the thing this
+	fixes: one board in the row turning gold is visible from anywhere in the
+	yard.
+]]
+local function buildBoardFace(board: BasePart): BoardFace
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Face"
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 24
+	gui.LightInfluence = 0
+	gui.Parent = board
+
+	local ground = Instance.new("Frame")
+	ground.Name = "Ground"
+	ground.Size = UDim2.fromScale(1, 1)
+	ground.BackgroundColor3 = SIGN_CREAM
+	ground.BorderSizePixel = 0
+	ground.ClipsDescendants = true
+	ground.Parent = gui
+	corner(ground, 8)
+	inkEdge(ground, 9)
+	bevel(ground, 7, 0.6)
+
+	local shade = Instance.new("UIGradient")
+	shade.Rotation = 90
+	shade.Color = ColorSequence.new(SIGN_CREAM, SIGN_CREAM_LOW)
+	shade.Parent = ground
+
+	----------------------------------------------------------------
+	-- a. Open job
+	----------------------------------------------------------------
+	local open = Instance.new("Frame")
+	open.Name = "Open"
+	open.Size = UDim2.fromScale(1, 1)
+	open.BackgroundTransparency = 1
+	open.ZIndex = 2
+	open.Parent = ground
+
+	local openTitle = signText(open, "Title", "OPEN JOB", UDim2.new(1, 0, 0, 62),
+		UDim2.fromScale(0.5, 0.38), 56, SIGN_GOLD, Enum.TextXAlignment.Center)
+	openTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+	local titleEdge = Instance.new("UIStroke")
+	titleEdge.Thickness = 4
+	titleEdge.Color = SIGN_INK
+	titleEdge.Parent = openTitle
+
+	local openLine = signText(open, "Line", "STAND ON THE PAD TO SET IT UP",
+		UDim2.new(1, 0, 0, 32), UDim2.fromScale(0.5, 0.66), 26, SIGN_SOFT,
+		Enum.TextXAlignment.Center)
+	openLine.AnchorPoint = Vector2.new(0.5, 0.5)
+
+	----------------------------------------------------------------
+	-- b/c. A property picked, or one you have not earned
+	----------------------------------------------------------------
+	local picked = Instance.new("Frame")
+	picked.Name = "Picked"
+	picked.Size = UDim2.fromScale(1, 1)
+	picked.BackgroundTransparency = 1
+	picked.Visible = false
+	picked.ZIndex = 2
+	picked.Parent = ground
+
+	--- The world's own colour down the left, with its icon on a plate: which
+	--- property this is, before any of the words are read.
+	local swatch = Instance.new("Frame")
+	swatch.Name = "Swatch"
+	swatch.Size = UDim2.new(0, 150, 1, 0)
+	swatch.BackgroundColor3 = Color3.fromRGB(120, 160, 80)
+	swatch.BorderSizePixel = 0
+	swatch.ZIndex = 2
+	swatch.Parent = picked
+
+	local swatchEdge = Instance.new("Frame")
+	swatchEdge.Name = "Edge"
+	swatchEdge.Size = UDim2.new(0, 8, 1, 0)
+	swatchEdge.Position = UDim2.new(1, -8, 0, 0)
+	swatchEdge.BackgroundColor3 = SIGN_INK
+	swatchEdge.BorderSizePixel = 0
+	swatchEdge.ZIndex = 3
+	swatchEdge.Parent = swatch
+
+	local plate = Instance.new("Frame")
+	plate.Name = "Plate"
+	plate.Size = UDim2.fromOffset(74, 74)
+	plate.Position = UDim2.fromScale(0.46, 0.5)
+	plate.AnchorPoint = Vector2.new(0.5, 0.5)
+	plate.BackgroundColor3 = SIGN_CREAM
+	plate.BorderSizePixel = 0
+	plate.ZIndex = 3
+	plate.Parent = swatch
+	corner(plate, 18)
+	inkEdge(plate, 7)
+
+	--- A mark rather than a picture: the tool icons are 2D art the client
+	--- reaches through `Theme`, and a SurfaceGui in the lobby has no Theme.
+	local icon = Instance.new("Frame")
+	icon.Name = "Mark"
+	icon.Size = UDim2.fromOffset(30, 30)
+	icon.Position = UDim2.fromScale(0.5, 0.5)
+	icon.AnchorPoint = Vector2.new(0.5, 0.5)
+	icon.Rotation = 45
+	icon.BackgroundColor3 = SIGN_INK
+	icon.BorderSizePixel = 0
+	icon.ZIndex = 4
+	icon.Parent = plate
+	corner(icon, 5)
+
+	local facts = Instance.new("Frame")
+	facts.Name = "Facts"
+	facts.Size = UDim2.new(1, -150, 1, 0)
+	facts.Position = UDim2.fromOffset(150, 0)
+	facts.BackgroundTransparency = 1
+	facts.ZIndex = 2
+	facts.Parent = picked
+	local factsPad = Instance.new("UIPadding")
+	factsPad.PaddingTop = UDim.new(0, 18)
+	factsPad.PaddingBottom = UDim.new(0, 18)
+	factsPad.PaddingLeft = UDim.new(0, 20)
+	factsPad.PaddingRight = UDim.new(0, 20)
+	factsPad.Parent = facts
+
+	local name = signText(facts, "Title", "", UDim2.new(1, 0, 0, 52), UDim2.new(), 46,
+		Color3.fromRGB(46, 38, 32), Enum.TextXAlignment.Left)
+	name.TextTruncate = Enum.TextTruncate.AtEnd
+
+	local chips = Instance.new("Frame")
+	chips.Name = "Chips"
+	chips.Size = UDim2.new(1, 0, 0, 40)
+	chips.Position = UDim2.fromOffset(0, 62)
+	chips.BackgroundTransparency = 1
+	chips.ZIndex = 2
+	chips.Parent = facts
+	local chipFlow = Instance.new("UIListLayout")
+	chipFlow.FillDirection = Enum.FillDirection.Horizontal
+	chipFlow.VerticalAlignment = Enum.VerticalAlignment.Center
+	chipFlow.SortOrder = Enum.SortOrder.LayoutOrder
+	chipFlow.Padding = UDim.new(0, 10)
+	chipFlow.Parent = chips
+
+	local grade, gradeText = signChip(chips, "Grade", 1, Color3.fromRGB(79, 184, 60))
+	local sections, sectionsText = signChip(chips, "Sections", 2, SIGN_INK)
+	sectionsText.TextColor3 = SIGN_GOLD
+	--[[
+		The clock chip is the important one.
+
+		A board that names a property without saying how long it takes is
+		asking somebody to commit two to three and a half hours on flavour
+		alone. No cash figure goes here: there is no per-run payout in config,
+		and the multiplier is already on the card.
+	]]
+	local clock, clockText = signChip(chips, "Clock", 3, SIGN_INK)
+	clockText.TextColor3 = Color3.fromRGB(168, 237, 140)
+
+	--- The locked state says what opens it, in place of the chips.
+	local requirement = signText(facts, "Requirement", "", UDim2.new(1, 0, 0, 32),
+		UDim2.fromOffset(0, 66), 26, Color3.fromRGB(122, 110, 92), Enum.TextXAlignment.Left)
+	requirement.Visible = false
+
+	----------------------------------------------------------------
+	-- d. Counting down — the state that earns this whole pass
+	----------------------------------------------------------------
+	local going = Instance.new("Frame")
+	going.Name = "Going"
+	going.Size = UDim2.fromScale(1, 1)
+	going.BackgroundTransparency = 1
+	going.Visible = false
+	going.ZIndex = 2
+	going.Parent = ground
+	local goingPad = Instance.new("UIPadding")
+	goingPad.PaddingLeft = UDim.new(0, 26)
+	goingPad.PaddingRight = UDim.new(0, 26)
+	goingPad.Parent = going
+
+	local tickBox = Instance.new("Frame")
+	tickBox.Name = "Clock"
+	tickBox.Size = UDim2.fromOffset(118, 118)
+	tickBox.Position = UDim2.fromScale(0, 0.5)
+	tickBox.AnchorPoint = Vector2.new(0, 0.5)
+	tickBox.BackgroundColor3 = SIGN_INK
+	tickBox.BorderSizePixel = 0
+	tickBox.ZIndex = 3
+	tickBox.Parent = going
+	corner(tickBox, 26)
+
+	local tick = signText(tickBox, "Text", "6", UDim2.fromScale(1, 1), UDim2.new(), 78,
+		SIGN_GOLD, Enum.TextXAlignment.Center)
+
+	local column = Instance.new("Frame")
+	column.Name = "Column"
+	column.Size = UDim2.new(1, -142, 0, 138)
+	column.Position = UDim2.new(0, 142, 0.5, 0)
+	column.AnchorPoint = Vector2.new(0, 0.5)
+	column.BackgroundTransparency = 1
+	column.ZIndex = 3
+	column.Parent = going
+
+	--[[
+		"HEADING TO" small, the property's name large.
+
+		One line reading `HEADING TO THE HOUSE` at forty points is four
+		hundred and forty pixels in a column three hundred and eighty wide,
+		and it ellipsised to `HEADING TO THE…` — which names the one thing on
+		the board a player across the yard actually needs. The preposition is
+		the part that can afford to be small.
+	]]
+	signText(column, "Eyebrow", "HEADING TO", UDim2.new(1, 0, 0, 24), UDim2.new(), 22,
+		Color3.fromRGB(122, 96, 44), Enum.TextXAlignment.Left)
+
+	local heading = signText(column, "Heading", "", UDim2.new(1, 0, 0, 46),
+		UDim2.fromOffset(0, 22), 40, Color3.fromRGB(58, 46, 30), Enum.TextXAlignment.Left)
+	heading.TextTruncate = Enum.TextTruncate.AtEnd
+
+	local track = Instance.new("Frame")
+	track.Name = "Track"
+	track.Size = UDim2.new(1, 0, 0, 28)
+	track.Position = UDim2.fromOffset(0, 72)
+	track.BackgroundColor3 = SIGN_INK
+	track.BorderSizePixel = 0
+	track.ClipsDescendants = true
+	track.ZIndex = 3
+	track.Parent = column
+	corner(track, 14)
+
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.Size = UDim2.fromScale(0, 1)
+	fill.BackgroundColor3 = Color3.fromRGB(168, 237, 140)
+	fill.BorderSizePixel = 0
+	fill.ZIndex = 4
+	fill.Parent = track
+	corner(fill, 14)
+	local fillShade = Instance.new("UIGradient")
+	fillShade.Rotation = 90
+	fillShade.Color =
+		ColorSequence.new(Color3.fromRGB(168, 237, 140), Color3.fromRGB(95, 194, 70))
+	fillShade.Parent = fill
+
+	local aboard = signText(column, "Aboard", "", UDim2.new(1, 0, 0, 30),
+		UDim2.fromOffset(0, 108), 24, SIGN_SOFT, Enum.TextXAlignment.Left)
+
+	return {
+		ground = ground,
+		shade = shade,
+		open = open,
+		openTitle = openTitle,
+		openLine = openLine,
+		picked = picked,
+		swatch = swatch,
+		plate = plate,
+		icon = icon,
+		name = name,
+		chips = chips,
+		grade = grade,
+		gradeText = gradeText,
+		sections = sections,
+		sectionsText = sectionsText,
+		clock = clock,
+		clockText = clockText,
+		requirement = requirement,
+		going = going,
+		tick = tick,
+		heading = heading,
+		track = track,
+		fill = fill,
+		aboard = aboard,
+	}
+end
+
+--[[
+	A pad's floating panel — the HUD's own panel, at billboard scale.
+
+	Dark rather than cream, because this one is read against sky. The dots are
+	the point: a player crossing the yard is comparing four pads for room, and
+	a shape compares faster than a fraction. The count stays for the exact
+	number; the dots answer the question actually being asked.
+]]
+local function buildPadFace(billboard: BillboardGui, seats: number): PadFace
+	local drop = Instance.new("Frame")
+	drop.Name = "Drop"
+	drop.Size = UDim2.fromScale(1, 1)
+	drop.Position = UDim2.fromScale(0, 0.045)
+	drop.BackgroundColor3 = SIGN_INK
+	drop.BorderSizePixel = 0
+	drop.ZIndex = 1
+	drop.Parent = billboard
+	corner(drop, 22)
+
+	local panel = Instance.new("Frame")
+	panel.Name = "Panel"
+	panel.Size = UDim2.fromScale(1, 1)
+	panel.BackgroundColor3 = Color3.fromRGB(62, 46, 32)
+	panel.BorderSizePixel = 0
+	panel.ZIndex = 2
+	panel.Parent = billboard
+	corner(panel, 22)
+	inkEdge(panel, 6)
+	bevel(panel, 4, 0.14)
+
+	local shade = Instance.new("UIGradient")
+	shade.Rotation = 90
+	shade.Color =
+		ColorSequence.new(Color3.fromRGB(62, 46, 32), Color3.fromRGB(38, 28, 20))
+	shade.Parent = panel
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, 16)
+	pad.PaddingBottom = UDim.new(0, 18)
+	pad.PaddingLeft = UDim.new(0, 20)
+	pad.PaddingRight = UDim.new(0, 20)
+	pad.Parent = panel
+
+	local count = signText(panel, "Count", "0 / 4", UDim2.fromScale(1, 0.42), UDim2.new(), 44,
+		Color3.fromRGB(255, 255, 255), Enum.TextXAlignment.Center)
+	count.TextScaled = true
+	local countEdge = Instance.new("UIStroke")
+	countEdge.Thickness = 3
+	countEdge.Color = SIGN_INK
+	countEdge.Parent = count
+
+	--- One square per seat, filled as people arrive.
+	local dotRow = Instance.new("Frame")
+	dotRow.Name = "Dots"
+	dotRow.Size = UDim2.fromScale(1, 0.26)
+	dotRow.Position = UDim2.fromScale(0, 0.42)
+	dotRow.BackgroundTransparency = 1
+	dotRow.Visible = false
+	dotRow.ZIndex = 3
+	dotRow.Parent = panel
+	local dotFlow = Instance.new("UIListLayout")
+	dotFlow.FillDirection = Enum.FillDirection.Horizontal
+	dotFlow.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	dotFlow.VerticalAlignment = Enum.VerticalAlignment.Center
+	dotFlow.SortOrder = Enum.SortOrder.LayoutOrder
+	dotFlow.Padding = UDim.new(0, 8)
+	dotFlow.Parent = dotRow
+
+	local dots: { Frame } = {}
+	for seat = 1, seats do
+		local dot = Instance.new("Frame")
+		dot.Name = `Seat{seat}`
+		dot.Size = UDim2.fromScale(0.14, 1)
+		dot.SizeConstraint = Enum.SizeConstraint.RelativeXX
+		dot.BackgroundColor3 = Color3.fromRGB(30, 22, 16)
+		dot.BorderSizePixel = 0
+		dot.LayoutOrder = seat
+		dot.ZIndex = 3
+		dot.Parent = dotRow
+		corner(dot, 8)
+		inkEdge(dot, 4)
+		dots[seat] = dot
+	end
+
+	local call = signText(panel, "Call", "Set up a game!", UDim2.fromScale(1, 0.32),
+		UDim2.fromScale(0, 0.68), 26, Color3.fromRGB(126, 226, 108), Enum.TextXAlignment.Center)
+	call.TextScaled = true
+
+	return {
+		panel = panel,
+		drop = drop,
+		count = count,
+		call = call,
+		dots = dots,
+		dotRow = dotRow,
+		shade = shade,
+	}
+end
 
 --[[
 	A pad you stand on, drawn as a glowing outline rather than a slab.
@@ -432,9 +946,16 @@ local function build()
 			than a sign in the sky.
 		]]
 		local floating = Build.billboard(padPart, UDim2.fromScale(11, 4.6), 2.8, 260)
-		local padCount = Build.label(floating, "", UDim2.fromScale(1, 0.42), UDim2.fromScale(0, 0), 1.7)
-		local padLabel = Build.label(floating, "", UDim2.fromScale(1, 0.58), UDim2.fromScale(0, 0.42), 2.2)
-		padLabel.TextColor3 = Color3.fromRGB(126, 232, 106)
+		--[[
+			Wrapped in a panel, rather than standing bare against the sky.
+
+			Two labels floating in the air beside a HUD made of bevelled
+			panels is the tell this whole pass is about. The size, the lift
+			and the max distance are the ones already worked out and are
+			unchanged; what is new is the thing they are printed on.
+		]]
+		local padFace = buildPadFace(floating, GAME_SLOTS)
+		local padCount, padLabel = padFace.count, padFace.call
 
 		-- The board behind it, at head height and low enough that four of them
 		-- in a row do not wall the yard off from its own marquee.
@@ -493,7 +1014,7 @@ local function build()
 			Build.part({
 				name = "BoardLeg",
 				size = Vector3.new(2.8, 7.4, 2.8),
-				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 11.6, 3.7, -9.6 + PAD_ROW_Z)),
+				cframe = CFrame.new(CENTRE + Vector3.new(x + side * 10.0, 3.7, -9.6 + PAD_ROW_Z)),
 				color = WOOD,
 				material = Enum.Material.WoodPlanks,
 				parent = root,
@@ -503,7 +1024,21 @@ local function build()
 		-- The dark backing the panel sits on, which gives the face its edge.
 		Build.part({
 			name = `GameBoardFrame{index}`,
-			size = Vector3.new(29.2, 11.4, 0.9),
+			--[[
+				Narrow enough that four of them are four boards.
+
+				At 29.2 wide on `LobbyPad.SPACING = 32` there were 2.8 studs of
+				daylight between neighbours, and from spawn — a hundred and
+				eight studs down the yard — the row subtended one continuous
+				hoarding across the back fence. That is why the marquee behind
+				it had to be lifted to eighteen studs to be seen at all, and
+				why this file carries three separate notes about signs hiding
+				each other. At 25.6 the gap is 8.0 and they read as four.
+
+				The face loses 26% of its area and nothing on it gets smaller:
+				every type size on the board was set against this width.
+			]]
+			size = Vector3.new(25.6, 10.6, 0.9),
 			cframe = facing(CENTRE + Vector3.new(x, 12, -9.9 + PAD_ROW_Z)),
 			color = Color3.fromRGB(74, 52, 34),
 			material = Enum.Material.WoodPlanks,
@@ -512,7 +1047,7 @@ local function build()
 
 		local board = Build.part({
 			name = `GameBoard{index}`,
-			size = Vector3.new(27.4, 9.4, 0.55),
+			size = Vector3.new(24.0, 8.8, 0.55),
 			--[[
 				High enough to clear the count floating over its own pad.
 
@@ -531,7 +1066,7 @@ local function build()
 		for _, rail in { { 5.1, 1.5 }, { -5.1, 1.5 } } do
 			Build.part({
 				name = "BoardRail",
-				size = Vector3.new(29.6, rail[2], 1.1),
+				size = Vector3.new(26.0, rail[2], 1.1),
 				cframe = facing(CENTRE + Vector3.new(x, 12 + rail[1], -9.9 + PAD_ROW_Z))
 					* CFrame.new(0, 0, -0.5),
 				color = RAIL,
@@ -545,25 +1080,8 @@ local function build()
 			pad = padPart,
 			padLabel = padLabel,
 			padCount = padCount,
-			boardLabel = (function(): TextLabel
-				--[[
-					Dark writing on a pale board.
-
-					`surface` paints white, which is right for the teal
-					marquee it was written for and wrong on cream: the four
-					map boards had white text on an almost-white panel and
-					read as blank planks with a smudge on them from any
-					distance at all. The reference's are near-black on white,
-					which is why you can read them across the yard.
-				]]
-				local label = surface(board, Enum.NormalId.Front, 0.8)
-				label.TextColor3 = Color3.fromRGB(48, 40, 34)
-				local stroke = label:FindFirstChildOfClass("UIStroke")
-				if stroke then
-					stroke:Destroy()
-				end
-				return label
-			end)(),
+			padFace = padFace,
+			boardFace = buildBoardFace(board),
 			worldId = nil,
 			cap = GAME_SLOTS,
 			countdown = nil,
@@ -771,33 +1289,81 @@ local function build()
 	})
 
 	--[[
-		A painted sign, not a coloured slab.
+		Background only, and built rather than drawn.
 
-		This was a flat teal rectangle with two lines of white type laid over
-		it — the largest single object in the room and the least made thing
-		in it. The board carries a drawn panel now: planks with a grain, a
-		routed border in wood and gold, the title cut into it with a shadow
-		and a highlight, a push mower at one end and fallen leaves at the
-		other. The line that changes still prints on top, in the clear band
-		the drawing leaves for it.
+		The board carried an uploaded panel with the title baked into it and a
+		clear band reserved for two printed lines. That made the largest
+		object in the game the one thing in it that could not be re-worded,
+		recoloured or restyled without redrawing an asset — and everything
+		readable on it now is an instance, so the artwork underneath has
+		nothing left to say. Cream planks, a routed border in gold between two
+		ink lines, and a bevel: the same carpentry as the four boards below
+		it, at seventy-eight studs.
 	]]
-	local marquee = Instance.new("SurfaceGui")
-	marquee.Name = "Painted"
-	marquee.Face = Enum.NormalId.Front
-	marquee.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	marquee.PixelsPerStud = 24
-	marquee.LightInfluence = 0
-	marquee.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	marquee.Parent = statusPost
+	local backing = Instance.new("SurfaceGui")
+	backing.Name = "Painted"
+	backing.Face = Enum.NormalId.Front
+	backing.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	backing.PixelsPerStud = 24
+	backing.LightInfluence = 0
+	backing.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	backing.Parent = statusPost
 
-	local painted = Instance.new("ImageLabel")
-	painted.Name = "Panel"
-	painted.Size = UDim2.fromScale(1, 1)
-	painted.BackgroundTransparency = 1
-	painted.Image = MARQUEE_IMAGE
-	painted.ScaleType = Enum.ScaleType.Stretch
-	painted.ZIndex = 0
-	painted.Parent = marquee
+	local panel = Instance.new("Frame")
+	panel.Name = "Panel"
+	panel.Size = UDim2.fromScale(1, 1)
+	panel.BackgroundColor3 = SIGN_CREAM
+	panel.BorderSizePixel = 0
+	panel.ZIndex = 0
+	panel.Parent = backing
+	corner(panel, 10)
+	inkEdge(panel, 14)
+	bevel(panel, 10, 0.5)
+	local panelShade = Instance.new("UIGradient")
+	panelShade.Rotation = 90
+	panelShade.Color =
+		ColorSequence.new(Color3.fromRGB(248, 239, 214), Color3.fromRGB(232, 217, 180))
+	panelShade.Parent = panel
+
+	--- The grain: two-pixel lines down the planks at a very low contrast,
+	--- which is the difference between timber and a cream rectangle.
+	for line = 1, 16 do
+		local grain = Instance.new("Frame")
+		grain.Name = `Grain{line}`
+		grain.Size = UDim2.new(1, -36, 0, 2)
+		grain.Position = UDim2.fromOffset(18, line * 26)
+		grain.BackgroundColor3 = Color3.fromRGB(120, 92, 52)
+		grain.BackgroundTransparency = 0.91
+		grain.BorderSizePixel = 0
+		grain.ZIndex = 0
+		grain.Parent = panel
+	end
+
+	--- The routed border: gold between two ink lines, inset from the edge.
+	local routed = Instance.new("Frame")
+	routed.Name = "Routed"
+	routed.Size = UDim2.new(1, -36, 1, -36)
+	routed.Position = UDim2.fromOffset(18, 18)
+	routed.BackgroundTransparency = 1
+	routed.ZIndex = 0
+	routed.Parent = panel
+	corner(routed, 6)
+	local routedGold = Instance.new("UIStroke")
+	routedGold.Thickness = 8
+	routedGold.Color = Color3.fromRGB(200, 138, 36)
+	routedGold.Parent = routed
+
+	for _, ring in { { -4, 4 }, { 8, -4 } } do
+		local rule = Instance.new("Frame")
+		rule.Name = "Rule"
+		rule.Size = UDim2.new(1, -36 + ring[1] * 2, 1, -36 + ring[1] * 2)
+		rule.Position = UDim2.fromOffset(18 - ring[1], 18 - ring[1])
+		rule.BackgroundTransparency = 1
+		rule.ZIndex = 0
+		rule.Parent = panel
+		corner(rule, 6)
+		inkEdge(rule, 4)
+	end
 
 	--[[
 		The posts that hold the marquee up, standing under the marquee.
@@ -818,36 +1384,168 @@ local function build()
 		})
 	end
 	--[[
-		The board's top line, and what it says when there is no news.
+		The masthead, as instances rather than as artwork.
 
-		It only ever carried the result of the run you just came back from,
-		which meant that on the one view every player is guaranteed to see —
-		the first time they arrive, before they have played anything — the
-		largest object in the game was a hundred and twenty studs of blank
-		board with one line of instruction pushed into its bottom half. It
-		reads as the game's masthead until there is an outcome to report.
+		The panel image baked the title in and reserved a clear band for two
+		printed lines, which meant the largest object in the game could not be
+		restyled, re-worded or re-coloured without redrawing an asset — and
+		that the first view every player is guaranteed to see, before they
+		have played anything, was a hundred and twenty studs of board with one
+		line of instruction pushed into its bottom half.
+
+		Everything readable is built here now. The image behind it carries the
+		planks and the routed border and nothing else.
 	]]
+	local marquee = Instance.new("SurfaceGui")
+	marquee.Name = "Marquee"
+	marquee.Face = Enum.NormalId.Front
+	marquee.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	marquee.PixelsPerStud = 24
+	marquee.LightInfluence = 0
+	marquee.Parent = statusPost
+
+	local lockup = Instance.new("Frame")
+	lockup.Name = "Lockup"
+	lockup.Size = UDim2.new(1, -88, 0, 200)
+	lockup.Position = UDim2.fromOffset(44, 44)
+	lockup.BackgroundTransparency = 1
+	lockup.Parent = marquee
+
+	--- A mark, standing in for the branding asset until there is one: the
+	--- same gold-on-green diamond the boards and the HUD use.
+	local mark = Instance.new("Frame")
+	mark.Name = "Mark"
+	mark.Size = UDim2.fromOffset(196, 196)
+	mark.BackgroundColor3 = Color3.fromRGB(143, 224, 124)
+	mark.BorderSizePixel = 0
+	mark.Parent = lockup
+	corner(mark, 28)
+	inkEdge(mark, 8)
+	bevel(mark, 8, 0.35)
+	local markShade = Instance.new("UIGradient")
+	markShade.Rotation = 90
+	markShade.Color =
+		ColorSequence.new(Color3.fromRGB(143, 224, 124), Color3.fromRGB(63, 158, 46))
+	markShade.Parent = mark
+
+	local markDiamond = Instance.new("Frame")
+	markDiamond.Name = "Diamond"
+	markDiamond.Size = UDim2.fromOffset(96, 96)
+	markDiamond.Position = UDim2.fromScale(0.5, 0.5)
+	markDiamond.AnchorPoint = Vector2.new(0.5, 0.5)
+	markDiamond.Rotation = 45
+	markDiamond.BackgroundColor3 = SIGN_INK
+	markDiamond.BorderSizePixel = 0
+	markDiamond.ZIndex = 2
+	markDiamond.Parent = mark
+	corner(markDiamond, 10)
+
+	local words = Instance.new("Frame")
+	words.Name = "Words"
+	words.Size = UDim2.new(1, -236, 1, 0)
+	words.Position = UDim2.fromOffset(236, 0)
+	words.BackgroundTransparency = 1
+	words.Parent = lockup
+
 	--[[
-		Both lines live in the painted panel's clear band.
+		Two weights, because the joke is in the second half.
 
-		The title is painted on now, so the outcome line no longer doubles as
-		the masthead — it says nothing until there is something to say, and
-		the panel carries the name in the meantime. Dark ink, because the
-		board is cream: `surface` paints white for the teal it used to be.
+		`MOW MONEY` is the promise and `MOW PROBLEMS!` is the punchline, and
+		printing them at one size makes the whole thing a label. The heavy ink
+		outline is what carries it a hundred and thirty studs down the yard.
 	]]
-	outcomeLabel = surface(statusPost, Enum.NormalId.Front, 0.22)
-	local outcome = outcomeLabel :: TextLabel
-	outcome.Position = UDim2.fromScale(0.04, 0.545)
-	outcome.TextColor3 = Color3.fromRGB(150, 92, 30)
-	outcome.ZIndex = 2
-	outcome.Text = ""
+	local title = signText(words, "Title", "MOW MONEY", UDim2.new(1, 0, 0, 112),
+		UDim2.new(), 104, Color3.fromRGB(255, 246, 226), Enum.TextXAlignment.Left)
+	local titleEdge = Instance.new("UIStroke")
+	titleEdge.Thickness = 7
+	titleEdge.Color = SIGN_INK
+	titleEdge.Parent = title
 
-	statusLabel = surface(statusPost, Enum.NormalId.Front, 0.20)
-	local status = statusLabel :: TextLabel
-	status.Position = UDim2.fromScale(0.04, 0.755)
-	status.TextColor3 = Color3.fromRGB(70, 56, 40)
-	status.ZIndex = 2
-	status.Text = "Stand on a pad and pick a property"
+	local punch = signText(words, "Punchline", "MOW PROBLEMS!", UDim2.new(1, 0, 0, 70),
+		UDim2.fromOffset(0, 112), 60, SIGN_GOLD, Enum.TextXAlignment.Left)
+	local punchEdge = Instance.new("UIStroke")
+	punchEdge.Thickness = 5
+	punchEdge.Color = SIGN_INK
+	punchEdge.Parent = punch
+
+	--[[
+		The live band: one dark pill, and a chip that is the only thing on it
+		that changes colour.
+
+		It was two labels at two heights sharing the cream band, printing an
+		outcome and an instruction that had nothing to do with each other. One
+		sentence and one chip is readable across the yard because the chip's
+		colour does the work before any of the words are read — green while
+		there is nothing to report, gold when there is.
+	]]
+	local band = Instance.new("Frame")
+	band.Name = "Live"
+	band.Size = UDim2.new(1, -120, 0, 96)
+	band.Position = UDim2.new(0, 60, 1, -134)
+	band.BackgroundColor3 = SIGN_INK
+	band.BorderSizePixel = 0
+	band.Parent = marquee
+	corner(band, 14)
+	bevel(band, 5, 0.1)
+
+	--[[
+		The row is its own frame, and that is not fussiness.
+
+		A `UIListLayout` lays out *every* `GuiObject` child of the frame it is
+		on, and the bevel is one — so the highlight was handed a place in the
+		row, took the full width as the first item, and pushed the chip and
+		the sentence off the right-hand end of the board. The gleam belongs to
+		the band; the row belongs to the layout.
+	]]
+	local row = Instance.new("Frame")
+	row.Name = "Row"
+	row.Size = UDim2.fromScale(1, 1)
+	row.BackgroundTransparency = 1
+	row.Parent = band
+
+	local bandPad = Instance.new("UIPadding")
+	bandPad.PaddingLeft = UDim.new(0, 28)
+	bandPad.PaddingRight = UDim.new(0, 28)
+	bandPad.Parent = row
+
+	local bandFlow = Instance.new("UIListLayout")
+	bandFlow.FillDirection = Enum.FillDirection.Horizontal
+	bandFlow.VerticalAlignment = Enum.VerticalAlignment.Center
+	bandFlow.SortOrder = Enum.SortOrder.LayoutOrder
+	bandFlow.Padding = UDim.new(0, 24)
+	bandFlow.Parent = row
+
+	local chipBox = Instance.new("Frame")
+	chipBox.Name = "Chip"
+	chipBox.Size = UDim2.fromOffset(10, 52)
+	chipBox.AutomaticSize = Enum.AutomaticSize.X
+	chipBox.BackgroundColor3 = Color3.fromRGB(143, 224, 124)
+	chipBox.BorderSizePixel = 0
+	chipBox.LayoutOrder = 1
+	chipBox.Parent = row
+	corner(chipBox, 26)
+	inkEdge(chipBox, 5)
+	local chipPad = Instance.new("UIPadding")
+	chipPad.PaddingLeft = UDim.new(0, 20)
+	chipPad.PaddingRight = UDim.new(0, 20)
+	chipPad.Parent = chipBox
+
+	local chipText = signText(chipBox, "Text", "LEARN IT", UDim2.fromOffset(10, 52),
+		UDim2.new(), 30, Color3.fromRGB(255, 255, 255), Enum.TextXAlignment.Center)
+	chipText.AutomaticSize = Enum.AutomaticSize.X
+
+	local line = signText(row, "Line", "", UDim2.new(1, -260, 1, 0), UDim2.new(), 38,
+		Color3.fromRGB(255, 232, 224), Enum.TextXAlignment.Left)
+	line.LayoutOrder = 2
+	line.TextTruncate = Enum.TextTruncate.AtEnd
+
+	marqueeChip = chipBox
+	marqueeChipText = chipText
+	--- The two labels the rest of this file writes to. `outcomeLabel` is the
+	--- chip's word and `statusLabel` the sentence beside it, so the callers
+	--- that set them keep working.
+	statusLabel = line
+	line.Text = "STAND ON A PAD · PICK A PROPERTY · TAKE THE MOWER"
 
 	--------------------------------------------------------------------
 	-- Dressing
@@ -1313,6 +2011,148 @@ end
 	team going where one of them has been is the point of that. The case it
 	refuses is the empty one, where nobody leaving has the property open at all.
 ]]
+--[[
+	What a board is showing, in one call.
+
+	Four states, one repaint. Everything below is a property of the face built
+	in `buildBoardFace` — nothing is created or destroyed while the yard is
+	running, so a board changing state costs four assignments rather than a
+	rebuild on a `SurfaceGui` somebody is looking at.
+]]
+local function paintBoard(slot: Slot, world: Types.WorldDef?, playable: boolean, countdown: number?, aboard: number)
+	local face = slot.boardFace
+
+	if countdown and world then
+		face.open.Visible = false
+		face.picked.Visible = false
+		face.going.Visible = true
+		--- Gold, and only in this state: one board in the row turning gold is
+		--- visible from anywhere in the yard, which is the whole point of it.
+		face.shade.Color =
+			ColorSequence.new(Color3.fromRGB(255, 233, 180), Color3.fromRGB(255, 206, 106))
+		--- `%d`, not `tostring`: `math.ceil(-0.4)` is negative zero, which
+		--- `tostring` prints as "-0" and a player reads as a broken clock.
+		face.tick.Text = string.format("%d", math.max(math.ceil(countdown), 0))
+		face.heading.Text = string.upper(world.name)
+		--[[
+			The bar is who else is coming, not how long is left.
+
+			The number in the disc already says the time; a bar counting the
+			same thing down twice tells a player nothing they cannot see. Full
+			means the pad is full.
+		]]
+		face.fill.Size = UDim2.fromScale(math.clamp(aboard / math.max(slot.cap, 1), 0, 1), 1)
+		face.aboard.Text = `{aboard} OF {slot.cap} ABOARD`
+		return
+	end
+
+	face.going.Visible = false
+	face.shade.Color = ColorSequence.new(SIGN_CREAM, SIGN_CREAM_LOW)
+
+	if not world then
+		face.open.Visible = true
+		face.picked.Visible = false
+		return
+	end
+
+	face.open.Visible = false
+	face.picked.Visible = true
+	face.name.Text = world.name
+
+	if playable then
+		face.ground.BackgroundColor3 = SIGN_CREAM
+		face.swatch.BackgroundColor3 = Palette.color(world.baseGround)
+		face.plate.BackgroundColor3 = SIGN_CREAM
+		face.icon.BackgroundColor3 = SIGN_INK
+		face.name.TextColor3 = Color3.fromRGB(46, 38, 32)
+		face.chips.Visible = true
+		face.requirement.Visible = false
+
+		local grade = GRADE[world.difficulty]
+		face.grade.BackgroundColor3 = if grade then grade.fill else SIGN_INK
+		face.gradeText.Text = string.upper(world.difficulty)
+		face.gradeText.TextColor3 = if grade then grade.ink else SIGN_GOLD
+
+		--- The required count, not the entry count: The House has eight
+		--- entries and six of them are the run.
+		local required = #Worlds.requiredSections(world)
+		local optional = #world.sections - required
+		face.sectionsText.Text = if optional > 0
+			then `{required} + {optional} OPTIONAL`
+			else `{required} SECTIONS`
+		face.clockText.Text = clockSpan(world.runSeconds)
+	else
+		--[[
+			Not for you yet, said in colour before it is said in words.
+
+			The locked state used to name the requirement in the same type as
+			everything else, so a board you cannot use looked exactly like one
+			you can until you had read it.
+		]]
+		face.ground.BackgroundColor3 = Color3.fromRGB(216, 208, 188)
+		face.swatch.BackgroundColor3 = Color3.fromRGB(138, 132, 120)
+		face.plate.BackgroundColor3 = Color3.fromRGB(160, 154, 140)
+		face.icon.BackgroundColor3 = Color3.fromRGB(58, 52, 42)
+		face.name.TextColor3 = Color3.fromRGB(74, 66, 56)
+		face.chips.Visible = false
+		face.requirement.Visible = true
+		local needs = world.requiresWorld
+		face.requirement.Text = if needs
+			then `CLEAR {string.upper(Worlds.expect(needs).name)} FIRST`
+			else ""
+	end
+end
+
+--[[
+	What a pad is showing.
+
+	Three states: empty, filling, and going. Going inverts the whole panel
+	rather than recolouring the text, because at forty studs the difference
+	between two shades of cream lettering is nothing and the difference
+	between a dark panel and a gold one is unmistakable.
+]]
+local function paintPad(slot: Slot, here: number, going: boolean, left: number, call: string)
+	local face = slot.padFace
+
+	for seat, dot in face.dots do
+		local taken = seat <= here
+		dot.BackgroundColor3 = if going
+			then (if taken then Color3.fromRGB(90, 60, 8) else Color3.fromRGB(210, 150, 30))
+			elseif taken then Color3.fromRGB(143, 224, 124)
+			else Color3.fromRGB(30, 22, 16)
+	end
+	--- The dots earn their room once somebody is on the pad; an empty one is
+	--- an invitation, and four empty boxes is not one.
+	face.dotRow.Visible = here > 0 or going
+
+	if going then
+		face.shade.Color =
+			ColorSequence.new(Color3.fromRGB(255, 224, 138), Color3.fromRGB(245, 168, 28))
+		face.panel.BackgroundColor3 = Color3.fromRGB(255, 224, 138)
+		face.drop.BackgroundColor3 = Color3.fromRGB(169, 110, 8)
+		face.count.TextColor3 = SIGN_INK
+		local outline = face.count:FindFirstChildOfClass("UIStroke")
+		if outline then
+			outline.Enabled = false
+		end
+		face.call.TextColor3 = Color3.fromRGB(90, 60, 8)
+		face.call.Text = `LEAVING IN {left}`
+	else
+		face.shade.Color =
+			ColorSequence.new(Color3.fromRGB(62, 46, 32), Color3.fromRGB(38, 28, 20))
+		face.panel.BackgroundColor3 = Color3.fromRGB(62, 46, 32)
+		face.drop.BackgroundColor3 = SIGN_INK
+		face.count.TextColor3 = Color3.fromRGB(255, 255, 255)
+		local outline = face.count:FindFirstChildOfClass("UIStroke")
+		if outline then
+			outline.Enabled = true
+		end
+		face.call.TextColor3 = if here > 0 then SIGN_GOLD else Color3.fromRGB(126, 226, 108)
+		face.call.Text = call
+	end
+	face.count.Text = `{here} / {slot.cap}`
+end
+
 local function teamAllows(team: { Player }, worldId: string): boolean
 	local world = Worlds.expect(worldId)
 	local required = world.requiresWorld
@@ -1402,8 +2242,8 @@ local function step(delta: number)
 			anyReady = true
 			slot.countdown = (slot.countdown or COUNTDOWN) - delta
 			local left = math.max(math.ceil(slot.countdown or 0), 0)
-			slot.padCount.Text = if turnedAway > 0 then `{#team}/{slot.cap} — FULL` else `{#team}/{slot.cap}`
-			slot.padLabel.Text = `Starting in {left}`
+			paintPad(slot, #team, true, left, "")
+			paintBoard(slot, world, true, slot.countdown, #team)
 			slot.pad.Color = Palette.color(Palette.ground.lawn)
 
 			if (slot.countdown or 0) <= 0 then
@@ -1424,13 +2264,19 @@ local function step(delta: number)
 		else
 			slot.countdown = nil
 			if waiting then
-				slot.padCount.Text = ""
-				slot.padLabel.Text = "…"
+				paintPad(slot, #here, false, 0, "…")
+				paintBoard(slot, world, world ~= nil, nil, 0)
 				slot.pad.Color = Palette.color(Palette.ground.stoneDark)
 			elseif world and #team > 0 then
 				-- Somebody is on it with a map set that none of them has earned.
-				slot.padCount.Text = `{#team}/{slot.cap}`
-				slot.padLabel.Text = `Needs {Worlds.expect((world :: any).requiresWorld).name}`
+				paintPad(
+					slot,
+					#team,
+					false,
+					0,
+					`Needs {Worlds.expect((world :: any).requiresWorld).name}`
+				)
+				paintBoard(slot, world, false, nil, #team)
 				slot.pad.Color = Palette.color(Palette.ground.stoneDark)
 			elseif world then
 				--[[
@@ -1449,39 +2295,41 @@ local function step(delta: number)
 					slot.worldId = nil
 					slot.cap = GAME_SLOTS
 					slot.idle = 0
-					slot.padCount.Text = `0/{slot.cap}`
-					slot.padLabel.Text = "Create a game!"
+					paintPad(slot, #here, false, 0, "Set up a game!")
+					paintBoard(slot, nil, true, nil, 0)
 				else
-					slot.padCount.Text = `0/{slot.cap}`
-					slot.padLabel.Text = "Stand here"
+					paintPad(slot, #here, false, 0, "Jump on")
+					paintBoard(slot, world, true, nil, 0)
 				end
 				slot.pad.Color = Palette.color(Palette.ground.stone)
 			else
-				slot.padCount.Text = `0/{slot.cap}`
-				slot.padLabel.Text = "Create a game!"
+				--[[
+					The count is who is standing here, not who has a map.
+
+					A pad with two people on it and nothing picked yet reads
+					`2 / 4`, because the question somebody crossing the yard is
+					asking is whether there is room — and `0 / 4` under two
+					people standing on it answers it wrongly.
+				]]
+				paintPad(slot, #here, false, 0, if #here > 0 then "Pick a property" else "Set up a game!")
+				paintBoard(slot, nil, true, nil, 0)
 				slot.pad.Color = Palette.color(Palette.ground.stone)
 			end
 		end
 
-		--[[
-			"???" over the instruction while no map is set.
-
-			The reference writes the unchosen map as three question marks
-			above "Select a map!", so the board has the same two lines whether
-			or not it has been set: the name, then what it is. Without the
-			question marks an unset board is one line and a set one is two,
-			and the row of four jumps about as people choose.
-		]]
-		slot.boardLabel.Text = if world
-			then `{(world :: any).name}\n{string.upper((world :: any).difficulty)}`
-			else "???\nSelect a map!"
 	end
 
+	--[[
+		The band's sentence, while a game is being set up.
+
+		It says what to do until somebody is actually going, and then it says
+		that instead — but it never overwrites the line the last run left,
+		which is the one thing on this board a player who has just walked back
+		in is looking for.
+	]]
 	local status = statusLabel
-	if status then
-		status.Text = if anyReady
-			then "Off you go — good luck out there"
-			else "Stand on a pad to set a game up"
+	if status and anyReady then
+		status.Text = "Off you go — good luck out there"
 	end
 end
 
@@ -1584,13 +2432,31 @@ function LobbyService.start()
 				lastWorldName = Worlds.expect(MowRunService.worldId()).name
 			elseif phase == "lobby" then
 				-- Back from a run: gather everyone in and say how it went.
-				local label = outcomeLabel
-				if label then
-					label.Text = if lastOutcome == "won" and lastWorldName
-						then `You cleared {lastWorldName}!`
-						elseif lastOutcome == "lost" and lastWorldName
-							then `The clock beat you on {lastWorldName}.`
-						else ""
+				--[[
+					One sentence, and the chip that colours it.
+
+					The band carried an outcome on one line and an unrelated
+					instruction on another; it composes a single line now and
+					turns the chip gold, which is the part that is readable
+					from the far end of the yard.
+				]]
+				local chip, chipWord, line = marqueeChip, marqueeChipText, statusLabel
+				if chip and chipWord and line then
+					if lastOutcome and lastWorldName then
+						chip.BackgroundColor3 = Color3.fromRGB(255, 224, 138)
+						chipWord.Text = "LAST RUN"
+						chipWord.TextColor3 = SIGN_INK
+						line.TextColor3 = SIGN_GOLD
+						line.Text = if lastOutcome == "won"
+							then `{lastWorldName} cleared. Pick the next one.`
+							else `The clock beat you on {lastWorldName}.`
+					else
+						chip.BackgroundColor3 = Color3.fromRGB(143, 224, 124)
+						chipWord.Text = "LEARN IT"
+						chipWord.TextColor3 = Color3.fromRGB(255, 255, 255)
+						line.TextColor3 = Color3.fromRGB(255, 232, 224)
+						line.Text = "STAND ON A PAD · PICK A PROPERTY · TAKE THE MOWER"
+					end
 				end
 				for _, slot in slots do
 					slot.worldId = nil

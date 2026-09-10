@@ -162,7 +162,7 @@ local function buildBoard(parent: Instance, def: BoardDef, at: CFrame)
 		name = "Header",
 		size = Vector3.new(width + 1.2, 5, 1.1),
 		cframe = at * CFrame.new(0, height * 0.5 - 1.6, -0.7),
-		color = Color3.fromRGB(224, 108, 30),
+		color = Color3.fromRGB(240, 138, 44),
 		material = Enum.Material.SmoothPlastic,
 		parent = parent,
 	})
@@ -199,7 +199,8 @@ local function buildBoard(parent: Instance, def: BoardDef, at: CFrame)
 		l.Size = size
 		l.Position = pos
 		l.BackgroundTransparency = 1
-		l.Font = Enum.Font.GothamBold
+		--- The game's one face; see `Build.label`.
+		l.Font = Enum.Font.FredokaOne
 		l.TextSize = px
 		l.TextColor3 = colour
 		l.TextXAlignment = align
@@ -209,10 +210,43 @@ local function buildBoard(parent: Instance, def: BoardDef, at: CFrame)
 		return l
 	end
 
-	label(surfaceOn(header), def.title, UDim2.fromScale(1, 1), UDim2.new(), 44,
+	--[[
+		The banner, lit across its face and edged like everything else.
+
+		A `Part` cannot carry a gradient, so the graduation is painted on the
+		surface the title is already drawn on: a full-bleed frame behind the
+		lettering. The two big painted signs in this yard — this and the
+		marquee — should be the same object, and this is the half of it that
+		can be done without redrawing an asset.
+	]]
+	local headerFace = surfaceOn(header)
+	local headerFill = Instance.new("Frame")
+	headerFill.Name = "Fill"
+	headerFill.Size = UDim2.fromScale(1, 1)
+	headerFill.BackgroundColor3 = Color3.fromRGB(240, 138, 44)
+	headerFill.BorderSizePixel = 0
+	headerFill.ZIndex = 1
+	headerFill.Parent = headerFace
+	local headerShade = Instance.new("UIGradient")
+	headerShade.Rotation = 90
+	headerShade.Color =
+		ColorSequence.new(Color3.fromRGB(240, 138, 44), Color3.fromRGB(208, 86, 26))
+	headerShade.Parent = headerFill
+
+	local title = label(headerFace, def.title, UDim2.fromScale(1, 1), UDim2.new(), 44,
 		Color3.fromRGB(255, 246, 228), Enum.TextXAlignment.Center)
+	local titleEdge = Instance.new("UIStroke")
+	titleEdge.Thickness = 4
+	titleEdge.Color = Color3.fromRGB(24, 18, 10)
+	titleEdge.Parent = title
 
 	local sheet = surfaceOn(face)
+	--- The board's own edge, so it is an object standing in the yard rather
+	--- than a dark rectangle painted on the fence behind it.
+	local faceEdge = Instance.new("UIStroke")
+	faceEdge.Thickness = 7
+	faceEdge.Color = Color3.fromRGB(24, 18, 10)
+	faceEdge.Parent = sheet
 	local built: { Row } = {}
 	local top = 0.13
 	local rowHeight = (0.97 - top) / ROWS
@@ -243,12 +277,23 @@ local function buildBoard(parent: Instance, def: BoardDef, at: CFrame)
 		row an edge, and gold, silver and bronze say who is winning without
 		anybody reading a number.
 	]]
-	local MEDAL: { Color3 } = {
-		Color3.fromRGB(176, 134, 38),
-		Color3.fromRGB(126, 130, 138),
-		Color3.fromRGB(140, 92, 52),
+	--[[
+		Gold, silver and bronze, lit rather than flat.
+
+		Every panel the interface draws is a face with a gradient on it, a hard
+		ink edge round it and a bar of white inside the top; these were three
+		flat fills and no edge, which is the one surface in the yard that was
+		nearly right and stopped short. The top pair of each is the lit face
+		and the bottom the shade.
+	]]
+	local MEDAL: { { Color3 } } = {
+		{ Color3.fromRGB(228, 185, 62), Color3.fromRGB(176, 134, 38) },
+		{ Color3.fromRGB(168, 172, 180), Color3.fromRGB(126, 130, 138) },
+		{ Color3.fromRGB(176, 116, 60), Color3.fromRGB(140, 92, 52) },
 	}
-	local PLATE = { Color3.fromRGB(50, 43, 38), Color3.fromRGB(40, 34, 30) }
+	--- Off a medal, flat and alternating: a plate that is not a place is
+	--- furniture, and three lit rows in eight is what makes them read.
+	local PLATE = { Color3.fromRGB(58, 50, 44), Color3.fromRGB(46, 40, 32) }
 
 	for i = 1, ROWS do
 		local y = top + rowHeight * (i - 1)
@@ -257,16 +302,52 @@ local function buildBoard(parent: Instance, def: BoardDef, at: CFrame)
 		plate.Name = "Plate"
 		plate.Size = UDim2.fromScale(0.96, rowHeight * 0.88)
 		plate.Position = UDim2.fromScale(0.02, y + rowHeight * 0.05)
-		plate.BackgroundColor3 = MEDAL[i] or PLATE[(i % 2) + 1]
+		local medal = MEDAL[i]
+		plate.BackgroundColor3 = if medal then medal[1] else PLATE[(i % 2) + 1]
 		plate.BorderSizePixel = 0
 		plate.ZIndex = 1
 		plate.Parent = sheet
+		--[[
+			Twenty-four pixels, not 0.28 of the plate.
+
+			A scale radius is read against the plate's *own* height, and at
+			eighty-two pixels tall 0.28 of it is forty-six — a lozenge rather
+			than a rounded rectangle, and the one shape in the yard that
+			matched nothing else in the game.
+		]]
 		local plateRound = Instance.new("UICorner")
-		plateRound.CornerRadius = UDim.new(0.28, 0)
+		plateRound.CornerRadius = UDim.new(0, 24)
 		plateRound.Parent = plate
 
+		local plateEdge = Instance.new("UIStroke")
+		plateEdge.Thickness = 5
+		plateEdge.Color = Color3.fromRGB(24, 18, 10)
+		plateEdge.Parent = plate
+
+		if medal then
+			local shade = Instance.new("UIGradient")
+			shade.Rotation = 90
+			shade.Color = ColorSequence.new(medal[1], medal[2])
+			shade.Parent = plate
+
+			--- The bar of white inside the top edge, which is what stops a
+			--- medal reading as a coloured rectangle.
+			local gleam = Instance.new("Frame")
+			gleam.Name = "Gleam"
+			gleam.Size = UDim2.new(1, -16, 0, 4)
+			gleam.Position = UDim2.fromOffset(8, 5)
+			gleam.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			gleam.BackgroundTransparency = 0.68
+			gleam.BorderSizePixel = 0
+			gleam.ZIndex = 2
+			gleam.Parent = plate
+			local gleamRound = Instance.new("UICorner")
+			gleamRound.CornerRadius = UDim.new(0, 2)
+			gleamRound.Parent = gleam
+		end
+
 		label(sheet, `{i}`, UDim2.fromScale(0.085, rowHeight), UDim2.fromScale(0.015, y), 32,
-			if MEDAL[i] then Color3.fromRGB(255, 248, 230) else Color3.fromRGB(240, 186, 62),
+			if medal then Color3.fromRGB(255, 248, 230) else Color3.fromRGB(240, 186, 62),
 			Enum.TextXAlignment.Center)
 
 		local head = Instance.new("ImageLabel")
@@ -283,6 +364,10 @@ local function buildBoard(parent: Instance, def: BoardDef, at: CFrame)
 		local round = Instance.new("UICorner")
 		round.CornerRadius = UDim.new(0.18, 0)
 		round.Parent = head
+		local headEdge = Instance.new("UIStroke")
+		headEdge.Thickness = 4
+		headEdge.Color = Color3.fromRGB(24, 18, 10)
+		headEdge.Parent = head
 
 		built[i] = {
 			face = head,
@@ -291,7 +376,7 @@ local function buildBoard(parent: Instance, def: BoardDef, at: CFrame)
 			-- Cream on a medal, green everywhere else: the green that reads as
 			-- a score against near-black goes muddy over gold and bronze.
 			score = label(sheet, "", UDim2.fromScale(0.28, rowHeight), UDim2.fromScale(0.68, y), 28,
-				if MEDAL[i] then Color3.fromRGB(255, 251, 238) else Color3.fromRGB(126, 232, 106),
+				if medal then Color3.fromRGB(255, 251, 238) else Color3.fromRGB(126, 232, 106),
 				Enum.TextXAlignment.Right),
 		}
 	end

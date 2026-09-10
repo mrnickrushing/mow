@@ -588,7 +588,7 @@ local function draw(result: any)
 		size = if phone
 			then UDim2.new(1, 0, 0, 44)
 			else UDim2.new(1, 0, 0, 62),
-		position = if phone then UDim2.new(0.5, 0, 1, 0) else UDim2.fromOffset(0, 0),
+		position = if phone then UDim2.fromScale(0.5, 1) else UDim2.fromOffset(0, 0),
 		anchor = if phone then Vector2.new(0.5, 1) else Vector2.zero,
 		parent = if phone then (column.Parent :: Instance) else column,
 		radius = 16,
