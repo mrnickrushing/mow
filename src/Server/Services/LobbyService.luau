@@ -224,6 +224,8 @@ local SIGN_GOLD = Color3.fromRGB(255, 206, 74)
 local SIGN_CREAM = Color3.fromRGB(248, 244, 233)
 local SIGN_CREAM_LOW = Color3.fromRGB(230, 223, 200)
 local SIGN_SOFT = Color3.fromRGB(107, 91, 69)
+--- Small type on the dark panels, the same weight the HUD's labels use.
+local SIGN_LABEL = Color3.fromRGB(179, 156, 126)
 
 --- What each difficulty is signText, matching `LevelSelect.GRADE` exactly: a
 --- property is the same colour on the board as it is on its card.
@@ -1576,6 +1578,243 @@ local function build()
 	--- that set them keep working.
 	statusLabel = line
 	line.Text = "STAND ON A PAD · PICK A PROPERTY · TAKE THE MOWER"
+
+	--------------------------------------------------------------------
+	-- The Stand
+	--------------------------------------------------------------------
+
+	--[[
+		A timber counter, forty-four studs of it, at z +18.
+
+		This puts one thing back into a yard that was deliberately stripped —
+		the note on that clearance is good and stands: *"a lobby is
+		signposting, and signposting works by having nothing else in the
+		way."* Two things make this the exception rather than the first crack
+		in it.
+
+		Where it stands: forty-four studs in front of the pad row, which is
+		behind a player the moment they turn to face the boards. It is in
+		frame walking in from spawn and out of the way once you are reading,
+		which is the opposite of the shed and the trailer that used to sit
+		between the pads and the marquee.
+
+		What it fixes: the shop is a button in the corner of a screen, in a
+		game about being hired to mow lawns. Buying a better mower should
+		happen at a counter. The button stays — this is not a replacement for
+		it, and a player who never walks over here loses nothing.
+
+		Everything here is `Build.part`. No mesh, no asset, nothing to upload.
+	]]
+	--[[
+		Low enough to see over, which is the whole condition of it standing
+		here at all.
+
+		Built at eight studs first, and from spawn it hid all four game boards
+		completely — only the marquee cleared it. That is the exact fault the
+		clearance note is about, and the design's own argument for this spot
+		("out of the way once you are reading") is about the view from the
+		pads, forty-four studs the other side of it.
+
+		The sight line settles the height. Eye height at spawn is 5.5 at
+		z +62; the boards' bottom edge is 7 at z -63. At z +18, thirty-five
+		per cent along that run, the line is at 6.0 — so nothing here may
+		stand above six studs. The awning tops out at 5.7, which is a market
+		stall rather than a kiosk, and reads better for it: a counter you
+		stand at is chest height, not head height.
+	]]
+	local standFolder = Build.folder("Stand", root)
+	local STAND_Z = 18
+	local STAND_W = 44
+	local standAt = CENTRE + Vector3.new(0, 0, STAND_Z)
+
+	--- Nothing scatters into it: the litter and the tree belt are placed
+	--- after this and ask the same question every other fixture asks.
+	reserve(standAt, STAND_W + 8, 16)
+
+	--[[
+		The counter, as three courses.
+
+		A `Part` carries one colour, so the design's top-to-bottom graduation
+		is built rather than shaded: a lighter body over a darker skirt, with
+		the worktop lip proud of both. That is also how a real counter is
+		made, which is why it reads at all from twenty studs.
+	]]
+	Build.part({
+		name = "CounterSkirt",
+		size = Vector3.new(STAND_W, 1.6, 2.6),
+		cframe = CFrame.new(standAt + Vector3.new(0, 0.8, 0)),
+		color = Color3.fromRGB(94, 60, 30),
+		material = Enum.Material.WoodPlanks,
+		parent = standFolder,
+	})
+	Build.part({
+		name = "Counter",
+		size = Vector3.new(STAND_W, 1.9, 2.9),
+		cframe = CFrame.new(standAt + Vector3.new(0, 2.55, 0)),
+		color = Color3.fromRGB(138, 92, 48),
+		material = Enum.Material.WoodPlanks,
+		parent = standFolder,
+	})
+	--- The worktop, overhanging both, in the lighter timber.
+	Build.part({
+		name = "Worktop",
+		size = Vector3.new(STAND_W + 1.4, 0.6, 3.6),
+		cframe = CFrame.new(standAt + Vector3.new(0, 3.8, 0)),
+		color = Color3.fromRGB(169, 116, 64),
+		material = Enum.Material.WoodPlanks,
+		parent = standFolder,
+	})
+
+	--- Two posts carrying the awning, standing at the ends of the counter.
+	for _, side in { -1, 1 } do
+		Build.part({
+			name = "StandPost",
+			size = Vector3.new(1.3, 5.6, 1.3),
+			cframe = CFrame.new(standAt + Vector3.new(side * (STAND_W * 0.5 - 1), 2.8, 1.5)),
+			color = Color3.fromRGB(122, 80, 42),
+			material = Enum.Material.WoodPlanks,
+			parent = standFolder,
+		})
+	end
+
+	--[[
+		The awning, in stripes, because a market stall is striped.
+
+		Sixteen bands of red and cream across forty-four studs — the same
+		count the design draws — laid on a slight forward tilt so it reads as
+		a canopy rather than a lid. Each band is its own part, which is
+		sixteen parts for the one piece of the yard that says "shop" before
+		any of the words are read.
+	]]
+	local BANDS = 16
+	local bandWidth = STAND_W / BANDS
+	local awningTilt = CFrame.Angles(math.rad(-16), 0, 0)
+	for stripe = 1, BANDS do
+		local x = -STAND_W * 0.5 + bandWidth * (stripe - 0.5)
+		Build.part({
+			name = "Awning",
+			size = Vector3.new(bandWidth, 0.4, 4.4),
+			cframe = CFrame.new(standAt + Vector3.new(x, 5.6, 2.2)) * awningTilt,
+			color = if stripe % 2 == 1
+				then Color3.fromRGB(228, 72, 44)
+				else Color3.fromRGB(248, 244, 233),
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			parent = standFolder,
+		})
+	end
+	--- A valance along the awning's lip, which is the edge you actually see
+	--- from the yard.
+	Build.part({
+		name = "AwningLip",
+		size = Vector3.new(STAND_W + 0.6, 0.8, 0.5),
+		cframe = CFrame.new(standAt + Vector3.new(0, 4.5, 4.3)),
+		color = Color3.fromRGB(94, 60, 30),
+		material = Enum.Material.WoodPlanks,
+		canCollide = false,
+		parent = standFolder,
+	})
+
+	--[[
+		Two signs hanging under it, in the HUD's panel language.
+
+		Dark rather than cream, like the pad labels and for the same reason:
+		these are read against the awning and the sky rather than against
+		grass, and they are information rather than signage.
+	]]
+	local function standSign(x: number, mark: Color3, title: string, blurb: string): TextLabel
+		--[[
+			Hung under the awning's lip, not in front of the counter.
+
+			The first pass hung them at chest height on a fifteen-stud
+			billboard, and two dark panels that size cover the whole stand and
+			most of the board row behind it — the thing this was placed at
+			z +18 specifically to avoid. Small, and up under the canopy where
+			a shop sign hangs.
+		]]
+		local hanger = Build.part({
+			name = "SignHanger",
+			size = Vector3.new(0.3, 0.9, 0.3),
+			cframe = CFrame.new(standAt + Vector3.new(x, 4.9, 3.9)),
+			color = Color3.fromRGB(94, 60, 30),
+			material = Enum.Material.WoodPlanks,
+			canCollide = false,
+			parent = standFolder,
+		})
+
+		local billboard = Build.billboard(hanger, UDim2.fromScale(8.4, 2.4), -1.6, 200)
+
+		local drop = Instance.new("Frame")
+		drop.Name = "Drop"
+		drop.Size = UDim2.fromScale(1, 1)
+		drop.Position = UDim2.fromScale(0, 0.05)
+		drop.BackgroundColor3 = SIGN_INK
+		drop.BorderSizePixel = 0
+		drop.ZIndex = 1
+		drop.Parent = billboard
+		corner(drop, 20)
+
+		local signPanel = Instance.new("Frame")
+		signPanel.Name = "Panel"
+		signPanel.Size = UDim2.fromScale(1, 1)
+		signPanel.BackgroundColor3 = Color3.fromRGB(62, 46, 32)
+		signPanel.BorderSizePixel = 0
+		signPanel.ZIndex = 2
+		signPanel.Parent = billboard
+		corner(signPanel, 20)
+		inkEdge(signPanel, 6)
+		bevel(signPanel, 4, 0.14)
+		local shade = Instance.new("UIGradient")
+		shade.Rotation = 90
+		shade.Color =
+			ColorSequence.new(Color3.fromRGB(62, 46, 32), Color3.fromRGB(38, 28, 20))
+		shade.Parent = signPanel
+
+		local diamond = Instance.new("Frame")
+		diamond.Name = "Mark"
+		diamond.Size = UDim2.fromScale(0.22, 0.22)
+		diamond.SizeConstraint = Enum.SizeConstraint.RelativeYY
+		diamond.Position = UDim2.fromScale(0.06, 0.39)
+		diamond.Rotation = 45
+		diamond.BackgroundColor3 = mark
+		diamond.BorderSizePixel = 0
+		diamond.ZIndex = 3
+		diamond.Parent = signPanel
+
+		local heading = signText(signPanel, "Title", title, UDim2.fromScale(0.78, 0.36),
+			UDim2.fromScale(0.15, 0.14), 30, Color3.fromRGB(255, 255, 255),
+			Enum.TextXAlignment.Left)
+		heading.TextScaled = true
+
+		local under = signText(signPanel, "Line", blurb, UDim2.fromScale(0.78, 0.28),
+			UDim2.fromScale(0.15, 0.54), 20, SIGN_LABEL, Enum.TextXAlignment.Left)
+		under.TextScaled = true
+		return under
+	end
+
+	standSign(
+		-11,
+		Color3.fromRGB(127, 198, 245),
+		"THE SHOP",
+		"Mowers, upgrades, passes"
+	)
+	--[[
+		The streak sign says what the streak actually does.
+
+		The design's copy is `Collect · then 21 hours`, which promises a
+		counter you walk up to and claim at. `RewardService` does not work
+		that way and should not: the day's tips are paid the moment you
+		arrive, before you have walked anywhere, so a sign offering to let you
+		collect them would be offering something already in your pocket. The
+		system exists — the sentence is the part that had to change.
+	]]
+	local streakLine = standSign(
+		11,
+		Color3.fromRGB(255, 206, 74),
+		"DAILY STREAK",
+		"Paid on arrival"
+	)
+	local _ = streakLine
 
 	--------------------------------------------------------------------
 	-- Dressing
