@@ -150,6 +150,25 @@ local function buildVehicle(
 				canCollide = false,
 				parent = model,
 			})
+			--[[
+				A housing has a top on it.
+
+				A flat slab is a plank, whatever colour it is: the wings read
+				as two blue boards bolted to a tractor, which is the fault the
+				stretched mesh had in the first place. A raised cover in the
+				machine's own colour over a dark shell gives the deck a
+				profile and a shadow line, and three of those read as three
+				decks doing the work.
+			]]
+			Build.part({
+				name = name .. "Cover",
+				size = Vector3.new(width * 0.86, 1.5, 4.6),
+				cframe = at * CFrame.new(offsetX, 2.5, offsetZ + 0.4),
+				color = color,
+				material = Enum.Material.SmoothPlastic,
+				canCollide = false,
+				parent = model,
+			})
 			for _, side in { -1, 1 } do
 				Build.part({
 					name = name .. "Caster",
