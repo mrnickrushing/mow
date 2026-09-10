@@ -387,13 +387,22 @@ function Build.billboard(
 	return gui
 end
 
+--[[
+	Type standing in the world, in the font the interface is set in.
+
+	Every sign in the lobby and every label in the run was `GothamBold` while
+	the HUD beside them was FredokaOne throughout. Two typefaces is how a
+	player knows the world and the menu were made by different people, and it
+	is a bigger tell than any panel treatment — a bevelled gold button sitting
+	in front of a board lettered in a different face reads as two games.
+]]
 function Build.label(parent: Instance, text: string, size: UDim2, position: UDim2, scale: number): TextLabel
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
 	label.Size = size
 	label.Position = position
 	label.Text = text
-	label.Font = Enum.Font.GothamBold
+	label.Font = Enum.Font.FredokaOne
 	label.TextScaled = true
 	label.TextColor3 = Color3.fromRGB(255, 255, 255)
 	label.RichText = true
@@ -452,7 +461,8 @@ function Build.painted(part: BasePart, face: Enum.NormalId, inset: number): Text
 	label.Size = UDim2.fromScale(inset, inset)
 	label.Position = UDim2.fromScale((1 - inset) * 0.5, (1 - inset) * 0.5)
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.GothamBold
+	--- The game's one face. See `Build.label`.
+	label.Font = Enum.Font.FredokaOne
 	label.TextScaled = true
 	label.TextColor3 = Color3.fromRGB(255, 255, 255)
 	label.RichText = true
