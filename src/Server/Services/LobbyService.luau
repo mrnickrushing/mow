@@ -180,6 +180,7 @@ local statusLabel: TextLabel? = nil
 --- The live band's chip, whose colour is the whole state change.
 local marqueeChip: Frame? = nil
 local marqueeChipText: TextLabel? = nil
+local marqueeChipShade: UIGradient? = nil
 
 --[[
 	The party size the pads were set to, from the settings panel.
@@ -1339,30 +1340,30 @@ local function build()
 		grain.Parent = panel
 	end
 
-	--- The routed border: gold between two ink lines, inset from the edge.
-	local routed = Instance.new("Frame")
-	routed.Name = "Routed"
-	routed.Size = UDim2.new(1, -36, 1, -36)
-	routed.Position = UDim2.fromOffset(18, 18)
-	routed.BackgroundTransparency = 1
-	routed.ZIndex = 0
-	routed.Parent = panel
-	corner(routed, 6)
-	local routedGold = Instance.new("UIStroke")
-	routedGold.Thickness = 8
-	routedGold.Color = Color3.fromRGB(200, 138, 36)
-	routedGold.Parent = routed
+	--[[
+		The routed border: three rings, ink then gold then ink.
 
-	for _, ring in { { -4, 4 }, { 8, -4 } } do
+		A groove cut into timber and gilded is two dark edges with the gold
+		between them; one gold line on cream is a sticker. The insets are the
+		design's own — 18, 22 and 30 — which is what makes the gold read as
+		sunk into the board rather than laid on it.
+	]]
+	for _, ring in
+		{
+			{ inset = 18, thickness = 4, colour = SIGN_INK, radius = 4 },
+			{ inset = 22, thickness = 8, colour = Color3.fromRGB(200, 138, 36), radius = 3 },
+			{ inset = 30, thickness = 4, colour = SIGN_INK, radius = 2 },
+		}
+	do
 		local rule = Instance.new("Frame")
-		rule.Name = "Rule"
-		rule.Size = UDim2.new(1, -36 + ring[1] * 2, 1, -36 + ring[1] * 2)
-		rule.Position = UDim2.fromOffset(18 - ring[1], 18 - ring[1])
+		rule.Name = "Routed"
+		rule.Size = UDim2.new(1, -ring.inset * 2, 1, -ring.inset * 2)
+		rule.Position = UDim2.fromOffset(ring.inset, ring.inset)
 		rule.BackgroundTransparency = 1
 		rule.ZIndex = 0
 		rule.Parent = panel
-		corner(rule, 6)
-		inkEdge(rule, 4)
+		corner(rule, ring.radius)
+		inkEdge(rule, ring.thickness, ring.colour)
 	end
 
 	--[[
@@ -1404,69 +1405,86 @@ local function build()
 	marquee.LightInfluence = 0
 	marquee.Parent = statusPost
 
+	--[[
+		The name, both halves the same size.
+
+		The mark is gone: the spec reserved a hundred and ninety-six pixels
+		for a logo, and what `art/branding/` holds is a photographic render —
+		a lit house, a tree, a mower, falling leaves. At the 0.53 this board
+		subtends from spawn that is a hundred and four pixels of brown mush. A
+		rendered scene is a thumbnail asset; this is signage.
+
+		And both lines are 116 rather than 104 over 60. The name is a rhyme,
+		and a rhyme needs both halves to weigh the same — MOW over MOW, with
+		the turn carried by colour instead: cream, then gold. Width was never
+		the constraint (the longer line is 928 of 1756 available); what sets
+		the size is the clear height between the routed border and the band,
+		which is why the band gave up twelve pixels it was not using.
+	]]
+	--[[
+		Inset past the posts, not to the design's forty-four.
+
+		The mock has no posts in it; the board does — two of them, 2.4 studs
+		thick at thirty-seven either side of centre, standing a stud and a
+		half proud of the face. On a seventy-eight stud board that is the
+		first and last eighty pixels of a 1872-pixel face, and at forty-four
+		the M of MOW went behind the left one.
+	]]
+	local POST_CLEAR = 92
+
+	--[[
+		A hundred and twenty-eight, not the design's hundred and sixteen.
+
+		The mock is set in Fredoka 700 and the game is set in FredokaOne,
+		which is the narrower face: `MOW PROBLEMS!` measures 712 pixels at 116
+		here against the 928 the design costed it at. So width, which was
+		never the constraint, is nowhere near it — 42% of the room.
+
+		The design says vertical is the limit and it is right, so this takes
+		the number from the limit rather than from the mock. Clear height is
+		272 (top inset 38 to the band at 310); two lines at 0.94 leading plus
+		the twenty-pixel drop is 1.94 × size + 20, so 129 is the ceiling and
+		128 is it with a pixel to spare. Measured in Studio, not estimated.
+	]]
+	local TITLE = 128
+	local LEADING = math.floor(TITLE * 0.94)
+
 	local lockup = Instance.new("Frame")
 	lockup.Name = "Lockup"
-	lockup.Size = UDim2.new(1, -88, 0, 200)
-	lockup.Position = UDim2.fromOffset(44, 44)
+	lockup.Size = UDim2.new(1, -POST_CLEAR * 2, 0, 232)
+	lockup.Position = UDim2.fromOffset(POST_CLEAR, 38)
 	lockup.BackgroundTransparency = 1
 	lockup.Parent = marquee
 
-	--- A mark, standing in for the branding asset until there is one: the
-	--- same gold-on-green diamond the boards and the HUD use.
-	local mark = Instance.new("Frame")
-	mark.Name = "Mark"
-	mark.Size = UDim2.fromOffset(196, 196)
-	mark.BackgroundColor3 = Color3.fromRGB(143, 224, 124)
-	mark.BorderSizePixel = 0
-	mark.Parent = lockup
-	corner(mark, 28)
-	inkEdge(mark, 8)
-	bevel(mark, 8, 0.35)
-	local markShade = Instance.new("UIGradient")
-	markShade.Rotation = 90
-	markShade.Color =
-		ColorSequence.new(Color3.fromRGB(143, 224, 124), Color3.fromRGB(63, 158, 46))
-	markShade.Parent = mark
-
-	local markDiamond = Instance.new("Frame")
-	markDiamond.Name = "Diamond"
-	markDiamond.Size = UDim2.fromOffset(96, 96)
-	markDiamond.Position = UDim2.fromScale(0.5, 0.5)
-	markDiamond.AnchorPoint = Vector2.new(0.5, 0.5)
-	markDiamond.Rotation = 45
-	markDiamond.BackgroundColor3 = SIGN_INK
-	markDiamond.BorderSizePixel = 0
-	markDiamond.ZIndex = 2
-	markDiamond.Parent = mark
-	corner(markDiamond, 10)
-
-	local words = Instance.new("Frame")
-	words.Name = "Words"
-	words.Size = UDim2.new(1, -236, 1, 0)
-	words.Position = UDim2.fromOffset(236, 0)
-	words.BackgroundTransparency = 1
-	words.Parent = lockup
-
 	--[[
-		Two weights, because the joke is in the second half.
+		Two drops under the letters, which Roblox has no property for.
 
-		`MOW MONEY` is the promise and `MOW PROBLEMS!` is the punchline, and
-		printing them at one size makes the whole thing a label. The heavy ink
-		outline is what carries it a hundred and thirty studs down the yard.
+		The design asks for a solid ink shadow fourteen pixels down and a
+		softer one at twenty, on top of a seven-pixel outline. A `TextLabel`
+		carries one `UIStroke` and no shadow at all, so the drops are the same
+		words printed again underneath — and the outline is the stroke. Two
+		clones per line, four labels in the yard, and it is what makes the
+		board read at a hundred and thirty studs.
 	]]
-	local title = signText(words, "Title", "MOW MONEY", UDim2.new(1, 0, 0, 112),
-		UDim2.new(), 104, Color3.fromRGB(255, 246, 226), Enum.TextXAlignment.Left)
-	local titleEdge = Instance.new("UIStroke")
-	titleEdge.Thickness = 7
-	titleEdge.Color = SIGN_INK
-	titleEdge.Parent = title
+	local function titleLine(text: string, y: number, colour: Color3)
+		for _, shadow in { { 20, 0.65 }, { 14, 0 } } do
+			local under = signText(lockup, "Drop", text, UDim2.new(1, 0, 0, TITLE),
+				UDim2.fromOffset(0, y + shadow[1]), TITLE, SIGN_INK, Enum.TextXAlignment.Left)
+			under.TextTransparency = shadow[2]
+			under.ZIndex = 1
+		end
 
-	local punch = signText(words, "Punchline", "MOW PROBLEMS!", UDim2.new(1, 0, 0, 70),
-		UDim2.fromOffset(0, 112), 60, SIGN_GOLD, Enum.TextXAlignment.Left)
-	local punchEdge = Instance.new("UIStroke")
-	punchEdge.Thickness = 5
-	punchEdge.Color = SIGN_INK
-	punchEdge.Parent = punch
+		local line = signText(lockup, "Line", text, UDim2.new(1, 0, 0, TITLE),
+			UDim2.fromOffset(0, y), TITLE, colour, Enum.TextXAlignment.Left)
+		line.ZIndex = 2
+		local outline = Instance.new("UIStroke")
+		outline.Thickness = 7
+		outline.Color = SIGN_INK
+		outline.Parent = line
+	end
+
+	titleLine("MOW MONEY,", 0, Color3.fromRGB(255, 246, 226))
+	titleLine("MOW PROBLEMS!", LEADING, SIGN_GOLD)
 
 	--[[
 		The live band: one dark pill, and a chip that is the only thing on it
@@ -1480,8 +1498,8 @@ local function build()
 	]]
 	local band = Instance.new("Frame")
 	band.Name = "Live"
-	band.Size = UDim2.new(1, -120, 0, 96)
-	band.Position = UDim2.new(0, 60, 1, -134)
+	band.Size = UDim2.new(1, -POST_CLEAR * 2, 0, 84)
+	band.Position = UDim2.new(0, POST_CLEAR, 1, -122)
 	band.BackgroundColor3 = SIGN_INK
 	band.BorderSizePixel = 0
 	band.Parent = marquee
@@ -1517,22 +1535,34 @@ local function build()
 
 	local chipBox = Instance.new("Frame")
 	chipBox.Name = "Chip"
-	chipBox.Size = UDim2.fromOffset(10, 52)
+	chipBox.Size = UDim2.fromOffset(10, 64)
 	chipBox.AutomaticSize = Enum.AutomaticSize.X
 	chipBox.BackgroundColor3 = Color3.fromRGB(143, 224, 124)
 	chipBox.BorderSizePixel = 0
 	chipBox.LayoutOrder = 1
 	chipBox.Parent = row
-	corner(chipBox, 26)
+	corner(chipBox, 32)
+	local chipShade = Instance.new("UIGradient")
+	chipShade.Rotation = 90
+	chipShade.Color =
+		ColorSequence.new(Color3.fromRGB(143, 224, 124), Color3.fromRGB(79, 184, 60))
+	chipShade.Parent = chipBox
+	marqueeChipShade = chipShade
 	inkEdge(chipBox, 5)
 	local chipPad = Instance.new("UIPadding")
 	chipPad.PaddingLeft = UDim.new(0, 20)
 	chipPad.PaddingRight = UDim.new(0, 20)
 	chipPad.Parent = chipBox
 
-	local chipText = signText(chipBox, "Text", "LEARN IT", UDim2.fromOffset(10, 52),
+	local chipText = signText(chipBox, "Text", "LEARN IT", UDim2.fromOffset(10, 64),
 		UDim2.new(), 30, Color3.fromRGB(255, 255, 255), Enum.TextXAlignment.Center)
 	chipText.AutomaticSize = Enum.AutomaticSize.X
+	--- White on green needs the outline; ink on gold does not, and the state
+	--- change turns it off. See the phase branch.
+	local chipEdge = Instance.new("UIStroke")
+	chipEdge.Thickness = 2
+	chipEdge.Color = SIGN_INK
+	chipEdge.Parent = chipText
 
 	local line = signText(row, "Line", "", UDim2.new(1, -260, 1, 0), UDim2.new(), 38,
 		Color3.fromRGB(255, 232, 224), Enum.TextXAlignment.Left)
@@ -2442,8 +2472,21 @@ function LobbyService.start()
 				]]
 				local chip, chipWord, line = marqueeChip, marqueeChipText, statusLabel
 				if chip and chipWord and line then
+					local shade = marqueeChipShade
+					local chipEdge = chipWord:FindFirstChildOfClass("UIStroke")
 					if lastOutcome and lastWorldName then
 						chip.BackgroundColor3 = Color3.fromRGB(255, 224, 138)
+						if shade then
+							shade.Color = ColorSequence.new(
+								Color3.fromRGB(255, 224, 138),
+								Color3.fromRGB(255, 176, 32)
+							)
+						end
+						--- Ink on gold carries itself; an outline on it is a
+						--- smudge.
+						if chipEdge then
+							chipEdge.Enabled = false
+						end
 						chipWord.Text = "LAST RUN"
 						chipWord.TextColor3 = SIGN_INK
 						line.TextColor3 = SIGN_GOLD
@@ -2452,6 +2495,15 @@ function LobbyService.start()
 							else `The clock beat you on {lastWorldName}.`
 					else
 						chip.BackgroundColor3 = Color3.fromRGB(143, 224, 124)
+						if shade then
+							shade.Color = ColorSequence.new(
+								Color3.fromRGB(143, 224, 124),
+								Color3.fromRGB(79, 184, 60)
+							)
+						end
+						if chipEdge then
+							chipEdge.Enabled = true
+						end
 						chipWord.Text = "LEARN IT"
 						chipWord.TextColor3 = Color3.fromRGB(255, 255, 255)
 						line.TextColor3 = Color3.fromRGB(255, 232, 224)
