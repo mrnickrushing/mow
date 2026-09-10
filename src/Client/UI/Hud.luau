@@ -1075,10 +1075,12 @@ local function buildMiddle(gui: ScreenGui)
 	RunOnly.piece("rate", rateLabel)
 	RunOnly.add(rateLabel)
 	Theme.chromeScale(rateLabel)
-	--- The bar above it is two rows on a phone rather than three, so the line
-	--- under it moves up with it rather than leaving a hole.
+	--- Placed under the completion bar, which is not always the height it was
+	--- authored at — two rows on a phone, and scaled down on a tablet too
+	--- narrow to hold it beside the columns. `Hud.setBarBottom` is how the bar
+	--- says where it actually ended.
 	Theme.onScreenChange(function()
-		rateLabel.Position = UDim2.new(0.5, 0, 0, 22 + (if Theme.isPhone() then 98 else 128) + 8)
+		Hud.setBarBottom(22 + (if Theme.isPhone() then 98 else 128))
 	end)
 
 	gainHolder = Instance.new("Frame")
@@ -1749,6 +1751,21 @@ function Hud.spotlight(on: boolean, word: string?)
 	elseif halo and not on then
 		halo:Destroy()
 	end
+end
+
+--[[
+	Where the completion bar's bottom edge is, in pixels down the screen.
+
+	The bar shrinks to fit between the objective panel and the status column
+	on a narrow tablet, so the line under it cannot be placed from the bar's
+	authored height — at 1024 wide that left the rate floating sixty pixels
+	below a bar that had stood down to two thirds.
+]]
+function Hud.setBarBottom(y: number)
+	if not rateLabel then
+		return
+	end
+	rateLabel.Position = UDim2.new(0.5, 0, 0, y + 8)
 end
 
 function Hud.setJournalBadge(visible: boolean)
