@@ -73,6 +73,20 @@ else
 	fail=1
 fi
 
+echo "== simulation =="
+mkdir -p build
+# The ceiling test in Config.spec says, in its own comment, that it is "a
+# ceiling, not a proof", and that scripts/simulate.luau "is the thing that
+# can" prove a gate is payable. Nothing ran it. The Mansion shipped with a
+# $140 door in front of a player holding $69.68, and every test passed.
+if luau scripts/simulate.luau >build/simulate.log 2>&1; then
+	echo "  every world finishes solo"
+else
+	echo "  A WORLD CANNOT BE FINISHED"
+	tail -20 build/simulate.log
+	fail=1
+fi
+
 echo "== build =="
 mkdir -p build
 # Both formats: .rbxl is what Studio loads fastest, .rbxlx is the XML form the
