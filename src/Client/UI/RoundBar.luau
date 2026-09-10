@@ -105,6 +105,12 @@ local PHONE_HEIGHT = 98
 ]]
 local COACH_WIDTH = 420
 local reduced = false
+
+--- What sits either side of the bar, at full size: the objective panel on
+--- the left, the status column on the right, and the margin they keep.
+local SIDE_INSET = 22
+local JOB_RESERVE = 324
+local COLUMN_GAP = 14
 local JOB_ROWS = 3
 --- Wide enough for the longest job line the journal writes. At 280, with a
 --- 74-pixel column for a count that never needs more than "100/100", "Sell 5
@@ -137,7 +143,31 @@ local function build()
 	heroHolder = holder
 	RunOnly.piece("hero", holder)
 	RunOnly.add(holder)
-	Theme.chromeScale(holder, true)
+	--[[
+		The bar is centred and the two columns are not, so on a narrow screen
+		it walks into them.
+
+		Measured with everything at its authored size: at 1024 x 768, which is
+		an older iPad, the bar runs 229 to 795 while the objective panel ends
+		at 346 and the status column starts at 762. A hundred and seventeen
+		pixels of it sit under the objectives and thirty-three under the money.
+		Even at the 1194 the design is drawn against there are thirty-two
+		pixels of overlap on the left — so this was wrong at the target size
+		and merely invisible on a wide desktop window.
+
+		Neither neighbour can give up the room. The objective panel went from
+		280 wide to 324 deliberately, because at 280 "Sell 5 units of
+		clippings" was cut to "Sell 5 units of...". And shrinking a centred bar
+		does not help against an obstacle that is only on one side: both edges
+		move inward together.
+
+		So it scales, the way every other fixed-size panel in this game does
+		when it runs out of room, and `fitToViewport` is the thing that already
+		knows how — `reservedX` is a corner widget that scales with the chrome,
+		`reservedXInset` the margin that does not. Above about 1286 wide the
+		scale clamps at one and nothing changes at all.
+	]]
+	Theme.fitToViewport(holder, HERO_WIDTH, HERO_HEIGHT, 22, JOB_RESERVE, SIDE_INSET + COLUMN_GAP, true)
 
 	--- Row one: badge, name, clock.
 	local top = Instance.new("Frame")
@@ -851,7 +881,30 @@ local function layoutHero()
 	footLabel.Visible = not small
 	gateLabel.Visible = not small
 
-	edgeChip.Position = UDim2.new(0.5, 0, 0, 22 + height + 8 + 38)
+	--[[
+		Both the chip and the rate line hang off the bar, and the bar is not
+		always the height it was authored at: `fitToViewport` scales it down on
+		a tablet too narrow to hold it beside the columns. Measuring what was
+		rendered is the only number that stays true.
+	]]
+	local function placeUnderTheBar()
+		local drawn = heroHolder.AbsoluteSize.Y
+		local bottom = 22 + (if drawn > 1 then drawn else height)
+		edgeChip.Position = UDim2.new(0.5, 0, 0, bottom + 8 + 38)
+		Hud.setBarBottom(bottom)
+	end
+
+	placeUnderTheBar()
+	--[[
+		And again a frame later.
+
+		`AbsoluteSize` is what was last rendered, and the scale that decides it
+		is set by `fitToViewport` on its own handler for the same viewport
+		change — so on the pass that matters this can read the size from before
+		the resize. Deferring costs one frame of a stale position and is the
+		difference between a number that is usually right and one that is.
+	]]
+	task.defer(placeUnderTheBar)
 	--[[
 		The objective panel goes with the third row, in both of the shapes
 		that lose it.
