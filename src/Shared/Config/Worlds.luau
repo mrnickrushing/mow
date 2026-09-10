@@ -541,12 +541,56 @@ local gasStation: Types.WorldDef = {
 			hazards = { "dog" },
 			clutter = 20,
 		},
+		--[[
+			The sixth section, and the reason this world is here at all.
+
+			Measured against required ground, the ladder's steps were −32%,
+			−5.4%, −18%: every world gives less clock per tile than the last,
+			which is the invariant, but the third rung was nearly flat. The
+			Gas Station was only five per cent tighter per tile than The
+			Mansion while being labelled Hard against Medium and paying 2.1×
+			against 1.6×. That is the "known tuning weakness" in the GDD, and
+			it is not spread along the ladder — it is this one rung.
+
+			It was the thinnest world in the game on three counts at once:
+			fewest sections, no optional section at all, and fifty-five per
+			cent of its grid used, with a twenty-seven by seventy-eight block
+			of empty land down the west flank doing nothing. So the world that
+			should be the step up had the least in it.
+
+			The fix is ground, not payout and not clock. The GDD is explicit
+			that richer payouts made the later worlds *faster* last time, and
+			the `runSeconds` comments are emphatic that raising the clocks is
+			what stopped them being unfinishable. This is 1,458 tiles, which
+			takes the rung from −5.4% to −16.8% and puts the whole ladder on a
+			consistent step.
+
+			A store room rather than more lawn: it mirrors the Wash Bay up the
+			same flank, it is the thing a commercial lot has that a garden
+			does not, and putting it between the back lot and the workshop
+			threads the critical path down the west side instead of leaving it
+			empty. Weeds and sticks, no grass — nothing grows on a concrete
+			floor under a roof.
+		]]
+		{
+			id = "store_room",
+			name = "Store Room",
+			cost = 0,
+			unlock = "completion",
+			requires = "back_lot",
+			rect = { x = 4, z = 60, w = 27, d = 54 },
+			density = 0.97,
+			fill = { mix(Debris.Weeds, 1.6, 2, 3), mix(Debris.Sticks, 1.2, 3, 3) },
+			kind = "room",
+			elevation = BASEMENT_ELEVATION,
+			clutter = 24,
+		},
 		{
 			id = "workshop",
 			name = "Workshop",
 			cost = 0,
 			unlock = "completion",
-			requires = "storage_yard",
+			requires = "store_room",
 			rect = { x = 36, z = 100, w = 72, d = 34 },
 			density = 0.97,
 			fill = { mix(Debris.Sticks, 1.6, 3, 3), mix(Debris.Leaves, 1.4, 3, 3) },
@@ -625,7 +669,17 @@ local cemetery: Types.WorldDef = {
 			name = "The Lawns",
 			cost = 0,
 			unlock = "start",
-			rect = { x = 4, z = 6, w = 136, d = 42 },
+			--[[
+				Two tiles further up, and two deeper.
+
+				The Cemetery is the one world with no room to add a section
+				to: at seventy-eight per cent of its grid it is genuinely
+				full, and there is no twelve-hundred tile hole in it the way
+				the Gas Station had one. So its share of the ladder correction
+				is rect growth, and this is the largest of the three places it
+				can come from without a collision — 272 tiles of it.
+			]]
+			rect = { x = 4, z = 4, w = 136, d = 44 },
 			density = 0.95,
 			-- Open ground with a whole autumn on it, and nothing in the way.
 			fill = { grass(2, 3), mix(Debris.Leaves, 1.2, 2, 3), mix(Debris.Sticks, 0.4, 2, 3) },
@@ -640,7 +694,9 @@ local cemetery: Types.WorldDef = {
 			cost = 0,
 			unlock = "completion",
 			requires = "the_lawns",
-			rect = { x = 4, z = 50, w = 66, d = 48 },
+			--- Two deeper. Both this and The Walks stop at z 98 against the
+			--- Corn Maze's z 100, so fifty is the most either can take.
+			rect = { x = 4, z = 50, w = 66, d = 50 },
 			density = 0.96,
 			--[[
 				Grass and leaves only, and both of them tall.
@@ -663,7 +719,8 @@ local cemetery: Types.WorldDef = {
 			cost = 240,
 			unlock = "cash",
 			requires = "the_lawns",
-			rect = { x = 74, z = 50, w = 66, d = 48 },
+			--- Two deeper, to the same limit as The Rows beside it.
+			rect = { x = 74, z = 50, w = 66, d = 50 },
 			density = 0.94,
 			fill = { mix(Debris.Weeds, 1.6, 2, 3), mix(Debris.Leaves, 0.9, 2, 3), mix(Debris.Sticks, 0.5, 2, 3) },
 			kind = "open",
@@ -695,12 +752,36 @@ local cemetery: Types.WorldDef = {
 			kind = "room",
 			clutter = 8,
 		},
+		--[[
+			The gap between the Chapel and the Crypt, which was a corridor the
+			level never used.
+
+			Two rooms at z 124 with forty-two tiles of nothing between them,
+			on the one property with no spare ground anywhere else. It is the
+			only real hole in the churchyard and something belongs in it.
+
+			A bell tower: the chapel has one and it has to stand somewhere.
+			Sticks and leaves blown into the base of it, no grass — the same
+			reasoning as the two rooms either side.
+		]]
+		{
+			id = "belfry",
+			name = "The Belfry",
+			cost = 0,
+			unlock = "completion",
+			requires = "chapel",
+			rect = { x = 52, z = 124, w = 36, d = 18 },
+			density = 0.94,
+			fill = { mix(Debris.Leaves, 1.5, 2, 3), mix(Debris.Sticks, 1, 2, 3) },
+			kind = "room",
+			clutter = 9,
+		},
 		{
 			id = "the_crypt",
 			name = "The Crypt",
 			cost = 0,
 			unlock = "completion",
-			requires = "chapel",
+			requires = "belfry",
 			rect = { x = 92, z = 124, w = 34, d = 18 },
 			density = 0.95,
 			fill = { mix(Debris.Sticks, 1.6, 3, 3), mix(Debris.Leaves, 1.4, 3, 3) },
