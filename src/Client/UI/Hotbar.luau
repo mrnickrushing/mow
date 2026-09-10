@@ -89,8 +89,8 @@ local PHONE_WELL = 46
 	so the equipped slot is tinted rather than lit, which is the same signal
 	the store uses. The blue underline still carries most of the load.
 ]]
-local WELL_IDLE_TOP = Color3.fromRGB(255, 252, 241)
-local WELL_IDLE_BOTTOM = Color3.fromRGB(237, 225, 200)
+local WELL_IDLE_TOP = Theme.gradients.card.top
+local WELL_IDLE_BOTTOM = Theme.gradients.card.bottom
 local WELL_LIVE_TOP = Color3.fromRGB(255, 236, 178)
 local WELL_LIVE_BOTTOM = Color3.fromRGB(242, 220, 168)
 --[[

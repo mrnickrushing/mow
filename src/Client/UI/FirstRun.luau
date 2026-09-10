@@ -202,12 +202,12 @@ local function build()
 	local badge = Instance.new("Frame")
 	badge.Name = "Badge"
 	badge.Size = UDim2.fromOffset(52, 52)
-	badge.BackgroundColor3 = Color3.fromRGB(255, 224, 138)
+	badge.BackgroundColor3 = Theme.gradients.coin.top
 	badge.BorderSizePixel = 0
 	badge.Parent = card
 	Theme.corner(badge, 14)
 	local badgeGrade = Instance.new("UIGradient")
-	badgeGrade.Color = ColorSequence.new(Color3.fromRGB(255, 224, 138), Color3.fromRGB(255, 176, 32))
+	badgeGrade.Color = ColorSequence.new(Theme.gradients.coin.top, Theme.gradients.coin.bottom)
 	badgeGrade.Rotation = 90
 	badgeGrade.Parent = badge
 	Theme.stroke(badge, 4, Theme.colors.outline, 0)

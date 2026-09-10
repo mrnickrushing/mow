@@ -181,7 +181,7 @@ local function draw(wall: any)
 		well.Size = UDim2.fromOffset(56, 56)
 		well.Position = UDim2.fromScale(0, 0.5)
 		well.AnchorPoint = Vector2.new(0, 0.5)
-		well.BackgroundColor3 = Color3.fromRGB(44, 33, 24)
+		well.BackgroundColor3 = Theme.colors.wellDark
 		well.BorderSizePixel = 0
 		well.Parent = fix
 		Theme.corner(well, 12)

@@ -224,13 +224,13 @@ local function buildRightColumn(gui: ScreenGui)
 	-- it reads at a glance as "this number is money" the way a $ alone does not.
 	purseHolder = purse.Parent :: Frame
 
-	local coin = circle(purse, 40, Color3.fromRGB(255, 224, 138))
+	local coin = circle(purse, 40, Theme.gradients.coin.top)
 	coin.Name = "Coin"
 	coin.Position = UDim2.new(0, 10, 0.5, 0)
 	coin.AnchorPoint = Vector2.new(0, 0.5)
 	Theme.stroke(coin, 3, Theme.colors.outline, 0)
 	local coinGrade = Instance.new("UIGradient")
-	coinGrade.Color = ColorSequence.new(Color3.fromRGB(255, 224, 138), Color3.fromRGB(255, 176, 32))
+	coinGrade.Color = ColorSequence.new(Theme.gradients.coin.top, Theme.gradients.coin.bottom)
 	coinGrade.Rotation = 90
 	coinGrade.Parent = coin
 
@@ -978,12 +978,12 @@ local function buildBag(gui: ScreenGui)
 	bagFill.Size = UDim2.new(1, -6, 0, 0)
 	bagFill.Position = UDim2.new(0, 3, 1, -3)
 	bagFill.AnchorPoint = Vector2.new(0, 1)
-	bagFill.BackgroundColor3 = Color3.fromRGB(168, 237, 140)
+	bagFill.BackgroundColor3 = Theme.gradients.fill.top
 	bagFill.BorderSizePixel = 0
 	bagFill.Parent = sack
 	Theme.corner(bagFill, 14)
 	local levelGrade = Instance.new("UIGradient")
-	levelGrade.Color = ColorSequence.new(Color3.fromRGB(168, 237, 140), Color3.fromRGB(95, 194, 70))
+	levelGrade.Color = ColorSequence.new(Theme.gradients.fill.top, Theme.gradients.fill.bottom)
 	levelGrade.Rotation = 90
 	levelGrade.Parent = bagFill
 

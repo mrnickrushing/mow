@@ -53,8 +53,8 @@ local dismissedOnPad = false
 local party = 1
 
 --- The dark wood every panel in this game is cut from.
-local PANEL_TOP = Color3.fromRGB(66, 49, 31)
-local PANEL_BOTTOM = Color3.fromRGB(42, 31, 21)
+local PANEL_TOP = Theme.gradients.panel.top
+local PANEL_BOTTOM = Theme.gradients.panel.bottom
 
 --[[
 	The screen where a player commits to two hours, on a phone.
@@ -377,8 +377,8 @@ local function drawCard(world: Types.WorldDef, order: number)
 		radius = 22,
 		drop = 8,
 		outline = 5,
-		top = if open then Color3.fromRGB(255, 252, 241) else Color3.fromRGB(58, 46, 34),
-		bottom = if open then Color3.fromRGB(237, 225, 200) else Color3.fromRGB(36, 27, 19),
+		top = if open then Theme.gradients.card.top else Color3.fromRGB(58, 46, 34),
+		bottom = if open then Theme.gradients.card.bottom else Color3.fromRGB(36, 27, 19),
 	})
 	card.ClipsDescendants = true
 	local seat = card.Parent :: Frame

@@ -64,8 +64,8 @@ local questState: { any } = {}
 	which is where a warm surface actually helps: dark type on cream is the
 	one combination in this palette that reads at fifteen points.
 ]]
-local PAPER = Color3.fromRGB(255, 252, 241)
-local PAPER_EDGE = Color3.fromRGB(237, 225, 200)
+local PAPER = Theme.gradients.card.top
+local PAPER_EDGE = Theme.gradients.card.bottom
 local INK = Theme.colors.ink
 --[[
 	Greys dark enough to read.
@@ -80,40 +80,26 @@ local INK = Theme.colors.ink
 ]]
 local LOCKED = Color3.fromRGB(118, 112, 104)
 --- A brighter, opaque card on the parchment page it sits on.
-local CARD = Color3.fromRGB(255, 252, 241)
+local CARD = Theme.gradients.card.top
 
 --[[
 	The looks a price wears, and the one rule behind them.
 
 	Colour means one thing everywhere in this game: green is run cash, gold is
 	tips, blue is Robux for this run and purple is Robux forever. So a price
-	you can pay in cash is green, a price you can pay in tips is gold, one you
-	cannot pay is flat, and a thing there is nothing left to buy on is flat
-	with MAXED written on it — a dead button should not look pressable.
+	you can pay in cash is green, one you can pay in tips is gold, one you
+	cannot pay is flat, and a line with nothing left to buy is flat with
+	MAXED on it — a dead button should not look pressable.
 
-	These are the slab buttons the rest of the game uses, and a slab is four
-	things — a face, a gradient, a drop and its ink. The pages repaint them
-	inside a `live` poll rather than rebuilding the row, so the colour has to
-	be swappable in place; `wear` is what swaps it.
+	These are `Theme.variants`, not copies of them. They were written out by
+	hand here, and the copy of `disabled` had drifted to a darker shadow — so
+	the one variant whose whole job is looking unpressable had a visible drop
+	in the book and a flat one everywhere else. Reading the register also
+	means the book can reach the three variants it never declared.
 ]]
-local LOOK_AFFORD = {
-	top = Color3.fromRGB(143, 224, 124),
-	bottom = Color3.fromRGB(79, 184, 60),
-	shadow = Color3.fromRGB(46, 122, 36),
-	ink = Color3.fromRGB(18, 58, 12),
-}
-local LOOK_TIPS = {
-	top = Color3.fromRGB(255, 217, 104),
-	bottom = Color3.fromRGB(245, 168, 28),
-	shadow = Color3.fromRGB(169, 110, 8),
-	ink = Color3.fromRGB(24, 18, 10),
-}
-local LOOK_BROKE = {
-	top = Color3.fromRGB(179, 166, 142),
-	bottom = Color3.fromRGB(179, 166, 142),
-	shadow = Color3.fromRGB(150, 138, 116),
-	ink = Color3.fromRGB(74, 64, 52),
-}
+local LOOK_AFFORD = Theme.variants.primary
+local LOOK_TIPS = Theme.variants.gold
+local LOOK_BROKE = Theme.variants.disabled
 local LOOK_DONE = LOOK_BROKE
 
 local function wear(button: TextButton, look: { top: Color3, bottom: Color3, shadow: Color3, ink: Color3 })
@@ -512,7 +498,7 @@ local function levelPips(
 		Theme.stroke(pip, 2.5, Theme.colors.outline, 0)
 
 		local grade = Instance.new("UIGradient")
-		grade.Color = ColorSequence.new(Color3.fromRGB(143, 224, 124), Color3.fromRGB(79, 184, 60))
+		grade.Color = ColorSequence.new(Theme.gradients.fill.top, Theme.gradients.fill.bottom)
 		grade.Rotation = 90
 		grade.Enabled = false
 		grade.Parent = pip
@@ -525,7 +511,7 @@ end
 local function paintPips(pips: { Frame }, level: number)
 	for step, pip in pips do
 		local earned = step <= level
-		pip.BackgroundColor3 = if earned then Color3.fromRGB(143, 224, 124) else Color3.fromRGB(207, 192, 166)
+		pip.BackgroundColor3 = if earned then Theme.gradients.fill.top else Color3.fromRGB(207, 192, 166)
 		local grade = pip:FindFirstChildOfClass("UIGradient")
 		if grade then
 			grade.Enabled = earned
@@ -607,7 +593,7 @@ local function toolCard(parent: Instance, order: number, tool: Types.ToolDef, st
 	local well = Instance.new("Frame")
 	well.Name = "Well"
 	well.Size = UDim2.new(1, 0, 0, 68)
-	well.BackgroundColor3 = Color3.fromRGB(44, 33, 24)
+	well.BackgroundColor3 = Theme.colors.wellDark
 	well.BorderSizePixel = 0
 	well.Parent = face
 	Theme.corner(well, 11)
@@ -751,7 +737,7 @@ local function slotRow(parent: Instance, order: number, slot: any, level: number
 	well.Name = "Well"
 	well.Size = UDim2.fromOffset(44, 44)
 	well.Position = UDim2.fromOffset(12, 17)
-	well.BackgroundColor3 = Color3.fromRGB(252, 250, 246)
+	well.BackgroundColor3 = Theme.colors.wellLight
 	well.BorderSizePixel = 0
 	well.Parent = row
 	Theme.corner(well, 10)
@@ -869,7 +855,7 @@ local function renderUpgrades()
 	local well = Instance.new("Frame")
 	well.Name = "Well"
 	well.Size = UDim2.new(1, 0, 0, 140)
-	well.BackgroundColor3 = Color3.fromRGB(44, 33, 24)
+	well.BackgroundColor3 = Theme.colors.wellDark
 	well.BorderSizePixel = 0
 	well.Parent = pane
 	Theme.corner(well, 14)
@@ -1303,14 +1289,14 @@ local function bladeCard(parent: Instance, order: number, section: Types.ZoneDef
 	disc.Size = UDim2.fromOffset(56, 56)
 	disc.Position = UDim2.fromScale(0.5, 0)
 	disc.AnchorPoint = Vector2.new(0.5, 0)
-	disc.BackgroundColor3 = if mine then Color3.fromRGB(255, 224, 138) else Color3.fromRGB(58, 44, 30)
+	disc.BackgroundColor3 = if mine then Theme.gradients.coin.top else Color3.fromRGB(58, 44, 30)
 	disc.BorderSizePixel = 0
 	disc.Parent = face
 	Theme.corner(disc, Theme.PILL)
 	Theme.stroke(disc, 4, Theme.colors.outline, 0)
 	if mine then
 		local shine = Instance.new("UIGradient")
-		shine.Color = ColorSequence.new(Color3.fromRGB(255, 224, 138), Color3.fromRGB(255, 176, 32))
+		shine.Color = ColorSequence.new(Theme.gradients.coin.top, Theme.gradients.coin.bottom)
 		shine.Rotation = 90
 		shine.Parent = disc
 	end
@@ -1999,8 +1985,8 @@ local function build()
 		radius = 26,
 		drop = 12,
 		outline = 5,
-		top = Color3.fromRGB(66, 49, 31),
-		bottom = Color3.fromRGB(42, 31, 21),
+		top = Theme.gradients.panel.top,
+		bottom = Theme.gradients.panel.bottom,
 	})
 	book.ClipsDescendants = true
 	Theme.fitToViewport(book.Parent :: Frame, 1024 + 40, 678 + 40)

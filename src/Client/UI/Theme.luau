@@ -44,6 +44,35 @@ Theme.colors = {
 	body = Color3.fromRGB(201, 179, 148),
 	ink = Color3.fromRGB(46, 36, 24),
 	inkSoft = Color3.fromRGB(110, 96, 80),
+
+	--[[
+		Two wells, not seven.
+
+		An icon recess appeared in six files with six values — 36,26,18 and
+		44,33,24 and 58,44,30 and 74,56,38 — which is not six intentions, it
+		is six guesses at two: a recess on dark chrome, and one on a cream
+		card. Named here so the next one is a lookup rather than a seventh
+		guess.
+	]]
+	wellDark = Color3.fromRGB(44, 33, 24),
+	wellLight = Color3.fromRGB(252, 250, 246),
+}
+
+--[[
+	The two-stop faces, named once.
+
+	Each of these was written out by hand in three or four files, and a
+	hand-copied pair is a pair that can drift — the coin gradient alone
+	existed four times. `coin` is every gold disc and badge; `fill` is every
+	bar that says how far along you are, which is a different green from
+	`VARIANTS.primary` and should stay one: a button colour used as a bar fill
+	is how the bag bar and the journal's pips ended up two greens apart.
+]]
+Theme.gradients = {
+	coin = { top = Color3.fromRGB(255, 224, 138), bottom = Color3.fromRGB(255, 176, 32) },
+	fill = { top = Color3.fromRGB(168, 237, 140), bottom = Color3.fromRGB(95, 194, 70) },
+	panel = { top = Color3.fromRGB(66, 49, 31), bottom = Color3.fromRGB(42, 31, 21) },
+	card = { top = Color3.fromRGB(255, 252, 241), bottom = Color3.fromRGB(237, 225, 200) },
 }
 
 --- Rounded and heavy, to match the storybook tone of the world.
@@ -1230,6 +1259,18 @@ export type ChunkButtonOptions = {
 
 --- Returns the button. Its holder is `button.Parent`, which is what a layout
 --- sees; parent anything you want inside the slab to the button itself.
+--[[
+	The variants, readable from outside.
+
+	A page that repaints a button in place — the journal's prices change
+	colour inside a poll rather than being rebuilt — needs the same four
+	colours the builder used, and the only way to have them was to write them
+	out again. `Journal.luau` did, and its copy of `disabled` drifted: it gave
+	a dead button a darker shadow, so the one variant that exists to look
+	unpressable had a visible drop in the book and nowhere else.
+]]
+Theme.variants = VARIANTS
+
 function Theme.chunkButton(options: ChunkButtonOptions): TextButton
 	local look = VARIANTS[options.variant or "primary"] or VARIANTS.primary
 	local radius = options.radius or 14

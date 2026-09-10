@@ -41,8 +41,6 @@ local shown = false
 local generation = 0
 
 local INK = Theme.colors.outline
-local CARD_INK = Color3.fromRGB(46, 36, 24)
-local CARD_SOFT = Color3.fromRGB(110, 96, 80)
 local TRACK = Color3.fromRGB(217, 203, 176)
 
 --------------------------------------------------------------------
@@ -154,7 +152,7 @@ local function playerRow(parent: Instance, order: number, row: any, units: numbe
 	well.Size = UDim2.fromOffset(avatar, avatar)
 	well.Position = UDim2.fromScale(0, 0.5)
 	well.AnchorPoint = Vector2.new(0, 0.5)
-	well.BackgroundColor3 = Color3.fromRGB(232, 219, 194)
+	well.BackgroundColor3 = Theme.colors.wellLight
 	well.BorderSizePixel = 0
 	well.Parent = card
 	Theme.corner(well, 12)
@@ -193,7 +191,7 @@ local function playerRow(parent: Instance, order: number, row: any, units: numbe
 		position = UDim2.fromOffset(nameLeft, if phone then 5 else 8),
 		parent = card,
 		align = Enum.TextXAlignment.Left,
-		color = CARD_INK,
+		color = Theme.colors.ink,
 		textSize = if phone then 16 else 21,
 	})
 	name.TextTruncate = Enum.TextTruncate.AtEnd
@@ -237,7 +235,7 @@ local function playerRow(parent: Instance, order: number, row: any, units: numbe
 		),
 		parent = card,
 		align = Enum.TextXAlignment.Left,
-		color = CARD_SOFT,
+		color = Theme.colors.inkSoft,
 		textSize = if phone then 12 else 15,
 		bold = false,
 	})
@@ -262,12 +260,12 @@ local function playerRow(parent: Instance, order: number, row: any, units: numbe
 	local fill = Instance.new("Frame")
 	fill.Name = "Fill"
 	fill.Size = UDim2.fromScale(math.clamp(share, 0, 1), 1)
-	fill.BackgroundColor3 = Color3.fromRGB(143, 224, 124)
+	fill.BackgroundColor3 = Theme.gradients.fill.top
 	fill.BorderSizePixel = 0
 	fill.Parent = bar
 	Theme.corner(fill, 11)
 	local grade = Instance.new("UIGradient")
-	grade.Color = ColorSequence.new(Color3.fromRGB(143, 224, 124), Color3.fromRGB(79, 184, 60))
+	grade.Color = ColorSequence.new(Theme.gradients.fill.top, Theme.gradients.fill.bottom)
 	grade.Rotation = 90
 	grade.Parent = fill
 
@@ -279,7 +277,7 @@ local function playerRow(parent: Instance, order: number, row: any, units: numbe
 		anchor = Vector2.new(1, 0.5),
 		parent = card,
 		align = Enum.TextXAlignment.Right,
-		color = CARD_SOFT,
+		color = Theme.colors.inkSoft,
 		textSize = if phone then 14 else 18,
 	})
 

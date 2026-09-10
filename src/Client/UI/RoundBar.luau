@@ -179,13 +179,13 @@ local function build()
 	local badge = Instance.new("Frame")
 	badge.Name = "Badge"
 	badge.Size = UDim2.fromOffset(34, 34)
-	badge.BackgroundColor3 = Color3.fromRGB(255, 224, 138)
+	badge.BackgroundColor3 = Theme.gradients.coin.top
 	badge.BorderSizePixel = 0
 	badge.Parent = top
 	Theme.corner(badge, 10)
 	local badgeGrade = Instance.new("UIGradient")
 	badgeGrade.Color =
-		ColorSequence.new(Color3.fromRGB(255, 224, 138), Color3.fromRGB(255, 176, 32))
+		ColorSequence.new(Theme.gradients.coin.top, Theme.gradients.coin.bottom)
 	badgeGrade.Rotation = 90
 	badgeGrade.Parent = badge
 	Theme.stroke(badge, 3, Theme.colors.outline, 0)
@@ -255,12 +255,12 @@ local function build()
 	fill = Instance.new("Frame")
 	fill.Name = "Fill"
 	fill.Size = UDim2.fromScale(0, 1)
-	fill.BackgroundColor3 = Color3.fromRGB(168, 237, 140)
+	fill.BackgroundColor3 = Theme.gradients.fill.top
 	fill.BorderSizePixel = 0
 	fill.Parent = track
 	Theme.corner(fill, 11)
 	fillGrade = Instance.new("UIGradient")
-	fillGrade.Color = ColorSequence.new(Color3.fromRGB(168, 237, 140), Color3.fromRGB(95, 194, 70))
+	fillGrade.Color = ColorSequence.new(Theme.gradients.fill.top, Theme.gradients.fill.bottom)
 	fillGrade.Rotation = 90
 	fillGrade.Parent = fill
 
@@ -558,8 +558,8 @@ local NORMAL_FACE = {
 	bottom = Theme.colors.panel,
 	outline = Theme.colors.outline,
 	thickness = 4,
-	fillTop = Color3.fromRGB(168, 237, 140),
-	fillBottom = Color3.fromRGB(95, 194, 70),
+	fillTop = Theme.gradients.fill.top,
+	fillBottom = Theme.gradients.fill.bottom,
 	percentInk = Theme.colors.text,
 }
 local NEARLY_FACE = {
@@ -567,8 +567,8 @@ local NEARLY_FACE = {
 	bottom = Color3.fromRGB(46, 34, 20),
 	outline = Theme.colors.tips,
 	thickness = 4,
-	fillTop = Color3.fromRGB(255, 224, 138),
-	fillBottom = Color3.fromRGB(255, 176, 32),
+	fillTop = Theme.gradients.coin.top,
+	fillBottom = Theme.gradients.coin.bottom,
 	--- Dark ink on gold, so this is the one label in the game that wants no
 	--- outline behind it.
 	percentInk = Theme.colors.outline,
