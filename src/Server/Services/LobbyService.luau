@@ -224,6 +224,11 @@ local SIGN_GOLD = Color3.fromRGB(255, 206, 74)
 local SIGN_CREAM = Color3.fromRGB(248, 244, 233)
 local SIGN_CREAM_LOW = Color3.fromRGB(230, 223, 200)
 local SIGN_SOFT = Color3.fromRGB(107, 91, 69)
+--- The pad sign's timber, and the two states one of its seats can be in.
+local PAD_PANEL_TOP = Color3.fromRGB(96, 74, 50)
+local PAD_PANEL_BOTTOM = Color3.fromRGB(64, 48, 32)
+local PAD_SEAT_EMPTY = Color3.fromRGB(152, 130, 102)
+local PAD_SEAT_TAKEN = Color3.fromRGB(143, 224, 124)
 
 --- What each difficulty is signText, matching `LevelSelect.GRADE` exactly: a
 --- property is the same colour on the board as it is on its card.
@@ -622,7 +627,26 @@ local function buildPadFace(billboard: BillboardGui, seats: number): PadFace
 	local panel = Instance.new("Frame")
 	panel.Name = "Panel"
 	panel.Size = UDim2.fromScale(1, 1)
-	panel.BackgroundColor3 = Color3.fromRGB(62, 46, 32)
+	--[[
+		Dark timber, not a hole in the world.
+
+		At 62/46/32 over 38/28/20 the panel photographs as black — the empty
+		seats on it are 30/22/16 and vanish into it, and the whole sign reads
+		as a slab with one green mark on it. Two stops lighter and it is
+		still the darkest thing in the yard, while everything printed on it
+		has something to be printed on.
+	]]
+	--[[
+		White, so the gradient over it is the colour it says it is.
+
+		A `UIGradient` multiplies the frame's own colour rather than
+		replacing it, and this panel set both to the same brown — which
+		squares it: 96/74/50 over 96/74/50 comes out at 36/21/10, and the
+		original pair at 62/46/32 came out at 15/8/4. That is the black slab
+		in the report. The colour lives in the gradient; the frame under it
+		is a white sheet for it to print on.
+	]]
+	panel.BackgroundColor3 = Color3.new(1, 1, 1)
 	panel.BorderSizePixel = 0
 	panel.ZIndex = 2
 	panel.Parent = billboard
@@ -632,8 +656,7 @@ local function buildPadFace(billboard: BillboardGui, seats: number): PadFace
 
 	local shade = Instance.new("UIGradient")
 	shade.Rotation = 90
-	shade.Color =
-		ColorSequence.new(Color3.fromRGB(62, 46, 32), Color3.fromRGB(38, 28, 20))
+	shade.Color = ColorSequence.new(PAD_PANEL_TOP, PAD_PANEL_BOTTOM)
 	shade.Parent = panel
 
 	local pad = Instance.new("UIPadding")
@@ -672,9 +695,24 @@ local function buildPadFace(billboard: BillboardGui, seats: number): PadFace
 	for seat = 1, seats do
 		local dot = Instance.new("Frame")
 		dot.Name = `Seat{seat}`
-		dot.Size = UDim2.fromScale(0.14, 1)
-		dot.SizeConstraint = Enum.SizeConstraint.RelativeXX
-		dot.BackgroundColor3 = Color3.fromRGB(30, 22, 16)
+		--[[
+			A square seat, measured off the row's height.
+
+			It was `fromScale(0.14, 1)` against `RelativeXX`, and that
+			constraint measures *both* sides against the parent's width — so
+			each seat came out as wide as fourteen per cent of the row and as
+			tall as the whole of it. On a sign six studs across and two and a
+			half high that is a bar three times the height of the panel: four
+			of them, stacked in front of the count, with the call line
+			printed over the top. Photographed from the lobby it is a black
+			slab with a green stripe in it and no numbers anywhere.
+
+			Measured off the row's height instead, a seat is a seat whatever
+			shape the sign is.
+		]]
+		dot.Size = UDim2.fromScale(0.9, 0.9)
+		dot.SizeConstraint = Enum.SizeConstraint.RelativeYY
+		dot.BackgroundColor3 = PAD_SEAT_EMPTY
 		dot.BorderSizePixel = 0
 		dot.LayoutOrder = seat
 		dot.ZIndex = 3
@@ -2439,8 +2477,8 @@ local function paintPad(slot: Slot, here: number, going: boolean, left: number, 
 		local taken = seat <= here
 		dot.BackgroundColor3 = if going
 			then (if taken then Color3.fromRGB(90, 60, 8) else Color3.fromRGB(210, 150, 30))
-			elseif taken then Color3.fromRGB(143, 224, 124)
-			else Color3.fromRGB(30, 22, 16)
+			elseif taken then PAD_SEAT_TAKEN
+			else PAD_SEAT_EMPTY
 	end
 	--- The dots earn their room once somebody is on the pad; an empty one is
 	--- an invitation, and four empty boxes is not one.
@@ -2449,7 +2487,7 @@ local function paintPad(slot: Slot, here: number, going: boolean, left: number, 
 	if going then
 		face.shade.Color =
 			ColorSequence.new(Color3.fromRGB(255, 224, 138), Color3.fromRGB(245, 168, 28))
-		face.panel.BackgroundColor3 = Color3.fromRGB(255, 224, 138)
+		face.panel.BackgroundColor3 = Color3.new(1, 1, 1)
 		face.drop.BackgroundColor3 = Color3.fromRGB(169, 110, 8)
 		face.count.TextColor3 = SIGN_INK
 		local outline = face.count:FindFirstChildOfClass("UIStroke")
@@ -2459,9 +2497,8 @@ local function paintPad(slot: Slot, here: number, going: boolean, left: number, 
 		face.call.TextColor3 = Color3.fromRGB(90, 60, 8)
 		face.call.Text = `LEAVING IN {left}`
 	else
-		face.shade.Color =
-			ColorSequence.new(Color3.fromRGB(62, 46, 32), Color3.fromRGB(38, 28, 20))
-		face.panel.BackgroundColor3 = Color3.fromRGB(62, 46, 32)
+		face.shade.Color = ColorSequence.new(PAD_PANEL_TOP, PAD_PANEL_BOTTOM)
+		face.panel.BackgroundColor3 = Color3.new(1, 1, 1)
 		face.drop.BackgroundColor3 = SIGN_INK
 		face.count.TextColor3 = Color3.fromRGB(255, 255, 255)
 		local outline = face.count:FindFirstChildOfClass("UIStroke")

@@ -72,22 +72,124 @@ local function buildVehicle(
 	local color = COLORS[tool.id] or Color3.fromRGB(180, 180, 180)
 
 	--[[
-		One mower mesh, on a collision box the size of the machine.
+		A tractor, and the cutting decks slung under and beside it.
 
 		The mower used to be a coloured slab, a thinner slab for the deck and
-		two flat rectangles for wheels. The model carries all of that, and its
-		width still follows the tool's deck so the expensive decks visibly are
-		wider — which is the stat the whole ladder is sold on.
+		two flat rectangles for wheels; the mesh carries all of that. What it
+		cannot carry is the deck width, and the width is the stat the whole
+		ladder is sold on — so for a while the mesh itself was stretched to
+		`deck * 4` studs. On the Commercial Deck that is forty-four studs of a
+		model whose own width is five and a half: an eight-times stretch, and
+		it reads as a blue plank with a driver painted on it rather than as a
+		machine.
+
+		So the mesh keeps something near its own proportions and the width goes
+		where the width actually is on a wide-area mower: one deck under the
+		nose and, past about four tiles, a wing either side of it — which is
+		what a machine that cuts eleven tiles at a time actually looks like,
+		and reads as three decks doing the work rather than one long plank.
+		The total still comes to `deck * 4`, because the cut has to match what
+		you can see cutting it.
 	]]
+	local bodyWidth = math.clamp(deckWidth * 0.42, 6, 14)
 	Build.mesh({
 		prop = "RidingMower",
 		name = "Body",
-		size = Vector3.new(math.max(deckWidth, 6), 6, 10),
-		collisionSize = Vector3.new(math.max(deckWidth * 0.6, 4), 2.6, 8),
+		size = Vector3.new(bodyWidth, 6, 10),
+		collisionSize = Vector3.new(math.max(bodyWidth * 0.6, 4), 2.6, 8),
 		cframe = at * CFrame.new(0, 2.2, 0),
 		color = color,
 		parent = model,
 	})
+
+	--[[
+		One deck, or a centre and two wings.
+
+		Built only when the swath is wider than the machine over it — below
+		that the mesh's own deck is the whole of it, and a slab bolted to the
+		front of a push-width mower would be a second deck on a machine that
+		already has one.
+	]]
+	if deckWidth > bodyWidth + 2 then
+		local wingWidth = 0
+		local centreWidth = deckWidth
+		if deckWidth > 20 then
+			-- Wings take the width past the centre deck, half each side.
+			centreWidth = math.max(bodyWidth + 4, deckWidth * 0.4)
+			wingWidth = (deckWidth - centreWidth) / 2
+		end
+
+		--[[
+			The housings are darker than the machine over them.
+
+			A deck painted in the tool's own colour is forty-four studs of
+			saturated blue lying flat on a lawn, which photographs as a pond.
+			Every real deck is the shadowed part of the machine, so these are
+			too — and the colour still says which mower it is.
+		]]
+		local shell = color:Lerp(Color3.new(0, 0, 0), 0.42)
+		local darker = color:Lerp(Color3.new(0, 0, 0), 0.72)
+
+		--- One housing: the shell, its leading lip and a caster at each end.
+		local function deckAt(name: string, width: number, offsetX: number, offsetZ: number)
+			Build.part({
+				name = name,
+				size = Vector3.new(width, 1.8, 7),
+				cframe = at * CFrame.new(offsetX, 1.3, offsetZ),
+				color = shell,
+				material = Enum.Material.SmoothPlastic,
+				canCollide = false,
+				parent = model,
+			})
+			Build.part({
+				name = name .. "Lip",
+				size = Vector3.new(width, 2.1, 1.2),
+				cframe = at * CFrame.new(offsetX, 1.15, offsetZ - 3.1),
+				color = darker,
+				material = Enum.Material.SmoothPlastic,
+				canCollide = false,
+				parent = model,
+			})
+			for _, side in { -1, 1 } do
+				Build.part({
+					name = name .. "Caster",
+					size = Vector3.new(1.1, 2.4, 2.4),
+					shape = Enum.PartType.Cylinder,
+					-- A cylinder's axis runs along its own X, which is already
+					-- across a machine whose forward is -Z. No turn needed.
+					cframe = at * CFrame.new(
+						offsetX + side * (width * 0.5 - 0.8),
+						1.05,
+						offsetZ - 2.6
+					),
+					color = Color3.fromRGB(38, 34, 30),
+					material = Enum.Material.SmoothPlastic,
+					canCollide = false,
+					parent = model,
+				})
+			end
+		end
+
+		deckAt("Deck", centreWidth, 0, -3.4)
+		if wingWidth > 0 then
+			for _, side in { -1, 1 } do
+				local centreOfWing = side * (centreWidth + wingWidth) / 2
+				-- The wings ride a step forward of the centre, the way a gang
+				-- mower's outriggers do, so the three do not read as one bar.
+				deckAt("Wing", wingWidth, centreOfWing, -5.2)
+				-- The arm that carries it out there.
+				Build.part({
+					name = "WingArm",
+					size = Vector3.new(math.abs(centreOfWing) - centreWidth * 0.35, 0.8, 1.2),
+					cframe = at * CFrame.new(centreOfWing * 0.62, 2.4, -3.0),
+					color = darker,
+					material = Enum.Material.SmoothPlastic,
+					canCollide = false,
+					parent = model,
+				})
+			end
+		end
+	end
 
 	local seat = Instance.new("VehicleSeat")
 	seat.Name = "Seat"
